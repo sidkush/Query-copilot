@@ -426,25 +426,55 @@ def _save_dashboards(email: str, dashboards: list):
 
 
 def list_dashboards(email: str) -> list:
-    """List all dashboards for a user (summary only)."""
+    """Return summary list of all dashboards."""
     dashboards = _load_dashboards(email)
-    return [{"id": d["id"], "name": d.get("name", ""), "created_at": d.get("created_at", ""),
-             "updated_at": d.get("updated_at", ""), "tile_count": len(d.get("tiles", []))}
-            for d in dashboards]
+    result = []
+    for d in dashboards:
+        tile_count = sum(
+            len(sec.get("tiles", []))
+            for tab in d.get("tabs", [])
+            for sec in tab.get("sections", [])
+        )
+        result.append({
+            "id": d["id"],
+            "name": d["name"],
+            "created_at": d["created_at"],
+            "updated_at": d["updated_at"],
+            "tile_count": tile_count,
+            "tab_count": len(d.get("tabs", [])),
+        })
+    return result
 
 
 def create_dashboard(email: str, name: str) -> dict:
-    """Create a new empty dashboard."""
+    """Create a new dashboard with a default tab and section."""
     with _lock:
         dashboards = _load_dashboards(email)
         now = datetime.now(timezone.utc).isoformat()
-        dashboard = {
-            "id": uuid.uuid4().hex[:12],
-            "name": name,
-            "created_at": now,
-            "updated_at": now,
+        default_section = {
+            "id": uuid.uuid4().hex[:8],
+            "name": "General",
+            "description": "",
+            "order": 0,
+            "collapsed": False,
             "tiles": [],
             "layout": [],
+        }
+        default_tab = {
+            "id": uuid.uuid4().hex[:8],
+            "name": "Overview",
+            "order": 0,
+            "sections": [default_section],
+        }
+        dashboard = {
+            "id": uuid.uuid4().hex[:12],
+            "name": name[:200],
+            "description": "",
+            "created_at": now,
+            "updated_at": now,
+            "tabs": [default_tab],
+            "annotations": [],
+            "sharing": {"enabled": False, "token": None},
         }
         dashboards.append(dashboard)
         _save_dashboards(email, dashboards)
@@ -453,63 +483,197 @@ def create_dashboard(email: str, name: str) -> dict:
 
 
 def load_dashboard(email: str, dashboard_id: str) -> Optional[dict]:
-    """Load a full dashboard."""
+    """Load a full dashboard by ID, auto-migrating if needed."""
     dashboards = _load_dashboards(email)
     for d in dashboards:
         if d["id"] == dashboard_id:
-            return d
+            migrated = migrate_dashboard_if_needed(d)
+            if "tabs" not in d or migrated is not d:
+                _save_dashboards(email, dashboards)
+            return migrated
     return None
 
 
 def update_dashboard(email: str, dashboard_id: str, updates: dict) -> Optional[dict]:
-    """Update a dashboard (name, tiles, layout)."""
+    """Update dashboard fields (name, description, tabs, annotations)."""
     with _lock:
         dashboards = _load_dashboards(email)
         for d in dashboards:
             if d["id"] == dashboard_id:
-                for k, v in updates.items():
-                    if k != "id":
-                        d[k] = v
+                for key in ("name", "description", "tabs", "annotations", "sharing"):
+                    if key in updates:
+                        d[key] = updates[key]
                 d["updated_at"] = datetime.now(timezone.utc).isoformat()
                 _save_dashboards(email, dashboards)
                 return d
         return None
 
 
-def add_dashboard_tile(email: str, dashboard_id: str, tile: dict) -> Optional[dict]:
-    """Add a tile to a dashboard and auto-compute layout position."""
+def add_dashboard_tab(email: str, dashboard_id: str, tab_name: str) -> Optional[dict]:
+    """Add a new tab to a dashboard."""
     with _lock:
         dashboards = _load_dashboards(email)
         for d in dashboards:
             if d["id"] == dashboard_id:
-                tile_id = uuid.uuid4().hex[:8]
-                tile["id"] = tile_id
-                d["tiles"].append(tile)
-                # Auto-compute grid position: find next available slot
-                layout = d.get("layout", [])
-                max_y = 0
-                for item in layout:
-                    bottom = item.get("y", 0) + item.get("h", 4)
-                    if bottom > max_y:
-                        max_y = bottom
-                # Place new tile: 6 cols wide, 4 rows tall, at bottom
-                cols_used = sum(1 for item in layout if item.get("y", 0) >= max_y - 4)
-                x = (cols_used * 6) % 12
-                if x + 6 > 12:
-                    x = 0
-                    max_y += 4
-                layout.append({"i": tile_id, "x": x, "y": max_y, "w": 6, "h": 4})
-                d["layout"] = layout
+                new_tab = {
+                    "id": uuid.uuid4().hex[:8],
+                    "name": tab_name[:200],
+                    "order": len(d.get("tabs", [])),
+                    "sections": [{
+                        "id": uuid.uuid4().hex[:8],
+                        "name": "General",
+                        "description": "",
+                        "order": 0,
+                        "collapsed": False,
+                        "tiles": [],
+                        "layout": [],
+                    }],
+                }
+                d.setdefault("tabs", []).append(new_tab)
                 d["updated_at"] = datetime.now(timezone.utc).isoformat()
                 _save_dashboards(email, dashboards)
                 return d
         return None
 
 
-def delete_dashboard(email: str, dashboard_id: str):
+def add_section_to_tab(email: str, dashboard_id: str, tab_id: str, section_name: str) -> Optional[dict]:
+    """Add a new section to a tab."""
+    with _lock:
+        dashboards = _load_dashboards(email)
+        for d in dashboards:
+            if d["id"] == dashboard_id:
+                for tab in d.get("tabs", []):
+                    if tab["id"] == tab_id:
+                        new_section = {
+                            "id": uuid.uuid4().hex[:8],
+                            "name": section_name[:200],
+                            "description": "",
+                            "order": len(tab.get("sections", [])),
+                            "collapsed": False,
+                            "tiles": [],
+                            "layout": [],
+                        }
+                        tab.setdefault("sections", []).append(new_section)
+                        d["updated_at"] = datetime.now(timezone.utc).isoformat()
+                        _save_dashboards(email, dashboards)
+                        return d
+        return None
+
+
+def add_tile_to_section(email: str, dashboard_id: str, tab_id: str, section_id: str, tile: dict) -> Optional[dict]:
+    """Add a tile to a specific section."""
+    with _lock:
+        dashboards = _load_dashboards(email)
+        for d in dashboards:
+            if d["id"] == dashboard_id:
+                for tab in d.get("tabs", []):
+                    if tab["id"] == tab_id:
+                        for sec in tab.get("sections", []):
+                            if sec["id"] == section_id:
+                                tile_id = uuid.uuid4().hex[:8]
+                                tile["id"] = tile_id
+                                if "rows" in tile:
+                                    tile["rows"] = tile["rows"][:100]
+                                sec["tiles"].append(tile)
+                                # Auto-compute layout position
+                                existing = sec.get("layout", [])
+                                max_y = max((item["y"] + item["h"] for item in existing), default=0)
+                                col = len(existing) % 2
+                                row_y = max_y if col == 0 else max(max_y - 4, 0)
+                                sec["layout"].append({
+                                    "i": tile_id,
+                                    "x": col * 6,
+                                    "y": row_y,
+                                    "w": 6,
+                                    "h": 4,
+                                    "minW": 3,
+                                    "minH": 3,
+                                })
+                                d["updated_at"] = datetime.now(timezone.utc).isoformat()
+                                _save_dashboards(email, dashboards)
+                                return d
+        return None
+
+
+def update_tile(email: str, dashboard_id: str, tile_id: str, updates: dict) -> Optional[dict]:
+    """Update a specific tile's properties (title, chartType, sql, measures, filters, etc.)."""
+    with _lock:
+        dashboards = _load_dashboards(email)
+        for d in dashboards:
+            if d["id"] == dashboard_id:
+                for tab in d.get("tabs", []):
+                    for sec in tab.get("sections", []):
+                        for tile in sec.get("tiles", []):
+                            if tile["id"] == tile_id:
+                                for key, val in updates.items():
+                                    if key != "id":
+                                        tile[key] = val
+                                d["updated_at"] = datetime.now(timezone.utc).isoformat()
+                                _save_dashboards(email, dashboards)
+                                return d
+        return None
+
+
+def add_annotation(email: str, dashboard_id: str, annotation: dict, tile_id: str = None) -> Optional[dict]:
+    """Add annotation to dashboard or specific tile."""
+    with _lock:
+        dashboards = _load_dashboards(email)
+        for d in dashboards:
+            if d["id"] == dashboard_id:
+                annotation["id"] = uuid.uuid4().hex[:8]
+                annotation["created_at"] = datetime.now(timezone.utc).isoformat()
+                if tile_id:
+                    for tab in d.get("tabs", []):
+                        for sec in tab.get("sections", []):
+                            for tile in sec.get("tiles", []):
+                                if tile["id"] == tile_id:
+                                    tile.setdefault("annotations", []).append(annotation)
+                                    break
+                else:
+                    d.setdefault("annotations", []).append(annotation)
+                d["updated_at"] = datetime.now(timezone.utc).isoformat()
+                _save_dashboards(email, dashboards)
+                return d
+        return None
+
+
+def delete_dashboard(email: str, dashboard_id: str) -> bool:
     """Delete a dashboard."""
     with _lock:
         dashboards = _load_dashboards(email)
-        dashboards = [d for d in dashboards if d["id"] != dashboard_id]
-        _save_dashboards(email, dashboards)
-        logger.info("Deleted dashboard %s for user %s", dashboard_id, email)
+        filtered = [d for d in dashboards if d["id"] != dashboard_id]
+        if len(filtered) < len(dashboards):
+            _save_dashboards(email, filtered)
+            logger.info("Deleted dashboard %s for user %s", dashboard_id, email)
+            return True
+        return False
+
+
+def migrate_dashboard_if_needed(dashboard: dict) -> dict:
+    """Migrate flat dashboard format to hierarchical (tabs/sections) format."""
+    if "tabs" in dashboard:
+        return dashboard
+    # Old format: { tiles: [], layout: [] }
+    old_tiles = dashboard.get("tiles", [])
+    old_layout = dashboard.get("layout", [])
+    default_section = {
+        "id": uuid.uuid4().hex[:8],
+        "name": "General",
+        "description": "",
+        "order": 0,
+        "collapsed": False,
+        "tiles": old_tiles,
+        "layout": old_layout,
+    }
+    default_tab = {
+        "id": uuid.uuid4().hex[:8],
+        "name": "Overview",
+        "order": 0,
+        "sections": [default_section],
+    }
+    dashboard["tabs"] = [default_tab]
+    dashboard.setdefault("annotations", [])
+    dashboard.setdefault("sharing", {"enabled": False, "token": None})
+    dashboard.pop("tiles", None)
+    dashboard.pop("layout", None)
+    return dashboard
