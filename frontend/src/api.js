@@ -228,6 +228,36 @@ export const api = {
   removeDashboardTile: (dashboardId, tileId) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}`, { method: "DELETE" }),
 
+  // ── Dashboard Tabs ──
+  addTab: (dashboardId, name) =>
+    request(`/dashboards/${dashboardId}/tabs`, { method: "POST", body: JSON.stringify({ name }) }),
+  deleteTab: (dashboardId, tabId) =>
+    request(`/dashboards/${dashboardId}/tabs/${tabId}`, { method: "DELETE" }),
+
+  // ── Dashboard Sections ──
+  addSection: (dashboardId, tabId, name) =>
+    request(`/dashboards/${dashboardId}/tabs/${tabId}/sections`, { method: "POST", body: JSON.stringify({ name }) }),
+  deleteSection: (dashboardId, tabId, sectionId) =>
+    request(`/dashboards/${dashboardId}/tabs/${tabId}/sections/${sectionId}`, { method: "DELETE" }),
+
+  // ── Tile CRUD (hierarchical) ──
+  addTileToSection: (dashboardId, tabId, sectionId, tile) =>
+    request(`/dashboards/${dashboardId}/tabs/${tabId}/sections/${sectionId}/tiles`, { method: "POST", body: JSON.stringify(tile) }),
+  updateTile: (dashboardId, tileId, updates) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}`, { method: "PUT", body: JSON.stringify(updates) }),
+  refreshTile: (dashboardId, tileId, connId) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}/refresh`, { method: "POST", body: JSON.stringify({ conn_id: connId }) }),
+
+  // ── Annotations ──
+  addDashboardAnnotation: (dashboardId, text, authorName) =>
+    request(`/dashboards/${dashboardId}/annotations`, { method: "POST", body: JSON.stringify({ text, authorName }) }),
+  addTileAnnotation: (dashboardId, tileId, text, authorName) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}/annotations`, { method: "POST", body: JSON.stringify({ text, authorName }) }),
+
+  // ── Generation with preferences ──
+  generateDashboardV2: (requestText, connId, preferences) =>
+    request('/queries/generate-dashboard', { method: "POST", body: JSON.stringify({ request: requestText, conn_id: connId, preferences }) }),
+
   // Health
   health: () => request("/health"),
 };

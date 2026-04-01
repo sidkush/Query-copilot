@@ -66,4 +66,8 @@ export const useStore = create((set, get) => ({
   // User profile
   profile: null,
   setProfile: (p) => set({ profile: p }),
+
+  // Dashboard
+  activeDashboardId: null,
+  setActiveDashboardId: (id) => set({ activeDashboardId: id }),
 }));
