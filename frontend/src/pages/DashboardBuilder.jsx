@@ -1,37 +1,17 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { GridLayout } from "react-grid-layout";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
-import ResultsChart from "../components/ResultsChart";
-import StatSummaryCard from "../components/StatSummaryCard";
-import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
+import { useStore } from "../store";
+import { TOKENS } from "../components/dashboard/tokens";
+import CommandBar from "../components/dashboard/CommandBar";
+import DashboardHeader from "../components/dashboard/DashboardHeader";
+import TabBar from "../components/dashboard/TabBar";
+import Section from "../components/dashboard/Section";
+import NotesPanel from "../components/dashboard/NotesPanel";
+import ExportModal from "../components/dashboard/ExportModal";
+import TileEditor from "../components/dashboard/TileEditor";
 
 /* ── Animation variants ── */
-const modalOverlayVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-  exit: { opacity: 0 },
-};
-
-const modalContentVariants = {
-  hidden: { opacity: 0, scale: 0.9, y: 20 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 28 },
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.92,
-    y: 16,
-    transition: { duration: 0.18, ease: "easeIn" },
-  },
-};
-
 const undoToastVariants = {
   hidden: { opacity: 0, x: 120, scale: 0.9 },
   visible: {
@@ -48,280 +28,56 @@ const undoToastVariants = {
   },
 };
 
-/* ── Tile Edit Modal ── */
-function TileEditor({ tile, onSave, onClose }) {
-  const [title, setTitle] = useState(tile.title || "");
-  const [bgColor, setBgColor] = useState(tile.bgColor || "default");
-  const [borderColor, setBorderColor] = useState(tile.borderColor || "gray");
-
-  const BG_OPTIONS = [
-    { key: "default", label: "Default", cls: "bg-gray-900/60" },
-    { key: "dark", label: "Dark", cls: "bg-gray-950" },
-    { key: "indigo", label: "Indigo", cls: "bg-indigo-950/40" },
-    { key: "blue", label: "Blue", cls: "bg-blue-950/40" },
-    { key: "green", label: "Green", cls: "bg-emerald-950/40" },
-    { key: "purple", label: "Purple", cls: "bg-purple-950/40" },
-    { key: "amber", label: "Amber", cls: "bg-amber-950/30" },
-    { key: "rose", label: "Rose", cls: "bg-rose-950/30" },
-  ];
-
-  const BORDER_OPTIONS = [
-    { key: "gray", cls: "border-gray-800" },
-    { key: "indigo", cls: "border-indigo-500/30" },
-    { key: "blue", cls: "border-blue-500/30" },
-    { key: "green", cls: "border-emerald-500/30" },
-    { key: "purple", cls: "border-purple-500/30" },
-    { key: "amber", cls: "border-amber-500/30" },
-    { key: "rose", cls: "border-rose-500/30" },
-    { key: "white", cls: "border-white/20" },
-  ];
-
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
-      variants={modalOverlayVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-    >
-      <motion.div
-        className="glass-card rounded-2xl p-6 w-full max-w-md shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-        variants={modalContentVariants}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-      >
-        <h3 className="text-lg font-semibold text-white mb-4">Edit Tile</h3>
-
-        {/* Title */}
-        <label className="block text-xs text-gray-400 mb-1">Title</label>
-        <input
-          value={title} onChange={(e) => setTitle(e.target.value)}
-          className="w-full glass-input rounded-lg px-3 py-2 text-sm text-white mb-4 input-glow"
-          placeholder="Chart title..."
-        />
-
-        {/* Background Color */}
-        <label className="block text-xs text-gray-400 mb-2">Background</label>
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {BG_OPTIONS.map((bg) => (
-            <button
-              key={bg.key}
-              onClick={() => setBgColor(bg.key)}
-              className={`w-8 h-8 rounded-lg border-2 transition cursor-pointer ${bg.cls} ${bgColor === bg.key ? "border-white scale-110" : "border-transparent hover:border-gray-600"}`}
-              title={bg.label}
-            />
-          ))}
-        </div>
-
-        {/* Border Color */}
-        <label className="block text-xs text-gray-400 mb-2">Border</label>
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {BORDER_OPTIONS.map((b) => (
-            <button
-              key={b.key}
-              onClick={() => setBorderColor(b.key)}
-              className={`w-8 h-8 rounded-lg border-2 transition cursor-pointer ${b.cls} bg-gray-800 ${borderColor === b.key ? "ring-2 ring-white scale-110" : "hover:ring-1 hover:ring-gray-500"}`}
-              title={b.key}
-            />
-          ))}
-        </div>
-
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition cursor-pointer">Cancel</button>
-          <button
-            onClick={() => onSave({ ...tile, title, bgColor, borderColor })}
-            className="px-4 py-2 text-sm bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg hover:from-indigo-500 hover:to-violet-500 transition cursor-pointer btn-glow shadow-lg shadow-indigo-500/20"
-          >
-            Save
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-/* ── BG / Border class resolvers ── */
-const BG_MAP = {
-  default: "bg-gray-900/60", dark: "bg-gray-950", indigo: "bg-indigo-950/40",
-  blue: "bg-blue-950/40", green: "bg-emerald-950/40", purple: "bg-purple-950/40",
-  amber: "bg-amber-950/30", rose: "bg-rose-950/30",
+const sidebarItemStyle = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  cursor: "pointer",
+  fontSize: 14,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  transition: "background 0.15s",
 };
-const BORDER_MAP = {
-  gray: "border-gray-800", indigo: "border-indigo-500/30", blue: "border-blue-500/30",
-  green: "border-emerald-500/30", purple: "border-purple-500/30",
-  amber: "border-amber-500/30", rose: "border-rose-500/30", white: "border-white/20",
-};
-
-/* ── Dashboard Tile ── */
-function DashboardTile({ tile, onEdit, onRemove }) {
-  const bg = BG_MAP[tile.bgColor] || BG_MAP.default;
-  const border = BORDER_MAP[tile.borderColor] || BORDER_MAP.gray;
-
-  return (
-    <div className={`h-full flex flex-col rounded-xl border overflow-hidden ${bg} ${border}`}>
-      {/* Tile header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800/50 bg-black/20 cursor-grab active:cursor-grabbing drag-handle">
-        <h4 className="text-sm font-medium text-gray-200 truncate">{tile.title || "Untitled"}</h4>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(tile); }}
-            className="p-1 rounded hover:bg-gray-700/60 text-gray-500 hover:text-white transition cursor-pointer"
-            title="Edit tile"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-            </svg>
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onRemove(tile.id); }}
-            className="p-1 rounded hover:bg-red-900/60 text-gray-500 hover:text-red-400 transition cursor-pointer"
-            title="Remove tile"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-      {/* Chart content */}
-      <div className="flex-1 min-h-0 overflow-hidden p-1">
-        {tile.columns && tile.rows && tile.rows.length > 0 ? (
-          <ResultsChart
-            columns={tile.columns}
-            rows={tile.rows}
-            embedded
-            defaultChartType={tile.chartType}
-            defaultPalette={tile.palette}
-            defaultMeasure={tile.selectedMeasure}
-            defaultMeasures={tile.activeMeasures}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-gray-600 text-sm">No data</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ── Create Dashboard Modal ── */
-function CreateModal({ onClose, onCreate }) {
-  const [name, setName] = useState("");
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
-      variants={modalOverlayVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-    >
-      <motion.div
-        className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-        variants={modalContentVariants}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-      >
-        <h3 className="text-lg font-semibold text-white mb-4">Create Dashboard</h3>
-        <input
-          value={name} onChange={(e) => setName(e.target.value)}
-          className="w-full glass-input rounded-lg px-3 py-2 text-sm text-white mb-4 input-glow"
-          placeholder="e.g., Digital Marketing Dashboard"
-          autoFocus
-          onKeyDown={(e) => e.key === "Enter" && name.trim() && onCreate(name.trim())}
-        />
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition cursor-pointer">Cancel</button>
-          <button
-            onClick={() => name.trim() && onCreate(name.trim())}
-            disabled={!name.trim()}
-            className="px-4 py-2 text-sm bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg hover:from-indigo-500 hover:to-violet-500 transition disabled:opacity-40 cursor-pointer btn-glow shadow-lg shadow-indigo-500/20"
-          >
-            Create
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-/* ── Stat summary icons ── */
-const TotalQueriesIcon = (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" />
-  </svg>
-);
-const SuccessRateIcon = (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-const AvgResponseIcon = (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-const ActiveConnectionsIcon = (
-  <span className="relative flex h-5 w-5 items-center justify-center">
-    <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-violet-400 opacity-50" />
-    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-violet-400" />
-  </span>
-);
 
 /* ════════════════════════════════════════════════════════════════
-   Main DashboardBuilder Page
+   DashboardBuilder — full rewrite with tabs, sections, command bar
    ════════════════════════════════════════════════════════════════ */
 export default function DashboardBuilder() {
-  const navigate = useNavigate();
+  const { activeDashboardId, setActiveDashboardId } = useStore();
+
+  // ── State ──
   const [dashboards, setDashboards] = useState([]);
   const [activeDashboard, setActiveDashboard] = useState(null);
+  const [activeTabId, setActiveTabId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
   const [editingTile, setEditingTile] = useState(null);
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState("");
-  const [undoTile, setUndoTile] = useState(null); // { tile, dashboard } for undo
+  const [showExport, setShowExport] = useState(false);
+  const [undoStack, setUndoStack] = useState([]); // [{tile, sectionId, dashboard}]
+  const [showCreatePrompt, setShowCreatePrompt] = useState(false);
+  const [newDashName, setNewDashName] = useState("");
+
   const saveTimer = useRef(null);
-  const gridContainerRef = useRef(null);
-  const [gridWidth, setGridWidth] = useState(1200);
+  const undoTimers = useRef([]);
 
-  // Stats for summary cards
-  const [stats, setStats] = useState({
-    totalQueries: 0,
-    successRate: 0,
-    avgResponseTime: 0,
-    activeConnections: 0,
-    querySparkline: [],
-  });
+  // ── Derived: active tab and its sections ──
+  const activeTab =
+    activeDashboard?.tabs?.find((t) => t.id === activeTabId) || null;
+  const sections = activeTab?.sections || [];
 
-  // Measure grid container width
-  useEffect(() => {
-    const el = gridContainerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setGridWidth(entry.contentRect.width - 32); // account for padding
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [activeDashboard]);
-
-  // Load dashboards on mount
+  // ── Load dashboards on mount ──
   useEffect(() => {
     (async () => {
       try {
         const res = await api.getDashboards();
-        setDashboards(res.dashboards || []);
-        // Auto-open the first dashboard if exists
-        if (res.dashboards?.length > 0) {
-          const full = await api.getDashboard(res.dashboards[0].id);
+        const list = res.dashboards || [];
+        setDashboards(list);
+        if (list.length > 0) {
+          const targetId = activeDashboardId || list[0].id;
+          const full = await api.getDashboard(targetId);
           setActiveDashboard(full);
+          setActiveDashboardId(full.id);
+          if (full.tabs?.length > 0) setActiveTabId(full.tabs[0].id);
         }
       } catch (err) {
         console.error("Failed to load dashboards:", err);
@@ -329,438 +85,1016 @@ export default function DashboardBuilder() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch account stats on mount
-  useEffect(() => {
-    (async () => {
+  // ── Auto-save (debounced 800ms) ──
+  const autoSave = useCallback(
+    (dashboard) => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(async () => {
+        try {
+          setSaving(true);
+          await api.updateDashboard(dashboard.id, {
+            name: dashboard.name,
+            description: dashboard.description,
+            tabs: dashboard.tabs,
+            annotations: dashboard.annotations,
+          });
+        } catch (err) {
+          console.error("Auto-save failed:", err);
+        } finally {
+          setSaving(false);
+        }
+      }, 800);
+    },
+    []
+  );
+
+  // ── Dashboard CRUD ──
+  const handleCreateDashboard = useCallback(
+    async (name) => {
       try {
-        const account = await api.getAccount();
-        const totalQueries = account.total_queries ?? account.totalQueries ?? 0;
-        const successfulQueries = account.successful_queries ?? account.successfulQueries ?? 0;
-        const successRate = totalQueries > 0 ? Math.round((successfulQueries / totalQueries) * 100) : 0;
-        const avgResponseTime = account.avg_response_time ?? account.avgResponseTime ?? 0;
-        const activeConnections = account.active_connections ?? account.activeConnections ?? 0;
-        const querySparkline = account.query_sparkline ?? account.querySparkline ?? [3, 5, 2, 8, 6, 9, 4, 7, 5, 8, 10, 6];
-
-        setStats({
-          totalQueries,
-          successRate,
-          avgResponseTime: Math.round(avgResponseTime),
-          activeConnections,
-          querySparkline,
-        });
+        const d = await api.createDashboard(name);
+        setDashboards((prev) => [
+          ...prev,
+          {
+            id: d.id,
+            name: d.name,
+            created_at: d.created_at,
+            updated_at: d.updated_at,
+            tile_count: 0,
+            tab_count: d.tabs?.length || 0,
+          },
+        ]);
+        setActiveDashboard(d);
+        setActiveDashboardId(d.id);
+        if (d.tabs?.length > 0) setActiveTabId(d.tabs[0].id);
+        setShowCreatePrompt(false);
+        setNewDashName("");
       } catch (err) {
-        console.error("Failed to load account stats:", err);
+        console.error("Failed to create dashboard:", err);
       }
-    })();
-  }, []);
+    },
+    [setActiveDashboardId]
+  );
 
-  // Auto-save debounced
-  const autoSave = useCallback((dashboard) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
+  const handleSelectDashboard = useCallback(
+    async (id) => {
       try {
-        setSaving(true);
-        await api.updateDashboard(dashboard.id, {
-          tiles: dashboard.tiles,
-          layout: dashboard.layout,
-          name: dashboard.name,
-        });
+        const full = await api.getDashboard(id);
+        setActiveDashboard(full);
+        setActiveDashboardId(full.id);
+        if (full.tabs?.length > 0) setActiveTabId(full.tabs[0].id);
+        else setActiveTabId(null);
       } catch (err) {
-        console.error("Auto-save failed:", err);
-      } finally {
-        setSaving(false);
+        console.error("Failed to load dashboard:", err);
       }
-    }, 800);
+    },
+    [setActiveDashboardId]
+  );
+
+  const handleDeleteDashboard = useCallback(
+    async (id) => {
+      if (!confirm("Delete this dashboard? This cannot be undone.")) return;
+      try {
+        await api.deleteDashboard(id);
+        setDashboards((prev) => prev.filter((d) => d.id !== id));
+        if (activeDashboard?.id === id) {
+          setActiveDashboard(null);
+          setActiveDashboardId(null);
+          setActiveTabId(null);
+        }
+      } catch (err) {
+        console.error("Failed to delete dashboard:", err);
+      }
+    },
+    [activeDashboard, setActiveDashboardId]
+  );
+
+  // ── Dashboard name change ──
+  const handleNameChange = useCallback(
+    (newName) => {
+      if (!activeDashboard) return;
+      const updated = { ...activeDashboard, name: newName };
+      setActiveDashboard(updated);
+      setDashboards((prev) =>
+        prev.map((d) => (d.id === updated.id ? { ...d, name: newName } : d))
+      );
+      autoSave(updated);
+    },
+    [activeDashboard, autoSave]
+  );
+
+  // ── Tab operations ──
+  const handleTabSelect = useCallback((tabId) => {
+    setActiveTabId(tabId);
   }, []);
 
-  const handleCreate = useCallback(async (name) => {
-    try {
-      const d = await api.createDashboard(name);
-      setDashboards((prev) => [...prev, { id: d.id, name: d.name, created_at: d.created_at, tile_count: 0 }]);
-      setActiveDashboard(d);
-      setShowCreate(false);
-    } catch (err) {
-      alert("Failed to create dashboard: " + err.message);
-    }
-  }, []);
-
-  const handleSelectDashboard = useCallback(async (id) => {
-    try {
-      const full = await api.getDashboard(id);
-      setActiveDashboard(full);
-    } catch (err) {
-      console.error("Failed to load dashboard:", err);
-    }
-  }, []);
-
-  const handleDeleteDashboard = useCallback(async () => {
-    if (!activeDashboard) return;
-    if (!confirm("Delete this dashboard? This cannot be undone.")) return;
-    try {
-      await api.deleteDashboard(activeDashboard.id);
-      setDashboards((prev) => prev.filter((d) => d.id !== activeDashboard.id));
-      setActiveDashboard(null);
-    } catch (err) {
-      alert("Failed to delete: " + err.message);
-    }
-  }, [activeDashboard]);
-
-  const handleDuplicateDashboard = useCallback(async () => {
+  const handleTabAdd = useCallback(async () => {
     if (!activeDashboard) return;
     try {
-      const newName = `${activeDashboard.name} (Copy)`;
-      const d = await api.createDashboard(newName);
-      // Copy tiles and layout to the new dashboard
-      await api.updateDashboard(d.id, {
-        tiles: activeDashboard.tiles,
-        layout: activeDashboard.layout,
-        name: newName,
-      });
-      const full = await api.getDashboard(d.id);
-      setDashboards((prev) => [...prev, { id: full.id, name: full.name, created_at: full.created_at, tile_count: full.tiles?.length || 0 }]);
-      setActiveDashboard(full);
-    } catch (err) {
-      alert("Failed to duplicate: " + err.message);
-    }
-  }, [activeDashboard]);
-
-  const handleLayoutChange = useCallback((layout) => {
-    if (!activeDashboard) return;
-    const updated = { ...activeDashboard, layout };
-    setActiveDashboard(updated);
-    autoSave(updated);
-  }, [activeDashboard, autoSave]);
-
-  const handleTileEdit = useCallback((updatedTile) => {
-    if (!activeDashboard) return;
-    const tiles = activeDashboard.tiles.map((t) => (t.id === updatedTile.id ? updatedTile : t));
-    const updated = { ...activeDashboard, tiles };
-    setActiveDashboard(updated);
-    setEditingTile(null);
-    autoSave(updated);
-  }, [activeDashboard, autoSave]);
-
-  const handleTileRemove = useCallback(async (tileId) => {
-    if (!activeDashboard) return;
-    // Save tile for undo before removing
-    const removedTile = activeDashboard.tiles.find((t) => t.id === tileId);
-    const prevDashboard = { ...activeDashboard };
-    try {
-      const res = await api.removeDashboardTile(activeDashboard.id, tileId);
+      const res = await api.addTab(activeDashboard.id, "New Tab");
       setActiveDashboard(res);
-      if (removedTile) {
-        setUndoTile({ tile: removedTile, dashboard: prevDashboard });
-        setTimeout(() => setUndoTile(null), 6000); // auto-dismiss undo after 6s
-      }
+      const newTab = res.tabs[res.tabs.length - 1];
+      if (newTab) setActiveTabId(newTab.id);
     } catch (err) {
-      console.error("Failed to remove tile:", err);
+      console.error("Failed to add tab:", err);
     }
   }, [activeDashboard]);
 
-  const handleUndoRemove = useCallback(async () => {
-    if (!undoTile) return;
-    try {
-      // Re-add the tile by updating the dashboard with the old state
-      await api.updateDashboard(undoTile.dashboard.id, {
-        tiles: undoTile.dashboard.tiles,
-        layout: undoTile.dashboard.layout,
-        name: undoTile.dashboard.name,
+  const handleTabRename = useCallback(
+    (tabId, newName) => {
+      if (!activeDashboard) return;
+      const tabs = activeDashboard.tabs.map((t) =>
+        t.id === tabId ? { ...t, name: newName } : t
+      );
+      const updated = { ...activeDashboard, tabs };
+      setActiveDashboard(updated);
+      api.updateDashboard(activeDashboard.id, { tabs }).catch((err) =>
+        console.error("Failed to rename tab:", err)
+      );
+    },
+    [activeDashboard]
+  );
+
+  const handleTabDelete = useCallback(
+    async (tabId) => {
+      if (!activeDashboard) return;
+      try {
+        const res = await api.deleteTab(activeDashboard.id, tabId);
+        setActiveDashboard(res);
+        if (activeTabId === tabId) {
+          setActiveTabId(res.tabs?.[0]?.id || null);
+        }
+      } catch (err) {
+        console.error("Failed to delete tab:", err);
+      }
+    },
+    [activeDashboard, activeTabId]
+  );
+
+  // ── Section layout change ──
+  const handleLayoutChange = useCallback(
+    (sectionId, newLayout) => {
+      if (!activeDashboard || !activeTabId) return;
+      const tabs = activeDashboard.tabs.map((tab) => {
+        if (tab.id !== activeTabId) return tab;
+        return {
+          ...tab,
+          sections: tab.sections.map((sec) =>
+            sec.id === sectionId ? { ...sec, layout: newLayout } : sec
+          ),
+        };
       });
-      setActiveDashboard(undoTile.dashboard);
-      setUndoTile(null);
-    } catch (err) {
-      console.error("Undo failed:", err);
-    }
-  }, [undoTile]);
+      const updated = { ...activeDashboard, tabs };
+      setActiveDashboard(updated);
+      autoSave(updated);
+    },
+    [activeDashboard, activeTabId, autoSave]
+  );
 
-  const handleNameSave = useCallback(() => {
-    if (!activeDashboard || !nameInput.trim()) return;
-    const updated = { ...activeDashboard, name: nameInput.trim() };
-    setActiveDashboard(updated);
-    setDashboards((prev) => prev.map((d) => (d.id === updated.id ? { ...d, name: updated.name } : d)));
-    setEditingName(false);
-    autoSave(updated);
-  }, [activeDashboard, nameInput, autoSave]);
+  // ── Add section ──
+  const handleAddSection = useCallback(
+    async (name = "New Section") => {
+      if (!activeDashboard || !activeTabId) return;
+      try {
+        const res = await api.addSection(activeDashboard.id, activeTabId, name);
+        setActiveDashboard(res);
+      } catch (err) {
+        console.error("Failed to add section:", err);
+      }
+    },
+    [activeDashboard, activeTabId]
+  );
 
-  // Build layout items from dashboard
-  const layoutItems = useMemo(() => {
-    if (!activeDashboard?.layout) return [];
-    return activeDashboard.layout.map((l) => ({
-      ...l,
-      minW: 3, minH: 3, maxH: 12,
-    }));
-  }, [activeDashboard?.layout]);
+  // ── Edit section (rename, etc.) ──
+  const handleEditSection = useCallback(
+    (sectionId, updates) => {
+      if (!activeDashboard || !activeTabId) return;
+      const tabs = activeDashboard.tabs.map((tab) => {
+        if (tab.id !== activeTabId) return tab;
+        return {
+          ...tab,
+          sections: tab.sections.map((sec) =>
+            sec.id === sectionId ? { ...sec, ...updates } : sec
+          ),
+        };
+      });
+      const updated = { ...activeDashboard, tabs };
+      setActiveDashboard(updated);
+      autoSave(updated);
+    },
+    [activeDashboard, activeTabId, autoSave]
+  );
 
+  // ── Tile operations ──
+  const handleTileEdit = useCallback(
+    (tile) => {
+      setEditingTile(tile);
+    },
+    []
+  );
+
+  const handleTileEditSQL = useCallback(
+    (tile) => {
+      // Open tile editor in SQL mode - reuse TileEditor
+      setEditingTile({ ...tile, editMode: "sql" });
+    },
+    []
+  );
+
+  const handleTileChartChange = useCallback(
+    async (tileId, chartType) => {
+      if (!activeDashboard) return;
+      try {
+        const res = await api.updateTile(activeDashboard.id, tileId, {
+          chartType,
+        });
+        // Update local state
+        const tabs = activeDashboard.tabs.map((tab) => ({
+          ...tab,
+          sections: tab.sections.map((sec) => ({
+            ...sec,
+            tiles: sec.tiles.map((t) =>
+              t.id === tileId ? { ...t, chartType } : t
+            ),
+          })),
+        }));
+        const updated = { ...activeDashboard, tabs };
+        setActiveDashboard(updated);
+      } catch (err) {
+        console.error("Failed to change chart type:", err);
+      }
+    },
+    [activeDashboard]
+  );
+
+  const handleTileRemove = useCallback(
+    async (tileId) => {
+      if (!activeDashboard || !activeTabId) return;
+      // Find the tile and its section for undo
+      let removedTile = null;
+      let removedSectionId = null;
+      for (const sec of activeTab?.sections || []) {
+        const found = sec.tiles?.find((t) => t.id === tileId);
+        if (found) {
+          removedTile = found;
+          removedSectionId = sec.id;
+          break;
+        }
+      }
+
+      try {
+        await api.removeDashboardTile(activeDashboard.id, tileId);
+        // Update local state: remove tile from section and layout
+        const tabs = activeDashboard.tabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab;
+          return {
+            ...tab,
+            sections: tab.sections.map((sec) => ({
+              ...sec,
+              tiles: sec.tiles.filter((t) => t.id !== tileId),
+              layout: (sec.layout || []).filter((l) => l.i !== tileId),
+            })),
+          };
+        });
+        const updated = { ...activeDashboard, tabs };
+        setActiveDashboard(updated);
+
+        // Show undo toast with 5s timeout
+        if (removedTile) {
+          const undoEntry = {
+            id: Date.now(),
+            tile: removedTile,
+            sectionId: removedSectionId,
+            dashboard: activeDashboard,
+          };
+          setUndoStack((prev) => [...prev, undoEntry]);
+          const timer = setTimeout(() => {
+            setUndoStack((prev) => prev.filter((u) => u.id !== undoEntry.id));
+          }, 5000);
+          undoTimers.current.push(timer);
+        }
+      } catch (err) {
+        console.error("Failed to remove tile:", err);
+      }
+    },
+    [activeDashboard, activeTabId, activeTab]
+  );
+
+  const handleUndoRemove = useCallback(
+    async (undoEntry) => {
+      try {
+        await api.updateDashboard(undoEntry.dashboard.id, {
+          tabs: undoEntry.dashboard.tabs,
+        });
+        setActiveDashboard(undoEntry.dashboard);
+        setUndoStack((prev) => prev.filter((u) => u.id !== undoEntry.id));
+      } catch (err) {
+        console.error("Undo failed:", err);
+      }
+    },
+    []
+  );
+
+  const handleTileRefresh = useCallback(
+    async (tileId, connId) => {
+      if (!activeDashboard) return;
+      try {
+        const res = await api.refreshTile(activeDashboard.id, tileId, connId);
+        // Update the tile in local state
+        const tabs = activeDashboard.tabs.map((tab) => ({
+          ...tab,
+          sections: tab.sections.map((sec) => ({
+            ...sec,
+            tiles: sec.tiles.map((t) =>
+              t.id === tileId ? { ...t, ...res } : t
+            ),
+          })),
+        }));
+        const updated = { ...activeDashboard, tabs };
+        setActiveDashboard(updated);
+      } catch (err) {
+        console.error("Failed to refresh tile:", err);
+      }
+    },
+    [activeDashboard]
+  );
+
+  const handleTileSave = useCallback(
+    async (updatedTile) => {
+      if (!activeDashboard) return;
+      try {
+        await api.updateTile(activeDashboard.id, updatedTile.id, updatedTile);
+        const tabs = activeDashboard.tabs.map((tab) => ({
+          ...tab,
+          sections: tab.sections.map((sec) => ({
+            ...sec,
+            tiles: sec.tiles.map((t) =>
+              t.id === updatedTile.id ? { ...t, ...updatedTile } : t
+            ),
+          })),
+        }));
+        const updated = { ...activeDashboard, tabs };
+        setActiveDashboard(updated);
+        setEditingTile(null);
+      } catch (err) {
+        console.error("Failed to save tile:", err);
+      }
+    },
+    [activeDashboard]
+  );
+
+  const handleTileDelete = useCallback(
+    async (tileId) => {
+      setEditingTile(null);
+      await handleTileRemove(tileId);
+    },
+    [handleTileRemove]
+  );
+
+  // ── Add tile (from CommandBar) ──
+  const handleAddTile = useCallback(
+    async (sectionId) => {
+      if (!activeDashboard || !activeTabId) return;
+      const targetSectionId =
+        sectionId || sections[0]?.id;
+      if (!targetSectionId) return;
+      try {
+        const tile = {
+          title: "New Tile",
+          chartType: "bar",
+          columns: [],
+          rows: [],
+        };
+        const res = await api.addTileToSection(
+          activeDashboard.id,
+          activeTabId,
+          targetSectionId,
+          tile
+        );
+        setActiveDashboard(res);
+      } catch (err) {
+        console.error("Failed to add tile:", err);
+      }
+    },
+    [activeDashboard, activeTabId, sections]
+  );
+
+  // ── Annotations ──
+  const handleAddAnnotation = useCallback(
+    async (text, authorName) => {
+      if (!activeDashboard) return;
+      try {
+        const res = await api.addDashboardAnnotation(
+          activeDashboard.id,
+          text,
+          authorName
+        );
+        setActiveDashboard((prev) => ({
+          ...prev,
+          annotations: res.annotations || [
+            ...(prev.annotations || []),
+            { text, author: authorName, created_at: new Date().toISOString() },
+          ],
+        }));
+      } catch (err) {
+        console.error("Failed to add annotation:", err);
+      }
+    },
+    [activeDashboard]
+  );
+
+  // ── Export ──
+  const handleExport = useCallback(
+    (format) => {
+      console.log("Exporting dashboard as", format);
+      setShowExport(false);
+    },
+    []
+  );
+
+  // ── AI Command (placeholder) ──
+  const handleAICommand = useCallback((command) => {
+    console.log("AI command:", command);
+  }, []);
+
+  // ── Settings (placeholder) ──
+  const handleSettings = useCallback(() => {
+    console.log("Open settings");
+  }, []);
+
+  // ── Cleanup ──
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      undoTimers.current.forEach((t) => clearTimeout(t));
+    };
+  }, []);
+
+  // ── Loading state ──
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div
+        style={{
+          background: TOKENS.bg.deep,
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 24,
+            height: 24,
+            border: `2px solid ${TOKENS.accent}`,
+            borderTopColor: "transparent",
+            borderRadius: "50%",
+            animation: "spin 0.8s linear infinite",
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // ── Empty state: no dashboards ──
+  if (dashboards.length === 0 && !activeDashboard) {
+    return (
+      <div
+        style={{
+          background: TOKENS.bg.deep,
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+        }}
+      >
+        <div
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: 16,
+            background: TOKENS.bg.elevated,
+            border: `1px solid ${TOKENS.border.default}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <svg
+            width="40"
+            height="40"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke={TOKENS.text.muted}
+            strokeWidth={1}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z"
+            />
+          </svg>
+        </div>
+        <p style={{ color: TOKENS.text.secondary, fontSize: 18 }}>
+          No dashboards yet
+        </p>
+        <p
+          style={{
+            color: TOKENS.text.muted,
+            fontSize: 14,
+            maxWidth: 400,
+            textAlign: "center",
+          }}
+        >
+          Create a dashboard to start building visual analytics from your
+          queries.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", marginTop: 8 }}>
+          <input
+            value={newDashName}
+            onChange={(e) => setNewDashName(e.target.value)}
+            onKeyDown={(e) =>
+              e.key === "Enter" &&
+              newDashName.trim() &&
+              handleCreateDashboard(newDashName.trim())
+            }
+            placeholder="Dashboard name..."
+            style={{
+              background: TOKENS.bg.elevated,
+              border: `1px solid ${TOKENS.border.default}`,
+              borderRadius: 8,
+              padding: "8px 14px",
+              color: TOKENS.text.primary,
+              fontSize: 14,
+              width: 260,
+              outline: "none",
+            }}
+            autoFocus
+          />
+          <button
+            onClick={() =>
+              newDashName.trim() && handleCreateDashboard(newDashName.trim())
+            }
+            disabled={!newDashName.trim()}
+            style={{
+              background: TOKENS.accent,
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 24px",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: newDashName.trim() ? "pointer" : "not-allowed",
+              opacity: newDashName.trim() ? 1 : 0.4,
+              transition: "opacity 0.15s",
+            }}
+          >
+            Create Your First Dashboard
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#06060e] overflow-hidden relative">
-      <div className="fixed inset-0 mesh-gradient opacity-20 pointer-events-none" />
-      {/* Header */}
-      <div className="glass-navbar flex items-center justify-between px-6 py-4 relative z-10">
-        <div className="flex items-center gap-3">
-          <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z" />
-          </svg>
-          {activeDashboard ? (
-            editingName ? (
-              <div className="flex items-center gap-2">
-                <input
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleNameSave()}
-                  onBlur={handleNameSave}
-                  className="glass-input rounded-lg px-3 py-1 text-white text-lg font-semibold input-glow"
-                  autoFocus
-                />
-              </div>
-            ) : (
-              <h1
-                className="text-lg font-semibold text-white cursor-pointer hover:text-indigo-300 transition"
-                onClick={() => { setNameInput(activeDashboard.name); setEditingName(true); }}
-                title="Click to rename"
-              >
-                {activeDashboard.name}
-              </h1>
-            )
-          ) : (
-            <h1 className="text-lg font-semibold text-white">Dashboards</h1>
-          )}
-          {saving && <span className="text-xs text-gray-500 animate-pulse">Saving...</span>}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Dashboard selector dropdown */}
-          {dashboards.length > 1 && (
-            <select
-              value={activeDashboard?.id || ""}
-              onChange={(e) => handleSelectDashboard(e.target.value)}
-              className="glass-input rounded-lg px-3 py-1.5 text-sm text-white cursor-pointer"
-            >
-              {dashboards.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          )}
-
+    <div
+      style={{
+        background: TOKENS.bg.deep,
+        minHeight: "100vh",
+        display: "flex",
+      }}
+    >
+      {/* ── Sidebar: Dashboard List ── */}
+      <aside
+        style={{
+          width: 280,
+          minWidth: 280,
+          background: TOKENS.bg.base,
+          borderRight: `1px solid ${TOKENS.border.default}`,
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          position: "sticky",
+          top: 0,
+        }}
+      >
+        {/* Sidebar header */}
+        <div
+          style={{
+            padding: "16px 16px 12px",
+            borderBottom: `1px solid ${TOKENS.border.default}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span
+            style={{
+              color: TOKENS.text.primary,
+              fontWeight: 600,
+              fontSize: 15,
+            }}
+          >
+            Dashboards
+          </span>
           <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg hover:from-indigo-500 hover:to-violet-500 transition cursor-pointer btn-glow shadow-lg shadow-indigo-500/20"
+            onClick={() => setShowCreatePrompt(true)}
+            style={{
+              background: TOKENS.accent,
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              width: 28,
+              height: 28,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+            title="Create dashboard"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            New
+            +
           </button>
-
-          {activeDashboard && (
-            <>
-            <button
-              onClick={handleDuplicateDashboard}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-400 hover:bg-indigo-900/30 transition cursor-pointer"
-              title="Duplicate dashboard"
-              aria-label="Duplicate dashboard"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
-              </svg>
-            </button>
-            <button
-              onClick={handleDeleteDashboard}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-900/30 transition cursor-pointer"
-              title="Delete dashboard"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-              </svg>
-            </button>
-            </>
-          )}
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto relative z-10">
-        {!activeDashboard ? (
-          /* Empty state */
-          <motion.div
-            className="flex flex-col items-center justify-center h-full gap-4"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          >
-            <div className="w-20 h-20 rounded-2xl glass flex items-center justify-center">
-              <svg className="w-10 h-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" />
-              </svg>
-            </div>
-            <p className="text-gray-400 text-lg">No dashboards yet</p>
-            <p className="text-gray-600 text-sm max-w-md text-center">
-              Create a dashboard, then run queries in Chat and use the + button on any chart to add it here.
-            </p>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="mt-2 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl hover:from-indigo-500 hover:to-violet-500 transition cursor-pointer btn-glow shadow-lg shadow-indigo-500/20"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Create Your First Dashboard
-            </button>
-          </motion.div>
-        ) : activeDashboard.tiles?.length === 0 ? (
-          /* Dashboard exists but empty */
-          <motion.div
-            className="flex flex-col items-center justify-center h-full gap-4"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          >
-            <div className="w-16 h-16 rounded-2xl glass border-indigo-500/20 flex items-center justify-center">
-              <svg className="w-8 h-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-            </div>
-            <p className="text-gray-300 text-lg font-medium">{activeDashboard.name}</p>
-            <p className="text-gray-500 text-sm max-w-md text-center">
-              This dashboard is empty. Go to Chat, run a query, and click the + button on any chart to add it here.
-            </p>
-            <button
-              onClick={() => navigate("/chat")}
-              className="mt-2 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl hover:from-indigo-500 hover:to-violet-500 transition cursor-pointer btn-glow shadow-lg shadow-indigo-500/20"
-            >
-              Go to Chat
-            </button>
-          </motion.div>
-        ) : (
-          /* Stat summary row + Grid layout */
-          <div className="p-4" ref={gridContainerRef}>
-            {/* Stat Summary Row */}
-            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <StaggerItem>
-                <StatSummaryCard
-                  title="Total Queries"
-                  value={stats.totalQueries}
-                  icon={TotalQueriesIcon}
-                  color="indigo"
-                  sparkline={stats.querySparkline}
-                />
-              </StaggerItem>
-              <StaggerItem>
-                <StatSummaryCard
-                  title="Success Rate"
-                  value={stats.successRate}
-                  suffix="%"
-                  icon={SuccessRateIcon}
-                  color="emerald"
-                />
-              </StaggerItem>
-              <StaggerItem>
-                <StatSummaryCard
-                  title="Avg Response Time"
-                  value={stats.avgResponseTime}
-                  suffix="ms"
-                  icon={AvgResponseIcon}
-                  color="amber"
-                />
-              </StaggerItem>
-              <StaggerItem>
-                <StatSummaryCard
-                  title="Active Connections"
-                  value={stats.activeConnections}
-                  icon={ActiveConnectionsIcon}
-                  color="violet"
-                />
-              </StaggerItem>
-            </StaggerContainer>
-
-            {/* Dashboard Grid */}
-            <StaggerContainer>
-              <GridLayout
-                className="layout"
-                layout={layoutItems}
-                cols={12}
-                rowHeight={80}
-                width={gridWidth}
-                isDraggable
-                isResizable
-                draggableHandle=".drag-handle"
-                onLayoutChange={(layout) => handleLayoutChange(layout)}
-                compactType="vertical"
-                margin={[12, 12]}
-              >
-                {activeDashboard.tiles.map((tile) => (
-                  <motion.div key={tile.id} layout transition={{ type: "spring", stiffness: 300, damping: 30 }}>
-                    <DashboardTile
-                      tile={tile}
-                      onEdit={setEditingTile}
-                      onRemove={handleTileRemove}
-                    />
-                  </motion.div>
-                ))}
-              </GridLayout>
-            </StaggerContainer>
+        {/* Create inline prompt */}
+        {showCreatePrompt && (
+          <div style={{ padding: "8px 12px", borderBottom: `1px solid ${TOKENS.border.default}` }}>
+            <input
+              value={newDashName}
+              onChange={(e) => setNewDashName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newDashName.trim()) {
+                  handleCreateDashboard(newDashName.trim());
+                }
+                if (e.key === "Escape") {
+                  setShowCreatePrompt(false);
+                  setNewDashName("");
+                }
+              }}
+              placeholder="Dashboard name..."
+              style={{
+                background: TOKENS.bg.elevated,
+                border: `1px solid ${TOKENS.accent}`,
+                borderRadius: 6,
+                padding: "6px 10px",
+                color: TOKENS.text.primary,
+                fontSize: 13,
+                width: "100%",
+                outline: "none",
+              }}
+              autoFocus
+            />
           </div>
         )}
-      </div>
 
-      {/* Modals with AnimatePresence */}
-      <AnimatePresence>
-        {showCreate && (
-          <CreateModal
-            key="create-modal"
-            onClose={() => setShowCreate(false)}
-            onCreate={handleCreate}
-          />
+        {/* Dashboard list */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+          {dashboards.map((d) => (
+            <div
+              key={d.id}
+              onClick={() => handleSelectDashboard(d.id)}
+              style={{
+                ...sidebarItemStyle,
+                background:
+                  activeDashboard?.id === d.id
+                    ? TOKENS.bg.elevated
+                    : "transparent",
+                color:
+                  activeDashboard?.id === d.id
+                    ? TOKENS.text.primary
+                    : TOKENS.text.secondary,
+                marginBottom: 2,
+              }}
+              onMouseEnter={(e) => {
+                if (activeDashboard?.id !== d.id) {
+                  e.currentTarget.style.background = TOKENS.bg.elevated + "80";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeDashboard?.id !== d.id) {
+                  e.currentTarget.style.background = "transparent";
+                }
+              }}
+            >
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  flex: 1,
+                }}
+              >
+                {d.name}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteDashboard(d.id);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: TOKENS.text.muted,
+                  cursor: "pointer",
+                  padding: 4,
+                  borderRadius: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  opacity: 0.5,
+                  transition: "opacity 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "1";
+                  e.currentTarget.style.color = "#ef4444";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "0.5";
+                  e.currentTarget.style.color = TOKENS.text.muted;
+                }}
+                title="Delete dashboard"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                  />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Sidebar footer with count */}
+        <div
+          style={{
+            padding: "10px 16px",
+            borderTop: `1px solid ${TOKENS.border.default}`,
+            color: TOKENS.text.muted,
+            fontSize: 12,
+          }}
+        >
+          {dashboards.length} dashboard{dashboards.length !== 1 ? "s" : ""}
+        </div>
+      </aside>
+
+      {/* ── Main Content ── */}
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "100vh",
+          overflowY: "auto",
+        }}
+      >
+        {!activeDashboard ? (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: TOKENS.text.muted,
+              fontSize: 15,
+            }}
+          >
+            Select a dashboard from the sidebar
+          </div>
+        ) : (
+          <>
+            {/* Command Bar */}
+            <CommandBar
+              onAddTile={() => handleAddTile()}
+              onExport={() => setShowExport(true)}
+              onSettings={handleSettings}
+              onAICommand={handleAICommand}
+            />
+
+            {/* Dashboard Header */}
+            <DashboardHeader
+              dashboard={activeDashboard}
+              saving={saving}
+              onNameChange={handleNameChange}
+            />
+
+            {/* Tab Bar */}
+            <TabBar
+              tabs={activeDashboard.tabs || []}
+              activeTabId={activeTabId}
+              onSelect={handleTabSelect}
+              onAdd={handleTabAdd}
+              onRename={handleTabRename}
+              onDelete={handleTabDelete}
+            />
+
+            {/* Sections */}
+            <div style={{ flex: 1, padding: "16px 24px" }}>
+              {sections.length === 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "64px 0",
+                    gap: 12,
+                  }}
+                >
+                  <p style={{ color: TOKENS.text.muted, fontSize: 14 }}>
+                    This tab has no sections yet.
+                  </p>
+                  <button
+                    onClick={() => handleAddSection()}
+                    style={{
+                      background: TOKENS.accent,
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "8px 20px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Add Section
+                  </button>
+                </div>
+              ) : (
+                sections.map((section) => (
+                  <Section
+                    key={section.id}
+                    section={section}
+                    onLayoutChange={handleLayoutChange}
+                    onTileEdit={handleTileEdit}
+                    onTileEditSQL={handleTileEditSQL}
+                    onTileChartChange={handleTileChartChange}
+                    onTileRemove={handleTileRemove}
+                    onTileRefresh={handleTileRefresh}
+                    onAddTile={handleAddTile}
+                    onEditSection={handleEditSection}
+                  />
+                ))
+              )}
+
+              {sections.length > 0 && (
+                <div style={{ textAlign: "center", padding: "16px 0" }}>
+                  <button
+                    onClick={() => handleAddSection()}
+                    style={{
+                      background: "transparent",
+                      color: TOKENS.text.muted,
+                      border: `1px dashed ${TOKENS.border.default}`,
+                      borderRadius: 8,
+                      padding: "8px 20px",
+                      fontSize: 13,
+                      cursor: "pointer",
+                      transition: "color 0.15s, border-color 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = TOKENS.accent;
+                      e.currentTarget.style.borderColor = TOKENS.accent;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = TOKENS.text.muted;
+                      e.currentTarget.style.borderColor = TOKENS.border.default;
+                    }}
+                  >
+                    + Add Section
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Notes Panel */}
+            <NotesPanel
+              annotations={activeDashboard.annotations || []}
+              userName={
+                useStore.getState().user?.name ||
+                useStore.getState().user?.email ||
+                "Anonymous"
+              }
+              onAdd={handleAddAnnotation}
+            />
+          </>
         )}
-      </AnimatePresence>
+      </main>
+
+      {/* ── Modals ── */}
       <AnimatePresence>
         {editingTile && (
           <TileEditor
-            key="tile-editor-modal"
+            key="tile-editor"
             tile={editingTile}
-            onSave={handleTileEdit}
+            dashboardId={activeDashboard?.id}
+            onSave={handleTileSave}
             onClose={() => setEditingTile(null)}
+            onRefresh={handleTileRefresh}
+            onDelete={handleTileDelete}
           />
         )}
       </AnimatePresence>
 
-      {/* Animated undo toast */}
       <AnimatePresence>
-        {undoTile && (
+        {showExport && (
+          <ExportModal
+            key="export-modal"
+            show={showExport}
+            onClose={() => setShowExport(false)}
+            dashboardName={activeDashboard?.name || "Dashboard"}
+            onExport={handleExport}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Undo Toast(s) ── */}
+      <AnimatePresence>
+        {undoStack.map((entry, idx) => (
           <motion.div
-            key="undo-toast"
-            className="fixed bottom-6 right-6 z-50 glass-card rounded-xl px-4 py-3 flex items-center gap-3 shadow-2xl shadow-black/50"
+            key={entry.id}
+            style={{
+              position: "fixed",
+              bottom: 24 + idx * 56,
+              right: 24,
+              zIndex: 50,
+              background: TOKENS.bg.elevated,
+              border: `1px solid ${TOKENS.border.default}`,
+              borderRadius: 12,
+              padding: "12px 16px",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            }}
             role="alert"
             variants={undoToastVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
           >
-            <span className="text-sm text-gray-300">Tile removed</span>
+            <span style={{ color: TOKENS.text.secondary, fontSize: 14 }}>
+              Tile removed
+            </span>
             <button
-              onClick={handleUndoRemove}
-              className="text-sm font-medium text-indigo-400 hover:text-indigo-300 cursor-pointer transition"
+              onClick={() => handleUndoRemove(entry)}
+              style={{
+                background: "none",
+                border: "none",
+                color: TOKENS.accent,
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+              }}
             >
               Undo
             </button>
             <button
-              onClick={() => setUndoTile(null)}
-              className="text-gray-500 hover:text-white cursor-pointer transition"
+              onClick={() =>
+                setUndoStack((prev) => prev.filter((u) => u.id !== entry.id))
+              }
+              style={{
+                background: "none",
+                border: "none",
+                color: TOKENS.text.muted,
+                cursor: "pointer",
+                padding: 2,
+                display: "flex",
+                alignItems: "center",
+              }}
               aria-label="Dismiss"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <svg
+                width="14"
+                height="14"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
           </motion.div>
-        )}
+        ))}
       </AnimatePresence>
     </div>
   );
