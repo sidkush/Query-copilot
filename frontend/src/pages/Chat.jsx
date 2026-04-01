@@ -293,6 +293,58 @@ function InlineDashboard({ tiles: initialTiles, layout: initialLayout, question,
   );
 }
 
+function DashboardChips({ question, onGenerate }) {
+  const [focus, setFocus] = useState('');
+  const [timeRange, setTimeRange] = useState('');
+  const [audience, setAudience] = useState('');
+  const [phase, setPhase] = useState('focus');
+
+  const focusOptions = ['Sales', 'Customers', 'Orders', 'Revenue', 'Products', 'Operations'];
+  const timeOptions = ['Last 7 days', 'Last 30 days', 'This quarter', 'This year', 'All time'];
+  const audienceOptions = ['Executive summary', 'Operational detail', 'Technical deep-dive'];
+
+  const handleChip = (value) => {
+    if (phase === 'focus') {
+      setFocus(value);
+      setPhase('time');
+    } else if (phase === 'time') {
+      setTimeRange(value);
+      setPhase('audience');
+    } else {
+      setAudience(value);
+      onGenerate(question, { focus, timeRange, audience: value });
+    }
+  };
+
+  const chips = phase === 'focus' ? focusOptions : phase === 'time' ? timeOptions : audienceOptions;
+  const label = phase === 'focus' ? 'What area should this focus on?' : phase === 'time' ? 'What time range?' : "Who's the audience?";
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+        </svg>
+        <span className="text-sm font-medium text-white">{label}</span>
+        {focus && <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">{focus}</span>}
+        {timeRange && <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">{timeRange}</span>}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {chips.map(chip => (
+          <button key={chip} onClick={() => handleChip(chip)}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-700 text-slate-300 hover:border-blue-500/40 hover:text-blue-300 hover:bg-blue-500/10 transition-all duration-200 cursor-pointer">
+            {chip}
+          </button>
+        ))}
+      </div>
+      <button onClick={() => onGenerate(question, { focus: focus || '', timeRange: timeRange || 'All time', audience: audience || 'Executive summary' })}
+        className="mt-3 text-xs text-blue-400 hover:text-blue-300 cursor-pointer transition-colors duration-200">
+        Skip and generate with defaults
+      </button>
+    </div>
+  );
+}
+
 export default function Chat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -526,33 +578,57 @@ export default function Chat() {
 
   // ── Auto-dashboard generation ──
   const handleDashboardRequest = async (question) => {
+    // Phase 1: Show guided question chips
+    const chipMsg = {
+      type: "dashboard_chips",
+      question,
+      phase: "focus",
+    };
+    addMessage(chipMsg);
+  };
+
+  const handleDashboardChipSelect = async (question, preferences) => {
     setGeneratingDashboard(true);
-    addMessage({ type: "system", content: "Building your dashboard... Analyzing schema and generating queries." });
+    addMessage({ type: "system", content: `Building your dashboard with preferences: ${preferences.focus || 'auto'}, ${preferences.timeRange || 'all time'}, ${preferences.audience || 'general'}...` });
 
     try {
-      const result = await api.generateDashboard(question, resolvedConnId);
-      const tiles = result.tiles || [];
-      if (tiles.length === 0) {
+      const result = await api.generateDashboardV2(question, resolvedConnId, preferences);
+      const tabs = result.tabs || [];
+      const totalTiles = tabs.reduce((sum, tab) =>
+        sum + tab.sections?.reduce((s, sec) => s + (sec.tiles?.length || 0), 0) || 0, 0);
+
+      if (totalTiles === 0) {
         addMessage({ type: "error", content: "Could not generate dashboard tiles from the available data." });
         return;
       }
 
-      // Build layout: 2 columns (each 6 wide), 4 rows tall
-      const layout = tiles.map((t, i) => ({
-        i: `tile-${i}`,
-        x: (i % 2) * 6,
-        y: Math.floor(i / 2) * 4,
-        w: 6,
-        h: 4,
-        minW: 3,
-        minH: 3,
-      }));
+      // Build flat tiles and layout from first tab for inline preview
+      const allTiles = [];
+      const allLayout = [];
+      for (const tab of tabs) {
+        for (const sec of tab.sections || []) {
+          for (const tile of sec.tiles || []) {
+            const idx = allTiles.length;
+            allTiles.push(tile);
+            allLayout.push({
+              i: `tile-${idx}`,
+              x: (idx % 2) * 6,
+              y: Math.floor(idx / 2) * 4,
+              w: 6,
+              h: 4,
+              minW: 3,
+              minH: 3,
+            });
+          }
+        }
+      }
 
       const dashMsg = {
         type: "dashboard",
         question,
-        tiles,
-        layout,
+        tiles: allTiles,
+        layout: allLayout,
+        tabs,
         dbLabel: result.database_name,
         connId: result.conn_id,
       };
@@ -1150,6 +1226,10 @@ export default function Chat() {
                 </motion.div>
               )}
 
+              {msg.type === "dashboard_chips" && (
+                <DashboardChips question={msg.question} onGenerate={handleDashboardChipSelect} />
+              )}
+
               {msg.type === "dashboard" && (
                 <InlineDashboard
                   tiles={msg.tiles}
@@ -1159,15 +1239,20 @@ export default function Chat() {
                   onSaveToPersistent={async (name, tiles, layout) => {
                     try {
                       const d = await api.createDashboard(name);
-                      for (const tile of tiles) {
-                        await api.addDashboardTile(d.id, {
-                          title: tile.title,
-                          chartType: tile.chartType || "bar",
-                          columns: tile.columns,
-                          rows: tile.rows,
-                          question: tile.question,
-                          sql: tile.sql,
-                        });
+                      // Get the default tab and section IDs
+                      const tabId = d.tabs?.[0]?.id;
+                      const sectionId = d.tabs?.[0]?.sections?.[0]?.id;
+                      if (tabId && sectionId) {
+                        for (const tile of tiles) {
+                          await api.addTileToSection(d.id, tabId, sectionId, {
+                            title: tile.title,
+                            chartType: tile.chartType || "bar",
+                            columns: tile.columns,
+                            rows: tile.rows,
+                            question: tile.question,
+                            sql: tile.sql,
+                          });
+                        }
                       }
                       setDashboards((prev) => [...prev, { id: d.id, name: d.name, tile_count: tiles.length }]);
                       addMessage({ type: "system", content: `Dashboard "${name}" saved! View it in Analytics.` });
