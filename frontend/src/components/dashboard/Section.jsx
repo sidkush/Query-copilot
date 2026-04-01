@@ -1,9 +1,42 @@
-import { useState } from 'react';
-import { Responsive, WidthProvider } from 'react-grid-layout';
+import { useState, useRef } from 'react';
+import { GridLayout, useContainerWidth } from 'react-grid-layout';
 import TileWrapper from './TileWrapper';
 import { TOKENS } from './tokens';
 
-const ResponsiveGrid = WidthProvider(Responsive);
+function SectionGrid({ tiles, layout, onLayoutChange, sectionId, onTileEdit, onTileEditSQL, onTileChartChange, onTileRemove, onTileRefresh }) {
+  const containerRef = useRef(null);
+  const width = useContainerWidth(containerRef);
+
+  return (
+    <div ref={containerRef} className="px-6">
+      {width > 0 && (
+        <GridLayout
+          className="layout"
+          layout={layout}
+          cols={12}
+          rowHeight={80}
+          width={width}
+          margin={[12, 12]}
+          isDraggable
+          isResizable
+          draggableHandle=".cursor-grab"
+          onLayoutChange={(newLayout) => onLayoutChange?.(sectionId, newLayout)}
+        >
+          {tiles.map((tile, i) => (
+            <div key={tile.id}>
+              <TileWrapper tile={tile} index={i}
+                onEdit={onTileEdit}
+                onEditSQL={() => onTileEditSQL?.(tile)}
+                onChangeChart={() => onTileChartChange?.(tile)}
+                onRemove={() => onTileRemove?.(tile.id)}
+                onRefresh={() => onTileRefresh?.(tile.id)} />
+            </div>
+          ))}
+        </GridLayout>
+      )}
+    </div>
+  );
+}
 
 export default function Section({ section, onLayoutChange, onTileEdit, onTileEditSQL, onTileChartChange, onTileRemove, onTileRefresh, onAddTile, onEditSection }) {
   const [collapsed, setCollapsed] = useState(section?.collapsed || false);
@@ -32,31 +65,9 @@ export default function Section({ section, onLayoutChange, onTileEdit, onTileEdi
         </div>
       </div>
       {!collapsed && tiles.length > 0 && (
-        <div className="px-6">
-          <ResponsiveGrid
-            className="layout"
-            layouts={{ lg: layout }}
-            breakpoints={{ lg: 1200, md: 996, sm: 768 }}
-            cols={{ lg: 12, md: 12, sm: 6 }}
-            rowHeight={80}
-            margin={[12, 12]}
-            isDraggable
-            isResizable
-            draggableHandle=".cursor-grab"
-            onLayoutChange={(newLayout) => onLayoutChange?.(section.id, newLayout)}
-          >
-            {tiles.map((tile, i) => (
-              <div key={tile.id}>
-                <TileWrapper tile={tile} index={i}
-                  onEdit={onTileEdit}
-                  onEditSQL={() => onTileEditSQL?.(tile)}
-                  onChangeChart={() => onTileChartChange?.(tile)}
-                  onRemove={() => onTileRemove?.(tile.id)}
-                  onRefresh={() => onTileRefresh?.(tile.id)} />
-              </div>
-            ))}
-          </ResponsiveGrid>
-        </div>
+        <SectionGrid tiles={tiles} layout={layout} onLayoutChange={onLayoutChange} sectionId={section.id}
+          onTileEdit={onTileEdit} onTileEditSQL={onTileEditSQL} onTileChartChange={onTileChartChange}
+          onTileRemove={onTileRemove} onTileRefresh={onTileRefresh} />
       )}
       {!collapsed && tiles.length === 0 && (
         <div className="flex items-center justify-center py-12 mx-6 rounded-xl border border-dashed"
