@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QueryCopilot Dashboard — Design Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #050506;
+    color: #EDEDEF;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ── Design Tokens ── */
+  :root {
+    --bg-deep: #050506;
+    --bg-base: #0a0a0c;
+    --bg-elevated: #111114;
+    --bg-surface: #161619;
+    --bg-hover: #1c1c20;
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.12);
+    --text-primary: #EDEDEF;
+    --text-secondary: #8A8F98;
+    --text-muted: #5C5F66;
+    --accent: #2563EB;
+    --accent-light: #3B82F6;
+    --accent-glow: rgba(37,99,235,0.15);
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 18px;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px var(--border);
+    --shadow-elevated: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px var(--border);
+    --transition: 200ms cubic-bezier(0.16,1,0.3,1);
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Page Layout ── */
+  .dashboard-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 0 24px 24px;
+  }
+
+  /* ── Command Bar ── */
+  .command-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    background: rgba(5,5,6,0.82);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    margin: 0 -24px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .command-input {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    cursor: text;
+    transition: border-color var(--transition);
+  }
+  .command-input:hover { border-color: var(--border-hover); }
+  .command-input svg { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
+  .command-input span { color: var(--text-muted); font-size: 13px; }
+  .command-kbd {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-left: auto;
+  }
+  .command-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .cmd-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+  .cmd-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-hover); }
+  .cmd-btn svg { width: 15px; height: 15px; }
+  .cmd-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .cmd-btn.primary:hover { background: var(--accent-light); }
+
+  /* ── Dashboard Header ── */
+  .dash-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .dash-title-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .dash-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+  .dash-title-edit {
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition);
+  }
+  .dash-title-area:hover .dash-title-edit { opacity: 1; }
+  .dash-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .dash-status .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .dash-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .dash-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .dash-meta-item svg { width: 14px; height: 14px; }
+
+  /* ── Tabs ── */
+  .tabs-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all var(--transition);
+    margin-bottom: -1px;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text-secondary); }
+  .tab.active {
+    color: var(--accent-light);
+    border-bottom-color: var(--accent);
+  }
+  .tab-add {
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    margin-left: 4px;
+    margin-bottom: 4px;
+    transition: all var(--transition);
+  }
+  .tab-add:hover { border-color: var(--border-hover); color: var(--text-secondary); }
+
+  /* ── Section ── */
+  .section {
+    margin-bottom: 24px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-chevron {
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
+    transition: transform var(--transition);
+  }
+  .section-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    padding: 1px 8px;
+    border-radius: 10px;
+  }
+  .section-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity var(--transition);
+  }
+  .section-header:hover .section-actions { opacity: 1; }
+  .section-actions button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  /* ── KPI Cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 0;
+  }
+  .kpi-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition);
+    cursor: pointer;
+  }
+  .kpi-card:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-elevated);
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+  }
+  .kpi-card:nth-child(1)::before { background: linear-gradient(90deg, var(--accent), #60a5fa); }
+  .kpi-card:nth-child(2)::before { background: linear-gradient(90deg, #22c55e, #4ade80); }
+  .kpi-card:nth-child(3)::before { background: linear-gradient(90deg, #a78bfa, #c4b5fd); }
+  .kpi-card:nth-child(4)::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .kpi-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .kpi-label svg { width: 14px; height: 14px; opacity: 0; transition: opacity var(--transition); }
+  .kpi-card:hover .kpi-label svg { opacity: 1; }
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 6px;
+  }
+  .kpi-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+  .kpi-delta.up { color: #22c55e; background: rgba(34,197,94,0.1); }
+  .kpi-delta.down { color: #ef4444; background: rgba(239,68,68,0.1); }
+  .kpi-sparkline {
+    margin-left: auto;
+    display: flex;
+    align-items: end;
+    gap: 2px;
+    height: 24px;
+  }
+  .kpi-sparkline .bar {
+    width: 4px;
+    border-radius: 2px;
+    background: rgba(37,99,235,0.3);
+    transition: height var(--transition);
+  }
+  .kpi-card:hover .kpi-sparkline .bar { background: rgba(37,99,235,0.5); }
+  .kpi-period { color: var(--text-muted); }
+
+  /* ── Chart Tiles ── */
+  .tiles-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px;
+  }
+  .tile {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+    transition: all var(--transition);
+  }
+  .tile:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-elevated);
+  }
+  .tile.span-7 { grid-column: span 7; }
+  .tile.span-5 { grid-column: span 5; }
+  .tile.span-4 { grid-column: span 4; }
+  .tile.span-6 { grid-column: span 6; }
+  .tile.span-8 { grid-column: span 8; }
+  .tile.span-12 { grid-column: span 12; }
+
+  .tile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 0;
+  }
+  .tile-title-area {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tile-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .tile-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+  .tile-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--transition);
+  }
+  .tile:hover .tile-actions { opacity: 1; }
+  .tile-action-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .tile-action-btn:hover { background: var(--bg-hover); color: var(--text-secondary); }
+  .tile-action-btn svg { width: 14px; height: 14px; }
+
+  .tile-body {
+    padding: 12px 18px 18px;
+    min-height: 180px;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .tile-comment-badge {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: 2px 7px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .tile-comment-badge:hover { background: var(--bg-hover); color: var(--text-secondary); }
+  .tile-comment-badge svg { width: 11px; height: 11px; }
+
+  /* ── Mock Charts ── */
+  .chart-bars {
+    display: flex;
+    align-items: end;
+    gap: 8px;
+    width: 100%;
+    height: 160px;
+    padding-top: 8px;
+  }
+  .chart-bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .chart-bar {
+    width: 100%;
+    max-width: 32px;
+    border-radius: 4px 4px 1px 1px;
+    transition: all 400ms cubic-bezier(0.16,1,0.3,1);
+    position: relative;
+  }
+  .chart-bar:hover { filter: brightness(1.2); }
+  .chart-bar-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .chart-line-area {
+    width: 100%;
+    height: 160px;
+    position: relative;
+  }
+  .chart-line-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .chart-donut-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    width: 100%;
+    height: 160px;
+  }
+  .donut-ring {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    position: relative;
+  }
+  .donut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .donut-center-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .donut-center-label {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .donut-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .donut-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .donut-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .donut-legend-value {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .chart-table {
+    width: 100%;
+    font-size: 12px;
+    padding-top: 4px;
+  }
+  .chart-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .chart-table th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .chart-table td {
+    padding: 10px 12px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-variant-numeric: tabular-nums;
+  }
+  .chart-table tr:hover td { background: var(--bg-hover); }
+  .chart-table .num { text-align: right; font-weight: 500; color: var(--text-primary); }
+
+  /* ── Notes / Annotations area ── */
+  .notes-section {
+    margin-top: 24px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+  }
+  .notes-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .notes-header-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .notes-header-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: 1px 8px;
+    border-radius: 10px;
+  }
+  .note-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .note-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    flex-shrink: 0;
+  }
+  .note-content {
+    flex: 1;
+  }
+  .note-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .note-author { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+  .note-time { font-size: 11px; color: var(--text-muted); }
+  .note-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .note-input-area {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    align-items: center;
+  }
+  .note-input {
+    flex: 1;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-family: inherit;
+  }
+
+  /* ── Drag handle indicator ── */
+  .drag-handle {
+    position: absolute;
+    top: 14px;
+    left: 8px;
+    width: 12px;
+    height: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--transition);
+    cursor: grab;
+  }
+  .tile:hover .drag-handle { opacity: 1; }
+  .drag-handle span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: var(--text-muted);
+    border-radius: 1px;
+  }
+
+  /* ── Resize Handle ── */
+  .resize-handle {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 12px;
+    height: 12px;
+    opacity: 0;
+    transition: opacity var(--transition);
+    cursor: se-resize;
+  }
+  .tile:hover .resize-handle { opacity: 0.4; }
+  .resize-handle::before, .resize-handle::after {
+    content: '';
+    position: absolute;
+    background: var(--text-muted);
+    border-radius: 1px;
+  }
+  .resize-handle::before {
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 2px;
+  }
+  .resize-handle::after {
+    bottom: 0;
+    right: 0;
+    width: 2px;
+    height: 10px;
+  }
+
+  /* ── Mockup Badge ── */
+  .mockup-label {
+    position: fixed;
+    top: 12px;
+    right: 24px;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 20px;
+    z-index: 100;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="mockup-label">Design Mockup — Option C</div>
+
+<div class="dashboard-page">
+
+  <!-- ── Command Bar ── -->
+  <div class="command-bar">
+    <div class="command-input">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
+      <span>Ask AI to add a chart, or search tiles...</span>
+      <span class="command-kbd">⌘K</span>
+    </div>
+    <div class="command-actions">
+      <button class="cmd-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"/></svg>
+        Add Tile
+      </button>
+      <button class="cmd-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M13.75 7h-3v5.296l1.943-2.048a.75.75 0 011.114 1.004l-3.25 3.5a.75.75 0 01-1.114 0l-3.25-3.5a.75.75 0 111.114-1.004l1.943 2.048V7h-3a1.75 1.75 0 00-1.75 1.75v7.5c0 .966.784 1.75 1.75 1.75h7.5A1.75 1.75 0 0015.5 16.25v-7.5A1.75 1.75 0 0013.75 7z"/></svg>
+        Export
+      </button>
+      <button class="cmd-btn" title="Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Dashboard Header ── -->
+  <div class="dash-header">
+    <div class="dash-title-area">
+      <span class="dash-title">Q1 Sales Performance</span>
+      <svg class="dash-title-edit" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg>
+    </div>
+    <div class="dash-meta">
+      <div class="dash-status"><span class="dot"></span>Auto-saved</div>
+      <div class="dash-meta-item">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2z" clip-rule="evenodd"/></svg>
+        Updated 2 min ago
+      </div>
+      <div class="dash-meta-item">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z"/></svg>
+        3 collaborators
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tabs ── -->
+  <div class="tabs-row">
+    <div class="tab active">Overview</div>
+    <div class="tab">Revenue Breakdown</div>
+    <div class="tab">Customer Analytics</div>
+    <div class="tab">Regional</div>
+    <div class="tab-add">+ Add tab</div>
+  </div>
+
+  <!-- ── Section: Key Metrics ── -->
+  <div class="section">
+    <div class="section-header">
+      <svg class="section-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+      <span class="section-name">Key Metrics</span>
+      <div class="section-line"></div>
+      <span class="section-count">4 tiles</span>
+      <div class="section-actions">
+        <button title="Add tile"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"/></svg></button>
+        <button title="Edit section"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg></button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Revenue <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg></div>
+        <div class="kpi-value">$2.47M</div>
+        <div class="kpi-footer">
+          <span class="kpi-delta up">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd"/></svg>
+            12.3%
+          </span>
+          <span class="kpi-period">vs last quarter</span>
+          <div class="kpi-sparkline">
+            <span class="bar" style="height:35%"></span><span class="bar" style="height:42%"></span><span class="bar" style="height:38%"></span><span class="bar" style="height:55%"></span><span class="bar" style="height:48%"></span><span class="bar" style="height:62%"></span><span class="bar" style="height:58%"></span><span class="bar" style="height:75%"></span><span class="bar" style="height:82%"></span><span class="bar" style="height:95%"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Active Orders <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg></div>
+        <div class="kpi-value">3,847</div>
+        <div class="kpi-footer">
+          <span class="kpi-delta up">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd"/></svg>
+            8.7%
+          </span>
+          <span class="kpi-period">vs last quarter</span>
+          <div class="kpi-sparkline">
+            <span class="bar" style="height:45%"></span><span class="bar" style="height:52%"></span><span class="bar" style="height:48%"></span><span class="bar" style="height:60%"></span><span class="bar" style="height:55%"></span><span class="bar" style="height:70%"></span><span class="bar" style="height:65%"></span><span class="bar" style="height:78%"></span><span class="bar" style="height:85%"></span><span class="bar" style="height:90%"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Order Value <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg></div>
+        <div class="kpi-value">$847</div>
+        <div class="kpi-footer">
+          <span class="kpi-delta up">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd"/></svg>
+            5.1%
+          </span>
+          <span class="kpi-period">vs last quarter</span>
+          <div class="kpi-sparkline">
+            <span class="bar" style="height:60%"></span><span class="bar" style="height:55%"></span><span class="bar" style="height:65%"></span><span class="bar" style="height:58%"></span><span class="bar" style="height:68%"></span><span class="bar" style="height:72%"></span><span class="bar" style="height:70%"></span><span class="bar" style="height:80%"></span><span class="bar" style="height:78%"></span><span class="bar" style="height:85%"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label">Customer Retention <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/></svg></div>
+        <div class="kpi-value">91.2%</div>
+        <div class="kpi-footer">
+          <span class="kpi-delta down">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clip-rule="evenodd"/></svg>
+            2.1%
+          </span>
+          <span class="kpi-period">vs last quarter</span>
+          <div class="kpi-sparkline">
+            <span class="bar" style="height:90%"></span><span class="bar" style="height:88%"></span><span class="bar" style="height:85%"></span><span class="bar" style="height:82%"></span><span class="bar" style="height:80%"></span><span class="bar" style="height:78%"></span><span class="bar" style="height:75%"></span><span class="bar" style="height:72%"></span><span class="bar" style="height:70%"></span><span class="bar" style="height:68%"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section: Trends & Analysis ── -->
+  <div class="section">
+    <div class="section-header">
+      <svg class="section-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+      <span class="section-name">Trends & Analysis</span>
+      <div class="section-line"></div>
+      <span class="section-count">3 tiles</span>
+      <div class="section-actions">
+        <button title="Add tile"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"/></svg></button>
+        <button title="Edit section"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg></button>
+      </div>
+    </div>
+
+    <div class="tiles-grid">
+      <!-- Revenue Trend (Line/Area) -->
+      <div class="tile span-7">
+        <div class="drag-handle"><span></span><span></span><span></span></div>
+        <div class="tile-header">
+          <div class="tile-title-area">
+            <span class="tile-title">Monthly Revenue Trend</span>
+            <span class="tile-subtitle">Last 12 months</span>
+          </div>
+          <div class="tile-actions">
+            <div class="tile-comment-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902 1.168.188 2.352.327 3.55.414.28.02.521.18.642.413l1.713 3.293a.75.75 0 001.33 0l1.713-3.293c.121-.233.362-.393.642-.413a41.1 41.1 0 003.55-.414c1.437-.232 2.43-1.49 2.43-2.902V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0010 2z" clip-rule="evenodd"/></svg>2</div>
+            <button class="tile-action-btn" title="Edit SQL"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.28 5.22a.75.75 0 010 1.06L2.56 10l3.72 3.72a.75.75 0 01-1.06 1.06L.97 10.53a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0zm7.44 0a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L17.44 10l-3.72-3.72a.75.75 0 010-1.06zM11.377 2.011a.75.75 0 01.612.867l-2.5 14.5a.75.75 0 01-1.478-.255l2.5-14.5a.75.75 0 01.866-.612z" clip-rule="evenodd"/></svg></button>
+            <button class="tile-action-btn" title="Change chart type"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z"/></svg></button>
+            <button class="tile-action-btn" title="More options"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg></button>
+          </div>
+        </div>
+        <div class="tile-body">
+          <svg class="chart-line-svg" viewBox="0 0 600 160" preserveAspectRatio="none">
+            <!-- Grid lines -->
+            <line x1="0" y1="40" x2="600" y2="40" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            <line x1="0" y1="80" x2="600" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            <line x1="0" y1="120" x2="600" y2="120" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            <!-- Area fill -->
+            <path d="M0,130 L50,115 L100,120 L150,100 L200,105 L250,85 L300,90 L350,70 L400,55 L450,45 L500,35 L550,20 L600,15 L600,160 L0,160Z" fill="url(#areaGradient)" opacity="0.3"/>
+            <!-- Line -->
+            <path d="M0,130 L50,115 L100,120 L150,100 L200,105 L250,85 L300,90 L350,70 L400,55 L450,45 L500,35 L550,20 L600,15" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Data points -->
+            <circle cx="450" cy="45" r="4" fill="#2563EB" stroke="#050506" stroke-width="2"/>
+            <circle cx="500" cy="35" r="4" fill="#2563EB" stroke="#050506" stroke-width="2"/>
+            <circle cx="550" cy="20" r="4" fill="#2563EB" stroke="#050506" stroke-width="2"/>
+            <circle cx="600" cy="15" r="4" fill="#2563EB" stroke="#050506" stroke-width="2"/>
+            <defs>
+              <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#2563EB" stop-opacity="0.4"/>
+                <stop offset="100%" stop-color="#2563EB" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="resize-handle"></div>
+      </div>
+
+      <!-- Sales by Region (Donut) -->
+      <div class="tile span-5">
+        <div class="drag-handle"><span></span><span></span><span></span></div>
+        <div class="tile-header">
+          <div class="tile-title-area">
+            <span class="tile-title">Sales by Region</span>
+          </div>
+          <div class="tile-actions">
+            <button class="tile-action-btn" title="Edit SQL"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.28 5.22a.75.75 0 010 1.06L2.56 10l3.72 3.72a.75.75 0 01-1.06 1.06L.97 10.53a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0zm7.44 0a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L17.44 10l-3.72-3.72a.75.75 0 010-1.06zM11.377 2.011a.75.75 0 01.612.867l-2.5 14.5a.75.75 0 01-1.478-.255l2.5-14.5a.75.75 0 01.866-.612z" clip-rule="evenodd"/></svg></button>
+            <button class="tile-action-btn" title="Change chart type"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z"/></svg></button>
+            <button class="tile-action-btn" title="More"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg></button>
+          </div>
+        </div>
+        <div class="tile-body">
+          <div class="chart-donut-container">
+            <div class="donut-ring" style="background: conic-gradient(#2563EB 0% 38%, #22c55e 38% 62%, #a78bfa 62% 78%, #f59e0b 78% 90%, #64748b 90% 100%); padding: 22px; border-radius: 50%;">
+              <div style="width:100%;height:100%;background:var(--bg-elevated);border-radius:50%;position:relative;">
+                <div class="donut-center">
+                  <div class="donut-center-value">$2.47M</div>
+                  <div class="donut-center-label">Total</div>
+                </div>
+              </div>
+            </div>
+            <div class="donut-legend">
+              <div class="donut-legend-item"><span class="donut-legend-dot" style="background:#2563EB"></span>North America<span class="donut-legend-value">38%</span></div>
+              <div class="donut-legend-item"><span class="donut-legend-dot" style="background:#22c55e"></span>Europe<span class="donut-legend-value">24%</span></div>
+              <div class="donut-legend-item"><span class="donut-legend-dot" style="background:#a78bfa"></span>Asia Pacific<span class="donut-legend-value">16%</span></div>
+              <div class="donut-legend-item"><span class="donut-legend-dot" style="background:#f59e0b"></span>Latin America<span class="donut-legend-value">12%</span></div>
+              <div class="donut-legend-item"><span class="donut-legend-dot" style="background:#64748b"></span>Other<span class="donut-legend-value">10%</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="resize-handle"></div>
+      </div>
+
+      <!-- Top Products Table -->
+      <div class="tile span-12">
+        <div class="drag-handle"><span></span><span></span><span></span></div>
+        <div class="tile-header">
+          <div class="tile-title-area">
+            <span class="tile-title">Top Products by Revenue</span>
+            <span class="tile-subtitle">Current quarter</span>
+          </div>
+          <div class="tile-actions">
+            <button class="tile-action-btn" title="Edit SQL"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.28 5.22a.75.75 0 010 1.06L2.56 10l3.72 3.72a.75.75 0 01-1.06 1.06L.97 10.53a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0zm7.44 0a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L17.44 10l-3.72-3.72a.75.75 0 010-1.06zM11.377 2.011a.75.75 0 01.612.867l-2.5 14.5a.75.75 0 01-1.478-.255l2.5-14.5a.75.75 0 01.866-.612z" clip-rule="evenodd"/></svg></button>
+            <button class="tile-action-btn" title="Change chart type"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z"/></svg></button>
+            <button class="tile-action-btn" title="More"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg></button>
+          </div>
+        </div>
+        <div class="tile-body" style="min-height:auto; align-items:stretch;">
+          <div class="chart-table">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:30%">Product</th>
+                  <th style="width:15%">Category</th>
+                  <th style="width:15%; text-align:right">Revenue</th>
+                  <th style="width:12%; text-align:right">Units</th>
+                  <th style="width:12%; text-align:right">Growth</th>
+                  <th style="width:16%; text-align:right">Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td style="font-weight:500; color:var(--text-primary)">Enterprise Suite Pro</td><td>Software</td><td class="num">$487,200</td><td class="num">324</td><td class="num" style="color:#22c55e">+24.3%</td><td class="num">68.2%</td></tr>
+                <tr><td style="font-weight:500; color:var(--text-primary)">Cloud Analytics Platform</td><td>SaaS</td><td class="num">$412,800</td><td class="num">1,247</td><td class="num" style="color:#22c55e">+18.1%</td><td class="num">72.5%</td></tr>
+                <tr><td style="font-weight:500; color:var(--text-primary)">Data Integration Hub</td><td>Infrastructure</td><td class="num">$298,500</td><td class="num">186</td><td class="num" style="color:#22c55e">+12.7%</td><td class="num">61.8%</td></tr>
+                <tr><td style="font-weight:500; color:var(--text-primary)">Security Compliance Kit</td><td>Security</td><td class="num">$245,100</td><td class="num">892</td><td class="num" style="color:#ef4444">-3.2%</td><td class="num">55.4%</td></tr>
+                <tr><td style="font-weight:500; color:var(--text-primary)">API Gateway Service</td><td>Infrastructure</td><td class="num">$198,400</td><td class="num">2,103</td><td class="num" style="color:#22c55e">+31.5%</td><td class="num">78.1%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="resize-handle"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Notes & Commentary ── -->
+  <div class="notes-section">
+    <div class="notes-header">
+      <span class="notes-header-title">Notes & Commentary</span>
+      <span class="notes-header-count">2 notes</span>
+    </div>
+    <div class="note-item">
+      <div class="note-avatar">SK</div>
+      <div class="note-content">
+        <div class="note-meta">
+          <span class="note-author">Sarah Kim</span>
+          <span class="note-time">Today at 2:34 PM</span>
+        </div>
+        <div class="note-text">Revenue trend looks strong going into Q2. The dip in March was expected due to seasonal patterns. Worth monitoring APAC growth — might justify expanding the regional sales team.</div>
+      </div>
+    </div>
+    <div class="note-item">
+      <div class="note-avatar">JM</div>
+      <div class="note-content">
+        <div class="note-meta">
+          <span class="note-author">James Miller</span>
+          <span class="note-time">Today at 11:20 AM</span>
+        </div>
+        <div class="note-text">Customer retention dropped slightly — flagged for next week's review. API Gateway growth is notable; consider featuring in the next quarterly report.</div>
+      </div>
+    </div>
+    <div class="note-input-area">
+      <div class="note-avatar" style="background:linear-gradient(135deg,#22c55e,#4ade80); font-size:10px;">You</div>
+      <div class="note-input">Add a note or @mention a collaborator...</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

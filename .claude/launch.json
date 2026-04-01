@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "QueryCopilot Web (Streamlit)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "C:\\Users\\sid23\\Documents\\Agentic_AI\\files\\QueryCopilot V1\\frontend",
+      "port": 5173
+    }
+  ]
+}

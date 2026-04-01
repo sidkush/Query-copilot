@@ -1,0 +1,255 @@
+<h2>Dashboard Builder Layout</h2>
+<p class="subtitle">Which layout structure feels right for a corporate analytics dashboard?</p>
+
+<div class="cards">
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0a0a1a;border-radius:8px;padding:16px;font-family:monospace;font-size:11px;color:#94a3b8;min-height:320px;">
+        <!-- Top bar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #1e293b;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="color:#818cf8;font-weight:bold;">📊 Q1 Sales Dashboard</span>
+            <span style="color:#475569;font-size:9px;">✏️ Edit title</span>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <span style="background:#1e1e3a;padding:2px 8px;border-radius:4px;color:#818cf8;font-size:9px;">+ Add Tile</span>
+            <span style="background:#1e1e3a;padding:2px 8px;border-radius:4px;color:#818cf8;font-size:9px;">Export PDF</span>
+          </div>
+        </div>
+        <!-- Tabs -->
+        <div style="display:flex;gap:0;margin-bottom:12px;">
+          <span style="background:#1e1e3a;padding:4px 12px;border-radius:6px 6px 0 0;color:#c7d2fe;font-size:10px;border-bottom:2px solid #818cf8;">Overview</span>
+          <span style="padding:4px 12px;color:#475569;font-size:10px;">Revenue</span>
+          <span style="padding:4px 12px;color:#475569;font-size:10px;">Customers</span>
+          <span style="padding:4px 12px;color:#475569;font-size:10px;border:1px dashed #334155;border-radius:6px 6px 0 0;">+ Tab</span>
+        </div>
+        <!-- Section header -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="color:#e2e8f0;font-size:10px;font-weight:bold;">📈 Key Metrics</span>
+          <span style="color:#334155;font-size:9px;">— Section description here</span>
+          <span style="color:#475569;font-size:8px;margin-left:auto;">⋯</span>
+        </div>
+        <!-- Tiles row 1 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+          <div style="background:#111827;border:1px solid #1e293b;border-radius:6px;padding:8px;min-height:60px;">
+            <div style="font-size:8px;color:#6b7280;">Total Revenue</div>
+            <div style="font-size:16px;color:#34d399;font-weight:bold;">$2.4M</div>
+            <div style="font-size:7px;color:#22c55e;">▲ 12.3%</div>
+          </div>
+          <div style="background:#111827;border:1px solid #1e293b;border-radius:6px;padding:8px;min-height:60px;">
+            <div style="font-size:8px;color:#6b7280;">Avg Order Value</div>
+            <div style="font-size:16px;color:#60a5fa;font-weight:bold;">$847</div>
+            <div style="font-size:7px;color:#22c55e;">▲ 5.1%</div>
+          </div>
+          <div style="background:#111827;border:1px solid #1e293b;border-radius:6px;padding:8px;min-height:60px;">
+            <div style="font-size:8px;color:#6b7280;">Customers</div>
+            <div style="font-size:16px;color:#a78bfa;font-weight:bold;">1,284</div>
+            <div style="font-size:7px;color:#ef4444;">▼ 2.1%</div>
+          </div>
+        </div>
+        <!-- Section 2 -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="color:#e2e8f0;font-size:10px;font-weight:bold;">📊 Trends</span>
+        </div>
+        <!-- Chart tiles -->
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;">
+          <div style="background:#111827;border:1px solid #1e293b;border-radius:6px;padding:8px;min-height:80px;">
+            <div style="font-size:8px;color:#6b7280;margin-bottom:4px;">Monthly Revenue Trend</div>
+            <div style="display:flex;align-items:end;gap:3px;height:50px;">
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:40%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:55%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:45%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:70%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:85%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:95%;border-radius:2px;"></div>
+            </div>
+          </div>
+          <div style="background:#111827;border:1px solid #1e293b;border-radius:6px;padding:8px;min-height:80px;">
+            <div style="font-size:8px;color:#6b7280;margin-bottom:4px;">Sales by Region</div>
+            <div style="width:50px;height:50px;border-radius:50%;background:conic-gradient(#818cf8 0% 35%, #34d399 35% 60%, #f59e0b 60% 80%, #ef4444 80% 100%);margin:4px auto;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: Left toolbar + Top tabs</h3>
+      <p>Sidebar for app navigation stays. Tabs run horizontally below dashboard title. Sections stack vertically within each tab. Clean corporate look — similar to Tableau/Looker.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0a0a1a;border-radius:8px;padding:16px;font-family:monospace;font-size:11px;color:#94a3b8;min-height:320px;">
+        <!-- Top bar with everything -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #1e293b;">
+          <span style="color:#818cf8;font-weight:bold;">📊 Q1 Sales Dashboard</span>
+          <div style="display:flex;gap:6px;">
+            <span style="background:#1e1e3a;padding:2px 8px;border-radius:4px;color:#818cf8;font-size:9px;">+ Tile</span>
+            <span style="background:#1e1e3a;padding:2px 8px;border-radius:4px;color:#818cf8;font-size:9px;">+ Section</span>
+            <span style="background:#1e1e3a;padding:2px 8px;border-radius:4px;color:#818cf8;font-size:9px;">Export</span>
+          </div>
+        </div>
+        <!-- Right panel layout -->
+        <div style="display:flex;gap:8px;">
+          <!-- Main content -->
+          <div style="flex:1;">
+            <!-- Tabs as pills -->
+            <div style="display:flex;gap:4px;margin-bottom:10px;">
+              <span style="background:#312e81;padding:3px 10px;border-radius:20px;color:#c7d2fe;font-size:9px;">Overview</span>
+              <span style="background:#1e1e3a;padding:3px 10px;border-radius:20px;color:#64748b;font-size:9px;">Revenue</span>
+              <span style="background:#1e1e3a;padding:3px 10px;border-radius:20px;color:#64748b;font-size:9px;">Customers</span>
+            </div>
+            <!-- KPI row -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px;">
+              <div style="background:#111827;border:1px solid #1e293b;border-radius:4px;padding:6px;text-align:center;">
+                <div style="font-size:7px;color:#6b7280;">Revenue</div>
+                <div style="font-size:14px;color:#34d399;font-weight:bold;">$2.4M</div>
+              </div>
+              <div style="background:#111827;border:1px solid #1e293b;border-radius:4px;padding:6px;text-align:center;">
+                <div style="font-size:7px;color:#6b7280;">Orders</div>
+                <div style="font-size:14px;color:#60a5fa;font-weight:bold;">3,847</div>
+              </div>
+              <div style="background:#111827;border:1px solid #1e293b;border-radius:4px;padding:6px;text-align:center;">
+                <div style="font-size:7px;color:#6b7280;">Customers</div>
+                <div style="font-size:14px;color:#a78bfa;font-weight:bold;">1,284</div>
+              </div>
+            </div>
+            <!-- Charts -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+              <div style="background:#111827;border:1px solid #1e293b;border-radius:4px;padding:6px;min-height:70px;">
+                <div style="font-size:7px;color:#6b7280;">Revenue Trend</div>
+                <div style="display:flex;align-items:end;gap:2px;height:45px;">
+                  <div style="background:#818cf8;width:14%;height:40%;border-radius:2px;"></div>
+                  <div style="background:#818cf8;width:14%;height:55%;border-radius:2px;"></div>
+                  <div style="background:#818cf8;width:14%;height:70%;border-radius:2px;"></div>
+                  <div style="background:#818cf8;width:14%;height:85%;border-radius:2px;"></div>
+                  <div style="background:#818cf8;width:14%;height:95%;border-radius:2px;"></div>
+                </div>
+              </div>
+              <div style="background:#111827;border:1px solid #1e293b;border-radius:4px;padding:6px;min-height:70px;">
+                <div style="font-size:7px;color:#6b7280;">By Region</div>
+                <div style="width:40px;height:40px;border-radius:50%;background:conic-gradient(#818cf8 35%, #34d399 35% 60%, #f59e0b 60% 80%, #ef4444 80%);margin:6px auto;"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Right panel -->
+          <div style="width:120px;background:#0f0f23;border:1px solid #1e293b;border-radius:6px;padding:8px;font-size:8px;">
+            <div style="color:#818cf8;font-weight:bold;margin-bottom:6px;font-size:9px;">Properties</div>
+            <div style="color:#64748b;margin-bottom:3px;">Title</div>
+            <div style="background:#1e1e3a;padding:2px 4px;border-radius:2px;margin-bottom:6px;color:#e2e8f0;">Revenue Trend</div>
+            <div style="color:#64748b;margin-bottom:3px;">Chart Type</div>
+            <div style="background:#1e1e3a;padding:2px 4px;border-radius:2px;margin-bottom:6px;color:#e2e8f0;">Bar ▾</div>
+            <div style="color:#64748b;margin-bottom:3px;">Measures</div>
+            <div style="background:#1e1e3a;padding:2px 4px;border-radius:2px;margin-bottom:6px;color:#e2e8f0;">amount ✕</div>
+            <div style="color:#64748b;margin-bottom:3px;">SQL</div>
+            <div style="background:#0a0a1a;padding:3px;border-radius:2px;color:#6ee7b7;font-size:7px;font-family:monospace;">SELECT...</div>
+            <div style="color:#64748b;margin-top:6px;margin-bottom:3px;">Notes</div>
+            <div style="background:#1e1e3a;padding:2px 4px;border-radius:2px;color:#94a3b8;min-height:30px;font-size:7px;">Add a note...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: Pill tabs + Right properties panel</h3>
+      <p>Tabs as rounded pills. Clicking a tile opens a persistent right-side properties panel for editing (title, chart type, measures, SQL, notes). Panel slides in/out. More IDE-like editing experience.</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0a0a1a;border-radius:8px;padding:16px;font-family:monospace;font-size:11px;color:#94a3b8;min-height:320px;">
+        <!-- Command bar -->
+        <div style="background:#111827;border:1px solid #1e293b;border-radius:8px;padding:6px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+          <span style="color:#475569;">🔍</span>
+          <span style="color:#64748b;font-size:10px;">Ask AI: "Add a revenue chart" or search tiles...</span>
+          <span style="margin-left:auto;color:#475569;font-size:8px;background:#1e1e3a;padding:1px 6px;border-radius:3px;">⌘K</span>
+        </div>
+        <!-- Title + tabs inline -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="color:#818cf8;font-weight:bold;">Q1 Sales Dashboard</span>
+            <span style="color:#334155;">|</span>
+            <span style="color:#c7d2fe;font-size:10px;border-bottom:2px solid #818cf8;padding-bottom:2px;">Overview</span>
+            <span style="color:#64748b;font-size:10px;">Revenue</span>
+            <span style="color:#64748b;font-size:10px;">Customers</span>
+            <span style="color:#334155;font-size:10px;">+</span>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <span style="background:#1e1e3a;padding:2px 6px;border-radius:4px;font-size:8px;">📤 Export</span>
+            <span style="background:#1e1e3a;padding:2px 6px;border-radius:4px;font-size:8px;">⚙️</span>
+          </div>
+        </div>
+        <!-- Section: Key Metrics -->
+        <div style="margin-bottom:6px;display:flex;align-items:center;gap:4px;">
+          <span style="color:#475569;font-size:9px;">▾</span>
+          <span style="color:#e2e8f0;font-size:10px;font-weight:600;">Key Metrics</span>
+          <div style="flex:1;border-bottom:1px solid #1e293b;margin-left:6px;"></div>
+        </div>
+        <!-- KPIs -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;margin-bottom:10px;">
+          <div style="background:linear-gradient(135deg,#111827,#0f172a);border:1px solid #1e293b;border-radius:6px;padding:8px;">
+            <div style="font-size:7px;color:#6b7280;">Revenue</div>
+            <div style="font-size:16px;color:#34d399;font-weight:bold;">$2.4M</div>
+            <div style="font-size:7px;color:#22c55e;">▲ 12.3% vs last Q</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#111827,#0f172a);border:1px solid #1e293b;border-radius:6px;padding:8px;">
+            <div style="font-size:7px;color:#6b7280;">Orders</div>
+            <div style="font-size:16px;color:#60a5fa;font-weight:bold;">3,847</div>
+            <div style="font-size:7px;color:#22c55e;">▲ 8.7%</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#111827,#0f172a);border:1px solid #1e293b;border-radius:6px;padding:8px;">
+            <div style="font-size:7px;color:#6b7280;">Avg Order</div>
+            <div style="font-size:16px;color:#a78bfa;font-weight:bold;">$847</div>
+            <div style="font-size:7px;color:#22c55e;">▲ 5.1%</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#111827,#0f172a);border:1px solid #1e293b;border-radius:6px;padding:8px;">
+            <div style="font-size:7px;color:#6b7280;">Customers</div>
+            <div style="font-size:16px;color:#f59e0b;font-weight:bold;">1,284</div>
+            <div style="font-size:7px;color:#ef4444;">▼ 2.1%</div>
+          </div>
+        </div>
+        <!-- Section: Trends -->
+        <div style="margin-bottom:6px;display:flex;align-items:center;gap:4px;">
+          <span style="color:#475569;font-size:9px;">▾</span>
+          <span style="color:#e2e8f0;font-size:10px;font-weight:600;">Trends</span>
+          <div style="flex:1;border-bottom:1px solid #1e293b;margin-left:6px;"></div>
+        </div>
+        <!-- Chart tiles -->
+        <div style="display:grid;grid-template-columns:3fr 2fr;gap:4px;">
+          <div style="background:#111827;border:1px solid #1e293b;border-radius:6px;padding:8px;min-height:75px;position:relative;">
+            <div style="display:flex;justify-content:space-between;">
+              <div style="font-size:8px;color:#6b7280;">Monthly Revenue</div>
+              <div style="font-size:7px;color:#334155;">✏️ 💬2</div>
+            </div>
+            <div style="display:flex;align-items:end;gap:3px;height:48px;margin-top:4px;">
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:35%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:50%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:42%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:65%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:80%;border-radius:2px;"></div>
+              <div style="background:linear-gradient(to top,#818cf8,#6366f1);width:12%;height:92%;border-radius:2px;"></div>
+            </div>
+          </div>
+          <div style="background:#111827;border:1px solid #1e293b;border-radius:6px;padding:8px;min-height:75px;">
+            <div style="display:flex;justify-content:space-between;">
+              <div style="font-size:8px;color:#6b7280;">Sales by Region</div>
+              <div style="font-size:7px;color:#334155;">✏️</div>
+            </div>
+            <div style="width:48px;height:48px;border-radius:50%;background:conic-gradient(#818cf8 0% 35%, #34d399 35% 60%, #f59e0b 60% 80%, #ef4444 80% 100%);margin:6px auto;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C: Command bar + Inline editing + Collapsible sections</h3>
+      <p>AI command bar at top (Cmd+K) for natural language tile creation. Tabs inline with title. Sections are collapsible with divider lines. Tile editing via click-to-expand overlay (not a separate panel). Comment counts shown on tiles. Most modern, Notion-like feel.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:20px;padding:16px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:8px;">
+  <p style="color:#c7d2fe;font-size:14px;margin:0;"><strong>Note:</strong> All three options include drag-drop, resize, and the full editing capabilities. The difference is in how the UI is organized and how editing is accessed.</p>
+</div>

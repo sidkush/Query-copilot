@@ -1,0 +1,1414 @@
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { api } from "../api";
+import { useStore } from "../store";
+import SQLPreview from "../components/SQLPreview";
+import ResultsTable from "../components/ResultsTable";
+import ResultsChart from "../components/ResultsChart";
+import SchemaExplorer from "../components/SchemaExplorer";
+import ERDiagram from "../components/ERDiagram";
+import UserDropdown from "../components/UserDropdown";
+import GridLayout from "react-grid-layout";
+import "react-grid-layout/css/styles.css";
+import "react-resizable/css/styles.css";
+
+// ── Message timestamp formatting ──
+function formatMessageTime(ts) {
+  if (!ts) return "";
+  const diff = Date.now() - ts;
+  const secs = Math.floor(diff / 1000);
+  if (secs < 5) return "Just now";
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// ── Toast notification component ──
+function ToastContainer({ toasts, onDismiss }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
+      <AnimatePresence>
+        {toasts.map((t) => (
+          <motion.div
+            key={t.id}
+            initial={{ opacity: 0, x: 80 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 80 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="glass rounded-lg px-4 py-2.5 text-sm text-white shadow-lg pointer-events-auto flex items-center gap-2"
+            role="status"
+          >
+            <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {t.message}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+const DASHBOARD_RE = /\b(create|build|make|generate|design|set\s*up)\b.{0,30}\bdashboard\b/i;
+
+const DB_ICONS = {
+  postgresql: <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg>,
+  mysql: <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg>,
+  snowflake: <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg>,
+  bigquery: <svg className="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg>,
+};
+
+const DB_LABELS = {
+  postgresql: { name: "PostgreSQL" },
+  mysql: { name: "MySQL" },
+  snowflake: { name: "Snowflake" },
+  bigquery: { name: "BigQuery" },
+};
+
+function relativeTime(dateStr) {
+  if (!dateStr) return "";
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// ── Inline Dashboard Component (editable, draggable, resizable) ──
+function InlineDashboard({ tiles: initialTiles, layout: initialLayout, question, dbLabel, onSaveToPersistent }) {
+  const [expanded, setExpanded] = useState(true);
+  const [tiles, setTiles] = useState(initialTiles);
+  const [layout, setLayout] = useState(initialLayout);
+  const [editingTile, setEditingTile] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [saveName, setSaveName] = useState("");
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const containerRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(900);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setContainerWidth(e.contentRect.width);
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const onLayoutChange = useCallback((newLayout) => {
+    setLayout(newLayout);
+  }, []);
+
+  const removeTile = useCallback((idx) => {
+    setTiles((prev) => prev.filter((_, i) => i !== idx));
+    setLayout((prev) => prev.filter((l) => l.i !== `tile-${idx}`));
+  }, []);
+
+  const startEditTile = useCallback((idx) => {
+    setEditingTile(idx);
+    setEditTitle(tiles[idx]?.title || "");
+  }, [tiles]);
+
+  const saveEditTile = useCallback(() => {
+    if (editingTile === null) return;
+    setTiles((prev) => prev.map((t, i) => i === editingTile ? { ...t, title: editTitle } : t));
+    setEditingTile(null);
+  }, [editingTile, editTitle]);
+
+  const handleSave = async () => {
+    if (!saveName.trim() || saving) return;
+    setSaving(true);
+    try {
+      await onSaveToPersistent(saveName.trim(), tiles, layout);
+      setShowSaveModal(false);
+      setSaveName("");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Extract a dashboard name from the question
+  const dashName = useMemo(() => {
+    const m = question.match(/(?:create|build|make|generate|design)\s+(?:a\s+|me\s+a\s+)?(?:professional\s+)?(.+?)\s+dashboard/i);
+    return m ? m[1].trim().replace(/^(a|an|the|my)\s+/i, "") : "Analytics";
+  }, [question]);
+
+  if (!expanded) {
+    return (
+      <div className="bg-slate-900/60 border border-slate-800 hover:border-blue-500/20 rounded-xl px-4 py-3 flex items-center justify-between transition-colors duration-200">
+        <div className="flex items-center gap-3">
+          <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z" />
+          </svg>
+          <span className="text-white font-semibold">{dashName} Dashboard</span>
+          <span className="text-xs text-slate-500 tabular-nums">{tiles.length} tiles</span>
+        </div>
+        <button onClick={() => setExpanded(true)} className="text-blue-400 hover:text-blue-300 text-sm font-medium cursor-pointer transition-colors duration-200">Expand</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 bg-slate-900/80 border-b border-slate-800">
+        <div className="flex items-center gap-3">
+          <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z" />
+          </svg>
+          <h3 className="text-white font-semibold text-lg">{dashName} Dashboard</h3>
+          {dbLabel && <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">{dbLabel}</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setSaveName(dashName + " Dashboard"); setShowSaveModal(true); }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+            </svg>
+            Save
+          </button>
+          <button onClick={() => setExpanded(false)} className="text-slate-500 hover:text-slate-300 cursor-pointer p-1">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div ref={containerRef} className="p-3" style={{ minHeight: tiles.length > 0 ? Math.ceil(tiles.length / 2) * 320 + 40 : 200 }}>
+        {containerWidth > 0 && tiles.length > 0 && (
+          <GridLayout
+            className="layout"
+            layout={layout}
+            cols={12}
+            rowHeight={70}
+            width={containerWidth - 24}
+            onLayoutChange={onLayoutChange}
+            draggableHandle=".dash-tile-handle"
+            margin={[12, 12]}
+            isResizable={true}
+            isDraggable={true}
+          >
+            {tiles.map((tile, idx) => (
+              <div key={`tile-${idx}`} className="bg-slate-900/60 border border-slate-800 hover:border-blue-500/15 rounded-xl overflow-hidden flex flex-col transition-colors duration-200">
+                {/* Tile header */}
+                <div className="dash-tile-handle flex items-center justify-between px-3 py-2.5 bg-slate-900/80 cursor-grab border-b border-slate-800">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="w-1 h-4 rounded-full bg-blue-500 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-white truncate">{tile.title}</span>
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    <button onClick={() => startEditTile(idx)} className="text-slate-500 hover:text-blue-400 transition-colors duration-200 cursor-pointer p-1">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                      </svg>
+                    </button>
+                    <button onClick={() => removeTile(idx)} className="text-slate-500 hover:text-red-400 transition-colors duration-200 cursor-pointer p-1" title="Remove tile">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                {/* Chart content */}
+                <div className="flex-1 min-h-0 p-2">
+                  {tile.columns && tile.rows && tile.rows.length > 0 ? (
+                    <ResultsChart columns={tile.columns} rows={tile.rows} embedded={true} />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-slate-600 text-xs">No data</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </GridLayout>
+        )}
+      </div>
+
+      {/* Edit tile modal */}
+      {editingTile !== null && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setEditingTile(null)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-96 shadow-2xl fade-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+              </svg>
+              <h4 className="text-white font-semibold">Edit Tile</h4>
+            </div>
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+              placeholder="Tile title"
+            />
+            <div className="flex justify-end gap-2.5 mt-5">
+              <button onClick={() => setEditingTile(null)} className="px-4 py-2 text-slate-400 text-sm cursor-pointer hover:text-white transition-colors duration-200">Cancel</button>
+              <button onClick={saveEditTile} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg cursor-pointer transition-colors duration-200">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save dashboard modal */}
+      {showSaveModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowSaveModal(false)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-96 shadow-2xl fade-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+              </svg>
+              <h4 className="text-white font-semibold">Save Dashboard</h4>
+            </div>
+            <input
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+              placeholder="Dashboard name"
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            />
+            <div className="flex justify-end gap-2.5 mt-5">
+              <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 text-slate-400 text-sm cursor-pointer hover:text-white transition-colors duration-200">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg cursor-pointer transition-colors duration-200 disabled:opacity-50">
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Chat() {
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [executing, setExecuting] = useState(false);
+  const [generatingDashboard, setGeneratingDashboard] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [showSchema, setShowSchema] = useState(false);
+  const [showER, setShowER] = useState(false);
+  const [erTables, setErTables] = useState([]);
+  const [erSavedPositions, setErSavedPositions] = useState(null);
+  const erSaveTimerRef = useRef(null);
+  const [erPanelWidth, setErPanelWidth] = useState(420);
+  const [isResizing, setIsResizing] = useState(false);
+  const [hoveredChatId, setHoveredChatId] = useState(null);
+  const [historySearch, setHistorySearch] = useState("");
+  // Dashboard integration
+  const [dashboards, setDashboards] = useState([]);
+  const [showDashboardPicker, setShowDashboardPicker] = useState(false);
+  const [pendingTileData, setPendingTileData] = useState(null);
+  const [addingTile, setAddingTile] = useState(false);
+  const [newDashboardName, setNewDashboardName] = useState("");
+  // Toast notifications
+  const [toasts, setToasts] = useState([]);
+  const toastIdRef = useRef(0);
+  const showToast = useCallback((message, duration = 2000) => {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev, { id, message, duration }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), duration);
+  }, []);
+  // Timestamp tick — re-render timestamps every 10s
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setTick((t) => t + 1), 10000);
+    return () => clearInterval(iv);
+  }, []);
+  const messages = useStore((s) => s.messages);
+  const _addMessage = useStore((s) => s.addMessage);
+  const addMessage = useCallback((msg) => _addMessage({ timestamp: Date.now(), ...msg }), [_addMessage]);
+  const clearMessages = useStore((s) => s.clearMessages);
+  const setMessages = useStore((s) => s.setMessages);
+  const user = useStore((s) => s.user);
+  const connections = useStore((s) => s.connections);
+  const addConnection = useStore((s) => s.addConnection);
+  const removeConnection = useStore((s) => s.removeConnection);
+  const activeConnId = useStore((s) => s.activeConnId);
+  const setActiveConnId = useStore((s) => s.setActiveConnId);
+  const chats = useStore((s) => s.chats);
+  const setChats = useStore((s) => s.setChats);
+  const activeChatId = useStore((s) => s.activeChatId);
+  const setActiveChatId = useStore((s) => s.setActiveChatId);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const bottomRef = useRef(null);
+
+  // Sync connections from the backend on mount — track live vs saved
+  const setConnections = useStore((s) => s.setConnections);
+  const [liveConnIds, setLiveConnIds] = useState(new Set());
+  const [savedDbs, setSavedDbs] = useState([]); // saved configs for badge display
+  useEffect(() => {
+    // Fetch live connections
+    const livePromise = api.listConnections()
+      .then((data) => {
+        const live = (data.connections || []).map((c) => ({
+          conn_id: c.conn_id,
+          db_type: c.db_type,
+          database_name: c.database_name,
+        }));
+        setLiveConnIds(new Set(live.map((c) => c.conn_id)));
+        if (live.length > 0) {
+          setConnections(live);
+          const liveIds = live.map((c) => c.conn_id);
+          if (activeConnId && !liveIds.includes(activeConnId)) {
+            setActiveConnId(live[0].conn_id);
+          } else if (!activeConnId) {
+            setActiveConnId(live[0].conn_id);
+          }
+        } else {
+          setConnections([]);
+        }
+        return live;
+      })
+      .catch(() => []);
+
+    // Fetch saved configs for showing disconnected badges
+    api.getSavedConnections()
+      .then((data) => setSavedDbs(data.configs || data.connections || []))
+      .catch((e) => console.error("appendMessage failed:", e));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch chat list on mount
+  useEffect(() => {
+    api.listChats()
+      .then((data) => setChats(data.chats || []))
+      .catch((e) => console.error("appendMessage failed:", e));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load tables and saved positions for ER diagram when panel opens
+  useEffect(() => {
+    if (showER && erTables.length === 0) {
+      api.getTables(activeConnId)
+        .then((data) => {
+          setErTables(data.tables || []);
+          if (data.conn_id) {
+            api.getERPositions(data.conn_id)
+              .then((res) => setErSavedPositions(res.positions || null))
+              .catch(() => {});
+          }
+        })
+        .catch((e) => console.error("loadERTables failed:", e));
+    }
+  }, [showER, erTables.length, activeConnId]);
+
+  const handleERPositionsChange = useCallback((positions) => {
+    if (erSaveTimerRef.current) clearTimeout(erSaveTimerRef.current);
+    erSaveTimerRef.current = setTimeout(() => {
+      api.saveERPositions(positions, activeConnId).catch(() => {});
+    }, 500);
+  }, [activeConnId]);
+
+  // Accept prefilled question from SchemaView navigation
+  useEffect(() => {
+    if (location.state?.prefill) {
+      setInput(location.state.prefill);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // ER panel resize
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const onMove = (e) => {
+      const newWidth = window.innerWidth - e.clientX;
+      setErPanelWidth(Math.max(280, Math.min(800, newWidth)));
+    };
+    const onUp = () => setIsResizing(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [isResizing]);
+
+  // Resolve what conn_id to send to the API
+  const resolvedConnId = activeConnId
+    || (connections.length > 0 ? connections[0].conn_id : null);
+
+  // Create chat on first message, then append messages incrementally
+  const ensureChatId = useRef(activeChatId);
+  useEffect(() => {
+    ensureChatId.current = activeChatId;
+  }, [activeChatId]);
+
+  const handleAsk = async (e) => {
+    e.preventDefault();
+    if (!input.trim() || loading || generatingDashboard) return;
+
+    const question = input.trim();
+    setInput("");
+    addMessage({ type: "user", content: question });
+
+    // Detect dashboard creation requests
+    if (DASHBOARD_RE.test(question)) {
+      return handleDashboardRequest(question);
+    }
+
+    setLoading(true);
+
+    // If no active chat, create one
+    let chatId = ensureChatId.current;
+    if (!chatId) {
+      try {
+        const activeConn = connections.find((c) => c.conn_id === resolvedConnId);
+        const chatData = await api.createChat(
+          question.slice(0, 80),
+          resolvedConnId,
+          activeConn?.db_type,
+          activeConn?.database_name,
+        );
+        chatId = chatData.chat_id;
+        setActiveChatId(chatId);
+        // Refresh chat list
+        api.listChats().then((d) => setChats(d.chats || [])).catch((e) => console.error("appendMessage failed:", e));
+      } catch {
+        // Non-critical: continue without persistence
+      }
+    }
+
+    // Append user message in background
+    if (chatId) {
+      api.appendMessage(chatId, { type: "user", content: question }).catch((e) => console.error("appendMessage failed:", e));
+    }
+
+    try {
+      const result = await api.generateSQL(question, resolvedConnId);
+      if (result.error) {
+        const errMsg = { type: "error", content: result.error };
+        addMessage(errMsg);
+        if (chatId) api.appendMessage(chatId, errMsg).catch((e) => console.error("appendMessage failed:", e));
+      } else {
+        const sqlMsg = {
+          type: "sql_preview",
+          question,
+          sql: result.formatted_sql || result.sql,
+          rawSQL: result.sql,
+          model: result.model_used,
+          latency: result.latency_ms,
+          connId: result.conn_id,
+          dbLabel: result.database_name,
+        };
+        addMessage(sqlMsg);
+        if (chatId) api.appendMessage(chatId, sqlMsg).catch((e) => console.error("appendMessage failed:", e));
+      }
+    } catch (err) {
+      const errMsg = { type: "error", content: err.message };
+      addMessage(errMsg);
+      if (chatId) api.appendMessage(chatId, errMsg).catch((e) => console.error("appendMessage failed:", e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Auto-dashboard generation ──
+  const handleDashboardRequest = async (question) => {
+    setGeneratingDashboard(true);
+    addMessage({ type: "system", content: "Building your dashboard... Analyzing schema and generating queries." });
+
+    try {
+      const result = await api.generateDashboard(question, resolvedConnId);
+      const tiles = result.tiles || [];
+      if (tiles.length === 0) {
+        addMessage({ type: "error", content: "Could not generate dashboard tiles from the available data." });
+        return;
+      }
+
+      // Build layout: 2 columns (each 6 wide), 4 rows tall
+      const layout = tiles.map((t, i) => ({
+        i: `tile-${i}`,
+        x: (i % 2) * 6,
+        y: Math.floor(i / 2) * 4,
+        w: 6,
+        h: 4,
+        minW: 3,
+        minH: 3,
+      }));
+
+      const dashMsg = {
+        type: "dashboard",
+        question,
+        tiles,
+        layout,
+        dbLabel: result.database_name,
+        connId: result.conn_id,
+      };
+      addMessage(dashMsg);
+    } catch (err) {
+      addMessage({ type: "error", content: "Dashboard generation failed: " + (err.message || "Unknown error") });
+    } finally {
+      setGeneratingDashboard(false);
+    }
+  };
+
+  const handleApprove = async (sql, question, connId) => {
+    setExecuting(true);
+    try {
+      const cid = connId || resolvedConnId;
+      const result = await api.executeSQL(sql, question, cid);
+      if (result.error) {
+        const errMsg = { type: "error", content: result.error };
+        addMessage(errMsg);
+        if (ensureChatId.current) api.appendMessage(ensureChatId.current, errMsg).catch((e) => console.error("appendMessage failed:", e));
+      } else {
+        const resMsg = {
+          type: "result",
+          question,
+          sql,
+          summary: result.summary,
+          columns: result.columns || [],
+          rows: result.rows || [],
+          rowCount: result.row_count,
+          latency: result.latency_ms,
+          dbLabel: result.database_name,
+          connId: result.conn_id,
+          dailyUsage: result.daily_usage || null,
+        };
+        addMessage(resMsg);
+        if (ensureChatId.current) api.appendMessage(ensureChatId.current, resMsg).catch((e) => console.error("appendMessage failed:", e));
+      }
+    } catch (err) {
+      const errMsg = { type: "error", content: err.message };
+      addMessage(errMsg);
+      if (ensureChatId.current) api.appendMessage(ensureChatId.current, errMsg).catch((e) => console.error("appendMessage failed:", e));
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  // ── Dashboard integration ──
+  useEffect(() => {
+    api.getDashboards().then((res) => setDashboards(res.dashboards || [])).catch(() => {});
+  }, []);
+
+  const handleAddToDashboard = useCallback((tileData) => {
+    setPendingTileData(tileData);
+    setShowDashboardPicker(true);
+    // Refresh dashboards list
+    api.getDashboards().then((res) => setDashboards(res.dashboards || [])).catch(() => {});
+  }, []);
+
+  const handlePickDashboard = useCallback(async (dashboardId) => {
+    if (!pendingTileData || addingTile) return;
+    setAddingTile(true);
+    try {
+      await api.addDashboardTile(dashboardId, {
+        title: pendingTileData.question || "Query Result",
+        chartType: pendingTileData.chartType,
+        columns: pendingTileData.columns,
+        rows: pendingTileData.rows,
+        selectedMeasure: pendingTileData.selectedMeasure,
+        activeMeasures: pendingTileData.activeMeasures,
+        palette: pendingTileData.palette,
+        question: pendingTileData.question,
+        sql: pendingTileData.sql,
+      });
+      setShowDashboardPicker(false);
+      setPendingTileData(null);
+      addMessage({ type: "system", text: "Chart added to dashboard!" });
+    } catch (err) {
+      addMessage({ type: "system", text: "Failed to add to dashboard: " + err.message });
+    } finally {
+      setAddingTile(false);
+    }
+  }, [pendingTileData, addingTile, addMessage]);
+
+  const handleCreateAndAdd = useCallback(async () => {
+    if (!newDashboardName.trim() || !pendingTileData || addingTile) return;
+    setAddingTile(true);
+    try {
+      const d = await api.createDashboard(newDashboardName.trim());
+      await api.addDashboardTile(d.id, {
+        title: pendingTileData.question || "Query Result",
+        chartType: pendingTileData.chartType,
+        columns: pendingTileData.columns,
+        rows: pendingTileData.rows,
+        selectedMeasure: pendingTileData.selectedMeasure,
+        activeMeasures: pendingTileData.activeMeasures,
+        palette: pendingTileData.palette,
+        question: pendingTileData.question,
+        sql: pendingTileData.sql,
+      });
+      setDashboards((prev) => [...prev, { id: d.id, name: d.name, tile_count: 1 }]);
+      setShowDashboardPicker(false);
+      setPendingTileData(null);
+      setNewDashboardName("");
+      addMessage({ type: "system", text: `Chart added to "${d.name}"!` });
+    } catch (err) {
+      addMessage({ type: "system", text: "Failed: " + err.message });
+    } finally {
+      setAddingTile(false);
+    }
+  }, [newDashboardName, pendingTileData, addingTile, addMessage]);
+
+  const handleFeedback = async (question, sql, isCorrect) => {
+    try {
+      await api.sendFeedback(question, sql, isCorrect);
+      addMessage({
+        type: "system",
+        content: isCorrect
+          ? "Thanks! This query has been saved as a training example."
+          : "Thanks for the feedback. We'll improve.",
+      });
+    } catch {}
+  };
+
+  // Chat history operations
+  const handleNewChat = () => {
+    setActiveChatId(null);
+    clearMessages();
+    setShowSidebar(false);
+  };
+
+  const handleLoadChat = async (chatId) => {
+    try {
+      const data = await api.loadChat(chatId);
+      setActiveChatId(chatId);
+      // Normalize messages: handle legacy format where `role` was used instead of `type`
+      const normalized = (data.messages || []).map((msg) => {
+        if (msg.type) return msg; // Already has type — no conversion needed
+        // Legacy messages with `role` field: map to frontend's type format
+        if (msg.role === "user") return { type: "user", content: msg.content };
+        if (msg.role === "assistant") return { type: "system", content: msg.content };
+        if (msg.role === "error") return { type: "error", content: msg.content };
+        return { type: "system", content: msg.content || "" };
+      });
+      setMessages(normalized);
+      setShowSidebar(false);
+    } catch (err) {
+      console.error("Failed to load chat:", err);
+    }
+  };
+
+  const handleDeleteChat = async (chatId) => {
+    try {
+      await api.deleteChat(chatId);
+      setChats(chats.filter((c) => c.chat_id !== chatId));
+      if (activeChatId === chatId) {
+        setActiveChatId(null);
+        clearMessages();
+      }
+    } catch {}
+  };
+
+  return (
+    <div className={`flex flex-1 h-full bg-[#0B1120] ${isResizing ? "select-none" : ""}`}>
+      {/* Chat history sidebar */}
+      <AnimatePresence>
+      {showSidebar && (
+        <motion.div
+          initial={{ x: -288, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: -288, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="w-72 bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col overflow-hidden">
+          <div className="p-3 border-b border-slate-800 space-y-2 flex-shrink-0">
+            <button
+              onClick={handleNewChat}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all duration-300 cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Chat
+            </button>
+            <div className="relative">
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+              <input
+                type="text"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Search chats..."
+                className="glass-input w-full rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition-all duration-200"
+              />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {chats.length === 0 && (
+              <p className="text-xs text-slate-600 text-center mt-4">No chat history yet</p>
+            )}
+            {chats.filter((chat) => {
+              if (!historySearch.trim()) return true;
+              const term = historySearch.toLowerCase();
+              const title = (chat.title || "Untitled").toLowerCase();
+              return title.includes(term);
+            }).length === 0 && chats.length > 0 && historySearch.trim() && (
+              <p className="text-xs text-slate-600 text-center mt-4">No matching chats</p>
+            )}
+            {chats.filter((chat) => {
+              if (!historySearch.trim()) return true;
+              const term = historySearch.toLowerCase();
+              const title = (chat.title || "Untitled").toLowerCase();
+              return title.includes(term);
+            }).map((chat) => {
+              const isActive = activeChatId === chat.chat_id;
+              const isHovered = hoveredChatId === chat.chat_id;
+              const dbInfo = DB_LABELS[chat.db_type] || null;
+              return (
+                <motion.div
+                  key={chat.chat_id}
+                  whileHover={{ x: 4 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className={`relative flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+                    isActive
+                      ? "bg-blue-600/10 border border-blue-500/20 shadow-[inset_3px_0_0_#2563EB]"
+                      : "hover:bg-slate-800/40 border border-transparent"
+                  }`}
+                  onClick={() => handleLoadChat(chat.chat_id)}
+                  onMouseEnter={() => setHoveredChatId(chat.chat_id)}
+                  onMouseLeave={() => setHoveredChatId(null)}
+                >
+                  {dbInfo && (
+                    <span className="text-sm flex-shrink-0">{DB_ICONS[chat.db_type]}</span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-slate-300 truncate">{chat.title || "Untitled"}</p>
+                    <p className="text-xs text-slate-600">{relativeTime(chat.updated_at)}</p>
+                  </div>
+                  {isHovered && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteChat(chat.chat_id);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-700 text-slate-600 hover:text-red-400 transition cursor-pointer"
+                      aria-label="Delete chat"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+      </AnimatePresence>
+
+      {/* Schema sidebar (toggled separately) */}
+      <AnimatePresence>
+      {showSchema && !showSidebar && (
+        <motion.div
+          initial={{ x: -288, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: -288, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="w-72 bg-slate-900 border-r border-slate-800 flex-shrink-0"
+        >
+          <SchemaExplorer />
+        </motion.div>
+      )}
+      </AnimatePresence>
+
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="flex items-center justify-between px-6 py-3 glass-navbar sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                if (showSidebar) {
+                  setShowSidebar(false);
+                } else {
+                  setShowSidebar(true);
+                  setShowSchema(false);
+                }
+              }}
+              className={`p-2 rounded-lg hover:bg-white/10 transition-all duration-200 cursor-pointer ${showSidebar ? "bg-white/10" : ""}`}
+              title="Toggle chat history"
+              aria-label="Toggle chat history"
+            >
+              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M4 12h16M4 17h10" />
+              </svg>
+            </button>
+
+            {/* Schema toggle */}
+            <button
+              onClick={() => {
+                if (showSchema) {
+                  setShowSchema(false);
+                } else {
+                  setShowSchema(true);
+                  setShowSidebar(false);
+                }
+              }}
+              className={`p-2 rounded-lg hover:bg-white/10 transition-all duration-200 cursor-pointer ${showSchema ? "bg-white/10" : ""}`}
+              title="Toggle schema explorer"
+              aria-label="Toggle schema explorer"
+            >
+              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v18" />
+              </svg>
+            </button>
+
+            <h1 className="text-lg font-semibold text-white">Query<span className="text-blue-400">Copilot</span></h1>
+
+            {/* DB connection status badges — clickable toggle connect/disconnect */}
+            {(() => {
+              const badges = [];
+              const shownDbs = new Set();
+
+              // Live connections — green, click to disconnect
+              connections.forEach((conn) => {
+                if (liveConnIds.has(conn.conn_id)) {
+                  const key = `${conn.db_type}:${conn.database_name}`;
+                  shownDbs.add(key);
+                  // Find matching saved config for potential reconnect later
+                  const savedMatch = savedDbs.find(
+                    (s) => s.db_type === conn.db_type &&
+                      (s.database === conn.database_name || s.label === conn.database_name ||
+                       s.project === conn.database_name)
+                  );
+                  badges.push({
+                    ...conn,
+                    isLive: true,
+                    badgeKey: conn.conn_id,
+                    savedId: savedMatch?.id || null,
+                  });
+                }
+              });
+
+              // Saved configs without a live connection — red, click to reconnect
+              savedDbs.forEach((saved) => {
+                const dbName = saved.database || saved.project || saved.account || "unknown";
+                const key = `${saved.db_type}:${dbName}`;
+                if (!shownDbs.has(key)) {
+                  shownDbs.add(key);
+                  badges.push({
+                    db_type: saved.db_type,
+                    database_name: saved.label || dbName,
+                    isLive: false,
+                    badgeKey: `saved-${saved.id}`,
+                    savedId: saved.id,
+                  });
+                }
+              });
+
+              return badges.map((badge) => {
+                const info = DB_LABELS[badge.db_type] || { name: badge.db_type, icon: "" };
+                return (
+                  <button
+                    key={badge.badgeKey}
+                    onClick={async () => {
+                      if (badge.isLive) {
+                        // Disconnect
+                        try {
+                          await api.disconnectDB(badge.conn_id);
+                          removeConnection(badge.conn_id);
+                          setLiveConnIds((prev) => {
+                            const next = new Set(prev);
+                            next.delete(badge.conn_id);
+                            return next;
+                          });
+                        } catch {}
+                      } else if (badge.savedId) {
+                        // Reconnect from saved config
+                        try {
+                          const result = await api.reconnect(badge.savedId);
+                          addConnection({
+                            conn_id: result.conn_id,
+                            db_type: badge.db_type,
+                            database_name: result.database_name || badge.database_name,
+                          });
+                          setLiveConnIds((prev) => new Set([...prev, result.conn_id]));
+                        } catch {}
+                      }
+                    }}
+                    className={`group flex items-center gap-2 ml-2 px-3 py-1.5 rounded-full border transition-all duration-200 cursor-pointer ${
+                      badge.isLive
+                        ? "bg-slate-800 border-slate-700 hover:bg-red-900/20 hover:border-red-800/50"
+                        : "bg-red-900/10 border-red-800/50 hover:bg-green-900/20 hover:border-green-800/50"
+                    }`}
+                    title={badge.isLive ? "Click to disconnect" : "Click to reconnect"}
+                  >
+                    <span className="relative flex h-2.5 w-2.5">
+                      {badge.isLive ? (
+                        <>
+                          {/* Green dot, turns red on hover */}
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 group-hover:bg-red-400" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 group-hover:bg-red-500 transition-colors" />
+                        </>
+                      ) : (
+                        <>
+                          {/* Red dot, turns green on hover */}
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 group-hover:bg-green-400" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 group-hover:bg-green-500 transition-colors" />
+                        </>
+                      )}
+                    </span>
+                    <span className={`text-xs font-medium transition-colors ${
+                      badge.isLive
+                        ? "text-slate-300 group-hover:text-red-400"
+                        : "text-red-400 group-hover:text-green-400"
+                    }`}>
+                      {DB_ICONS[badge.db_type]} {badge.database_name}
+                    </span>
+                    {/* Hover label hint */}
+                    <span className={`text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity ${
+                      badge.isLive ? "text-red-400" : "text-green-400"
+                    }`}>
+                      {badge.isLive ? "✕" : "⟳"}
+                    </span>
+                  </button>
+                );
+              });
+            })()}
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-blue-500 transition cursor-pointer text-sm font-bold"
+              title="Add another database"
+              aria-label="Add another database"
+            >
+              +
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* ER Diagram toggle button */}
+            <button
+              onClick={() => setShowER(!showER)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition cursor-pointer ${
+                showER
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
+              }`}
+              title="Toggle ER Diagram"
+              aria-label="Toggle ER Diagram"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 7h4M7 10v5M17 10v9" />
+              </svg>
+              ER Diagram
+            </button>
+            <button
+              onClick={() => { clearMessages(); setActiveChatId(null); }}
+              className="text-xs text-slate-500 hover:text-slate-300 transition cursor-pointer"
+            >
+              Clear chat
+            </button>
+            <UserDropdown />
+          </div>
+        </header>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <h2 className="text-2xl font-bold text-white mb-2">Ask your data anything</h2>
+              <p className="text-slate-500 max-w-md">
+                Type a question in plain English. QueryCopilot will generate SQL,
+                show it for your review, and run it on approval.
+              </p>
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full">
+                {[
+                  "How many orders were placed last month?",
+                  "What are the top 5 products by revenue?",
+                  "Show me daily signups for the past week",
+                  "Average order value by customer segment",
+                ].map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => { setInput(q); }}
+                    className="text-left text-sm text-slate-400 bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800 hover:border-blue-500/20 rounded-lg px-4 py-3 transition-all duration-200 cursor-pointer hover:-translate-y-0.5"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((msg, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="max-w-4xl mx-auto"
+            >
+              {msg.type === "user" && (
+                <div className="flex flex-col items-end">
+                  <div className="bg-blue-600/90 text-white rounded-xl px-4 py-2.5 max-w-xl">
+                    {msg.content}
+                  </div>
+                  {msg.timestamp && <span className="text-[10px] text-slate-600 mt-1 mr-1">{formatMessageTime(msg.timestamp)}</span>}
+                </div>
+              )}
+
+              {msg.type === "sql_preview" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="space-y-2"
+                >
+                  <div className="text-xs text-slate-500">
+                    {msg.dbLabel && <span className="text-blue-400 font-medium">[{msg.dbLabel}] </span>}
+                    Generated with {msg.model} in {Math.round(msg.latency)}ms
+                  </div>
+                  <SQLPreview
+                    sql={msg.sql}
+                    onApprove={(sql) => handleApprove(sql, msg.question, msg.connId)}
+                    onReject={() => addMessage({ type: "system", content: "Query rejected." })}
+                    loading={executing}
+                    onCopySQL={() => showToast("Copied to clipboard!")}
+                  />
+                  {msg.timestamp && <span className="text-[10px] text-slate-600">{formatMessageTime(msg.timestamp)}</span>}
+                </motion.div>
+              )}
+
+              {msg.type === "result" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="space-y-3"
+                >
+                  {msg.summary && (
+                    <div className="glass-card rounded-xl px-4 py-3">
+                      {msg.dbLabel && <p className="text-xs text-blue-400 font-medium mb-1">[{msg.dbLabel}]</p>}
+                      <p className="text-gray-200">{msg.summary}</p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        {msg.rowCount} rows in {Math.round(msg.latency)}ms
+                      </p>
+                    </div>
+                  )}
+                  {msg.rows.length > 0 && (
+                    <>
+                      <ResultsChart
+                        columns={msg.columns}
+                        rows={msg.rows}
+                        onAddToDashboard={handleAddToDashboard}
+                        question={msg.question}
+                        sql={msg.sql}
+                      />
+                      <ResultsTable columns={msg.columns} rows={msg.rows} />
+                    </>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Was this correct?</span>
+                    <button
+                      onClick={() => handleFeedback(msg.question, msg.sql, true)}
+                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-emerald-900/30 text-slate-400 hover:text-green-400 transition-all duration-200 cursor-pointer"
+                      aria-label="Query result was correct"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => handleFeedback(msg.question, msg.sql, false)}
+                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-all duration-200 cursor-pointer"
+                      aria-label="Query result was incorrect"
+                    >
+                      No
+                    </button>
+                  </div>
+                  {msg.timestamp && <span className="text-[10px] text-slate-600">{formatMessageTime(msg.timestamp)}</span>}
+                  {/* Daily usage remaining */}
+                  {msg.dailyUsage && !msg.dailyUsage.unlimited && (
+                    <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${msg.dailyUsage.remaining <= 2 ? "bg-red-900/20 border border-red-800/50" : msg.dailyUsage.remaining <= 5 ? "bg-amber-900/20 border border-amber-800/50" : "bg-slate-800/50 border border-slate-700/50"}`}>
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+                      </svg>
+                      <span className={msg.dailyUsage.remaining <= 2 ? "text-red-400" : msg.dailyUsage.remaining <= 5 ? "text-amber-400" : "text-slate-400"}>
+                        {msg.dailyUsage.remaining === 0
+                          ? `Daily limit reached (${msg.dailyUsage.daily_limit}/${msg.dailyUsage.daily_limit}). Upgrade for more.`
+                          : `${msg.dailyUsage.remaining} of ${msg.dailyUsage.daily_limit} queries remaining today`}
+                        <span className="text-slate-600 ml-1">({msg.dailyUsage.plan} plan)</span>
+                      </span>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {msg.type === "dashboard" && (
+                <InlineDashboard
+                  tiles={msg.tiles}
+                  layout={msg.layout}
+                  question={msg.question}
+                  dbLabel={msg.dbLabel}
+                  onSaveToPersistent={async (name, tiles, layout) => {
+                    try {
+                      const d = await api.createDashboard(name);
+                      for (const tile of tiles) {
+                        await api.addDashboardTile(d.id, {
+                          title: tile.title,
+                          chartType: tile.chartType || "bar",
+                          columns: tile.columns,
+                          rows: tile.rows,
+                          question: tile.question,
+                          sql: tile.sql,
+                        });
+                      }
+                      setDashboards((prev) => [...prev, { id: d.id, name: d.name, tile_count: tiles.length }]);
+                      addMessage({ type: "system", content: `Dashboard "${name}" saved! View it in Analytics.` });
+                    } catch (err) {
+                      addMessage({ type: "error", content: "Failed to save dashboard: " + err.message });
+                    }
+                  }}
+                />
+              )}
+
+              {msg.type === "error" && (
+                <div className="bg-red-900/20 border border-red-800/50 rounded-xl px-4 py-3 text-red-400 text-sm" role="alert">
+                  {msg.content}
+                  {msg.timestamp && <div className="text-[10px] text-slate-600 mt-1">{formatMessageTime(msg.timestamp)}</div>}
+                </div>
+              )}
+
+              {msg.type === "system" && (
+                <div className="text-center text-xs text-slate-600">
+                  {msg.content || msg.text}
+                  {msg.timestamp && <span className="ml-2 text-[10px] text-slate-700">{formatMessageTime(msg.timestamp)}</span>}
+                </div>
+              )}
+            </motion.div>
+          ))}
+
+          <AnimatePresence>
+          {loading && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="max-w-4xl mx-auto"
+              role="status"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                  </svg>
+                </div>
+                <div className="glass-card rounded-xl px-4 py-3 max-w-md">
+                  <div className="flex items-center gap-2 text-slate-400 text-sm">
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map((dot) => (
+                        <motion.div
+                          key={dot}
+                          className="w-1.5 h-1.5 bg-blue-500 rounded-full"
+                          animate={{ y: [0, -4, 0] }}
+                          transition={{ duration: 0.6, repeat: Infinity, delay: dot * 0.15, ease: "easeInOut" }}
+                        />
+                      ))}
+                    </div>
+                    {executing ? "Analyzing results..." : "Generating SQL..."}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+          {generatingDashboard && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="max-w-4xl mx-auto"
+            >
+              <div className="flex items-center gap-3 text-slate-400 text-sm glass-card border-blue-500/20 rounded-xl px-4 py-3">
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((dot) => (
+                    <motion.div
+                      key={dot}
+                      className="w-2 h-2 bg-blue-500 rounded-full"
+                      animate={{ y: [0, -6, 0] }}
+                      transition={{ duration: 0.6, repeat: Infinity, delay: dot * 0.15, ease: "easeInOut" }}
+                    />
+                  ))}
+                </div>
+                Building dashboard — analyzing schema, generating queries, executing...
+              </div>
+            </motion.div>
+          )}
+          </AnimatePresence>
+
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="px-6 py-4 glass-navbar">
+          <form onSubmit={handleAsk} className="max-w-4xl mx-auto flex gap-3">
+            {connections.length > 1 && (
+              <select
+                value={activeConnId || connections[0]?.conn_id || ""}
+                onChange={(e) => setActiveConnId(e.target.value)}
+                className="glass-input rounded-xl px-3 py-3 text-sm text-white focus:outline-none input-glow transition"
+              >
+                {connections.map((conn) => {
+                  const info = DB_LABELS[conn.db_type] || { name: conn.db_type, icon: "" };
+                  return (
+                    <option key={conn.conn_id} value={conn.conn_id}>
+                      {conn.database_name} ({info.name})
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask a question about your data..."
+              aria-label="Ask a question about your data"
+              className="flex-1 glass-input rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:outline-none transition-all duration-200"
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors duration-200 cursor-pointer"
+              aria-label="Send question"
+            >
+              Ask
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* ER Diagram side panel (resizable) */}
+      {showER && (
+        <>
+          {/* Resize handle */}
+          <div
+            onMouseDown={handleResizeStart}
+            className="w-1.5 flex-shrink-0 bg-slate-800/40 hover:bg-blue-500/40 transition-colors cursor-col-resize relative group"
+          >
+            <div className="absolute inset-y-0 -left-1 -right-1" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-gray-600 group-hover:bg-blue-400 transition-colors" />
+          </div>
+          <motion.div
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="flex-shrink-0 glass flex flex-col"
+            style={{ width: erPanelWidth }}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                <span className="w-2 h-2 bg-blue-500 rounded-full" />
+                ER Diagram
+              </h3>
+              <button
+                onClick={() => setShowER(false)}
+                className="p-1 rounded hover:bg-slate-800 transition cursor-pointer"
+                aria-label="Close ER Diagram"
+              >
+                <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-2">
+              {erTables.length > 0 ? (
+                <ERDiagram tables={erTables} compact savedPositions={erSavedPositions} onPositionsChange={handleERPositionsChange} />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="flex items-center gap-2 text-slate-500 text-sm">
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    Loading schema...
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} />
+
+      {/* ── Dashboard Picker Modal ── */}
+      {showDashboardPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setShowDashboardPicker(false); setPendingTileData(null); }}>
+          <div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-2xl fade-scale-in" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white mb-1">Add to Dashboard</h3>
+            <p className="text-xs text-slate-500 mb-4">Choose a dashboard or create a new one</p>
+
+            {/* Existing dashboards */}
+            {dashboards.length > 0 && (
+              <div className="space-y-1.5 mb-4 max-h-48 overflow-auto">
+                {dashboards.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => handlePickDashboard(d.id)}
+                    disabled={addingTile}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg glass hover:bg-white/10 hover:border-blue-500/20 text-left transition-all duration-200 cursor-pointer disabled:opacity-50"
+                  >
+                    <div>
+                      <p className="text-sm text-white font-medium">{d.name}</p>
+                      <p className="text-xs text-slate-500">{d.tile_count || 0} tile{d.tile_count !== 1 ? "s" : ""}</p>
+                    </div>
+                    <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Create new */}
+            <div className="border-t border-slate-800 pt-3">
+              <p className="text-xs text-slate-400 mb-2">Or create new dashboard</p>
+              <div className="flex gap-2">
+                <input
+                  value={newDashboardName}
+                  onChange={(e) => setNewDashboardName(e.target.value)}
+                  placeholder="e.g., Marketing Dashboard"
+                  className="flex-1 glass-input rounded-lg px-3 py-2 text-sm text-white focus:outline-none input-glow"
+                  onKeyDown={(e) => e.key === "Enter" && handleCreateAndAdd()}
+                />
+                <button
+                  onClick={handleCreateAndAdd}
+                  disabled={!newDashboardName.trim() || addingTile}
+                  className="px-3 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm rounded-lg hover:from-indigo-500 hover:to-violet-500 transition-all duration-200 disabled:opacity-40 cursor-pointer shadow-lg shadow-indigo-500/20 btn-glow"
+                >
+                  {addingTile ? "..." : "Create"}
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => { setShowDashboardPicker(false); setPendingTileData(null); }}
+              className="mt-3 w-full text-center text-xs text-slate-500 hover:text-slate-300 transition cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

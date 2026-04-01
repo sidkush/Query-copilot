@@ -1,0 +1,57 @@
+# ── Core Framework ──────────────────────────────────────────
+fastapi>=0.115
+uvicorn[standard]>=0.34
+pydantic>=2.6
+pydantic-settings>=2.6
+python-dotenv>=1.0
+
+# ── AI & RAG ────────────────────────────────────────────────
+anthropic>=0.86
+chromadb>=1.0
+
+# ── Database — Core ────────────────────────────────────────
+sqlalchemy>=2.0
+pandas>=2.2
+
+# ── Database Drivers — Relational ──────────────────────────
+psycopg2-binary>=2.9              # PostgreSQL + CockroachDB
+PyMySQL>=1.1                      # MySQL + MariaDB
+pymssql>=2.2                      # Microsoft SQL Server
+# SQLite driver is built-in to Python
+
+# ── Database Drivers — Cloud Data Warehouses ───────────────
+# snowflake-sqlalchemy            # Snowflake (install manually if needed)
+# google-cloud-bigquery[sqlalchemy] # BigQuery (install manually if needed)
+sqlalchemy-redshift>=0.8          # Amazon Redshift
+redshift-connector>=2.0           # Amazon Redshift driver
+
+# ── Database Drivers — Analytics Engines ───────────────────
+duckdb>=0.9                       # DuckDB
+duckdb-engine>=0.9                # DuckDB SQLAlchemy adapter
+clickhouse-sqlalchemy>=0.3        # ClickHouse
+clickhouse-driver>=0.2            # ClickHouse driver
+
+# ── Database Drivers — Distributed SQL ─────────────────────
+sqlalchemy-cockroachdb>=2.0       # CockroachDB
+# databricks-sql-connector>=3.0  # Databricks (install manually — requires ODBC)
+# databricks-sqlalchemy>=1.0     # Databricks SQLAlchemy adapter
+trino>=0.320                      # Trino
+
+# ── Database Drivers — Enterprise ──────────────────────────
+oracledb>=1.0                     # Oracle
+# sqlalchemy-hana>=2.0           # SAP HANA (install manually — requires hdbcli C extension)
+# hdbcli                         # SAP HANA driver (proprietary, manual install)
+# ibm-db-sa>=0.4                 # IBM Db2 (install manually — requires C compiler)
+# ibm_db>=3.0                    # IBM Db2 driver
+
+# ── SQL Validation ──────────────────────────────────────────
+sqlglot>=26.0
+
+# ── Auth ────────────────────────────────────────────────────
+python-jose[cryptography]>=3.3
+passlib[bcrypt]>=1.7
+bcrypt>=4.0
+
+# ── CORS & Utils ────────────────────────────────────────────
+python-multipart>=0.0.18
+requests>=2.31
