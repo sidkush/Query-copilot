@@ -184,11 +184,12 @@ def get_suggestions(conn_id: Optional[str] = Query(None), user: dict = Depends(g
 class DashboardRequest(BaseModel):
     request: str
     conn_id: Optional[str] = None
+    preferences: Optional[dict] = None  # { focus, timeRange, audience }
 
 
 @router.post("/generate-dashboard")
 def generate_dashboard(req: DashboardRequest, user: dict = Depends(get_current_user)):
-    """Generate a complete dashboard with multiple executed queries."""
+    """Generate a complete dashboard with tabs/sections from natural language."""
     email = user["email"]
     conn_id = req.conn_id
 
@@ -201,17 +202,23 @@ def generate_dashboard(req: DashboardRequest, user: dict = Depends(get_current_u
         raise HTTPException(status_code=400, detail="No query engine for this connection")
 
     try:
-        tiles = engine.generate_dashboard(req.request)
-        if not tiles:
-            raise HTTPException(status_code=400, detail="Could not generate dashboard tiles from the available schema")
+        result = engine.generate_dashboard(req.request, preferences=req.preferences)
+        # Check if any tiles were generated
+        total_tiles = sum(
+            len(sec.get("tiles", []))
+            for tab in result.get("tabs", [])
+            for sec in tab.get("sections", [])
+        )
+        if total_tiles == 0:
+            raise HTTPException(status_code=400, detail="Could not generate dashboard tiles from your request")
 
         return {
-            "tiles": tiles,
+            "tabs": result.get("tabs", []),
             "conn_id": entry.conn_id,
             "db_type": entry.db_type,
             "database_name": entry.database_name,
         }
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Dashboard generation failed: {str(e)}")

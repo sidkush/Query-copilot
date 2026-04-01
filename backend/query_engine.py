@@ -245,115 +245,153 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
 
     # ── Dashboard generation ────────────────────────────────────────
 
-    DASHBOARD_PROMPT = """You are an expert data analyst. Given a database schema, generate a professional analytics dashboard.
+    DASHBOARD_PROMPT = """You are a dashboard architect. Given a user request and database schema, generate a professional analytics dashboard.
 
-The user asked: "{request}"
+Return a JSON object with this structure:
+{
+  "tabs": [
+    {
+      "name": "Tab Name",
+      "sections": [
+        {
+          "name": "Section Name",
+          "tiles": [
+            {
+              "title": "Tile Title",
+              "subtitle": "Optional subtitle",
+              "question": "Natural language question this tile answers",
+              "sql": "SELECT ...",
+              "chartType": "bar|line|area|pie|donut|table|kpi|stacked_bar|horizontal_bar|radar|scatter|treemap"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
 
-=== DATABASE SCHEMA ===
-{schema}
+Guidelines:
+- Create 2-3 tabs for different analytical perspectives
+- Each tab has 1-3 sections grouping related metrics
+- First section of first tab should be KPI cards (chartType: "kpi") — 3-4 single-value metrics
+- Use chartType "kpi" for single aggregate values (COUNT, SUM, AVG)
+- Use "line" or "area" for time-series data
+- Use "bar" or "horizontal_bar" for category comparisons
+- Use "pie" or "donut" for proportions (max 5-6 categories)
+- Use "table" for detailed breakdowns
+- Use "stacked_bar" for multi-measure comparisons
+- SQL must be SELECT-only, use table aliases, add LIMIT (max 50 for breakdowns)
+- Use ONLY tables and columns from the provided schema
+- Respect the user's focus area and audience level
+- Return ONLY the JSON object, no markdown fences or explanation
+"""
 
-Generate exactly 6 dashboard tiles as a JSON array. Each tile should be a meaningful KPI, metric, or breakdown query.
-
-RULES:
-1. Return ONLY a JSON array. No markdown, no explanations.
-2. Each tile must have: "title" (short, professional), "question" (natural language), "sql" (valid {dialect} SELECT query)
-3. Mix chart-friendly queries: include aggregations with GROUP BY (for bar/pie charts), single-value KPIs (for cards), time-series (for line charts), and rankings (for tables).
-4. Use ONLY tables and columns from the schema. Qualify columns with table aliases.
-5. Add LIMIT clauses (max 50 rows for breakdowns, no limit needed for single-value KPIs).
-6. All queries must be SELECT-only. No INSERT/UPDATE/DELETE.
-7. Make the dashboard professional and relevant to the user's request and the data available.
-8. If the user mentions a specific theme (e.g. "marketing", "sales"), focus queries on that domain from the available data.
-
-RESPONSE FORMAT (JSON array only):
-[
-  {{"title": "Total Revenue", "question": "What is the total revenue?", "sql": "SELECT SUM(amount) AS total_revenue FROM orders"}},
-  {{"title": "Revenue by Category", "question": "Revenue breakdown by category", "sql": "SELECT c.name, SUM(o.amount) AS revenue FROM orders o JOIN categories c ON o.category_id = c.id GROUP BY c.name ORDER BY revenue DESC LIMIT 10"}}
-]"""
-
-    def generate_dashboard(self, request: str) -> List[dict]:
-        """Generate multiple SQL queries for a dashboard, execute them all, return tile data."""
+    def generate_dashboard(self, request: str, preferences: dict = None) -> dict:
+        """Generate a complete dashboard with tabs/sections/tiles from natural language."""
         import json as _json
+        import decimal
 
-        schema_context = self._retrieve_schema(request, top_k=15)
+        preferences = preferences or {}
+        focus = preferences.get("focus", "")
+        time_range = preferences.get("timeRange", "")
+        audience = preferences.get("audience", "")
+
+        # Build enhanced request with preferences
+        enhanced_request = request
+        if focus:
+            enhanced_request += f"\nFocus area: {focus}"
+        if time_range:
+            enhanced_request += f"\nTime range: {time_range}"
+        if audience:
+            enhanced_request += f"\nAudience: {audience}"
+
+        schema_context = self._retrieve_schema(enhanced_request, top_k=15)
+        dialect = self.db.db_type.value if self.db else "postgresql"
+
         system_prompt = (
-            "You are an expert SQL analyst and dashboard designer. "
-            "Return ONLY valid JSON arrays. No markdown, no explanations."
+            "You are an expert dashboard architect. "
+            "Return ONLY valid JSON objects. No markdown, no explanations."
         )
-        user_prompt = self.DASHBOARD_PROMPT.format(
-            request=request,
-            schema=schema_context,
-            dialect=self.db.db_type.value,
-        )
+        user_prompt = f"""User request: {enhanced_request}
 
-        # Generate tile definitions — try fallback (smarter) model first, fall back to primary
+Database dialect: {dialect}
+Available schema:
+{schema_context}
+
+{self.DASHBOARD_PROMPT}
+
+Generate the dashboard JSON now."""
+
+        # Generate — try fallback (smarter) model first
         try:
             raw = self._call_claude(system_prompt, user_prompt, self.fallback_model)
         except RuntimeError:
             raw = self._call_claude(system_prompt, user_prompt, self.primary_model)
+
         raw = raw.strip()
         # Strip markdown fences if present
         if raw.startswith("```"):
-            lines = raw.split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```")]
-            raw = "\n".join(lines).strip()
+            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
 
         try:
-            tiles_def = _json.loads(raw)
+            result = _json.loads(raw)
         except _json.JSONDecodeError:
-            # Try to extract JSON array from response
-            start = raw.find("[")
-            end = raw.rfind("]")
-            if start != -1 and end != -1:
-                tiles_def = _json.loads(raw[start:end + 1])
+            # Fallback: find JSON object
+            start = raw.find("{")
+            end = raw.rfind("}") + 1
+            if start >= 0 and end > start:
+                result = _json.loads(raw[start:end])
             else:
-                raise RuntimeError("Failed to parse dashboard tile definitions from AI response")
+                return {"tabs": []}
 
-        if not isinstance(tiles_def, list):
-            raise RuntimeError("AI response was not a JSON array of tiles")
+        if not isinstance(result, dict) or "tabs" not in result:
+            # Legacy: if AI returned a flat array, wrap it
+            if isinstance(result, list):
+                result = {
+                    "tabs": [{
+                        "name": "Overview",
+                        "sections": [{
+                            "name": "General",
+                            "tiles": result[:8]
+                        }]
+                    }]
+                }
+            else:
+                return {"tabs": []}
 
-        # Execute each query, collect results
-        executed_tiles = []
-        for tile in tiles_def[:8]:  # Cap at 8 tiles
-            title = tile.get("title", "Untitled")
-            question = tile.get("question", "")
-            sql = tile.get("sql", "")
-            if not sql:
-                continue
+        # Execute each tile's SQL
+        for tab in result.get("tabs", []):
+            for section in tab.get("sections", []):
+                executed_tiles = []
+                for tile in section.get("tiles", [])[:8]:
+                    sql = tile.get("sql", "")
+                    is_valid, clean_sql, error = self.validator.validate(sql)
+                    if not is_valid:
+                        continue
+                    try:
+                        df = self.db.execute_query(clean_sql)
+                        masked_df = mask_dataframe(df)
+                        rows = masked_df.head(100).to_dict(orient="records")
+                        for row in rows:
+                            for k, v in row.items():
+                                if isinstance(v, decimal.Decimal):
+                                    row[k] = float(v)
+                                elif hasattr(v, "isoformat"):
+                                    row[k] = v.isoformat()
+                        tile["columns"] = list(masked_df.columns)
+                        tile["rows"] = rows
+                        tile["rowCount"] = len(masked_df)
+                        tile["sql"] = clean_sql
+                        executed_tiles.append(tile)
+                    except Exception as e:
+                        logger.warning(f"Dashboard tile failed: {e}")
+                        continue
+                section["tiles"] = executed_tiles
 
-            # Validate
-            is_valid, clean_sql, error = self.validator.validate(sql)
-            if not is_valid:
-                logger.warning(f"Dashboard tile '{title}' SQL invalid: {error}")
-                continue
-
-            # Execute
-            try:
-                df = self.db.execute_query(clean_sql)
-                masked_df = mask_dataframe(df)
-                columns = list(masked_df.columns)
-                rows = masked_df.head(100).to_dict(orient="records")
-                # Coerce types for JSON serialization
-                import decimal
-                for row in rows:
-                    for k, v in row.items():
-                        if isinstance(v, decimal.Decimal):
-                            row[k] = float(v)
-                        elif hasattr(v, 'isoformat'):
-                            row[k] = v.isoformat()
-
-                executed_tiles.append({
-                    "title": title,
-                    "question": question,
-                    "sql": clean_sql,
-                    "columns": columns,
-                    "rows": rows,
-                    "rowCount": len(masked_df),
-                })
-            except Exception as e:
-                logger.warning(f"Dashboard tile '{title}' execution failed: {e}")
-                continue
-
-        return executed_tiles
+        return result
 
     # ── Feedback ──────────────────────────────────────────────────
 
