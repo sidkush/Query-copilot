@@ -71,6 +71,22 @@ export const useStore = create((set, get) => ({
   activeDashboardId: null,
   setActiveDashboardId: (id) => set({ activeDashboardId: id }),
 
+  // Reactive dashboard filters — tiles subscribe to version counters
+  dashboardGlobalFilters: { dateColumn: "", range: "all_time", fields: [] },
+  dashboardFilterVersion: 0,
+  applyGlobalFilters: (filters) => set((s) => ({
+    dashboardGlobalFilters: filters,
+    dashboardFilterVersion: s.dashboardFilterVersion + 1,
+  })),
+  resetGlobalFilters: () => set({
+    dashboardGlobalFilters: { dateColumn: "", range: "all_time", fields: [] },
+    dashboardFilterVersion: 0,
+  }),
+
+  // Tile edit version — bumped after TileEditor save to trigger refresh
+  tileEditVersion: 0,
+  bumpTileEditVersion: () => set((s) => ({ tileEditVersion: s.tileEditVersion + 1 })),
+
   // Prefetch cache for dashboard tiles
   prefetchCache: {},
   setPrefetchData: (dashboardId, tileId, data) => set((s) => ({
