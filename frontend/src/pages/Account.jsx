@@ -7,6 +7,7 @@ import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import AnimatedCounter from "../components/animation/AnimatedCounter";
 import MotionButton from "../components/animation/MotionButton";
+import AnimatedBackground from "../components/animation/AnimatedBackground";
 
 const DB_NAMES = {
   postgresql: "PostgreSQL", mysql: "MySQL", mariadb: "MariaDB", sqlite: "SQLite",
@@ -117,6 +118,7 @@ export default function Account() {
   return (
     <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
+      <AnimatedBackground className="fixed inset-0 pointer-events-none" />
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
           <h1 className="text-xl font-bold text-white">Account</h1>

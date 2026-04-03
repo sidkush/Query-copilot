@@ -47,6 +47,9 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  demoLogin: () =>
+    request("/auth/demo-login", { method: "POST" }),
+
   getMe: () => request("/auth/me"),
 
   completeTutorial: () =>
@@ -80,8 +83,12 @@ export const api = {
   // OAuth
   getOAuthURL: (provider) => request(`/auth/oauth/${provider}`),
 
-  handleOAuthCallback: (provider, code, state) =>
-    request(`/auth/oauth/callback?provider=${provider}&code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`),
+  handleOAuthCallback: (provider, code, state) => {
+    // Use URLSearchParams to safely encode — avoids double-encoding since
+    // searchParams.get() in OAuthCallback already returns decoded values.
+    const qs = new URLSearchParams({ provider, code, state }).toString();
+    return request(`/auth/oauth/callback?${qs}`);
+  },
 
   // Database connections
   testConnection: (dbType, params) =>
@@ -245,14 +252,29 @@ export const api = {
     request(`/dashboards/${dashboardId}/tabs/${tabId}/sections/${sectionId}/tiles`, { method: "POST", body: JSON.stringify(tile) }),
   updateTile: (dashboardId, tileId, updates) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}`, { method: "PUT", body: JSON.stringify(updates) }),
-  refreshTile: (dashboardId, tileId, connId) =>
-    request(`/dashboards/${dashboardId}/tiles/${tileId}/refresh`, { method: "POST", body: JSON.stringify({ conn_id: connId }) }),
+  refreshTile: (dashboardId, tileId, connId, filters = null, sourceId = null) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}/refresh`, { method: "POST", body: JSON.stringify({ conn_id: connId, filters, source_id: sourceId }) }),
 
   // ── Annotations ──
   addDashboardAnnotation: (dashboardId, text, authorName) =>
     request(`/dashboards/${dashboardId}/annotations`, { method: "POST", body: JSON.stringify({ text, authorName }) }),
   addTileAnnotation: (dashboardId, tileId, text, authorName) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}/annotations`, { method: "POST", body: JSON.stringify({ text, authorName }) }),
+
+  // ── AI Suggestions ──
+  aiSuggestChart: (dashboardId, tileId, columns, sampleRows, question) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}/ai-suggest`, {
+      method: "POST",
+      body: JSON.stringify({ columns, sample_rows: sampleRows, question }),
+    }),
+
+  // ── Bookmarks ──
+  saveBookmark: (dashboardId, name, state) =>
+    request(`/dashboards/${dashboardId}/bookmarks`, { method: "POST", body: JSON.stringify({ name, state }) }),
+  listBookmarks: (dashboardId) =>
+    request(`/dashboards/${dashboardId}/bookmarks`),
+  deleteBookmark: (dashboardId, bookmarkId) =>
+    request(`/dashboards/${dashboardId}/bookmarks/${bookmarkId}`, { method: "DELETE" }),
 
   // ── Generation with preferences ──
   generateDashboardV2: (requestText, connId, preferences) =>

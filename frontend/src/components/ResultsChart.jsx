@@ -1,11 +1,14 @@
 import { useState, useRef, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   AreaChart, Area, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   Treemap,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   ScatterChart, Scatter, ZAxis,
+  ReferenceLine,
 } from "recharts";
+import { mergeFormatting, resolveColor, formatTickValue } from '../lib/formatUtils';
 
 /* ── Color Palettes (corporate blue-first) ── */
 const PALETTES = {
@@ -315,19 +318,70 @@ export default function ResultsChart({
   defaultPalette = "default",      // override palette
   defaultMeasure = null,           // override single measure
   defaultMeasures = null,          // override multi measures
+  customMetrics = [],              // dashboard-level custom metrics
+  formatting = null,              // tile.visualConfig (optional)
+  dashboardPalette = "default",   // dashboard.themeConfig.palette
   onAddToDashboard = null,         // callback: ({ chartType, columns, rows, selectedMeasure, activeMeasures, palette }) => void
   question = null,                 // original question for tile title
   sql = null,                      // SQL for tile metadata
+  crossFilter = null,              // { field, value } — cross-tile filter
+  onCrossFilterClick = null,       // (field, value) => void — emit cross-filter click
 }) {
   const chartRef = useRef(null);
 
   // Coerce data
   const coercedRows = useMemo(() => coerceNumericRows(columns, rows), [columns, rows]);
-  const labelCol = columns[0];
-  const data = useMemo(() => coercedRows.slice(0, 50), [coercedRows]);
+
+  // Inject custom metric columns
+  const { columns: augColumns, rows: augRows } = useMemo(() => {
+    if (!customMetrics?.length) return { columns, rows: coercedRows };
+    try {
+      const { injectMetricColumns } = require('../lib/metricEvaluator');
+      return injectMetricColumns(customMetrics, columns, coercedRows);
+    } catch { return { columns, rows: coercedRows }; }
+  }, [columns, coercedRows, customMetrics]);
+
+  const labelCol = augColumns[0];
+  const maxRows = embedded ? (augRows.length > 1000 ? 1000 : 500) : 200;
+  const data = useMemo(() => augRows.slice(0, maxRows), [augRows, maxRows]);
+
+  // Merge formatting config with defaults
+  const fmt = useMemo(() => mergeFormatting(formatting, null), [formatting]);
+
+  // Sort data if configured
+  const sortedData = useMemo(() => {
+    if (!fmt.sort.field) return data;
+    return [...data].sort((a, b) => {
+      const aV = a[fmt.sort.field], bV = b[fmt.sort.field];
+      if (aV == null) return 1;
+      if (bV == null) return -1;
+      return fmt.sort.order === 'asc' ? (aV > bV ? 1 : -1) : (aV < bV ? 1 : -1);
+    });
+  }, [data, fmt.sort]);
+
+  // Cross-filter: filter data when an external cross-filter is active
+  // Only filter if this tile's data actually contains the cross-filter field
+  const chartData = useMemo(() => {
+    if (!crossFilter || !sortedData.length) return sortedData;
+    const hasField = sortedData.length > 0 && crossFilter.field in sortedData[0];
+    if (!hasField) return sortedData;
+    return sortedData.filter(row => String(row[crossFilter.field]) === String(crossFilter.value));
+  }, [sortedData, crossFilter]);
+
+  // Build a stable color index map from original (unfiltered) data for pie/donut
+  // so filtered slices keep their original color
+  const pieColorMap = useMemo(() => {
+    if (!labelCol || !sortedData.length) return {};
+    const map = {};
+    sortedData.forEach((row, i) => {
+      const key = String(row[labelCol]);
+      if (!(key in map)) map[key] = i;
+    });
+    return map;
+  }, [sortedData, labelCol]);
 
   // Analyze data
-  const analysis = useMemo(() => analyzeData(columns, data, labelCol), [columns, data, labelCol]);
+  const analysis = useMemo(() => analyzeData(augColumns, data, labelCol), [augColumns, data, labelCol]);
   const { numericCols } = analysis;
 
   // Score & sort chart types, filter by relevance
@@ -356,7 +410,24 @@ export default function ResultsChart({
     });
   }, []);
 
-  if (numericCols.length === 0 || columns.length < 2 || data.length === 0 || rankedCharts.length === 0) return null;
+  if (augColumns.length < 2 || data.length === 0 || numericCols.length === 0 || rankedCharts.length === 0) {
+    if (embedded) {
+      let msg = "Cannot render chart";
+      if (data.length === 0) msg = "0 data rows";
+      else if (augColumns.length < 2) msg = "Required: ≥ 2 columns";
+      else if (numericCols.length === 0) msg = "Required: ≥ 1 numeric metric";
+
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
+           <svg className="w-8 h-8 text-slate-700 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+           </svg>
+           <span className="text-slate-400 text-xs font-medium">{msg}</span>
+        </div>
+      );
+    }
+    return null;
+  }
 
   const chartType = activeType || rankedCharts[0]?.key || "bar";
   const colors = PALETTES[palette] || PALETTES.default;
@@ -367,102 +438,238 @@ export default function ResultsChart({
   const currentMeasures = activeMeasures.filter((m) => numericCols.includes(m));
   const displayMeasures = currentMeasures.length > 0 ? currentMeasures : numericCols;
 
-  const commonAxisProps = {
-    tick: { fill: "#94a3b8", fontSize: 11 },
-    axisLine: { stroke: "#1e293b" },
-    tickLine: { stroke: "#1e293b" },
-  };
+  // Reference lines — compute special values (avg, median, min, max)
+  const computedRefLines = useMemo(() => {
+    if (!fmt.referenceLines?.length || !sortedData.length || !displayMeasures?.length) return [];
+    return fmt.referenceLines.map((rl) => {
+      let value = rl.value;
+      if (typeof value === 'string') {
+        const measure = displayMeasures[0];
+        const nums = sortedData.map((r) => Number(r[measure])).filter(isFinite);
+        if (!nums.length) return null;
+        if (value === 'avg') value = nums.reduce((a, b) => a + b, 0) / nums.length;
+        else if (value === 'median') {
+          const sorted = [...nums].sort((a, b) => a - b);
+          value = sorted.length % 2 ? sorted[Math.floor(sorted.length / 2)] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+        }
+        else if (value === 'min') value = Math.min(...nums);
+        else if (value === 'max') value = Math.max(...nums);
+        else return null;
+      }
+      return { ...rl, value: Number(value) };
+    }).filter(Boolean).filter((rl) => isFinite(rl.value));
+  }, [fmt.referenceLines, sortedData, displayMeasures]);
+
+  // Custom tooltip with template support
+  const TemplateTooltip = useCallback(({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    const row = payload[0]?.payload;
+    if (!row) return null;
+    let text = fmt.tooltip.template;
+    for (const key of Object.keys(row)) {
+      text = text.replaceAll(`{${key}}`, row[key] ?? '');
+    }
+    return (
+      <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#e2e8f0', maxWidth: 280, whiteSpace: 'pre-wrap' }}>
+        {text}
+      </div>
+    );
+  }, [fmt.tooltip.template]);
+
+  const tooltipElement = fmt.tooltip.show
+    ? <Tooltip content={fmt.tooltip.template ? <TemplateTooltip /> : <CustomTooltip />} cursor={{ fill: 'rgba(99,102,241,0.08)' }} />
+    : null;
+
+  const legendElement = (showLegend && fmt.legend.show && displayMeasures.length > 1)
+    ? <Legend
+        layout={fmt.legend.position === 'left' || fmt.legend.position === 'right' ? 'vertical' : 'horizontal'}
+        align={fmt.legend.position === 'left' ? 'left' : fmt.legend.position === 'right' ? 'right' : 'center'}
+        verticalAlign={fmt.legend.position === 'top' ? 'top' : fmt.legend.position === 'bottom' ? 'bottom' : 'middle'}
+        wrapperStyle={{ fontSize: fmt.legend.fontSize, color: fmt.legend.color }}
+      />
+    : null;
+
+  const gridElement = (showGrid && fmt.grid.show)
+    ? <CartesianGrid
+        stroke={fmt.grid.color}
+        strokeDasharray={fmt.grid.style === 'dashed' ? '5 5' : fmt.grid.style === 'dotted' ? '2 2' : '0'}
+        vertical={fmt.grid.vertical}
+      />
+    : null;
+
+  const refLineElements = computedRefLines.map((rl, idx) => (
+    <ReferenceLine key={`ref-${idx}`} y={rl.value} stroke={rl.stroke || '#F59E0B'}
+      strokeDasharray={rl.strokeDasharray || '5 5'} strokeWidth={1.5}
+      label={{ value: rl.label || '', position: 'right', fill: '#9ca3af', fontSize: 11 }} />
+  ));
+
+  const fmtTickFn = fmt.axis.tickFormat !== 'auto'
+    ? (v) => formatTickValue(v, fmt.axis.tickFormat, fmt.axis.tickDecimals)
+    : formatTick;
 
   /* ── Render Charts ── */
   const renderChart = () => {
     switch (chartType) {
       case "bar":
         return (
-          <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#162032" vertical={false} />}
-            <XAxis dataKey={labelCol} {...commonAxisProps} tickFormatter={formatTick} interval={data.length > 12 ? "preserveStartEnd" : 0} />
-            <YAxis {...commonAxisProps} tickFormatter={formatTick} width={55} />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(99,102,241,0.08)" }} />
-            {showLegend && displayMeasures.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />}
-            {displayMeasures.map((col, i) => (
-              <Bar key={col} dataKey={col} fill={colors[i % colors.length]} radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out" />
-            ))}
+          <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+            {gridElement}
+            <XAxis dataKey={labelCol} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn} interval={chartData.length > 12 ? 'preserveStartEnd' : 0}
+              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined}
+              angle={fmt.axis.xLabelRotation || 0} />
+            <YAxis tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn} width={55}
+              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
+            {tooltipElement}
+            {legendElement}
+            {refLineElements}
+            {displayMeasures.map((col, i) => {
+              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+              const hasRules = fmt.colors.rules?.some((r) => r.measure === col);
+              return (
+                <Bar key={col} dataKey={col} fill={baseColor} radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out"
+                  onClick={(data) => onCrossFilterClick?.(labelCol, data?.[labelCol])}
+                  style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
+                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
+                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined}>
+                  {hasRules && chartData.map((row, idx) => (
+                    <Cell key={idx} fill={resolveColor(col, row[col], i, fmt.colors, dashboardPalette)} />
+                  ))}
+                </Bar>
+              );
+            })}
           </BarChart>
         );
 
       case "bar_h":
         return (
-          <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#162032" horizontal={false} />}
-            <YAxis dataKey={labelCol} type="category" {...commonAxisProps} tickFormatter={formatTick} width={90} />
-            <XAxis type="number" {...commonAxisProps} tickFormatter={formatTick} />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(99,102,241,0.08)" }} />
-            {showLegend && displayMeasures.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />}
-            {displayMeasures.map((col, i) => (
-              <Bar key={col} dataKey={col} fill={colors[i % colors.length]} radius={[0, 6, 6, 0]} animationDuration={800} />
-            ))}
+          <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+            {gridElement}
+            <YAxis dataKey={labelCol} type="category" tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn} width={90}
+              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
+            <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn}
+              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined} />
+            {tooltipElement}
+            {legendElement}
+            {refLineElements}
+            {displayMeasures.map((col, i) => {
+              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+              const hasRules = fmt.colors.rules?.some((r) => r.measure === col);
+              return (
+                <Bar key={col} dataKey={col} fill={baseColor} radius={[0, 6, 6, 0]} animationDuration={800}
+                  onClick={(data) => onCrossFilterClick?.(labelCol, data?.[labelCol])}
+                  style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
+                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
+                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined}>
+                  {hasRules && chartData.map((row, idx) => (
+                    <Cell key={idx} fill={resolveColor(col, row[col], i, fmt.colors, dashboardPalette)} />
+                  ))}
+                </Bar>
+              );
+            })}
           </BarChart>
         );
 
       case "stacked":
         return (
-          <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#162032" vertical={false} />}
-            <XAxis dataKey={labelCol} {...commonAxisProps} tickFormatter={formatTick} interval={data.length > 12 ? "preserveStartEnd" : 0} />
-            <YAxis {...commonAxisProps} tickFormatter={formatTick} width={55} />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(99,102,241,0.08)" }} />
-            {showLegend && <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />}
-            {displayMeasures.map((col, i) => (
-              <Bar key={col} dataKey={col} stackId="stack" fill={colors[i % colors.length]} radius={i === displayMeasures.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]} animationDuration={800} />
-            ))}
+          <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+            {gridElement}
+            <XAxis dataKey={labelCol} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn} interval={chartData.length > 12 ? 'preserveStartEnd' : 0}
+              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined}
+              angle={fmt.axis.xLabelRotation || 0} />
+            <YAxis tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn} width={55}
+              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
+            {tooltipElement}
+            {legendElement}
+            {refLineElements}
+            {displayMeasures.map((col, i) => {
+              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+              return (
+                <Bar key={col} dataKey={col} stackId="stack" fill={baseColor} radius={i === displayMeasures.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]} animationDuration={800}
+                  onClick={(data) => onCrossFilterClick?.(labelCol, data?.[labelCol])}
+                  style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
+                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
+                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined} />
+              );
+            })}
           </BarChart>
         );
 
       case "line":
         return (
-          <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#162032" vertical={false} />}
-            <XAxis dataKey={labelCol} {...commonAxisProps} tickFormatter={formatTick} />
-            <YAxis {...commonAxisProps} tickFormatter={formatTick} width={55} />
-            <Tooltip content={<CustomTooltip />} />
-            {showLegend && displayMeasures.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />}
-            {displayMeasures.map((col, i) => (
-              <Line
-                key={col} type="monotone" dataKey={col}
-                stroke={colors[i % colors.length]} strokeWidth={2.5}
-                dot={{ r: 3, fill: colors[i % colors.length], stroke: "#111827", strokeWidth: 2 }}
-                activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }}
-                animationDuration={1000}
-              />
-            ))}
+          <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+            {gridElement}
+            <XAxis dataKey={labelCol} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn}
+              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined}
+              angle={fmt.axis.xLabelRotation || 0} />
+            <YAxis tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn} width={55}
+              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
+            {tooltipElement}
+            {legendElement}
+            {refLineElements}
+            {displayMeasures.map((col, i) => {
+              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+              return (
+                <Line
+                  key={col} type="monotone" dataKey={col}
+                  stroke={baseColor} strokeWidth={2.5}
+                  dot={{ r: 3, fill: baseColor, stroke: "#111827", strokeWidth: 2 }}
+                  activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }}
+                  animationDuration={1000}
+                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
+                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined}
+                />
+              );
+            })}
           </LineChart>
         );
 
       case "area":
         return (
-          <AreaChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+          <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
             <defs>
-              {displayMeasures.map((col, i) => (
-                <linearGradient key={col} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={colors[i % colors.length]} stopOpacity={0.35} />
-                  <stop offset="95%" stopColor={colors[i % colors.length]} stopOpacity={0.02} />
-                </linearGradient>
-              ))}
+              {displayMeasures.map((col, i) => {
+                const gradColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+                return (
+                  <linearGradient key={col} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={gradColor} stopOpacity={0.35} />
+                    <stop offset="95%" stopColor={gradColor} stopOpacity={0.02} />
+                  </linearGradient>
+                );
+              })}
             </defs>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#162032" vertical={false} />}
-            <XAxis dataKey={labelCol} {...commonAxisProps} tickFormatter={formatTick} />
-            <YAxis {...commonAxisProps} tickFormatter={formatTick} width={55} />
-            <Tooltip content={<CustomTooltip />} />
-            {showLegend && displayMeasures.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />}
-            {displayMeasures.map((col, i) => (
-              <Area
-                key={col} type="monotone" dataKey={col}
-                stroke={colors[i % colors.length]} strokeWidth={2}
-                fill={`url(#grad-${i})`}
-                activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }}
-                animationDuration={1000}
-              />
-            ))}
+            {gridElement}
+            <XAxis dataKey={labelCol} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn}
+              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined}
+              angle={fmt.axis.xLabelRotation || 0} />
+            <YAxis tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn} width={55}
+              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
+            {tooltipElement}
+            {legendElement}
+            {refLineElements}
+            {displayMeasures.map((col, i) => {
+              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+              return (
+                <Area
+                  key={col} type="monotone" dataKey={col}
+                  stroke={baseColor} strokeWidth={2}
+                  fill={`url(#grad-${i})`}
+                  activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }}
+                  animationDuration={1000}
+                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
+                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined}
+                />
+              );
+            })}
           </AreaChart>
         );
 
@@ -470,15 +677,20 @@ export default function ResultsChart({
         return (
           <PieChart>
             <Pie
-              data={data} dataKey={currentMeasure} nameKey={labelCol}
+              data={chartData} dataKey={currentMeasure} nameKey={labelCol}
               cx="50%" cy="50%" outerRadius={110}
               label={renderPieLabel} labelLine={{ stroke: "#4b5563", strokeWidth: 1 }}
               paddingAngle={2} animationDuration={800}
+              onClick={(_, idx) => onCrossFilterClick?.(labelCol, chartData[idx]?.[labelCol])}
+              style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
             >
-              {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} stroke="#111827" strokeWidth={2} />)}
+              {chartData.map((entry, i) => {
+                const origIdx = pieColorMap[String(entry[labelCol])] ?? i;
+                return <Cell key={i} fill={resolveColor(currentMeasure, null, origIdx, fmt.colors, dashboardPalette)} stroke="#111827" strokeWidth={2} />;
+              })}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
-            {showLegend && <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} formatter={(v) => v?.length > 18 ? v.slice(0, 18) + ".." : v} />}
+            {tooltipElement}
+            {legendElement}
           </PieChart>
         );
 
@@ -486,46 +698,55 @@ export default function ResultsChart({
         return (
           <PieChart>
             <Pie
-              data={data} dataKey={currentMeasure} nameKey={labelCol}
+              data={chartData} dataKey={currentMeasure} nameKey={labelCol}
               cx="50%" cy="50%" outerRadius={110} innerRadius={55}
               label={renderPieLabel} labelLine={{ stroke: "#4b5563", strokeWidth: 1 }}
               paddingAngle={3} cornerRadius={4} animationDuration={800}
+              onClick={(_, idx) => onCrossFilterClick?.(labelCol, chartData[idx]?.[labelCol])}
+              style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
             >
-              {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} stroke="#111827" strokeWidth={2} />)}
+              {chartData.map((entry, i) => {
+                const origIdx = pieColorMap[String(entry[labelCol])] ?? i;
+                return <Cell key={i} fill={resolveColor(currentMeasure, null, origIdx, fmt.colors, dashboardPalette)} stroke="#111827" strokeWidth={2} />;
+              })}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
-            {showLegend && <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} formatter={(v) => v?.length > 18 ? v.slice(0, 18) + ".." : v} />}
+            {tooltipElement}
+            {legendElement}
           </PieChart>
         );
 
       case "radar": {
         return (
-          <RadarChart cx="50%" cy="50%" outerRadius={100} data={data}>
-            <PolarGrid stroke="#162032" />
-            <PolarAngleAxis dataKey={labelCol} tick={{ fill: "#9ca3af", fontSize: 11 }} />
+          <RadarChart cx="50%" cy="50%" outerRadius={100} data={chartData}>
+            {showGrid && fmt.grid.show && <PolarGrid stroke={fmt.grid.color} />}
+            <PolarAngleAxis dataKey={labelCol} tick={{ fill: "#9ca3af", fontSize: fmt.typography.axisFontSize }} />
             <PolarRadiusAxis tick={{ fill: "#6b7280", fontSize: 10 }} axisLine={false} />
-            {displayMeasures.map((col, i) => (
-              <Radar
-                key={col} name={col} dataKey={col}
-                stroke={colors[i % colors.length]} fill={colors[i % colors.length]} fillOpacity={0.15}
-                strokeWidth={2} animationDuration={800}
-              />
-            ))}
-            <Tooltip content={<CustomTooltip />} />
-            {showLegend && displayMeasures.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: "#9ca3af" }} />}
+            {displayMeasures.map((col, i) => {
+              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+              return (
+                <Radar
+                  key={col} name={col} dataKey={col}
+                  stroke={baseColor} fill={baseColor} fillOpacity={0.15}
+                  strokeWidth={2} animationDuration={800}
+                />
+              );
+            })}
+            {tooltipElement}
+            {legendElement}
           </RadarChart>
         );
       }
 
       case "treemap": {
-        const treemapData = data
+        const treemapData = chartData
           .map((r, i) => ({ name: String(r[labelCol] || `Item ${i + 1}`), value: r[currentMeasure] || 0 }))
           .filter((d) => d.value > 0);
+        const treemapColors = treemapData.map((_, i) => resolveColor(labelCol, null, i, fmt.colors, dashboardPalette));
         return (
           <Treemap
             data={treemapData} dataKey="value" nameKey="name"
             aspectRatio={4 / 3} stroke="#111827"
-            content={<TreemapContent colors={colors} />}
+            content={<TreemapContent colors={treemapColors} />}
             animationDuration={800}
           />
         );
@@ -536,13 +757,17 @@ export default function ResultsChart({
         const yMeasure = displayMeasures[1] || displayMeasures[0];
         return (
           <ScatterChart margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#162032" />}
-            <XAxis dataKey={xMeasure} type="number" name={xMeasure} {...commonAxisProps} tickFormatter={formatTick} />
-            <YAxis dataKey={yMeasure} type="number" name={yMeasure} {...commonAxisProps} tickFormatter={formatTick} width={55} />
+            {gridElement}
+            <XAxis dataKey={xMeasure} type="number" name={xMeasure} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn}
+              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined} />
+            <YAxis dataKey={yMeasure} type="number" name={yMeasure} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
+              tickFormatter={fmtTickFn} width={55}
+              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
             <ZAxis range={[40, 200]} />
-            <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: "3 3", stroke: "#4b5563" }} />
-            <Scatter data={data} fill={colors[0]} animationDuration={800}>
-              {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+            {tooltipElement}
+            <Scatter data={chartData} fill={resolveColor(labelCol, null, 0, fmt.colors, dashboardPalette)} animationDuration={800}>
+              {chartData.map((_, i) => <Cell key={i} fill={resolveColor(labelCol, null, i, fmt.colors, dashboardPalette)} />)}
             </Scatter>
           </ScatterChart>
         );
@@ -569,9 +794,20 @@ export default function ResultsChart({
     return (
       <div className="h-full flex flex-col">
         <div ref={chartRef} className="flex-1 min-h-0" role="img" aria-label={chartSummary}>
-          <ResponsiveContainer width="100%" height="100%">
-            {renderChart()}
-          </ResponsiveContainer>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={chartType}
+              style={{ width: "100%", height: "100%" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                {renderChart()}
+              </ResponsiveContainer>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     );
@@ -740,14 +976,25 @@ export default function ResultsChart({
       )}
 
       {/* ── Chart Canvas ── */}
-      <div ref={chartRef} className="px-2 py-4" role="img" aria-label={chartSummary}>
-        <ResponsiveContainer width="100%" height={340}>
-          {renderChart()}
-        </ResponsiveContainer>
+      <div ref={chartRef} className={embedded ? "px-1 py-1" : "px-2 py-4"} role="img" aria-label={chartSummary}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={chartType}
+            style={{ width: "100%", height: "100%" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+          >
+            <ResponsiveContainer width="100%" height={embedded ? 150 : 340}>
+              {renderChart()}
+            </ResponsiveContainer>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      {/* ── Data summary bar ── */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-800 bg-slate-900/40">
+      {/* ── Data summary bar (hidden in embedded/dashboard mode) ── */}
+      {!embedded && <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-800 bg-slate-900/40">
         <span className="text-xs text-slate-500">
           <span className="tabular-nums">{data.length}</span> data point{data.length !== 1 ? "s" : ""} &middot; <span className="tabular-nums">{numericCols.length}</span> metric{numericCols.length !== 1 ? "s" : ""}
           {rankedCharts[0] && <> &middot; best fit: <span className="text-blue-400/70">{rankedCharts[0].label}</span></>}
@@ -767,7 +1014,7 @@ export default function ResultsChart({
             })}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

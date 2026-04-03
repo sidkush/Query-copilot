@@ -104,7 +104,17 @@ export default function AppSidebar() {
             onClick={() => navigate("/chat")}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            animate={{
+              boxShadow: [
+                "0 0 0 0px rgba(99,102,241,0.4)",
+                "0 0 0 7px rgba(99,102,241,0)",
+                "0 0 0 0px rgba(99,102,241,0)",
+              ],
+            }}
+            transition={{
+              boxShadow: { duration: 2.4, repeat: Infinity, ease: "easeOut" },
+              scale: { type: "spring", stiffness: 400, damping: 17 },
+            }}
             className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center mb-4 hover:from-indigo-500 hover:to-violet-500 transition-colors duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 relative z-10"
             aria-label="QueryCopilot Home"
             {...tooltipProps}

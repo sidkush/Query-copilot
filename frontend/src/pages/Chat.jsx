@@ -1,17 +1,24 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, Suspense, Component, lazy } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import { useStore } from "../store";
+import AnimatedBackground from "../components/animation/AnimatedBackground";
+
+class WebGLErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(e) { console.warn("WebGL fallback:", e); }
+  render() { return this.state.hasError ? this.props.fallback : this.props.children; }
+}
+const Background3D = lazy(() => import("../components/animation/Background3D"));
 import SQLPreview from "../components/SQLPreview";
 import ResultsTable from "../components/ResultsTable";
 import ResultsChart from "../components/ResultsChart";
 import SchemaExplorer from "../components/SchemaExplorer";
 import ERDiagram from "../components/ERDiagram";
 import UserDropdown from "../components/UserDropdown";
-import GridLayout from "react-grid-layout";
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
+import DatabaseSwitcher from "../components/DatabaseSwitcher";
 
 // ── Message timestamp formatting ──
 function formatMessageTime(ts) {
@@ -85,213 +92,7 @@ function relativeTime(dateStr) {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// ── Inline Dashboard Component (editable, draggable, resizable) ──
-function InlineDashboard({ tiles: initialTiles, layout: initialLayout, question, dbLabel, onSaveToPersistent }) {
-  const [expanded, setExpanded] = useState(true);
-  const [tiles, setTiles] = useState(initialTiles);
-  const [layout, setLayout] = useState(initialLayout);
-  const [editingTile, setEditingTile] = useState(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [saveName, setSaveName] = useState("");
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const containerRef = useRef(null);
-  const [containerWidth, setContainerWidth] = useState(900);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const ro = new ResizeObserver((entries) => {
-      for (const e of entries) setContainerWidth(e.contentRect.width);
-    });
-    ro.observe(containerRef.current);
-    return () => ro.disconnect();
-  }, []);
-
-  const onLayoutChange = useCallback((newLayout) => {
-    setLayout(newLayout);
-  }, []);
-
-  const removeTile = useCallback((idx) => {
-    setTiles((prev) => prev.filter((_, i) => i !== idx));
-    setLayout((prev) => prev.filter((l) => l.i !== `tile-${idx}`));
-  }, []);
-
-  const startEditTile = useCallback((idx) => {
-    setEditingTile(idx);
-    setEditTitle(tiles[idx]?.title || "");
-  }, [tiles]);
-
-  const saveEditTile = useCallback(() => {
-    if (editingTile === null) return;
-    setTiles((prev) => prev.map((t, i) => i === editingTile ? { ...t, title: editTitle } : t));
-    setEditingTile(null);
-  }, [editingTile, editTitle]);
-
-  const handleSave = async () => {
-    if (!saveName.trim() || saving) return;
-    setSaving(true);
-    try {
-      await onSaveToPersistent(saveName.trim(), tiles, layout);
-      setShowSaveModal(false);
-      setSaveName("");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Extract a dashboard name from the question
-  const dashName = useMemo(() => {
-    const m = question.match(/(?:create|build|make|generate|design)\s+(?:a\s+|me\s+a\s+)?(?:professional\s+)?(.+?)\s+dashboard/i);
-    return m ? m[1].trim().replace(/^(a|an|the|my)\s+/i, "") : "Analytics";
-  }, [question]);
-
-  if (!expanded) {
-    return (
-      <div className="bg-slate-900/60 border border-slate-800 hover:border-blue-500/20 rounded-xl px-4 py-3 flex items-center justify-between transition-colors duration-200">
-        <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z" />
-          </svg>
-          <span className="text-white font-semibold">{dashName} Dashboard</span>
-          <span className="text-xs text-slate-500 tabular-nums">{tiles.length} tiles</span>
-        </div>
-        <button onClick={() => setExpanded(true)} className="text-blue-400 hover:text-blue-300 text-sm font-medium cursor-pointer transition-colors duration-200">Expand</button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-slate-900/80 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z" />
-          </svg>
-          <h3 className="text-white font-semibold text-lg">{dashName} Dashboard</h3>
-          {dbLabel && <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">{dbLabel}</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setSaveName(dashName + " Dashboard"); setShowSaveModal(true); }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors duration-200 cursor-pointer"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-            </svg>
-            Save
-          </button>
-          <button onClick={() => setExpanded(false)} className="text-slate-500 hover:text-slate-300 cursor-pointer p-1">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div ref={containerRef} className="p-3" style={{ minHeight: tiles.length > 0 ? Math.ceil(tiles.length / 2) * 320 + 40 : 200 }}>
-        {containerWidth > 0 && tiles.length > 0 && (
-          <GridLayout
-            className="layout"
-            layout={layout}
-            cols={12}
-            rowHeight={70}
-            width={containerWidth - 24}
-            onLayoutChange={onLayoutChange}
-            draggableHandle=".dash-tile-handle"
-            margin={[12, 12]}
-            isResizable={true}
-            isDraggable={true}
-          >
-            {tiles.map((tile, idx) => (
-              <div key={`tile-${idx}`} className="bg-slate-900/60 border border-slate-800 hover:border-blue-500/15 rounded-xl overflow-hidden flex flex-col transition-colors duration-200">
-                {/* Tile header */}
-                <div className="dash-tile-handle flex items-center justify-between px-3 py-2.5 bg-slate-900/80 cursor-grab border-b border-slate-800">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <div className="w-1 h-4 rounded-full bg-blue-500 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-white truncate">{tile.title}</span>
-                  </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    <button onClick={() => startEditTile(idx)} className="text-slate-500 hover:text-blue-400 transition-colors duration-200 cursor-pointer p-1">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
-                      </svg>
-                    </button>
-                    <button onClick={() => removeTile(idx)} className="text-slate-500 hover:text-red-400 transition-colors duration-200 cursor-pointer p-1" title="Remove tile">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                {/* Chart content */}
-                <div className="flex-1 min-h-0 p-2">
-                  {tile.columns && tile.rows && tile.rows.length > 0 ? (
-                    <ResultsChart columns={tile.columns} rows={tile.rows} embedded={true} />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-slate-600 text-xs">No data</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </GridLayout>
-        )}
-      </div>
-
-      {/* Edit tile modal */}
-      {editingTile !== null && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setEditingTile(null)}>
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-96 shadow-2xl fade-scale-in" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-2 mb-4">
-              <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-              </svg>
-              <h4 className="text-white font-semibold">Edit Tile</h4>
-            </div>
-            <input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-              placeholder="Tile title"
-            />
-            <div className="flex justify-end gap-2.5 mt-5">
-              <button onClick={() => setEditingTile(null)} className="px-4 py-2 text-slate-400 text-sm cursor-pointer hover:text-white transition-colors duration-200">Cancel</button>
-              <button onClick={saveEditTile} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg cursor-pointer transition-colors duration-200">Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Save dashboard modal */}
-      {showSaveModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowSaveModal(false)}>
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-96 shadow-2xl fade-scale-in" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-2 mb-4">
-              <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-              </svg>
-              <h4 className="text-white font-semibold">Save Dashboard</h4>
-            </div>
-            <input
-              value={saveName}
-              onChange={(e) => setSaveName(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
-              placeholder="Dashboard name"
-              onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            />
-            <div className="flex justify-end gap-2.5 mt-5">
-              <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 text-slate-400 text-sm cursor-pointer hover:text-white transition-colors duration-200">Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg cursor-pointer transition-colors duration-200 disabled:opacity-50">
-                {saving ? "Saving..." : "Save"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function DashboardChips({ question, onGenerate }) {
   const [focus, setFocus] = useState('');
@@ -320,7 +121,7 @@ function DashboardChips({ question, onGenerate }) {
   const label = phase === 'focus' ? 'What area should this focus on?' : phase === 'time' ? 'What time range?' : "Who's the audience?";
 
   return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+    <div className="bg-[#111114]/70 border border-white/[0.06] rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
@@ -332,7 +133,7 @@ function DashboardChips({ question, onGenerate }) {
       <div className="flex flex-wrap gap-2">
         {chips.map(chip => (
           <button key={chip} onClick={() => handleChip(chip)}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-700 text-slate-300 hover:border-blue-500/40 hover:text-blue-300 hover:bg-blue-500/10 transition-all duration-200 cursor-pointer">
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-white/[0.08] text-[#8A8F98] hover:border-blue-500/40 hover:text-blue-300 hover:bg-blue-500/10 transition-all duration-200 cursor-pointer">
             {chip}
           </button>
         ))}
@@ -347,6 +148,7 @@ function DashboardChips({ question, onGenerate }) {
 
 export default function Chat() {
   const [input, setInput] = useState("");
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [generatingDashboard, setGeneratingDashboard] = useState(false);
@@ -602,37 +404,97 @@ export default function Chat() {
         return;
       }
 
-      // Build flat tiles and layout from first tab for inline preview
-      const allTiles = [];
-      const allLayout = [];
-      for (const tab of tabs) {
-        for (const sec of tab.sections || []) {
-          for (const tile of sec.tiles || []) {
-            const idx = allTiles.length;
-            allTiles.push(tile);
-            allLayout.push({
-              i: `tile-${idx}`,
-              x: (idx % 2) * 6,
-              y: Math.floor(idx / 2) * 4,
-              w: 6,
-              h: 4,
-              minW: 3,
-              minH: 3,
-            });
-          }
-        }
-      }
+      // Extract a dashboard name from the question
+      const m = question.match(/(?:create|build|make|generate|design)\s+(?:a\s+|me\s+a\s+)?(?:professional\s+)?(.+?)\s+dashboard/i);
+      const dashName = m ? m[1].trim().replace(/^(a|an|the|my)\s+/i, "") + " Dashboard" : "Analytics Dashboard";
 
-      const dashMsg = {
-        type: "dashboard",
-        question,
-        tiles: allTiles,
-        layout: allLayout,
-        tabs,
-        dbLabel: result.database_name,
-        connId: result.conn_id,
+      addMessage({ type: "system", content: `Saving dashboard "${dashName}"...` });
+
+      // Create new dashboard in the backend
+      const d = await api.createDashboard(dashName);
+
+      // Add guaranteed IDs if missing and build properly formatted tabs
+      const generateId = () => Math.random().toString(36).substring(2, 10);
+
+      const updatedTabs = tabs.map((tab, tIdx) => ({
+        ...tab,
+        id: tab.id || generateId(),
+        order: tab.order || tIdx,
+        sections: (tab.sections || []).map((sec, sIdx) => {
+          let currentX = 0;
+          let currentY = 0;
+          let rowMaxH = 0;
+
+          return {
+            ...sec,
+            id: sec.id || generateId(),
+            order: sec.order || sIdx,
+            collapsed: false,
+            layout: [],
+            tiles: (sec.tiles || []).map((tile, i) => {
+              const tileId = tile.id || generateId();
+              const cType = tile.chartType || "bar";
+              const w = cType === "kpi" ? 3 : 6;
+              const h = cType === "kpi" ? 2 : 4;
+
+              if (currentX + w > 12) {
+                currentX = 0;
+                currentY += rowMaxH;
+                rowMaxH = 0;
+              }
+
+              const x = currentX;
+              const y = currentY;
+
+              currentX += w;
+              rowMaxH = Math.max(rowMaxH, h);
+
+              // populate layout inline as well to guarantee it works in Dashboards UI
+              return {
+                ...tile,
+                id: tileId,
+                chartType: cType,
+                question: tile.question || question,
+                _layout: {
+                  i: tileId,
+                  x,
+                  y,
+                  w,
+                  h,
+                  minW: cType === "kpi" ? 2 : 3,
+                  minH: cType === "kpi" ? 1 : 3,
+                }
+              };
+            })
+          };
+        })
+      }));
+
+      // Extract layout elements back out into section root
+      updatedTabs.forEach(tab => {
+        tab.sections.forEach(sec => {
+          sec.layout = sec.tiles.map(t => t._layout).filter(Boolean);
+          sec.tiles.forEach(t => delete t._layout);
+        });
+      });
+
+      await api.updateDashboard(d.id, { tabs: updatedTabs });
+
+      // Update local state if needed
+      setDashboards(prev => [...prev, { id: d.id, name: d.name, tile_count: totalTiles }]);
+      
+      const successMsg = {
+        type: "system",
+        content: `Dashboard "${dashName}" successfully created!`
       };
-      addMessage(dashMsg);
+      addMessage(successMsg);
+      if (ensureChatId.current) api.appendMessage(ensureChatId.current, successMsg).catch(() => {});
+
+      // Navigate to Analytics
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1000);
+
     } catch (err) {
       addMessage({ type: "error", content: "Dashboard generation failed: " + (err.message || "Unknown error") });
     } finally {
@@ -791,7 +653,7 @@ export default function Chat() {
   };
 
   return (
-    <div className={`flex flex-1 h-full bg-[#0B1120] ${isResizing ? "select-none" : ""}`}>
+    <div className="flex flex-1 h-full bg-black text-slate-200 font-sans selection:bg-indigo-500/30">
       {/* Chat history sidebar */}
       <AnimatePresence>
       {showSidebar && (
@@ -800,11 +662,11 @@ export default function Chat() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: -288, opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="w-72 bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col overflow-hidden">
-          <div className="p-3 border-b border-slate-800 space-y-2 flex-shrink-0">
+          className="w-72 bg-[#0a0a0c] border-r border-white/[0.06] flex-shrink-0 flex flex-col overflow-hidden relative z-30 shadow-2xl">
+          <div className="p-3 border-b border-white/[0.06] space-y-2 flex-shrink-0">
             <button
               onClick={handleNewChat}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all duration-300 cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 text-white text-sm font-medium rounded-lg transition-all duration-300 cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -812,7 +674,7 @@ export default function Chat() {
               New Chat
             </button>
             <div className="relative">
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#5C5F66] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
               </svg>
               <input
@@ -820,13 +682,13 @@ export default function Chat() {
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
                 placeholder="Search chats..."
-                className="glass-input w-full rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition-all duration-200"
+                className="w-full rounded-lg bg-white/5 pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all duration-200"
               />
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {chats.length === 0 && (
-              <p className="text-xs text-slate-600 text-center mt-4">No chat history yet</p>
+              <p className="text-xs text-[#5C5F66] text-center mt-4">No chat history yet</p>
             )}
             {chats.filter((chat) => {
               if (!historySearch.trim()) return true;
@@ -834,7 +696,7 @@ export default function Chat() {
               const title = (chat.title || "Untitled").toLowerCase();
               return title.includes(term);
             }).length === 0 && chats.length > 0 && historySearch.trim() && (
-              <p className="text-xs text-slate-600 text-center mt-4">No matching chats</p>
+              <p className="text-xs text-[#5C5F66] text-center mt-4">No matching chats</p>
             )}
             {chats.filter((chat) => {
               if (!historySearch.trim()) return true;
@@ -852,8 +714,8 @@ export default function Chat() {
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   className={`relative flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
                     isActive
-                      ? "bg-blue-600/10 border border-blue-500/20 shadow-[inset_3px_0_0_#2563EB]"
-                      : "hover:bg-slate-800/40 border border-transparent"
+                      ? "bg-white/10 border border-white/5"
+                      : "hover:bg-white/5 border border-transparent"
                   }`}
                   onClick={() => handleLoadChat(chat.chat_id)}
                   onMouseEnter={() => setHoveredChatId(chat.chat_id)}
@@ -864,7 +726,7 @@ export default function Chat() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-slate-300 truncate">{chat.title || "Untitled"}</p>
-                    <p className="text-xs text-slate-600">{relativeTime(chat.updated_at)}</p>
+                    <p className="text-[10px] text-[#5C5F66]">{relativeTime(chat.updated_at)}</p>
                   </div>
                   {isHovered && (
                     <button
@@ -872,7 +734,7 @@ export default function Chat() {
                         e.stopPropagation();
                         handleDeleteChat(chat.chat_id);
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-700 text-slate-600 hover:text-red-400 transition cursor-pointer"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10 text-[#5C5F66] hover:text-red-400 transition cursor-pointer"
                       aria-label="Delete chat"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -896,7 +758,7 @@ export default function Chat() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: -288, opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="w-72 bg-slate-900 border-r border-slate-800 flex-shrink-0"
+          className="w-72 bg-[#0a0a0c] border-r border-white/[0.06] flex-shrink-0"
         >
           <SchemaExplorer />
         </motion.div>
@@ -904,10 +766,10 @@ export default function Chat() {
       </AnimatePresence>
 
       {/* Main chat area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Header */}
-        <header className="flex items-center justify-between px-6 py-3 glass-navbar sticky top-0 z-20">
-          <div className="flex items-center gap-3">
+        <header className="flex items-center justify-between px-6 py-4 z-20">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => {
                 if (showSidebar) {
@@ -926,155 +788,22 @@ export default function Chat() {
               </svg>
             </button>
 
-            {/* Schema toggle */}
-            <button
-              onClick={() => {
-                if (showSchema) {
-                  setShowSchema(false);
-                } else {
-                  setShowSchema(true);
-                  setShowSidebar(false);
-                }
-              }}
-              className={`p-2 rounded-lg hover:bg-white/10 transition-all duration-200 cursor-pointer ${showSchema ? "bg-white/10" : ""}`}
-              title="Toggle schema explorer"
-              aria-label="Toggle schema explorer"
-            >
-              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v18" />
-              </svg>
-            </button>
+            <h1 className="text-lg font-semibold text-white tracking-tight">Query<span className="text-indigo-400">Copilot</span></h1>
 
-            <h1 className="text-lg font-semibold text-white">Query<span className="text-blue-400">Copilot</span></h1>
-
-            {/* DB connection status badges — clickable toggle connect/disconnect */}
-            {(() => {
-              const badges = [];
-              const shownDbs = new Set();
-
-              // Live connections — green, click to disconnect
-              connections.forEach((conn) => {
-                if (liveConnIds.has(conn.conn_id)) {
-                  const key = `${conn.db_type}:${conn.database_name}`;
-                  shownDbs.add(key);
-                  // Find matching saved config for potential reconnect later
-                  const savedMatch = savedDbs.find(
-                    (s) => s.db_type === conn.db_type &&
-                      (s.database === conn.database_name || s.label === conn.database_name ||
-                       s.project === conn.database_name)
-                  );
-                  badges.push({
-                    ...conn,
-                    isLive: true,
-                    badgeKey: conn.conn_id,
-                    savedId: savedMatch?.id || null,
-                  });
-                }
-              });
-
-              // Saved configs without a live connection — red, click to reconnect
-              savedDbs.forEach((saved) => {
-                const dbName = saved.database || saved.project || saved.account || "unknown";
-                const key = `${saved.db_type}:${dbName}`;
-                if (!shownDbs.has(key)) {
-                  shownDbs.add(key);
-                  badges.push({
-                    db_type: saved.db_type,
-                    database_name: saved.label || dbName,
-                    isLive: false,
-                    badgeKey: `saved-${saved.id}`,
-                    savedId: saved.id,
-                  });
-                }
-              });
-
-              return badges.map((badge) => {
-                const info = DB_LABELS[badge.db_type] || { name: badge.db_type, icon: "" };
-                return (
-                  <button
-                    key={badge.badgeKey}
-                    onClick={async () => {
-                      if (badge.isLive) {
-                        // Disconnect
-                        try {
-                          await api.disconnectDB(badge.conn_id);
-                          removeConnection(badge.conn_id);
-                          setLiveConnIds((prev) => {
-                            const next = new Set(prev);
-                            next.delete(badge.conn_id);
-                            return next;
-                          });
-                        } catch {}
-                      } else if (badge.savedId) {
-                        // Reconnect from saved config
-                        try {
-                          const result = await api.reconnect(badge.savedId);
-                          addConnection({
-                            conn_id: result.conn_id,
-                            db_type: badge.db_type,
-                            database_name: result.database_name || badge.database_name,
-                          });
-                          setLiveConnIds((prev) => new Set([...prev, result.conn_id]));
-                        } catch {}
-                      }
-                    }}
-                    className={`group flex items-center gap-2 ml-2 px-3 py-1.5 rounded-full border transition-all duration-200 cursor-pointer ${
-                      badge.isLive
-                        ? "bg-slate-800 border-slate-700 hover:bg-red-900/20 hover:border-red-800/50"
-                        : "bg-red-900/10 border-red-800/50 hover:bg-green-900/20 hover:border-green-800/50"
-                    }`}
-                    title={badge.isLive ? "Click to disconnect" : "Click to reconnect"}
-                  >
-                    <span className="relative flex h-2.5 w-2.5">
-                      {badge.isLive ? (
-                        <>
-                          {/* Green dot, turns red on hover */}
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 group-hover:bg-red-400" />
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 group-hover:bg-red-500 transition-colors" />
-                        </>
-                      ) : (
-                        <>
-                          {/* Red dot, turns green on hover */}
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 group-hover:bg-green-400" />
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 group-hover:bg-green-500 transition-colors" />
-                        </>
-                      )}
-                    </span>
-                    <span className={`text-xs font-medium transition-colors ${
-                      badge.isLive
-                        ? "text-slate-300 group-hover:text-red-400"
-                        : "text-red-400 group-hover:text-green-400"
-                    }`}>
-                      {DB_ICONS[badge.db_type]} {badge.database_name}
-                    </span>
-                    {/* Hover label hint */}
-                    <span className={`text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity ${
-                      badge.isLive ? "text-red-400" : "text-green-400"
-                    }`}>
-                      {badge.isLive ? "✕" : "⟳"}
-                    </span>
-                  </button>
-                );
-              });
-            })()}
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-blue-500 transition cursor-pointer text-sm font-bold"
-              title="Add another database"
-              aria-label="Add another database"
-            >
-              +
-            </button>
+            <DatabaseSwitcher
+              connections={connections}
+              activeConnId={activeConnId || connections[0]?.conn_id || null}
+              onSwitch={setActiveConnId}
+            />
           </div>
+          
           <div className="flex items-center gap-3">
-            {/* ER Diagram toggle button */}
             <button
               onClick={() => setShowER(!showER)}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition cursor-pointer ${
                 showER
                   ? "bg-blue-600 text-white"
-                  : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
+                  : "bg-slate-800 text-[#8A8F98] hover:text-white hover:bg-white/[0.07]"
               }`}
               title="Toggle ER Diagram"
               aria-label="Toggle ER Diagram"
@@ -1088,7 +817,7 @@ export default function Chat() {
             </button>
             <button
               onClick={() => { clearMessages(); setActiveChatId(null); }}
-              className="text-xs text-slate-500 hover:text-slate-300 transition cursor-pointer"
+              className="text-xs text-[#5C5F66] hover:text-[#8A8F98] transition cursor-pointer"
             >
               Clear chat
             </button>
@@ -1096,12 +825,21 @@ export default function Chat() {
           </div>
         </header>
 
+        {/* 3D ambient background */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ opacity: 0.32, zIndex: 0 }}>
+          <WebGLErrorBoundary fallback={<AnimatedBackground />}>
+            <Suspense fallback={null}>
+              <Background3D />
+            </Suspense>
+          </WebGLErrorBoundary>
+        </div>
+
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 relative z-10 pb-32">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <h2 className="text-2xl font-bold text-white mb-2">Ask your data anything</h2>
-              <p className="text-slate-500 max-w-md">
+              <p className="text-[#5C5F66] max-w-md">
                 Type a question in plain English. QueryCopilot will generate SQL,
                 show it for your review, and run it on approval.
               </p>
@@ -1115,7 +853,7 @@ export default function Chat() {
                   <button
                     key={q}
                     onClick={() => { setInput(q); }}
-                    className="text-left text-sm text-slate-400 bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800 hover:border-blue-500/20 rounded-lg px-4 py-3 transition-all duration-200 cursor-pointer hover:-translate-y-0.5"
+                    className="text-left text-sm text-[#8A8F98] bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/[0.1] rounded-2xl px-5 py-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
                   >
                     {q}
                   </button>
@@ -1134,10 +872,10 @@ export default function Chat() {
             >
               {msg.type === "user" && (
                 <div className="flex flex-col items-end">
-                  <div className="bg-blue-600/90 text-white rounded-xl px-4 py-2.5 max-w-xl">
+                  <div className="bg-white/[0.06] backdrop-blur-md border border-white/[0.08] shadow-[0_4px_24px_rgba(0,0,0,0.4)] text-slate-100 rounded-2xl rounded-tr-sm px-5 py-3 max-w-xl text-[15px] font-medium leading-relaxed">
                     {msg.content}
                   </div>
-                  {msg.timestamp && <span className="text-[10px] text-slate-600 mt-1 mr-1">{formatMessageTime(msg.timestamp)}</span>}
+                  {msg.timestamp && <span className="text-[10px] text-[#5C5F66] mt-1 mr-1">{formatMessageTime(msg.timestamp)}</span>}
                 </div>
               )}
 
@@ -1148,7 +886,7 @@ export default function Chat() {
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                   className="space-y-2"
                 >
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-[#5C5F66]">
                     {msg.dbLabel && <span className="text-blue-400 font-medium">[{msg.dbLabel}] </span>}
                     Generated with {msg.model} in {Math.round(msg.latency)}ms
                   </div>
@@ -1159,7 +897,7 @@ export default function Chat() {
                     loading={executing}
                     onCopySQL={() => showToast("Copied to clipboard!")}
                   />
-                  {msg.timestamp && <span className="text-[10px] text-slate-600">{formatMessageTime(msg.timestamp)}</span>}
+                  {msg.timestamp && <span className="text-[10px] text-[#5C5F66]">{formatMessageTime(msg.timestamp)}</span>}
                 </motion.div>
               )}
 
@@ -1171,10 +909,10 @@ export default function Chat() {
                   className="space-y-3"
                 >
                   {msg.summary && (
-                    <div className="glass-card rounded-xl px-4 py-3">
-                      {msg.dbLabel && <p className="text-xs text-blue-400 font-medium mb-1">[{msg.dbLabel}]</p>}
-                      <p className="text-gray-200">{msg.summary}</p>
-                      <p className="text-xs text-slate-600 mt-1">
+                    <div className="bg-transparent border-l-2 border-white/20 pl-4 py-1">
+                      {msg.dbLabel && <p className="text-xs text-slate-400 font-medium mb-1">[{msg.dbLabel}]</p>}
+                      <p className="text-slate-200 text-[15px] leading-relaxed">{msg.summary}</p>
+                      <p className="text-[11px] text-[#5C5F66] mt-2">
                         {msg.rowCount} rows in {Math.round(msg.latency)}ms
                       </p>
                     </div>
@@ -1192,34 +930,34 @@ export default function Chat() {
                     </>
                   )}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Was this correct?</span>
+                    <span className="text-xs text-[#5C5F66]">Was this correct?</span>
                     <button
                       onClick={() => handleFeedback(msg.question, msg.sql, true)}
-                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-emerald-900/30 text-slate-400 hover:text-green-400 transition-all duration-200 cursor-pointer"
+                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-emerald-900/30 text-[#8A8F98] hover:text-green-400 transition-all duration-200 cursor-pointer"
                       aria-label="Query result was correct"
                     >
                       Yes
                     </button>
                     <button
                       onClick={() => handleFeedback(msg.question, msg.sql, false)}
-                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-red-900/30 text-slate-400 hover:text-red-400 transition-all duration-200 cursor-pointer"
+                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-red-900/30 text-[#8A8F98] hover:text-red-400 transition-all duration-200 cursor-pointer"
                       aria-label="Query result was incorrect"
                     >
                       No
                     </button>
                   </div>
-                  {msg.timestamp && <span className="text-[10px] text-slate-600">{formatMessageTime(msg.timestamp)}</span>}
+                  {msg.timestamp && <span className="text-[10px] text-[#5C5F66]">{formatMessageTime(msg.timestamp)}</span>}
                   {/* Daily usage remaining */}
                   {msg.dailyUsage && !msg.dailyUsage.unlimited && (
-                    <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${msg.dailyUsage.remaining <= 2 ? "bg-red-900/20 border border-red-800/50" : msg.dailyUsage.remaining <= 5 ? "bg-amber-900/20 border border-amber-800/50" : "bg-slate-800/50 border border-slate-700/50"}`}>
+                    <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${msg.dailyUsage.remaining <= 2 ? "bg-red-900/20 border border-red-800/50" : msg.dailyUsage.remaining <= 5 ? "bg-amber-900/20 border border-amber-800/50" : "bg-slate-800/50 border border-white/[0.08]/50"}`}>
                       <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
                       </svg>
-                      <span className={msg.dailyUsage.remaining <= 2 ? "text-red-400" : msg.dailyUsage.remaining <= 5 ? "text-amber-400" : "text-slate-400"}>
+                      <span className={msg.dailyUsage.remaining <= 2 ? "text-red-400" : msg.dailyUsage.remaining <= 5 ? "text-amber-400" : "text-[#8A8F98]"}>
                         {msg.dailyUsage.remaining === 0
                           ? `Daily limit reached (${msg.dailyUsage.daily_limit}/${msg.dailyUsage.daily_limit}). Upgrade for more.`
                           : `${msg.dailyUsage.remaining} of ${msg.dailyUsage.daily_limit} queries remaining today`}
-                        <span className="text-slate-600 ml-1">({msg.dailyUsage.plan} plan)</span>
+                        <span className="text-[#5C5F66] ml-1">({msg.dailyUsage.plan} plan)</span>
                       </span>
                     </div>
                   )}
@@ -1230,48 +968,17 @@ export default function Chat() {
                 <DashboardChips question={msg.question} onGenerate={handleDashboardChipSelect} />
               )}
 
-              {msg.type === "dashboard" && (
-                <InlineDashboard
-                  tiles={msg.tiles}
-                  layout={msg.layout}
-                  question={msg.question}
-                  dbLabel={msg.dbLabel}
-                  onSaveToPersistent={async (name, tiles, layout) => {
-                    try {
-                      const d = await api.createDashboard(name);
-                      // Get the default tab and section IDs
-                      const tabId = d.tabs?.[0]?.id;
-                      const sectionId = d.tabs?.[0]?.sections?.[0]?.id;
-                      if (tabId && sectionId) {
-                        for (const tile of tiles) {
-                          await api.addTileToSection(d.id, tabId, sectionId, {
-                            title: tile.title,
-                            chartType: tile.chartType || "bar",
-                            columns: tile.columns,
-                            rows: tile.rows,
-                            question: tile.question,
-                            sql: tile.sql,
-                          });
-                        }
-                      }
-                      setDashboards((prev) => [...prev, { id: d.id, name: d.name, tile_count: tiles.length }]);
-                      addMessage({ type: "system", content: `Dashboard "${name}" saved! View it in Analytics.` });
-                    } catch (err) {
-                      addMessage({ type: "error", content: "Failed to save dashboard: " + err.message });
-                    }
-                  }}
-                />
-              )}
+
 
               {msg.type === "error" && (
                 <div className="bg-red-900/20 border border-red-800/50 rounded-xl px-4 py-3 text-red-400 text-sm" role="alert">
                   {msg.content}
-                  {msg.timestamp && <div className="text-[10px] text-slate-600 mt-1">{formatMessageTime(msg.timestamp)}</div>}
+                  {msg.timestamp && <div className="text-[10px] text-[#5C5F66] mt-1">{formatMessageTime(msg.timestamp)}</div>}
                 </div>
               )}
 
               {msg.type === "system" && (
-                <div className="text-center text-xs text-slate-600">
+                <div className="text-center text-xs text-[#5C5F66]">
                   {msg.content || msg.text}
                   {msg.timestamp && <span className="ml-2 text-[10px] text-slate-700">{formatMessageTime(msg.timestamp)}</span>}
                 </div>
@@ -1290,18 +997,18 @@ export default function Chat() {
               role="status"
             >
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/[0.08] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-lg">
+                  <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                   </svg>
                 </div>
-                <div className="glass-card rounded-xl px-4 py-3 max-w-md">
-                  <div className="flex items-center gap-2 text-slate-400 text-sm">
-                    <div className="flex gap-1">
+                <div className="bg-transparent pl-4 py-1 flex items-center max-w-md">
+                  <div className="flex items-center gap-3 text-[#8A8F98] text-[15px]">
+                    <div className="flex gap-1.5">
                       {[0, 1, 2].map((dot) => (
                         <motion.div
                           key={dot}
-                          className="w-1.5 h-1.5 bg-blue-500 rounded-full"
+                          className="w-1.5 h-1.5 bg-slate-400 rounded-full"
                           animate={{ y: [0, -4, 0] }}
                           transition={{ duration: 0.6, repeat: Infinity, delay: dot * 0.15, ease: "easeInOut" }}
                         />
@@ -1324,7 +1031,7 @@ export default function Chat() {
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
               className="max-w-4xl mx-auto"
             >
-              <div className="flex items-center gap-3 text-slate-400 text-sm glass-card border-blue-500/20 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-3 text-[#8A8F98] text-sm glass-card border-blue-500/20 rounded-xl px-4 py-3">
                 <div className="flex gap-1">
                   {[0, 1, 2].map((dot) => (
                     <motion.div
@@ -1344,43 +1051,45 @@ export default function Chat() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
-        <div className="px-6 py-4 glass-navbar">
-          <form onSubmit={handleAsk} className="max-w-4xl mx-auto flex gap-3">
-            {connections.length > 1 && (
-              <select
-                value={activeConnId || connections[0]?.conn_id || ""}
-                onChange={(e) => setActiveConnId(e.target.value)}
-                className="glass-input rounded-xl px-3 py-3 text-sm text-white focus:outline-none input-glow transition"
-              >
-                {connections.map((conn) => {
-                  const info = DB_LABELS[conn.db_type] || { name: conn.db_type, icon: "" };
-                  return (
-                    <option key={conn.conn_id} value={conn.conn_id}>
-                      {conn.database_name} ({info.name})
-                    </option>
-                  );
-                })}
-              </select>
-            )}
+        {/* Floating Minimalist Input Pill */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-3xl z-50">
+          <motion.form 
+            onSubmit={handleAsk} 
+            className="flex items-center gap-2 rounded-full p-2 shadow-2xl transition-all duration-300 pointer-events-auto"
+            style={{ 
+              background: 'rgba(20, 20, 22, 0.4)', 
+              backdropFilter: 'blur(40px) saturate(1.8)', 
+              WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              boxShadow: isInputFocused ? '0 20px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.15)' : '0 10px 30px rgba(0,0,0,0.6)'
+            }}
+            initial={{ scale: 0.95, y: 20 }}
+            animate={{ scale: isInputFocused ? 1.02 : 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          >
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question about your data..."
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
+              placeholder="Ask anything..."
               aria-label="Ask a question about your data"
-              className="flex-1 glass-input rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:outline-none transition-all duration-200"
+              className="flex-1 bg-transparent px-5 py-2.5 text-[15px] text-white placeholder-[#8A8F98] focus:outline-none transition-all duration-200"
               disabled={loading}
+              style={{ paddingLeft: '24px' }}
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors duration-200 cursor-pointer"
+              className="flex items-center justify-center w-[42px] h-[42px] shrink-0 rounded-full bg-white text-black hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 transition-all duration-300 cursor-pointer"
               aria-label="Send question"
             >
-              Ask
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+              </svg>
             </button>
-          </form>
+          </motion.form>
         </div>
       </div>
 
@@ -1402,7 +1111,7 @@ export default function Chat() {
             className="flex-shrink-0 glass flex flex-col"
             style={{ width: erPanelWidth }}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <span className="w-2 h-2 bg-blue-500 rounded-full" />
                 ER Diagram
@@ -1412,7 +1121,7 @@ export default function Chat() {
                 className="p-1 rounded hover:bg-slate-800 transition cursor-pointer"
                 aria-label="Close ER Diagram"
               >
-                <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 text-[#5C5F66]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1422,7 +1131,7 @@ export default function Chat() {
                 <ERDiagram tables={erTables} compact savedPositions={erSavedPositions} onPositionsChange={handleERPositionsChange} />
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <div className="flex items-center gap-2 text-slate-500 text-sm">
+                  <div className="flex items-center gap-2 text-[#5C5F66] text-sm">
                     <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                     Loading schema...
                   </div>
@@ -1440,7 +1149,7 @@ export default function Chat() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setShowDashboardPicker(false); setPendingTileData(null); }}>
           <div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-2xl fade-scale-in" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-white mb-1">Add to Dashboard</h3>
-            <p className="text-xs text-slate-500 mb-4">Choose a dashboard or create a new one</p>
+            <p className="text-xs text-[#5C5F66] mb-4">Choose a dashboard or create a new one</p>
 
             {/* Existing dashboards */}
             {dashboards.length > 0 && (
@@ -1450,13 +1159,13 @@ export default function Chat() {
                     key={d.id}
                     onClick={() => handlePickDashboard(d.id)}
                     disabled={addingTile}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg glass hover:bg-white/10 hover:border-blue-500/20 text-left transition-all duration-200 cursor-pointer disabled:opacity-50"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg glass hover:bg-white/[0.07] hover:border-blue-500/20 text-left transition-all duration-200 cursor-pointer disabled:opacity-50"
                   >
                     <div>
                       <p className="text-sm text-white font-medium">{d.name}</p>
-                      <p className="text-xs text-slate-500">{d.tile_count || 0} tile{d.tile_count !== 1 ? "s" : ""}</p>
+                      <p className="text-xs text-[#5C5F66]">{d.tile_count || 0} tile{d.tile_count !== 1 ? "s" : ""}</p>
                     </div>
-                    <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4 text-[#5C5F66]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                   </button>
@@ -1465,8 +1174,8 @@ export default function Chat() {
             )}
 
             {/* Create new */}
-            <div className="border-t border-slate-800 pt-3">
-              <p className="text-xs text-slate-400 mb-2">Or create new dashboard</p>
+            <div className="border-t border-white/[0.06] pt-3">
+              <p className="text-xs text-[#8A8F98] mb-2">Or create new dashboard</p>
               <div className="flex gap-2">
                 <input
                   value={newDashboardName}
@@ -1487,7 +1196,7 @@ export default function Chat() {
 
             <button
               onClick={() => { setShowDashboardPicker(false); setPendingTileData(null); }}
-              className="mt-3 w-full text-center text-xs text-slate-500 hover:text-slate-300 transition cursor-pointer"
+              className="mt-3 w-full text-center text-xs text-[#5C5F66] hover:text-[#8A8F98] transition cursor-pointer"
             >
               Cancel
             </button>

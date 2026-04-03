@@ -290,6 +290,7 @@ Guidelines:
         """Generate a complete dashboard with tabs/sections/tiles from natural language."""
         import json as _json
         import decimal
+        import re
 
         preferences = preferences or {}
         focus = preferences.get("focus", "")
@@ -310,7 +311,8 @@ Guidelines:
 
         system_prompt = (
             "You are an expert dashboard architect. "
-            "Return ONLY valid JSON objects. No markdown, no explanations."
+            "Return ONLY valid JSON objects. No markdown, no explanations, no trailing commas, no comments. "
+            "Every string value must use double quotes. Ensure the JSON is strictly RFC 8259 compliant."
         )
         user_prompt = f"""User request: {enhanced_request}
 
@@ -320,32 +322,34 @@ Available schema:
 
 {self.DASHBOARD_PROMPT}
 
+CRITICAL: Return ONLY the raw JSON object. No markdown code fences, no explanations before or after.
+Do NOT use trailing commas. Do NOT use single quotes. Ensure all strings are double-quoted.
+
 Generate the dashboard JSON now."""
 
-        # Generate — try fallback (smarter) model first
+        # Generate — try fallback (smarter) model first, with higher token limit for dashboards
+        original_max = settings.MAX_TOKENS
         try:
-            raw = self._call_claude(system_prompt, user_prompt, self.fallback_model)
+            raw = self._call_claude_dashboard(system_prompt, user_prompt, self.fallback_model)
         except RuntimeError:
-            raw = self._call_claude(system_prompt, user_prompt, self.primary_model)
+            raw = self._call_claude_dashboard(system_prompt, user_prompt, self.primary_model)
 
-        raw = raw.strip()
-        # Strip markdown fences if present
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-            if raw.endswith("```"):
-                raw = raw[:-3]
-            raw = raw.strip()
+        result = self._parse_dashboard_json(raw)
 
-        try:
-            result = _json.loads(raw)
-        except _json.JSONDecodeError:
-            # Fallback: find JSON object
-            start = raw.find("{")
-            end = raw.rfind("}") + 1
-            if start >= 0 and end > start:
-                result = _json.loads(raw[start:end])
-            else:
-                return {"tabs": []}
+        # If parsing failed, retry once with a repair prompt
+        if result is None:
+            logger.warning("Dashboard JSON parse failed, retrying with repair prompt...")
+            repair_prompt = (
+                f"The following JSON is malformed. Fix it so it is valid JSON and return ONLY the corrected JSON:\n\n{raw[:8000]}"
+            )
+            try:
+                raw2 = self._call_claude_dashboard(system_prompt, repair_prompt, self.primary_model)
+                result = self._parse_dashboard_json(raw2)
+            except Exception:
+                pass
+
+        if result is None:
+            raise ValueError("Dashboard generation failed: AI returned invalid JSON that could not be repaired")
 
         if not isinstance(result, dict) or "tabs" not in result:
             # Legacy: if AI returned a flat array, wrap it
@@ -392,6 +396,168 @@ Generate the dashboard JSON now."""
                 section["tiles"] = executed_tiles
 
         return result
+
+    def _call_claude_dashboard(self, system_prompt: str, user_prompt: str, model: str) -> str:
+        """Call Claude with a higher token limit for dashboard generation."""
+        try:
+            response = self.client.messages.create(
+                model=model,
+                max_tokens=16384,
+                system=[{
+                    "type": "text",
+                    "text": system_prompt,
+                    "cache_control": {"type": "ephemeral"}
+                }],
+                messages=[{"role": "user", "content": user_prompt}]
+            )
+            text = response.content[0].text
+            if response.stop_reason == "max_tokens":
+                logger.warning(f"Dashboard response was TRUNCATED (hit max_tokens). Length: {len(text)} chars")
+            return text
+        except anthropic.APIError as e:
+            raise RuntimeError(f"AI service error: {str(e)}")
+
+    @staticmethod
+    def _repair_json(raw: str) -> str:
+        """Attempt to repair common JSON issues from AI model output."""
+        import re
+        s = raw.strip()
+
+        # Strip markdown code fences
+        if s.startswith("```"):
+            s = s.split("\n", 1)[1] if "\n" in s else s[3:]
+            if s.endswith("```"):
+                s = s[:-3]
+            s = s.strip()
+        # Remove leading "json" label if present
+        if s.lower().startswith("json"):
+            s = s[4:].strip()
+
+        # Remove single-line comments (// ...)
+        s = re.sub(r'//[^\n]*', '', s)
+        # Remove multi-line comments (/* ... */)
+        s = re.sub(r'/\*.*?\*/', '', s, flags=re.DOTALL)
+
+        # Fix trailing commas before } or ]
+        s = re.sub(r',\s*([\]}])', r'\1', s)
+
+        # Replace single quotes with double quotes (but not inside already double-quoted strings)
+        # Simple heuristic: if no double quotes are found, replace all single quotes
+        if '"' not in s:
+            s = s.replace("'", '"')
+
+        # Fix unescaped newlines inside string values
+        s = re.sub(r'(?<=: ")(.*?)(?=")', lambda m: m.group(0).replace('\n', '\\n'), s)
+
+        # ── Handle truncated JSON (model hit token limit mid-output) ──
+        # Strip any trailing incomplete key-value pair or string
+        # e.g. '..."sql": "SELECT' -> remove the dangling pair
+        s = re.sub(r',\s*"[^"]*"\s*:\s*"[^"]*$', '', s)  # trailing incomplete string value
+        s = re.sub(r',\s*"[^"]*"\s*:\s*$', '', s)         # trailing key with no value
+        s = re.sub(r',\s*"[^"]*$', '', s)                  # trailing incomplete key
+        s = re.sub(r',\s*$', '', s)                        # trailing comma
+
+        # Count unclosed brackets and braces and close them
+        open_braces = 0
+        open_brackets = 0
+        in_string = False
+        escape_next = False
+        for ch in s:
+            if escape_next:
+                escape_next = False
+                continue
+            if ch == '\\':
+                escape_next = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch == '{':
+                open_braces += 1
+            elif ch == '}':
+                open_braces -= 1
+            elif ch == '[':
+                open_brackets += 1
+            elif ch == ']':
+                open_brackets -= 1
+
+        # Close any unclosed structures
+        s += ']' * max(0, open_brackets)
+        s += '}' * max(0, open_braces)
+
+        # One more pass to fix trailing commas introduced by truncation
+        s = re.sub(r',\s*([\]}])', r'\1', s)
+
+        return s
+
+    @staticmethod
+    def _parse_dashboard_json(raw: str) -> dict:
+        """Parse AI-generated JSON with multiple fallback strategies."""
+        import json as _json
+
+        if not raw or not raw.strip():
+            return None
+
+        raw = raw.strip()
+
+        # Strategy 1: direct parse
+        try:
+            return _json.loads(raw)
+        except _json.JSONDecodeError:
+            pass
+
+        # Strategy 2: strip markdown fences and try again
+        repaired = QueryEngine._repair_json(raw)
+        try:
+            return _json.loads(repaired)
+        except _json.JSONDecodeError:
+            pass
+
+        # Strategy 3: extract the outermost JSON object
+        start = repaired.find("{")
+        end = repaired.rfind("}") + 1
+        if start >= 0 and end > start:
+            try:
+                return _json.loads(repaired[start:end])
+            except _json.JSONDecodeError:
+                pass
+
+        # Strategy 4: Extract using brace matching
+        if start >= 0:
+            depth = 0
+            in_string = False
+            escape_next = False
+            for i in range(start, len(repaired)):
+                ch = repaired[i]
+                if escape_next:
+                    escape_next = False
+                    continue
+                if ch == '\\':
+                    escape_next = True
+                    continue
+                if ch == '"':
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            candidate = repaired[start:i + 1]
+                            # One more repair pass on the extracted chunk
+                            import re
+                            candidate = re.sub(r',\s*([\]}])', r'\1', candidate)
+                            return _json.loads(candidate)
+                        except _json.JSONDecodeError:
+                            break
+
+        logger.error(f"All JSON parse strategies failed. Raw (first 500 chars): {raw[:500]}")
+        return None
 
     # ── Feedback ──────────────────────────────────────────────────
 

@@ -1,5 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense, Component, lazy } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import AnimatedBackground from "../components/animation/AnimatedBackground";
+
+class WebGLBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(e) { console.warn("WebGL fallback:", e); }
+  render() { return this.state.hasError ? this.props.fallback : this.props.children; }
+}
+const SectionBackground3D = lazy(() => import("../components/animation/SectionBackground3D"));
 import { api } from "../api";
 import { useStore } from "../store";
 import { TOKENS } from "../components/dashboard/tokens";
@@ -10,6 +20,13 @@ import Section from "../components/dashboard/Section";
 import NotesPanel from "../components/dashboard/NotesPanel";
 import ExportModal from "../components/dashboard/ExportModal";
 import TileEditor from "../components/dashboard/TileEditor";
+import MetricEditor from "../components/dashboard/MetricEditor";
+import DashboardThemeEditor from "../components/dashboard/DashboardThemeEditor";
+import GlobalFilterBar from "../components/dashboard/GlobalFilterBar";
+import FloatingToolbar from "../components/dashboard/FloatingToolbar";
+import CrossFilterBadge from "../components/dashboard/CrossFilterBadge";
+import BookmarkManager from "../components/dashboard/BookmarkManager";
+import { evaluateVisibilityRule } from "../lib/visibilityRules";
 
 /* ── Animation variants ── */
 const undoToastVariants = {
@@ -43,7 +60,10 @@ const sidebarItemStyle = {
    DashboardBuilder — full rewrite with tabs, sections, command bar
    ════════════════════════════════════════════════════════════════ */
 export default function DashboardBuilder() {
-  const { activeDashboardId, setActiveDashboardId } = useStore();
+  const { activeDashboardId, setActiveDashboardId, activeConnId } = useStore();
+  const setPrefetchData = useStore(s => s.setPrefetchData);
+  const getPrefetchData = useStore(s => s.getPrefetchData);
+  const clearPrefetchCache = useStore(s => s.clearPrefetchCache);
 
   // ── State ──
   const [dashboards, setDashboards] = useState([]);
@@ -56,9 +76,22 @@ export default function DashboardBuilder() {
   const [undoStack, setUndoStack] = useState([]); // [{tile, sectionId, dashboard}]
   const [showCreatePrompt, setShowCreatePrompt] = useState(false);
   const [newDashName, setNewDashName] = useState("");
+  const [globalFilters, setGlobalFilters] = useState({ dateColumn: "", range: "all_time" });
+  const [showMetricEditor, setShowMetricEditor] = useState(false);
+  const [showThemeEditor, setShowThemeEditor] = useState(false);
+  const [selectedTileId, setSelectedTileId] = useState(null);
+  const [crossFilter, setCrossFilter] = useState(null); // { field, value }
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [fullscreenMode, setFullscreenMode] = useState(false);
+  const [aiCommandLoading, setAiCommandLoading] = useState(false);
+  const [aiCommandError, setAiCommandError] = useState(null);
+  const [searchParams] = useSearchParams();
 
   const saveTimer = useRef(null);
+  const viewportSaveTimer = useRef(null);
   const undoTimers = useRef([]);
+  const dashboardRef = useRef(activeDashboard);
+  dashboardRef.current = activeDashboard;
 
   // ── Derived: active tab and its sections ──
   const activeTab =
@@ -87,6 +120,102 @@ export default function DashboardBuilder() {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Auto-refresh tiles that have SQL but no data ──
+  useEffect(() => {
+    if (!activeDashboard?.tabs) return;
+    const stale = [];
+    for (const tab of activeDashboard.tabs) {
+      for (const sec of tab.sections || []) {
+        for (const tile of sec.tiles || []) {
+          if (tile.sql && (!tile.rows || tile.rows.length === 0)) {
+            const cached = getPrefetchData(activeDashboard.id, tile.id);
+            if (cached) {
+              // Apply cached data immediately instead of refreshing
+              setActiveDashboard(prev => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  tabs: prev.tabs.map(tab => ({
+                    ...tab,
+                    sections: (tab.sections || []).map(sec => ({
+                      ...sec,
+                      tiles: (sec.tiles || []).map(t =>
+                        t.id === tile.id ? { ...t, ...cached } : t
+                      ),
+                    })),
+                  })),
+                };
+              });
+            } else {
+              stale.push(tile.id);
+            }
+          }
+        }
+      }
+    }
+    if (stale.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const tileId of stale) {
+        if (cancelled) break;
+        try {
+          const res = await api.refreshTile(activeDashboard.id, tileId, null, null);
+          if (cancelled) break;
+          setActiveDashboard(prev => {
+            if (!prev || prev.id !== activeDashboard.id) return prev;
+            return {
+              ...prev,
+              tabs: prev.tabs.map(tab => ({
+                ...tab,
+                sections: (tab.sections || []).map(sec => ({
+                  ...sec,
+                  tiles: (sec.tiles || []).map(t =>
+                    t.id === tileId ? { ...t, ...res } : t
+                  ),
+                })),
+              })),
+            };
+          });
+        } catch (err) {
+          console.error(`Auto-refresh tile ${tileId} failed:`, err);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeDashboard?.id, getPrefetchData]); // only re-run when dashboard changes, not on every tile update
+
+  // ── Background prefetch: refresh inactive tab tiles ──
+  useEffect(() => {
+    if (!activeDashboard?.tabs || !activeTabId || !activeConnId) return;
+
+    const inactiveTabs = activeDashboard.tabs.filter(t => t.id !== activeTabId);
+    if (inactiveTabs.length === 0) return;
+
+    let cancelled = false;
+    const prefetchInactive = async () => {
+      for (const tab of inactiveTabs) {
+        for (const sec of tab.sections || []) {
+          for (const tile of sec.tiles || []) {
+            if (cancelled) return;
+            if (!tile.sql || (tile.rows && tile.rows.length > 0)) continue;
+            try {
+              const res = await api.refreshTile(activeDashboard.id, tile.id, activeConnId, null);
+              if (cancelled) return;
+              setPrefetchData(activeDashboard.id, tile.id, { columns: res.columns, rows: res.rows });
+            } catch {
+              // Silently fail — prefetch is best-effort
+            }
+          }
+        }
+      }
+    };
+
+    // Delay prefetch by 2 seconds to let active tab finish first
+    const timer = setTimeout(prefetchInactive, 2000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [activeDashboard?.id, activeTabId, activeConnId, setPrefetchData]);
+
   // ── Auto-save (debounced 800ms) ──
   const autoSave = useCallback(
     (dashboard) => {
@@ -99,6 +228,7 @@ export default function DashboardBuilder() {
             description: dashboard.description,
             tabs: dashboard.tabs,
             annotations: dashboard.annotations,
+            globalFilters: dashboard.globalFilters,
           });
         } catch (err) {
           console.error("Auto-save failed:", err);
@@ -146,6 +276,8 @@ export default function DashboardBuilder() {
         setActiveDashboardId(full.id);
         if (full.tabs?.length > 0) setActiveTabId(full.tabs[0].id);
         else setActiveTabId(null);
+        // Restore persisted global filters
+        if (full.globalFilters) setGlobalFilters(full.globalFilters);
       } catch (err) {
         console.error("Failed to load dashboard:", err);
       }
@@ -159,7 +291,7 @@ export default function DashboardBuilder() {
       try {
         await api.deleteDashboard(id);
         setDashboards((prev) => prev.filter((d) => d.id !== id));
-        if (activeDashboard?.id === id) {
+        if (dashboardRef.current?.id === id) {
           setActiveDashboard(null);
           setActiveDashboardId(null);
           setActiveTabId(null);
@@ -168,21 +300,23 @@ export default function DashboardBuilder() {
         console.error("Failed to delete dashboard:", err);
       }
     },
-    [activeDashboard, setActiveDashboardId]
+    [setActiveDashboardId]
   );
 
   // ── Dashboard name change ──
   const handleNameChange = useCallback(
     (newName) => {
-      if (!activeDashboard) return;
-      const updated = { ...activeDashboard, name: newName };
-      setActiveDashboard(updated);
-      setDashboards((prev) =>
-        prev.map((d) => (d.id === updated.id ? { ...d, name: newName } : d))
-      );
-      autoSave(updated);
+      setActiveDashboard((prev) => {
+        if (!prev) return prev;
+        const updated = { ...prev, name: newName };
+        setDashboards((list) =>
+          list.map((d) => (d.id === prev.id ? { ...d, name: newName } : d))
+        );
+        autoSave(updated);
+        return updated;
+      });
     },
-    [activeDashboard, autoSave]
+    [autoSave]
   );
 
   // ── Tab operations ──
@@ -191,100 +325,195 @@ export default function DashboardBuilder() {
   }, []);
 
   const handleTabAdd = useCallback(async () => {
-    if (!activeDashboard) return;
+    const dash = dashboardRef.current;
+    if (!dash) return;
     try {
-      const res = await api.addTab(activeDashboard.id, "New Tab");
+      const res = await api.addTab(dash.id, "New Tab");
       setActiveDashboard(res);
       const newTab = res.tabs[res.tabs.length - 1];
       if (newTab) setActiveTabId(newTab.id);
     } catch (err) {
       console.error("Failed to add tab:", err);
     }
-  }, [activeDashboard]);
+  }, []);
 
   const handleTabRename = useCallback(
     (tabId, newName) => {
-      if (!activeDashboard) return;
-      const tabs = activeDashboard.tabs.map((t) =>
-        t.id === tabId ? { ...t, name: newName } : t
-      );
-      const updated = { ...activeDashboard, tabs };
-      setActiveDashboard(updated);
-      api.updateDashboard(activeDashboard.id, { tabs }).catch((err) =>
-        console.error("Failed to rename tab:", err)
-      );
+      setActiveDashboard((prev) => {
+        if (!prev) return prev;
+        const tabs = prev.tabs.map((t) =>
+          t.id === tabId ? { ...t, name: newName } : t
+        );
+        const updated = { ...prev, tabs };
+        api.updateDashboard(prev.id, { tabs }).catch((err) =>
+          console.error("Failed to rename tab:", err)
+        );
+        return updated;
+      });
     },
-    [activeDashboard]
+    []
   );
 
   const handleTabDelete = useCallback(
     async (tabId) => {
-      if (!activeDashboard) return;
+      const dash = dashboardRef.current;
+      if (!dash) return;
       try {
-        const res = await api.deleteTab(activeDashboard.id, tabId);
+        const res = await api.deleteTab(dash.id, tabId);
         setActiveDashboard(res);
-        if (activeTabId === tabId) {
-          setActiveTabId(res.tabs?.[0]?.id || null);
-        }
+        setActiveTabId((prev) => (prev === tabId ? (res.tabs?.[0]?.id || null) : prev));
       } catch (err) {
         console.error("Failed to delete tab:", err);
       }
     },
-    [activeDashboard, activeTabId]
+    []
   );
 
   // ── Section layout change ──
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
+
   const handleLayoutChange = useCallback(
     (sectionId, newLayout) => {
-      if (!activeDashboard || !activeTabId) return;
-      const tabs = activeDashboard.tabs.map((tab) => {
-        if (tab.id !== activeTabId) return tab;
-        return {
-          ...tab,
-          sections: tab.sections.map((sec) =>
-            sec.id === sectionId ? { ...sec, layout: newLayout } : sec
-          ),
-        };
+      setActiveDashboard((prev) => {
+        if (!prev) return prev;
+        const tabId = activeTabIdRef.current;
+        const tabs = prev.tabs.map((tab) => {
+          if (tab.id !== tabId) return tab;
+          return {
+            ...tab,
+            sections: tab.sections.map((sec) =>
+              sec.id === sectionId ? { ...sec, layout: newLayout } : sec
+            ),
+          };
+        });
+        const updated = { ...prev, tabs };
+        autoSave(updated);
+        return updated;
       });
-      const updated = { ...activeDashboard, tabs };
-      setActiveDashboard(updated);
-      autoSave(updated);
     },
-    [activeDashboard, activeTabId, autoSave]
+    [autoSave]
+  );
+
+  const handleFreeformLayoutChange = useCallback(
+    (sectionId, newLayout) => {
+      setActiveDashboard((prev) => {
+        if (!prev) return prev;
+        const tabId = activeTabIdRef.current;
+        const tabs = prev.tabs.map((tab) => {
+          if (tab.id !== tabId) return tab;
+          return {
+            ...tab,
+            sections: tab.sections.map((sec) =>
+              sec.id === sectionId ? { ...sec, freeformLayout: newLayout } : sec
+            ),
+          };
+        });
+        const updated = { ...prev, tabs };
+        autoSave(updated);
+        return updated;
+      });
+    },
+    [autoSave]
+  );
+
+  const handleToggleLayoutMode = useCallback(
+    (sectionId, mode) => {
+      setActiveDashboard((prev) => {
+        if (!prev) return prev;
+        const tabId = activeTabIdRef.current;
+        const tabs = prev.tabs.map((tab) => {
+          if (tab.id !== tabId) return tab;
+          return {
+            ...tab,
+            sections: tab.sections.map((sec) => {
+              if (sec.id !== sectionId) return sec;
+              const update = { ...sec, layoutMode: mode };
+              // Auto-convert grid to freeform on first switch
+              if (mode === 'freeform' && (!sec.freeformLayout || sec.freeformLayout.length === 0)) {
+                const containerWidth = 900; // approximate
+                update.freeformLayout = (sec.layout || []).map((item) => ({
+                  i: item.i,
+                  x: item.x * (containerWidth / 12),
+                  y: item.y * 80,
+                  width: item.w * (containerWidth / 12),
+                  height: item.h * 80,
+                  zIndex: 1,
+                }));
+              }
+              return update;
+            }),
+          };
+        });
+        const updated = { ...prev, tabs };
+        autoSave(updated);
+        return updated;
+      });
+    },
+    [autoSave]
+  );
+
+  const handleCanvasViewportChange = useCallback(
+    (sectionId, viewport) => {
+      setActiveDashboard((prev) => {
+        if (!prev) return prev;
+        const tabId = activeTabIdRef.current;
+        const tabs = prev.tabs.map((tab) => {
+          if (tab.id !== tabId) return tab;
+          return {
+            ...tab,
+            sections: tab.sections.map((sec) =>
+              sec.id === sectionId ? { ...sec, canvasViewport: viewport } : sec
+            ),
+          };
+        });
+        const updated = { ...prev, tabs };
+        // Debounced save (2s) — less noisy than layout saves
+        if (viewportSaveTimer.current) clearTimeout(viewportSaveTimer.current);
+        viewportSaveTimer.current = setTimeout(() => autoSave(updated), 2000);
+        return updated;
+      });
+    },
+    [autoSave]
   );
 
   // ── Add section ──
   const handleAddSection = useCallback(
     async (name = "New Section") => {
-      if (!activeDashboard || !activeTabId) return;
+      const dash = dashboardRef.current;
+      const tabId = activeTabIdRef.current;
+      if (!dash || !tabId) return;
       try {
-        const res = await api.addSection(activeDashboard.id, activeTabId, name);
+        const res = await api.addSection(dash.id, tabId, name);
         setActiveDashboard(res);
       } catch (err) {
         console.error("Failed to add section:", err);
       }
     },
-    [activeDashboard, activeTabId]
+    []
   );
 
   // ── Edit section (rename, etc.) ──
   const handleEditSection = useCallback(
     (sectionId, updates) => {
-      if (!activeDashboard || !activeTabId) return;
-      const tabs = activeDashboard.tabs.map((tab) => {
-        if (tab.id !== activeTabId) return tab;
-        return {
-          ...tab,
-          sections: tab.sections.map((sec) =>
-            sec.id === sectionId ? { ...sec, ...updates } : sec
-          ),
-        };
+      setActiveDashboard((prev) => {
+        if (!prev) return prev;
+        const tabId = activeTabIdRef.current;
+        const tabs = prev.tabs.map((tab) => {
+          if (tab.id !== tabId) return tab;
+          return {
+            ...tab,
+            sections: tab.sections.map((sec) =>
+              sec.id === sectionId ? { ...sec, ...updates } : sec
+            ),
+          };
+        });
+        const updated = { ...prev, tabs };
+        autoSave(updated);
+        return updated;
       });
-      const updated = { ...activeDashboard, tabs };
-      setActiveDashboard(updated);
-      autoSave(updated);
     },
-    [activeDashboard, activeTabId, autoSave]
+    [autoSave]
   );
 
   // ── Tile operations ──
@@ -305,37 +534,42 @@ export default function DashboardBuilder() {
 
   const handleTileChartChange = useCallback(
     async (tileId, chartType) => {
-      if (!activeDashboard) return;
+      const dash = dashboardRef.current;
+      if (!dash) return;
       try {
-        const res = await api.updateTile(activeDashboard.id, tileId, {
-          chartType,
+        await api.updateTile(dash.id, tileId, { chartType });
+        setActiveDashboard((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            tabs: prev.tabs.map((tab) => ({
+              ...tab,
+              sections: tab.sections.map((sec) => ({
+                ...sec,
+                tiles: sec.tiles.map((t) =>
+                  t.id === tileId ? { ...t, chartType } : t
+                ),
+              })),
+            })),
+          };
         });
-        // Update local state
-        const tabs = activeDashboard.tabs.map((tab) => ({
-          ...tab,
-          sections: tab.sections.map((sec) => ({
-            ...sec,
-            tiles: sec.tiles.map((t) =>
-              t.id === tileId ? { ...t, chartType } : t
-            ),
-          })),
-        }));
-        const updated = { ...activeDashboard, tabs };
-        setActiveDashboard(updated);
       } catch (err) {
         console.error("Failed to change chart type:", err);
       }
     },
-    [activeDashboard]
+    []
   );
 
   const handleTileRemove = useCallback(
     async (tileId) => {
-      if (!activeDashboard || !activeTabId) return;
+      const dash = dashboardRef.current;
+      const tabId = activeTabIdRef.current;
+      if (!dash || !tabId) return;
       // Find the tile and its section for undo
       let removedTile = null;
       let removedSectionId = null;
-      for (const sec of activeTab?.sections || []) {
+      const curTab = dash.tabs?.find((t) => t.id === tabId);
+      for (const sec of curTab?.sections || []) {
         const found = sec.tiles?.find((t) => t.id === tileId);
         if (found) {
           removedTile = found;
@@ -345,21 +579,24 @@ export default function DashboardBuilder() {
       }
 
       try {
-        await api.removeDashboardTile(activeDashboard.id, tileId);
-        // Update local state: remove tile from section and layout
-        const tabs = activeDashboard.tabs.map((tab) => {
-          if (tab.id !== activeTabId) return tab;
+        await api.removeDashboardTile(dash.id, tileId);
+        setActiveDashboard((prev) => {
+          if (!prev) return prev;
           return {
-            ...tab,
-            sections: tab.sections.map((sec) => ({
-              ...sec,
-              tiles: sec.tiles.filter((t) => t.id !== tileId),
-              layout: (sec.layout || []).filter((l) => l.i !== tileId),
-            })),
+            ...prev,
+            tabs: prev.tabs.map((tab) => {
+              if (tab.id !== tabId) return tab;
+              return {
+                ...tab,
+                sections: tab.sections.map((sec) => ({
+                  ...sec,
+                  tiles: sec.tiles.filter((t) => t.id !== tileId),
+                  layout: (sec.layout || []).filter((l) => l.i !== tileId),
+                })),
+              };
+            }),
           };
         });
-        const updated = { ...activeDashboard, tabs };
-        setActiveDashboard(updated);
 
         // Show undo toast with 5s timeout
         if (removedTile) {
@@ -367,7 +604,7 @@ export default function DashboardBuilder() {
             id: Date.now(),
             tile: removedTile,
             sectionId: removedSectionId,
-            dashboard: activeDashboard,
+            dashboard: dash,
           };
           setUndoStack((prev) => [...prev, undoEntry]);
           const timer = setTimeout(() => {
@@ -379,7 +616,7 @@ export default function DashboardBuilder() {
         console.error("Failed to remove tile:", err);
       }
     },
-    [activeDashboard, activeTabId, activeTab]
+    []
   );
 
   const handleUndoRemove = useCallback(
@@ -397,52 +634,71 @@ export default function DashboardBuilder() {
     []
   );
 
+  const globalFiltersRef = useRef(globalFilters);
+  globalFiltersRef.current = globalFilters;
+
   const handleTileRefresh = useCallback(
-    async (tileId, connId) => {
-      if (!activeDashboard) return;
+    async (tileId, connId, filtersOverride = null) => {
+      const dash = dashboardRef.current;
+      if (!dash) return;
       try {
-        const res = await api.refreshTile(activeDashboard.id, tileId, connId);
-        // Update the tile in local state
-        const tabs = activeDashboard.tabs.map((tab) => ({
-          ...tab,
-          sections: tab.sections.map((sec) => ({
-            ...sec,
-            tiles: sec.tiles.map((t) =>
-              t.id === tileId ? { ...t, ...res } : t
-            ),
-          })),
-        }));
-        const updated = { ...activeDashboard, tabs };
-        setActiveDashboard(updated);
+        const filtersUrl = filtersOverride || globalFiltersRef.current;
+        await api.refreshTile(dash.id, tileId, connId, filtersUrl);
+        // Re-fetch full dashboard to guarantee fresh state
+        const fresh = await api.getDashboard(dash.id);
+        if (fresh) setActiveDashboard(fresh);
       } catch (err) {
         console.error("Failed to refresh tile:", err);
       }
     },
-    [activeDashboard]
+    []
   );
+
+  const handleGlobalFiltersChange = useCallback(async (newFilters) => {
+    clearPrefetchCache(dashboardRef.current?.id);
+    setGlobalFilters(newFilters);
+    const dash = dashboardRef.current;
+    const tabId = activeTabIdRef.current;
+    if (!dash || !tabId) return;
+
+    // Persist filters in the dashboard
+    autoSave({ ...dash, globalFilters: newFilters });
+
+    // Trigger bulk refresh for all tiles inside the active tab
+    const currentTab = dash.tabs.find(t => t.id === tabId);
+    if (!currentTab) return;
+
+    const tileIds = [];
+    currentTab.sections.forEach(s => s.tiles.forEach(t => tileIds.push(t.id)));
+
+    await Promise.allSettled(tileIds.map(tid => handleTileRefresh(tid, activeConnId, newFilters)));
+  }, [handleTileRefresh, autoSave, activeConnId, clearPrefetchCache]);
+
+  const handleCrossFilterClick = useCallback((field, value) => {
+    setCrossFilter(prev => {
+      // Toggle: if same filter clicked again, clear it
+      if (prev?.field === field && prev?.value === value) return null;
+      return { field, value };
+    });
+  }, []);
+
+  const clearCrossFilter = useCallback(() => setCrossFilter(null), []);
 
   const handleTileSave = useCallback(
     async (updatedTile) => {
-      if (!activeDashboard) return;
+      const dash = dashboardRef.current;
+      if (!dash) return;
       try {
-        await api.updateTile(activeDashboard.id, updatedTile.id, updatedTile);
-        const tabs = activeDashboard.tabs.map((tab) => ({
-          ...tab,
-          sections: tab.sections.map((sec) => ({
-            ...sec,
-            tiles: sec.tiles.map((t) =>
-              t.id === updatedTile.id ? { ...t, ...updatedTile } : t
-            ),
-          })),
-        }));
-        const updated = { ...activeDashboard, tabs };
-        setActiveDashboard(updated);
+        await api.updateTile(dash.id, updatedTile.id, updatedTile);
+        // Always re-fetch full dashboard to guarantee fresh state
+        const fresh = await api.getDashboard(dash.id);
+        if (fresh) setActiveDashboard(fresh);
         setEditingTile(null);
       } catch (err) {
         console.error("Failed to save tile:", err);
       }
     },
-    [activeDashboard]
+    []
   );
 
   const handleTileDelete = useCallback(
@@ -453,12 +709,67 @@ export default function DashboardBuilder() {
     [handleTileRemove]
   );
 
+  const handleMetricsUpdate = useCallback((newMetrics) => {
+    setActiveDashboard((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, customMetrics: newMetrics };
+      autoSave(updated);
+      return updated;
+    });
+  }, [autoSave]);
+
+  const handleThemeUpdate = useCallback((newTheme) => {
+    setActiveDashboard((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, themeConfig: newTheme };
+      autoSave(updated);
+      return updated;
+    });
+  }, [autoSave]);
+
+  // ── Bookmark helpers ──
+  const getCurrentBookmarkState = useCallback(() => ({
+    activeTabId,
+    globalFilters,
+    crossFilter,
+  }), [activeTabId, globalFilters, crossFilter]);
+
+  const applyBookmarkState = useCallback((state) => {
+    if (state.activeTabId) setActiveTabId(state.activeTabId);
+    if (state.globalFilters) setGlobalFilters(state.globalFilters);
+    if (state.crossFilter !== undefined) setCrossFilter(state.crossFilter);
+  }, []);
+
+  // ── Apply bookmark from URL search params ──
+  useEffect(() => {
+    const viewId = searchParams.get('view');
+    if (!viewId || !activeDashboard) return;
+    const bookmark = activeDashboard.bookmarks?.find(b => b.id === viewId);
+    if (bookmark?.state) {
+      applyBookmarkState(bookmark.state);
+    }
+  }, [activeDashboard?.id, searchParams, applyBookmarkState]);
+
+  const handleQuickTileUpdate = useCallback(async (updatedTile) => {
+    if (!activeDashboard) return;
+    try {
+      await api.updateTile(activeDashboard.id, updatedTile.id, updatedTile);
+      // Always re-fetch full dashboard to guarantee fresh state
+      const fresh = await api.getDashboard(activeDashboard.id);
+      if (fresh) setActiveDashboard(fresh);
+    } catch (err) {
+      console.error('Quick update failed:', err);
+    }
+  }, [activeDashboard]);
+
   // ── Add tile (from CommandBar) ──
   const handleAddTile = useCallback(
     async (sectionId) => {
-      if (!activeDashboard || !activeTabId) return;
-      const targetSectionId =
-        sectionId || sections[0]?.id;
+      const dash = dashboardRef.current;
+      const tabId = activeTabIdRef.current;
+      if (!dash || !tabId) return;
+      const curTab = dash.tabs?.find((t) => t.id === tabId);
+      const targetSectionId = sectionId || curTab?.sections?.[0]?.id;
       if (!targetSectionId) return;
       try {
         const tile = {
@@ -468,8 +779,8 @@ export default function DashboardBuilder() {
           rows: [],
         };
         const res = await api.addTileToSection(
-          activeDashboard.id,
-          activeTabId,
+          dash.id,
+          tabId,
           targetSectionId,
           tile
         );
@@ -478,19 +789,16 @@ export default function DashboardBuilder() {
         console.error("Failed to add tile:", err);
       }
     },
-    [activeDashboard, activeTabId, sections]
+    []
   );
 
   // ── Annotations ──
   const handleAddAnnotation = useCallback(
     async (text, authorName) => {
-      if (!activeDashboard) return;
+      const dash = dashboardRef.current;
+      if (!dash) return;
       try {
-        const res = await api.addDashboardAnnotation(
-          activeDashboard.id,
-          text,
-          authorName
-        );
+        const res = await api.addDashboardAnnotation(dash.id, text, authorName);
         setActiveDashboard((prev) => ({
           ...prev,
           annotations: res.annotations || [
@@ -502,32 +810,115 @@ export default function DashboardBuilder() {
         console.error("Failed to add annotation:", err);
       }
     },
-    [activeDashboard]
+    []
   );
 
   // ── Export ──
   const handleExport = useCallback(
-    (format) => {
-      console.log("Exporting dashboard as", format);
+    () => {
+      // ExportModal handles the actual export via html2canvas + jsPDF
+      // This callback fires after successful export
       setShowExport(false);
     },
     []
   );
 
-  // ── AI Command (placeholder) ──
-  const handleAICommand = useCallback((command) => {
-    console.log("AI command:", command);
-  }, []);
+  // ── AI Command — generate tiles from natural language ──
+  const handleAICommand = useCallback(async (command) => {
+    const dash = dashboardRef.current;
+    const tabId = activeTabIdRef.current;
+    if (!dash || !tabId) {
+      setAiCommandError('No dashboard or tab selected.');
+      return;
+    }
+
+    setAiCommandLoading(true);
+    setAiCommandError(null);
+
+    try {
+      // 1. Find or create a section in the active tab
+      let curTab = dash.tabs?.find((t) => t.id === tabId);
+      let targetSectionId = curTab?.sections?.[0]?.id;
+
+      if (!targetSectionId) {
+        // Auto-create a section so the tile has a home
+        const sectionRes = await api.addSection(dash.id, tabId, 'AI Generated');
+        if (sectionRes) {
+          setActiveDashboard(sectionRes);
+          dashboardRef.current = sectionRes;
+          curTab = sectionRes.tabs?.find((t) => t.id === tabId);
+          targetSectionId = curTab?.sections?.[0]?.id;
+        }
+        if (!targetSectionId) {
+          setAiCommandError('Could not create section for new tiles.');
+          return;
+        }
+      }
+
+      // 2. Call the AI dashboard generation endpoint
+      const res = await api.generateDashboard(command, activeConnId);
+
+      // 3. Extract tiles from the nested response structure
+      const tiles = res?.tabs?.flatMap(tab =>
+        (tab.sections || []).flatMap(sec => sec.tiles || [])
+      ) || res?.tiles || [];
+
+      if (tiles.length === 0) {
+        setAiCommandError('AI could not generate charts for this query. Try rephrasing or check your database connection.');
+        return;
+      }
+
+      // 4. Add each tile to the dashboard
+      let latest = dashboardRef.current;
+      for (const tile of tiles.slice(0, 4)) {
+        const updated = await api.addTileToSection(latest.id, tabId, targetSectionId, {
+          title: tile.title || command,
+          chartType: tile.chart_type || tile.chartType || 'bar',
+          sql: tile.sql || '',
+          columns: tile.columns || [],
+          rows: tile.rows || [],
+          question: command,
+        });
+        if (updated) {
+          latest = updated;
+          dashboardRef.current = updated;
+        }
+      }
+
+      // 5. Re-fetch fresh state to guarantee consistency
+      const fresh = await api.getDashboard(dash.id);
+      if (fresh) setActiveDashboard(fresh);
+    } catch (err) {
+      console.error("AI command failed:", err);
+      const msg = err?.message || 'Unknown error';
+      if (msg.includes('No active database')) {
+        setAiCommandError('Connect a database first to use AI chart generation.');
+      } else {
+        setAiCommandError(`AI generation failed: ${msg}`);
+      }
+    } finally {
+      setAiCommandLoading(false);
+    }
+  }, [activeConnId]);
 
   // ── Settings (placeholder) ──
   const handleSettings = useCallback(() => {
     console.log("Open settings");
   }, []);
 
+  // ── Fullscreen: Escape to exit ──
+  useEffect(() => {
+    if (!fullscreenMode) return;
+    const handler = (e) => { if (e.key === 'Escape') setFullscreenMode(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [fullscreenMode]);
+
   // ── Cleanup ──
   useEffect(() => {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (viewportSaveTimer.current) clearTimeout(viewportSaveTimer.current);
       undoTimers.current.forEach((t) => clearTimeout(t));
     };
   }, []);
@@ -667,20 +1058,30 @@ export default function DashboardBuilder() {
         background: TOKENS.bg.deep,
         minHeight: "100vh",
         display: "flex",
+        position: "relative",
       }}
     >
-      {/* ── Sidebar: Dashboard List ── */}
-      <aside
+      {/* Ambient 3D background */}
+      <div style={{ position: "fixed", inset: 0, opacity: 0.08, pointerEvents: "none", zIndex: 0 }}>
+        <WebGLBoundary fallback={<AnimatedBackground />}>
+          <Suspense fallback={null}>
+            <SectionBackground3D mode="stats" />
+          </Suspense>
+        </WebGLBoundary>
+      </div>
+
+      {/* ── Sidebar: Dashboard List (hidden in fullscreen) ── */}
+      {!fullscreenMode && <aside
         style={{
           width: 280,
-          minWidth: 280,
-          background: TOKENS.bg.base,
+          background: TOKENS.bg.surface,
           borderRight: `1px solid ${TOKENS.border.default}`,
           display: "flex",
           flexDirection: "column",
           height: "100vh",
           position: "sticky",
           top: 0,
+          zIndex: 20,
         }}
       >
         {/* Sidebar header */}
@@ -851,16 +1252,19 @@ export default function DashboardBuilder() {
         >
           {dashboards.length} dashboard{dashboards.length !== 1 ? "s" : ""}
         </div>
-      </aside>
+      </aside>}
 
       {/* ── Main Content ── */}
       <main
+        id="dashboard-export-area"
         style={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
           minHeight: "100vh",
           overflowY: "auto",
+          position: "relative",
+          zIndex: 10,
         }}
       >
         {!activeDashboard ? (
@@ -878,20 +1282,56 @@ export default function DashboardBuilder() {
           </div>
         ) : (
           <>
-            {/* Command Bar */}
-            <CommandBar
-              onAddTile={() => handleAddTile()}
-              onExport={() => setShowExport(true)}
-              onSettings={handleSettings}
-              onAICommand={handleAICommand}
-            />
+            {/* Fullscreen header bar */}
+            {fullscreenMode && (
+              <div className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 border-b"
+                style={{ background: 'rgba(5,5,6,0.92)', borderColor: TOKENS.border.default, backdropFilter: 'blur(20px)' }}>
+                <h1 className="text-lg font-bold" style={{ color: TOKENS.text.primary, letterSpacing: '-0.02em' }}>
+                  {activeDashboard?.name || 'Dashboard'}
+                </h1>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setShowExport(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
+                    style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary }}>
+                    Export
+                  </button>
+                  <button onClick={() => setFullscreenMode(false)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
+                    style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary }}>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+                    </svg>
+                    Exit Fullscreen
+                  </button>
+                </div>
+              </div>
+            )}
 
-            {/* Dashboard Header */}
-            <DashboardHeader
-              dashboard={activeDashboard}
-              saving={saving}
-              onNameChange={handleNameChange}
-            />
+            {/* Command Bar (hidden in fullscreen) */}
+            {!fullscreenMode && (
+              <CommandBar
+                onAddTile={() => handleAddTile()}
+                onExport={() => setShowExport(true)}
+                onSettings={handleSettings}
+                onAICommand={handleAICommand}
+                aiLoading={aiCommandLoading}
+                aiError={aiCommandError}
+                onClearError={() => setAiCommandError(null)}
+              />
+            )}
+
+            {/* Dashboard Header (hidden in fullscreen) */}
+            {!fullscreenMode && (
+              <DashboardHeader
+                dashboard={activeDashboard}
+                saving={saving}
+                onNameChange={handleNameChange}
+                onOpenMetrics={() => setShowMetricEditor(true)}
+                onOpenTheme={() => setShowThemeEditor(true)}
+                onOpenBookmarks={() => setShowBookmarks(true)}
+                onToggleFullscreen={() => setFullscreenMode(true)}
+              />
+            )}
 
             {/* Tab Bar */}
             <TabBar
@@ -903,8 +1343,15 @@ export default function DashboardBuilder() {
               onDelete={handleTabDelete}
             />
 
+            {/* Global Filters */}
+            <GlobalFilterBar
+              globalFilters={globalFilters}
+              connId={activeConnId}
+              onChange={handleGlobalFiltersChange}
+            />
+
             {/* Sections */}
-            <div style={{ flex: 1, padding: "16px 24px" }}>
+            <div id="dashboard-content" key={activeTabId} style={{ flex: 1, padding: "16px 24px", background: activeDashboard?.themeConfig?.background?.dashboard || 'transparent' }}>
               {sections.length === 0 ? (
                 <div
                   style={{
@@ -936,23 +1383,46 @@ export default function DashboardBuilder() {
                   </button>
                 </div>
               ) : (
-                sections.map((section) => (
-                  <Section
-                    key={section.id}
-                    section={section}
-                    onLayoutChange={handleLayoutChange}
-                    onTileEdit={handleTileEdit}
-                    onTileEditSQL={handleTileEditSQL}
-                    onTileChartChange={handleTileChartChange}
-                    onTileRemove={handleTileRemove}
-                    onTileRefresh={handleTileRefresh}
-                    onAddTile={handleAddTile}
-                    onEditSection={handleEditSection}
-                  />
-                ))
+                <>
+                  <CrossFilterBadge crossFilter={crossFilter} onClear={clearCrossFilter} />
+                  {sections
+                    .filter(section => evaluateVisibilityRule(section.visibilityRule, globalFilters, crossFilter))
+                    .map((section, idx) => (
+                    <motion.div
+                      key={section.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: idx * 0.05, ease: "easeOut" }}
+                    >
+                      <Section
+                        section={section}
+                        connId={activeConnId}
+                        onLayoutChange={handleLayoutChange}
+                        onTileEdit={handleTileEdit}
+                        onTileEditSQL={handleTileEditSQL}
+                        onTileChartChange={handleTileChartChange}
+                        onTileRemove={handleTileRemove}
+                        onTileRefresh={handleTileRefresh}
+                        onAddTile={handleAddTile}
+                        onEditSection={handleEditSection}
+                        customMetrics={activeDashboard?.customMetrics || []}
+                        onToggleLayoutMode={handleToggleLayoutMode}
+                        onFreeformLayoutChange={handleFreeformLayoutChange}
+                        onCanvasViewportChange={handleCanvasViewportChange}
+                        onTileSelect={setSelectedTileId}
+                        selectedTileId={selectedTileId}
+                        themeConfig={activeDashboard?.themeConfig}
+                        crossFilter={crossFilter}
+                        onCrossFilterClick={handleCrossFilterClick}
+                        dashboardId={activeDashboard?.id}
+                        fullscreenMode={fullscreenMode}
+                      />
+                    </motion.div>
+                  ))}
+                </>
               )}
 
-              {sections.length > 0 && (
+              {sections.length > 0 && !fullscreenMode && (
                 <div style={{ textAlign: "center", padding: "16px 0" }}>
                   <button
                     onClick={() => handleAddSection()}
@@ -979,10 +1449,19 @@ export default function DashboardBuilder() {
                   </button>
                 </div>
               )}
+              {(() => {
+                const hiddenCount = sections.length - sections.filter(s => evaluateVisibilityRule(s.visibilityRule, globalFilters, crossFilter)).length;
+                if (hiddenCount === 0) return null;
+                return (
+                  <p style={{ textAlign: 'center', fontSize: 11, color: '#5C5F66', padding: '8px 0' }}>
+                    {hiddenCount} section{hiddenCount > 1 ? 's' : ''} hidden by visibility rules
+                  </p>
+                );
+              })()}
             </div>
 
-            {/* Notes Panel */}
-            <NotesPanel
+            {/* Notes Panel (hidden in fullscreen) */}
+            {!fullscreenMode && <NotesPanel
               annotations={activeDashboard.annotations || []}
               userName={
                 useStore.getState().user?.name ||
@@ -990,7 +1469,7 @@ export default function DashboardBuilder() {
                 "Anonymous"
               }
               onAdd={handleAddAnnotation}
-            />
+            />}
           </>
         )}
       </main>
@@ -1006,9 +1485,42 @@ export default function DashboardBuilder() {
             onClose={() => setEditingTile(null)}
             onRefresh={handleTileRefresh}
             onDelete={handleTileDelete}
+            customMetrics={activeDashboard?.customMetrics || []}
           />
         )}
       </AnimatePresence>
+
+      {showMetricEditor && (
+        <MetricEditor
+          metrics={activeDashboard?.customMetrics || []}
+          sampleRows={(() => {
+            for (const tab of activeDashboard?.tabs || [])
+              for (const sec of tab.sections || [])
+                for (const tile of sec.tiles || [])
+                  if (tile.rows?.length) return tile.rows;
+            return [];
+          })()}
+          onSave={handleMetricsUpdate}
+          onClose={() => setShowMetricEditor(false)}
+        />
+      )}
+
+      {showThemeEditor && (
+        <DashboardThemeEditor
+          themeConfig={activeDashboard?.themeConfig || {}}
+          onSave={handleThemeUpdate}
+          onClose={() => setShowThemeEditor(false)}
+        />
+      )}
+
+      {showBookmarks && (
+        <BookmarkManager
+          dashboardId={activeDashboard?.id}
+          currentState={getCurrentBookmarkState()}
+          onApply={applyBookmarkState}
+          onClose={() => setShowBookmarks(false)}
+        />
+      )}
 
       <AnimatePresence>
         {showExport && (
@@ -1096,6 +1608,25 @@ export default function DashboardBuilder() {
           </motion.div>
         ))}
       </AnimatePresence>
+
+      {/* ── Floating Toolbar for selected tile ── */}
+      {selectedTileId && (() => {
+        let selectedTile = null;
+        for (const tab of activeDashboard?.tabs || [])
+          for (const sec of tab.sections || [])
+            for (const t of sec.tiles || [])
+              if (t.id === selectedTileId) selectedTile = t;
+        if (!selectedTile) return null;
+        return (
+          <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 100 }}>
+            <FloatingToolbar
+              tile={selectedTile}
+              onQuickUpdate={handleQuickTileUpdate}
+              onOpenEditor={() => { handleTileEdit(selectedTile); setSelectedTileId(null); }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

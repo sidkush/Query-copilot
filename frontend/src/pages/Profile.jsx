@@ -4,6 +4,7 @@ import { api } from "../api";
 import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import MotionButton from "../components/animation/MotionButton";
+import AnimatedBackground from "../components/animation/AnimatedBackground";
 
 const AVATAR_COLORS = [
   { id: "indigo", bg: "bg-indigo-600", ring: "ring-indigo-400" },
@@ -100,6 +101,7 @@ export default function Profile() {
   return (
     <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
+      <AnimatedBackground className="fixed inset-0 pointer-events-none" />
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
           <h1 className="text-xl font-bold text-white">Profile</h1>

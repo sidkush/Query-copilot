@@ -1,5 +1,6 @@
 """Auth API routes — email/password + Google & GitHub OAuth + OTP verification."""
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from auth import (
@@ -175,6 +176,35 @@ def login(user: UserLogin):
     return TokenResponse(access_token=token, user=authenticated)
 
 
+# ── Demo login (for testing — remove before production) ─────
+DEMO_EMAIL = "demo@querycopilot.test"
+DEMO_PASSWORD = "DemoTest2026!"
+DEMO_NAME = "Demo User"
+
+@router.post("/demo-login", response_model=TokenResponse)
+def demo_login():
+    """Create or log in as the demo test user. No OTP required."""
+    authenticated = authenticate_user(email=DEMO_EMAIL, password=DEMO_PASSWORD)
+    if not authenticated:
+        # First time — create the demo user
+        try:
+            mark_verified(DEMO_EMAIL, "email")
+            user_data = create_user(
+                email=DEMO_EMAIL,
+                password=DEMO_PASSWORD,
+                confirm_password=DEMO_PASSWORD,
+                name=DEMO_NAME,
+                phone="0000000000",
+                country_code="+0",
+            )
+            mark_tutorial_complete(DEMO_EMAIL)
+            authenticated = authenticate_user(email=DEMO_EMAIL, password=DEMO_PASSWORD)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create demo user: {str(e)}")
+    token = create_access_token({"sub": authenticated["email"], "name": authenticated["name"]})
+    return TokenResponse(access_token=token, user=authenticated)
+
+
 @router.get("/me")
 def get_me(user: dict = Depends(get_current_user)):
     return user
@@ -213,8 +243,12 @@ def oauth_callback(
     code: str = Query(...),
     state: str = Query(...),
 ):
+    logger = logging.getLogger("oauth")
+    logger.info(f"OAuth callback received: provider={provider}, state_prefix={state[:8]}...")
     redirect_uri = settings.OAUTH_REDIRECT_URI
     success, token, error, user = handle_oauth_callback(provider, code, state, redirect_uri)
     if not success:
+        logger.error(f"OAuth callback failed for provider={provider}: {error}")
         raise HTTPException(status_code=400, detail=error)
+    logger.info(f"OAuth callback success for provider={provider}, email={user.get('email')}")
     return {"access_token": token, "token_type": "bearer", "user": user}

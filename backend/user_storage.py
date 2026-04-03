@@ -475,6 +475,8 @@ def create_dashboard(email: str, name: str) -> dict:
             "tabs": [default_tab],
             "annotations": [],
             "sharing": {"enabled": False, "token": None},
+            "customMetrics": [],
+            "themeConfig": {},
         }
         dashboards.append(dashboard)
         _save_dashboards(email, dashboards)
@@ -500,7 +502,7 @@ def update_dashboard(email: str, dashboard_id: str, updates: dict) -> Optional[d
         dashboards = _load_dashboards(email)
         for d in dashboards:
             if d["id"] == dashboard_id:
-                for key in ("name", "description", "tabs", "annotations", "sharing"):
+                for key in ("name", "description", "tabs", "annotations", "sharing", "customMetrics", "globalFilters", "themeConfig", "bookmarks"):
                     if key in updates:
                         d[key] = updates[key]
                 d["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -573,21 +575,21 @@ def add_tile_to_section(email: str, dashboard_id: str, tab_id: str, section_id: 
                                 tile_id = uuid.uuid4().hex[:8]
                                 tile["id"] = tile_id
                                 if "rows" in tile:
-                                    tile["rows"] = tile["rows"][:100]
+                                    tile["rows"] = tile["rows"][:5000]
                                 sec["tiles"].append(tile)
                                 # Auto-compute layout position
                                 existing = sec.get("layout", [])
                                 max_y = max((item["y"] + item["h"] for item in existing), default=0)
-                                col = len(existing) % 2
-                                row_y = max_y if col == 0 else max(max_y - 4, 0)
+                                col = len(existing) % 3
+                                row_y = max_y if col == 0 else max(max_y - 3, 0)
                                 sec["layout"].append({
                                     "i": tile_id,
-                                    "x": col * 6,
+                                    "x": col * 4,
                                     "y": row_y,
-                                    "w": 6,
-                                    "h": 4,
-                                    "minW": 3,
-                                    "minH": 3,
+                                    "w": 4,
+                                    "h": 3,
+                                    "minW": 2,
+                                    "minH": 2,
                                 })
                                 d["updated_at"] = datetime.now(timezone.utc).isoformat()
                                 _save_dashboards(email, dashboards)

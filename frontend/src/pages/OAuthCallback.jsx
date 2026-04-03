@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -9,8 +9,11 @@ export default function OAuthCallback() {
   const navigate = useNavigate();
   const setAuth = useStore((s) => s.setAuth);
   const setTutorialComplete = useStore((s) => s.setTutorialComplete);
+  const called = useRef(false);
 
   useEffect(() => {
+    if (called.current) return;
+    
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     const provider = localStorage.getItem("oauth_provider") || "google";
@@ -19,6 +22,8 @@ export default function OAuthCallback() {
       setError("Missing OAuth parameters.");
       return;
     }
+    
+    called.current = true;
 
     api.handleOAuthCallback(provider, code, state)
       .then((data) => {

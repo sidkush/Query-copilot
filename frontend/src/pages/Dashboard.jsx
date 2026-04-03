@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import MotionButton from "../components/animation/MotionButton";
+import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { api } from "../api";
 import { useStore } from "../store";
 import UserDropdown from "../components/UserDropdown";
@@ -345,6 +346,7 @@ export default function Dashboard() {
     <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
       {/* Background mesh */}
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
+      <AnimatedBackground className="fixed inset-0 pointer-events-none" />
 
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 glass-navbar sticky top-0 z-20">

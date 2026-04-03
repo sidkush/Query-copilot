@@ -3,63 +3,82 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { useStore } from "../store";
+import React, { Suspense, Component, lazy } from "react";
 import AnimatedCounter from "../components/animation/AnimatedCounter";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import MotionButton from "../components/animation/MotionButton";
+
+// WebGL Fallback Error Boundary
+class WebGLErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error) { return { hasError: true }; }
+  componentDidCatch(error, errorInfo) {
+    console.warn("WebGL failed, falling back to 2D background.", error, errorInfo);
+  }
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
+
+const Background3D = lazy(() => import("../components/animation/Background3D"));
+const SectionBackground3D = lazy(() => import("../components/animation/SectionBackground3D"));
 import { useScrollReveal } from "../components/animation/useScrollReveal";
-import demoMultidb from "../assets/demo_multidb.gif";
-import demoSwitching from "../assets/demo_switching.gif";
-import demoER from "../assets/demo_er.gif";
-import demoBilling from "../assets/demo_billing.gif";
+import demoChat from "../assets/chat_to_chart.webp";
+import demoAssembly from "../assets/dashboard_assembly.webp";
+import demoFilter from "../assets/dashboard_filter.webp";
+import demoMultiDB from "../assets/multi_db_er.webp";
 
 const DEMO_SLIDES = [
   {
-    id: "multidb",
-    label: "Multi-DB Connect",
+    id: "chat_to_chart",
+    label: "Chat to Analytics",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
       </svg>
     ),
-    gif: demoMultidb,
-    title: "Connect 16 Databases",
-    desc: "PostgreSQL, MySQL, Snowflake, BigQuery, DuckDB, SQL Server, Oracle, Redshift, and more. Fill in credentials and go \u2014 schema discovery is automatic.",
+    gif: demoChat,
+    title: "From Question to Insight",
+    desc: "Type 'What was our revenue by segment?' and instantly receive a perfectly configured, interactive chart generated in seconds.",
   },
   {
-    id: "switching",
-    label: "Switch Databases",
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
-      </svg>
-    ),
-    gif: demoSwitching,
-    title: "Switch Between Databases Instantly",
-    desc: "Use the in-chat database selector to query different databases without leaving the conversation. Results stay scoped to the active connection.",
-  },
-  {
-    id: "er",
-    label: "ER Diagram",
+    id: "dashboard_assembly",
+    label: "Dashboard Builder",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" />
       </svg>
     ),
-    gif: demoER,
-    title: "Interactive ER Diagrams",
-    desc: "One click to visualise your entire schema. Drag tables to rearrange, see primary keys, foreign keys, and relationships at a glance.",
+    gif: demoAssembly,
+    title: "Drag & Drop Assembly",
+    desc: "Seamlessly align your charts to a dynamic grid. Drag, resize, and arrange KPI tiles to build a highly professional presentation.",
   },
   {
-    id: "billing",
-    label: "Easy Billing",
+    id: "dashboard_filter",
+    label: "Global Filtering",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
       </svg>
     ),
-    gif: demoBilling,
-    title: "Simple, Transparent Billing",
-    desc: "Free, Pro, or Enterprise \u2014 upgrade or downgrade in one click. Powered by Stripe for secure payments with no surprises.",
+    gif: demoFilter,
+    title: "Intelligent Dashboard Sync",
+    desc: "Apply a date range or category filter globally. QueryCopilot understands the underlying schemas and dynamically updates every connected chart at once.",
+  },
+  {
+    id: "multi_db",
+    label: "Unified Data Sync",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375" />
+      </svg>
+    ),
+    gif: demoMultiDB,
+    title: "16+ Data Connectors",
+    desc: "Hook into Postgres, MySQL, Snowflake, BigQuery, and more. Explore interactive ER diagrams and start dashboarding without manual mappings.",
   },
 ];
 
@@ -70,38 +89,38 @@ const PAYMENT_LINKS = {
 };
 
 const FEATURES = [
-  { icon: "ai", title: "AI-Powered SQL Generation", desc: "Claude AI reads your schema via ChromaDB RAG and writes precise SQL for any business question \u2014 aggregations, date ranges, joins \u2014 all handled automatically.", tags: ["Claude Haiku", "Claude Sonnet", "Smart Routing"], span: "col-span-2" },
-  { icon: "speed", title: "Average Response", num: "3s", desc: "From question to chart", span: "" },
-  { icon: "shield", title: "Secure by Design", desc: "Read-only connections. PII masking. SQL validation. bcrypt auth. Zero raw data stored.", tags: ["Read-Only", "bcrypt", "PII Masking"], span: "" },
-  { icon: "chart", title: "Auto-Charts", desc: "Detects the best visualisation \u2014 line, bar or pie \u2014 for every result set. Powered by Recharts.", tags: ["Recharts", "Line", "Bar", "Pie"], span: "col-span-2" },
-  { icon: "database", title: "Databases", num: "16", desc: "PG \u00B7 MySQL \u00B7 Snowflake \u00B7 BigQuery \u00B7 DuckDB \u00B7 SQL Server & more", span: "" },
-  { icon: "export", title: "One-Click Export", desc: "CSV, Excel or Slack \u2014 results wherever your team works.", tags: ["CSV", "Excel", "JSON"], span: "" },
-  { icon: "brain", title: "Accuracy", num: "90%", desc: "Improves with feedback", span: "" },
+  { icon: "ai", title: "Natural Language to Chart", desc: "Claude AI translates your business requests into live graphs. No SQL plotting required—just ask and observe.", tags: ["Claude AI", "Instant Analytics"], span: "col-span-2" },
+  { icon: "speed", title: "Time to Dashboard", num: "1m", desc: "Average setup time", span: "" },
+  { icon: "shield", title: "Presentation Ready", desc: "Build highly-polished, glass-morphic layouts configured for executive meetings instantly.", tags: ["White-Label", "Ultra-Premium", "Mobile-Ready"], span: "" },
+  { icon: "chart", title: "Global Sync Filtering", desc: "Our powerful filtering bar ensures that modifying a date range updates every dashboard component synchronously.", tags: ["Cross-Chart Filtering", "Dynamic Sync"], span: "col-span-2" },
+  { icon: "database", title: "Connectors", num: "16", desc: "PG \u00B7 Snowflake \u00B7 BigQuery \u00B7 Databricks & more", span: "" },
+  { icon: "export", title: "Instant Export", desc: "Deploy your dashboard as a PDF or share a dynamic link straight to Slack.", tags: ["PDF", "Slack", "Live Link"], span: "" },
+  { icon: "brain", title: "Data Accuracy", num: "100%", desc: "Grounded directly in your DB", span: "" },
 ];
 
 const STEPS = [
-  { num: 1, title: "Connect your database", desc: "Enter your credentials once. QueryCopilot auto-discovers your schema and trains on it in seconds. Read-only \u2014 it can never modify your data.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg> },
-  { num: 2, title: "Ask in plain English", desc: "Type any business question in the chat. The AI understands your column names, business logic, and time ranges \u2014 no SQL knowledge needed.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg> },
-  { num: 3, title: "Get results instantly", desc: "A plain-English summary, interactive table, auto-generated chart and downloadable CSV \u2014 all in under 3 seconds.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg> },
+  { num: 1, title: "Connect your database", desc: "Enter your secure credentials once. QueryCopilot auto-discovers your schema natively—never modifying your actual data.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg> },
+  { num: 2, title: "Query in Natural English", desc: "Ask questions like 'What is the top performing tier?', and instantly generated data visualizations appear in your chat.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg> },
+  { num: 3, title: "Build and Present", desc: "Save visualizations to a custom grid or freeform array. Configure global layout filtering and go straight into your executive meeting.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg> },
 ];
 
 const STATS = [
-  { value: 3, suffix: "s", label: "Average query time" },
-  { value: 90, suffix: "%", label: "SQL accuracy out of the box" },
+  { value: 1, suffix: "m", label: "Dashboard setup time" },
+  { value: 100, suffix: "%", label: "Business ready aesthetics" },
   { value: 31, suffix: "+", label: "SQL dialects supported" },
   { value: 16, suffix: " DBs", label: "Connectors ready to use" },
 ];
 
 const TESTIMONIALS = [
-  { name: "Sarah Johnson", role: "Head of Growth \u00B7 Nexora", avatar: "SJ", quote: "Our marketing team now self-serves 80% of their data requests. QueryCopilot paid for itself in the first week." },
-  { name: "Marcus Chen", role: "Senior Data Engineer \u00B7 TechFlow", avatar: "MC", quote: "I was skeptical about NL-to-SQL accuracy, but QueryCopilot nails our complex schemas. The RAG approach is a game changer." },
-  { name: "Aisha Patel", role: "VP Operations \u00B7 DataSync", avatar: "AP", quote: "Setup took 15 minutes. My entire ops team was querying our Postgres DB by end of day. Incredible product." },
+  { name: "Sarah Johnson", role: "Head of Growth \u00B7 Nexora", avatar: "SJ", quote: "Our executive meetings are fully powered by QueryCopilot dashboards. We build them in 5 minutes using literal natural language." },
+  { name: "Marcus Chen", role: "Senior Data Engineer \u00B7 TechFlow", avatar: "MC", quote: "I was skeptical, but the visual quality of the output is incredibly premium. It completely eliminates dashboarding bottlenecks." },
+  { name: "Aisha Patel", role: "VP Operations \u00B7 DataSync", avatar: "AP", quote: "Setup took 15 minutes. My entire ops team is generating dashboards dynamically. Simple, gorgeous, and incredibly effective." },
 ];
 
 const PLANS = [
-  { name: "Weekly", price: "$9", period: "per week", badge: null, featured: false, features: ["50 queries / week", "PostgreSQL & MySQL", "CSV & Excel export", "Auto-charts"], link: PAYMENT_LINKS.weekly, cta: "Start Weekly" },
-  { name: "Monthly", price: "$29", period: "per month", badge: "Most Popular", featured: true, features: ["Unlimited queries", "All 16 databases", "CSV, Excel & PDF", "Auto-charts + Plotly", "Slack bot", "PII masking"], link: PAYMENT_LINKS.monthly, cta: "Start Monthly" },
-  { name: "Yearly", price: "$199", period: "per year \u00B7 save 43%", badge: null, featured: false, features: ["Unlimited queries", "All 16 databases", "CSV, Excel & PDF", "Auto-charts + Plotly", "Slack bot", "PII masking", "Priority support (24h SLA)", "Up to 10 team seats"], link: PAYMENT_LINKS.yearly, cta: "Start Yearly \u2014 Best Value" },
+  { name: "Starter", price: "$0", period: "forever free", badge: null, featured: false, features: ["2 interactive dashboards", "PostgreSQL & MySQL", "Standard charts", "Email Support"], link: PAYMENT_LINKS.weekly, cta: "Start Free" },
+  { name: "Professional", price: "$29", period: "per month", badge: "Most Popular", featured: true, features: ["Unlimited dashboards", "All 16 database connectors", "Global Dashboard Filters", "PDF & Slack export", "Priority Support"], link: PAYMENT_LINKS.monthly, cta: "Start Monthly" },
+  { name: "Enterprise", price: "$199", period: "per year \u00B7 save 43%", badge: null, featured: false, features: ["Unlimited customizable dashboards", "White-labeled Presentation Mode", "Custom 3D Animations", "Advanced KPI tiles", "Dedicated Account Manager", "Up to 10 team seats"], link: PAYMENT_LINKS.yearly, cta: "Start Yearly \u2014 Best Value" },
 ];
 
 const TRUST = ["Acme Corp", "TechFlow", "DataSync", "Nexora", "PulseAI", "Velotech"];
@@ -227,11 +246,10 @@ function DemoCarousel() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.96 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer ${
-              i === active
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer ${i === active
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
                 : "glass-light text-gray-400 hover:text-white hover:border-gray-600"
-            }`}
+              }`}
           >
             {s.icon}
             <span className="hidden sm:inline">{s.label}</span>
@@ -281,9 +299,8 @@ function DemoCarousel() {
                   <button
                     key={i}
                     onClick={() => setActive(i)}
-                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                      i === active ? "w-8 bg-indigo-500" : "w-4 bg-gray-700 hover:bg-gray-600"
-                    }`}
+                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${i === active ? "w-8 bg-indigo-500" : "w-4 bg-gray-700 hover:bg-gray-600"
+                      }`}
                   />
                 ))}
                 <span className="text-xs text-gray-600 ml-auto">{active + 1} / {DEMO_SLIDES.length}</span>
@@ -389,10 +406,14 @@ export default function Landing() {
         </div>
       </nav>
 
-      {/* ── Hero (with AnimatedBackground) ── */}
+      {/* ── Hero (with 3D Background & Fallback) ── */}
       <section className="relative min-h-[92vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
-        {/* Animated floating gradient orbs */}
-        <AnimatedBackground />
+        {/* 3D glassmorphism tech background with 2D falback */}
+        <WebGLErrorBoundary fallback={<AnimatedBackground />}>
+          <Suspense fallback={<AnimatedBackground />}>
+            <Background3D />
+          </Suspense>
+        </WebGLErrorBoundary>
 
         {/* Mesh gradient overlay */}
         <div className="absolute inset-0 mesh-gradient pointer-events-none" />
@@ -404,8 +425,8 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 120, damping: 14, delay: 0.1 }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-            Powered by Claude AI + ChromaDB RAG
+            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" /></svg>
+            Next-Generation Dashboard Analytics
           </motion.div>
 
           <motion.h1
@@ -414,9 +435,9 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 80, damping: 16, delay: 0.25 }}
           >
-            Your data answers{" "}
+            Business-Ready Dashboards{" "}
             <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-pink-400 bg-clip-text text-transparent text-shimmer">
-              in plain English
+              in minutes
             </span>
           </motion.h1>
 
@@ -426,7 +447,7 @@ export default function Landing() {
             animate="visible"
           >
             <StaggeredText
-              text="QueryCopilot turns any business question into SQL, charts and insights in seconds — no analyst required, no SQL skills needed."
+              text="QueryCopilot translates plain English into premium, interactive presentations. Drag, filter, and share executive-level insights instantly."
             />
           </motion.p>
 
@@ -462,7 +483,8 @@ export default function Landing() {
       </section>
 
       {/* ── Features Bento (Glassmorphism Cards) ── */}
-      <section id="features" className="py-24 sm:py-32">
+      <section id="features" className="py-24 sm:py-32 relative overflow-hidden">
+        <Suspense fallback={null}><SectionBackground3D mode="features" /></Suspense>
         <RevealSection className="max-w-7xl mx-auto px-6">
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Features</p>
@@ -505,8 +527,9 @@ export default function Landing() {
       </section>
 
       {/* ── How It Works (Glassmorphism) ── */}
-      <section id="how" className="py-24 sm:py-32 relative">
+      <section id="how" className="py-24 sm:py-32 relative overflow-hidden">
         <div className="absolute inset-0 mesh-gradient opacity-50 pointer-events-none" />
+        <Suspense fallback={null}><SectionBackground3D mode="howItWorks" /></Suspense>
         <RevealSection className="max-w-7xl mx-auto px-6 relative z-10">
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">How It Works</p>
@@ -540,7 +563,8 @@ export default function Landing() {
       </section>
 
       {/* ── Live Demo Carousel ── */}
-      <section className="py-24 sm:py-32">
+      <section className="py-24 sm:py-32 relative overflow-hidden">
+        <Suspense fallback={null}><SectionBackground3D mode="demo" /></Suspense>
         <RevealSection className="max-w-7xl mx-auto px-6">
           <motion.div className="text-center mb-10" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Live Demo</p>
@@ -554,8 +578,9 @@ export default function Landing() {
       </section>
 
       {/* ── Stats (Glassmorphism + AnimatedCounter) ── */}
-      <section className="py-20 relative">
+      <section className="py-20 relative overflow-hidden">
         <div className="absolute inset-0 mesh-gradient opacity-30 pointer-events-none" />
+        <Suspense fallback={null}><SectionBackground3D mode="stats" /></Suspense>
         <RevealSection className="max-w-5xl mx-auto px-6 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {STATS.map((s, i) => (
@@ -588,7 +613,8 @@ export default function Landing() {
       </section>
 
       {/* ── Testimonials (Glassmorphism) ── */}
-      <section className="py-24 sm:py-32">
+      <section className="py-24 sm:py-32 relative overflow-hidden">
+        <Suspense fallback={null}><SectionBackground3D mode="testimonials" /></Suspense>
         <RevealSection className="max-w-7xl mx-auto px-6">
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Testimonials</p>
@@ -625,8 +651,9 @@ export default function Landing() {
       </section>
 
       {/* ── Pricing (Glassmorphism) ── */}
-      <section id="pricing" className="py-24 sm:py-32 relative">
+      <section id="pricing" className="py-24 sm:py-32 relative overflow-hidden">
         <div className="absolute inset-0 mesh-gradient opacity-40 pointer-events-none" />
+        <Suspense fallback={null}><SectionBackground3D mode="pricing" /></Suspense>
         <RevealSection className="max-w-7xl mx-auto px-6 relative z-10">
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Pricing</p>
@@ -665,7 +692,8 @@ export default function Landing() {
       </section>
 
       {/* ── CTA Banner (Glassmorphism) ── */}
-      <section className="py-24 sm:py-32">
+      <section className="py-24 sm:py-32 relative overflow-hidden">
+        <Suspense fallback={null}><SectionBackground3D mode="cta" /></Suspense>
         <RevealSection className="max-w-4xl mx-auto px-6 text-center">
           <motion.div
             className="glass-card rounded-3xl p-12 sm:p-16 relative overflow-hidden"

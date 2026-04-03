@@ -70,4 +70,29 @@ export const useStore = create((set, get) => ({
   // Dashboard
   activeDashboardId: null,
   setActiveDashboardId: (id) => set({ activeDashboardId: id }),
+
+  // Prefetch cache for dashboard tiles
+  prefetchCache: {},
+  setPrefetchData: (dashboardId, tileId, data) => set((s) => ({
+    prefetchCache: {
+      ...s.prefetchCache,
+      [dashboardId]: {
+        ...(s.prefetchCache[dashboardId] || {}),
+        [tileId]: { ...data, _ts: Date.now() },
+      },
+    },
+  })),
+  getPrefetchData: (dashboardId, tileId) => {
+    const entry = get().prefetchCache[dashboardId]?.[tileId];
+    if (!entry) return null;
+    // Expire after 5 minutes
+    if (Date.now() - entry._ts > 300000) return null;
+    return { columns: entry.columns, rows: entry.rows };
+  },
+  clearPrefetchCache: (dashboardId) => set((s) => {
+    const cache = { ...s.prefetchCache };
+    if (dashboardId) delete cache[dashboardId];
+    else return { prefetchCache: {} };
+    return { prefetchCache: cache };
+  }),
 }));

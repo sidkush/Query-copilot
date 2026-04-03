@@ -2,6 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS, CHART_PALETTES } from './tokens';
 import { api } from '../../api';
+import DataSourceEditor from './DataSourceEditor';
+import ColorPickerButton from './ColorPickerButton';
+import ReferenceLineEditor from './ReferenceLineEditor';
+import ConditionalRuleBuilder from './ConditionalRuleBuilder';
+import { FORMATTING_DEFAULTS } from '../../lib/formatUtils';
 
 /* ── Chart type definitions with mini SVG icons ── */
 const CHART_TYPES = [
@@ -51,7 +56,7 @@ const sectionStyle = {
 };
 
 /* ── Component ── */
-export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefresh, onDelete }) {
+export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefresh, onDelete, customMetrics = [] }) {
   // Local editing state
   const [title, setTitle] = useState(tile.title || '');
   const [subtitle, setSubtitle] = useState(tile.subtitle || '');
@@ -67,8 +72,69 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
   const [newNote, setNewNote] = useState('');
   const [queryRunning, setQueryRunning] = useState(false);
   const [queryError, setQueryError] = useState('');
+  const [dataSources, setDataSources] = useState(tile.dataSources || []);
+  const [blendConfig, setBlendConfig] = useState(tile.blendConfig || { joinKey: '', enabled: false });
+  const [blendOpen, setBlendOpen] = useState((tile.dataSources || []).length > 0);
 
-  const columns = tile.columns || [];
+  const vc = tile.visualConfig || {};
+  const [activeTab, setActiveTab] = useState('data');
+
+  // Typography
+  const [titleFontSize, setTitleFontSize] = useState(vc.typography?.titleFontSize ?? null);
+  const [titleFontWeight, setTitleFontWeight] = useState(vc.typography?.titleFontWeight ?? null);
+  const [titleColor, setTitleColor] = useState(vc.typography?.titleColor ?? null);
+  const [titleAlign, setTitleAlign] = useState(vc.typography?.titleAlign ?? null);
+  const [subtitleFontSize, setSubtitleFontSize] = useState(vc.typography?.subtitleFontSize ?? null);
+  const [subtitleColor, setSubtitleColor] = useState(vc.typography?.subtitleColor ?? null);
+
+  // Axis
+  const [axisXLabel, setAxisXLabel] = useState(vc.axis?.xLabel ?? '');
+  const [axisYLabel, setAxisYLabel] = useState(vc.axis?.yLabel ?? '');
+  const [tickFormat, setTickFormat] = useState(vc.axis?.tickFormat ?? 'auto');
+  const [xLabelRotation, setXLabelRotation] = useState(vc.axis?.xLabelRotation ?? 0);
+
+  // Legend
+  const [legendShow, setLegendShow] = useState(vc.legend?.show ?? null);
+  const [legendPosition, setLegendPosition] = useState(vc.legend?.position ?? null);
+
+  // Grid
+  const [gridShow, setGridShow] = useState(vc.grid?.show ?? null);
+  const [gridColor, setGridColor] = useState(vc.grid?.color ?? null);
+  const [gridStyle, setGridStyle] = useState(vc.grid?.style ?? null);
+
+  // Data labels
+  const [dataLabelsShow, setDataLabelsShow] = useState(vc.dataLabels?.show ?? false);
+  const [dataLabelsFormat, setDataLabelsFormat] = useState(vc.dataLabels?.format ?? 'auto');
+  const [dataLabelsPosition, setDataLabelsPosition] = useState(vc.dataLabels?.position ?? 'top');
+
+  // Tooltip
+  const [tooltipShow, setTooltipShow] = useState(vc.tooltip?.show ?? true);
+  const [tooltipTemplate, setTooltipTemplate] = useState(vc.tooltip?.template ?? '');
+
+  // Reference lines
+  const [referenceLines, setReferenceLines] = useState(vc.referenceLines ?? []);
+
+  // Sort
+  const [sortField, setSortField] = useState(vc.sort?.field ?? null);
+  const [sortOrder, setSortOrder] = useState(vc.sort?.order ?? 'desc');
+
+  // Colors
+  const [colorMode, setColorMode] = useState(vc.colors?.mode ?? 'inherit');
+  const [colorPalette, setColorPalette] = useState(vc.colors?.palette ?? null);
+  const [measureColors, setMeasureColors] = useState(vc.colors?.measureColors ?? {});
+  const [colorRules, setColorRules] = useState(vc.colors?.rules ?? []);
+
+  // Tile style
+  const [tileBg, setTileBg] = useState(vc.style?.background ?? null);
+  const [tileBorderColor, setTileBorderColor] = useState(vc.style?.borderColor ?? null);
+  const [tileBorderWidth, setTileBorderWidth] = useState(vc.style?.borderWidth ?? null);
+  const [tileRadius, setTileRadius] = useState(vc.style?.radius ?? null);
+  const [tilePadding, setTilePadding] = useState(vc.style?.padding ?? null);
+  const [tileShadow, setTileShadow] = useState(vc.style?.shadow ?? false);
+
+  const baseColumns = tile.columns || [];
+  const metricNames = (customMetrics || []).map(m => m.name).filter(n => n && !baseColumns.includes(n));
+  const columns = [...baseColumns, ...metricNames];
 
   /* ── Handlers ── */
   const toggleMeasure = useCallback((col) => {
@@ -81,8 +147,8 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
     setQueryRunning(true);
     setQueryError('');
     try {
-      const result = await api.refreshTile(dashboardId, tile.id);
-      onRefresh(tile.id, { columns: result.columns, rows: result.rows });
+      await api.refreshTile(dashboardId, tile.id);
+      onRefresh(tile.id, null, null);
     } catch (err) {
       setQueryError(err.message || 'Query execution failed');
     } finally {
@@ -102,21 +168,64 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
     }
   }, [dashboardId, tile.id, newNote]);
 
+  // Merge formatting section: keep existing values when new value is null/undefined
+  const mergeSection = useCallback((existing, updates) => {
+    if (!existing && !updates) return {};
+    if (!existing) return updates;
+    if (!updates) return existing;
+    const result = { ...existing };
+    for (const [k, v] of Object.entries(updates)) {
+      if (v !== null && v !== undefined) {
+        result[k] = v;
+      }
+      // If v is null/undefined, keep existing[k] (don't overwrite)
+    }
+    return result;
+  }, []);
+
   const handleSave = useCallback(() => {
+    const existingVC = tile.visualConfig || {};
     const updated = {
       ...tile,
-      title,
-      subtitle,
-      chartType,
-      selectedMeasure,
-      activeMeasures,
-      sql,
-      palette,
-      filters: { dateStart, dateEnd, where: whereClause },
-      annotations,
+      title, subtitle, chartType, selectedMeasure, activeMeasures,
+      sql, palette, filters: { dateStart, dateEnd, where: whereClause },
+      annotations, dataSources, blendConfig,
+      visualConfig: {
+        typography: mergeSection(existingVC.typography, {
+          titleFontSize, titleFontWeight, titleColor,
+          subtitleFontSize, subtitleColor, titleAlign,
+          axisFontSize: existingVC.typography?.axisFontSize ?? null,
+        }),
+        axis: mergeSection(existingVC.axis, {
+          xLabel: axisXLabel, yLabel: axisYLabel, tickFormat, xLabelRotation,
+          showXLabel: true, showYLabel: true,
+          tickDecimals: existingVC.axis?.tickDecimals ?? null,
+        }),
+        legend: mergeSection(existingVC.legend, { show: legendShow, position: legendPosition }),
+        grid: mergeSection(existingVC.grid, { show: gridShow, color: gridColor, style: gridStyle }),
+        dataLabels: mergeSection(existingVC.dataLabels, {
+          show: dataLabelsShow, format: dataLabelsFormat, position: dataLabelsPosition,
+        }),
+        tooltip: { show: tooltipShow, template: tooltipTemplate },
+        referenceLines,
+        sort: { field: sortField, order: sortOrder },
+        colors: { mode: colorMode, palette: colorPalette, measureColors, rules: colorRules },
+        style: mergeSection(existingVC.style, {
+          background: tileBg, borderColor: tileBorderColor,
+          borderWidth: tileBorderWidth, radius: tileRadius,
+          padding: tilePadding, shadow: tileShadow,
+        }),
+      },
     };
     onSave(updated);
-  }, [tile, title, subtitle, chartType, selectedMeasure, activeMeasures, sql, palette, dateStart, dateEnd, whereClause, annotations, onSave]);
+  }, [tile, title, subtitle, chartType, selectedMeasure, activeMeasures, sql, palette, dateStart, dateEnd, whereClause, annotations, dataSources, blendConfig,
+      titleFontSize, titleFontWeight, titleColor, titleAlign, subtitleFontSize, subtitleColor,
+      axisXLabel, axisYLabel, tickFormat, xLabelRotation,
+      legendShow, legendPosition, gridShow, gridColor, gridStyle,
+      dataLabelsShow, dataLabelsFormat, dataLabelsPosition,
+      tooltipShow, tooltipTemplate, referenceLines,
+      sortField, sortOrder, colorMode, colorPalette, measureColors, colorRules,
+      tileBg, tileBorderColor, tileBorderWidth, tileRadius, tilePadding, tileShadow, mergeSection, onSave]);
 
   return (
     <AnimatePresence>
@@ -144,7 +253,7 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: '100%', maxWidth: 600, maxHeight: '85vh',
+            width: '100%', maxWidth: 680, maxHeight: '85vh',
             background: TOKENS.bg.elevated,
             border: `1px solid ${TOKENS.border.default}`,
             borderRadius: TOKENS.radius.xl,
@@ -174,8 +283,24 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
             </div>
           </div>
 
+          {/* Tab bar */}
+          <div style={{ display: 'flex', borderBottom: `1px solid ${TOKENS.border.default}`, padding: '0 20px', flexShrink: 0 }}>
+            {['data', 'format', 'colors', 'style'].map((tab) => (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                padding: '10px 16px', fontSize: 12, fontWeight: activeTab === tab ? 600 : 400,
+                color: activeTab === tab ? TOKENS.accent : TOKENS.text.secondary,
+                borderBottom: activeTab === tab ? `2px solid ${TOKENS.accent}` : '2px solid transparent',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                textTransform: 'capitalize', transition: `all ${TOKENS.transition}`,
+              }}>{tab}</button>
+            ))}
+          </div>
+
           {/* ── Scrollable content ── */}
           <div style={{ overflowY: 'auto', padding: '0 20px 20px', flex: 1 }}>
+
+            {/* ════════════════════════ DATA TAB ════════════════════════ */}
+            {activeTab === 'data' && (<>
 
             {/* 1. Title & Subtitle */}
             <div style={sectionStyle}>
@@ -231,6 +356,9 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
                       style={{ accentColor: TOKENS.accent }}
                     />
                     {col}
+                    {metricNames.includes(col) && (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#818cf8', background: 'rgba(99,102,241,0.15)', padding: '1px 5px', borderRadius: 4, marginLeft: 2 }}>fx</span>
+                    )}
                   </label>
                 ))}
               </div>
@@ -308,38 +436,30 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
               </div>
             </div>
 
-            {/* 6. Palette Picker */}
+            {/* 5b. Data Blending */}
             <div style={sectionStyle}>
-              <label style={labelStyle}>Color Palette</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {PALETTE_KEYS.map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => setPalette(key)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '8px 10px', borderRadius: TOKENS.radius.sm,
-                      background: palette === key ? TOKENS.accentGlow : 'transparent',
-                      border: palette === key
-                        ? `2px solid ${TOKENS.accent}`
-                        : `1px solid ${TOKENS.border.default}`,
-                      cursor: 'pointer', transition: TOKENS.transition,
-                    }}
-                  >
-                    <span style={{ fontSize: '12px', color: TOKENS.text.secondary, minWidth: 70, textAlign: 'left', textTransform: 'capitalize' }}>
-                      {key}
-                    </span>
-                    <div style={{ display: 'flex', gap: 3 }}>
-                      {CHART_PALETTES[key].map((c, i) => (
-                        <span key={i} style={{
-                          width: 18, height: 18, borderRadius: '4px',
-                          background: c, display: 'inline-block',
-                        }} />
-                      ))}
-                    </div>
-                  </button>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                onClick={() => setBlendOpen(o => !o)}>
+                <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>Data Blending</label>
+                <svg style={{ width: 14, height: 14, color: TOKENS.text.muted, transform: blendOpen ? 'rotate(0)' : 'rotate(-90deg)', transition: `transform ${TOKENS.transition}` }}
+                  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/>
+                </svg>
               </div>
+              {blendOpen && (
+                <div style={{ marginTop: 10 }}>
+                  <DataSourceEditor
+                    dataSources={dataSources}
+                    blendConfig={blendConfig}
+                    primaryColumns={baseColumns}
+                    dashboardId={dashboardId}
+                    tileId={tile.id}
+                    connId={null}
+                    onChange={setDataSources}
+                    onBlendConfigChange={setBlendConfig}
+                  />
+                </div>
+              )}
             </div>
 
             {/* 7. Tile Notes */}
@@ -396,6 +516,399 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
                 Delete Tile
               </button>
             </div>
+
+            </>)}
+
+            {/* ════════════════════════ FORMAT TAB ════════════════════════ */}
+            {activeTab === 'format' && (<>
+
+            {/* Typography */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Typography</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Title Font Size (12-32)</label>
+                  <input type="number" min={12} max={32} value={titleFontSize ?? ''} onChange={(e) => setTitleFontSize(e.target.value ? Number(e.target.value) : null)} style={inputStyle} placeholder={String(FORMATTING_DEFAULTS.typography.titleFontSize)} />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Title Font Weight</label>
+                  <select value={titleFontWeight ?? ''} onChange={(e) => setTitleFontWeight(e.target.value ? Number(e.target.value) : null)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    <option value="">Default</option>
+                    <option value="400">400 (Normal)</option>
+                    <option value="600">600 (Semi-Bold)</option>
+                    <option value="700">700 (Bold)</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Title Color</label>
+                  <ColorPickerButton color={titleColor} onChange={setTitleColor} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Title Alignment</label>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {['left', 'center', 'right'].map((a) => (
+                      <button key={a} onClick={() => setTitleAlign(a)} style={{
+                        padding: '5px 12px', fontSize: 11, borderRadius: TOKENS.radius.sm, cursor: 'pointer',
+                        background: titleAlign === a ? TOKENS.accentGlow : TOKENS.bg.surface,
+                        border: titleAlign === a ? `1px solid ${TOKENS.accent}` : `1px solid ${TOKENS.border.default}`,
+                        color: titleAlign === a ? TOKENS.accentLight : TOKENS.text.secondary,
+                        transition: TOKENS.transition, textTransform: 'capitalize',
+                      }}>{a}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Subtitle Font Size (10-20)</label>
+                  <input type="number" min={10} max={20} value={subtitleFontSize ?? ''} onChange={(e) => setSubtitleFontSize(e.target.value ? Number(e.target.value) : null)} style={inputStyle} placeholder={String(FORMATTING_DEFAULTS.typography.subtitleFontSize)} />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Subtitle Color</label>
+                  <ColorPickerButton color={subtitleColor} onChange={setSubtitleColor} />
+                </div>
+              </div>
+            </div>
+
+            {/* Axis Labels */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Axis Labels</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>X-Axis Label</label>
+                  <input value={axisXLabel} onChange={(e) => setAxisXLabel(e.target.value)} style={inputStyle} placeholder="Auto" />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Y-Axis Label</label>
+                  <input value={axisYLabel} onChange={(e) => setAxisYLabel(e.target.value)} style={inputStyle} placeholder="Auto" />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Tick Format</label>
+                  <select value={tickFormat} onChange={(e) => setTickFormat(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    <option value="auto">Auto</option>
+                    <option value="integer">Integer</option>
+                    <option value="decimal">Decimal</option>
+                    <option value="currency">Currency</option>
+                    <option value="percent">Percent</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>X-Axis Rotation</label>
+                  <select value={xLabelRotation} onChange={(e) => setXLabelRotation(Number(e.target.value))} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    <option value={0}>0</option>
+                    <option value={45}>45</option>
+                    <option value={90}>90</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Legend</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: TOKENS.text.primary, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={legendShow ?? true} onChange={(e) => setLegendShow(e.target.checked)} style={{ accentColor: TOKENS.accent }} />
+                  Show Legend
+                </label>
+              </div>
+              {(legendShow ?? true) && (
+                <div style={{ display: 'flex', gap: 4, marginTop: 10 }}>
+                  {['top', 'bottom', 'left', 'right'].map((pos) => (
+                    <button key={pos} onClick={() => setLegendPosition(pos)} style={{
+                      padding: '5px 12px', fontSize: 11, borderRadius: TOKENS.radius.sm, cursor: 'pointer',
+                      background: legendPosition === pos ? TOKENS.accentGlow : TOKENS.bg.surface,
+                      border: legendPosition === pos ? `1px solid ${TOKENS.accent}` : `1px solid ${TOKENS.border.default}`,
+                      color: legendPosition === pos ? TOKENS.accentLight : TOKENS.text.secondary,
+                      transition: TOKENS.transition, textTransform: 'capitalize',
+                    }}>{pos}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Grid Lines */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Grid Lines</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: TOKENS.text.primary, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={gridShow ?? true} onChange={(e) => setGridShow(e.target.checked)} style={{ accentColor: TOKENS.accent }} />
+                  Show Grid
+                </label>
+              </div>
+              {(gridShow ?? true) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: '10px' }}>Color</label>
+                    <ColorPickerButton color={gridColor} onChange={setGridColor} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ ...labelStyle, fontSize: '10px' }}>Style</label>
+                    <select value={gridStyle ?? 'solid'} onChange={(e) => setGridStyle(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                      <option value="solid">Solid</option>
+                      <option value="dashed">Dashed</option>
+                      <option value="dotted">Dotted</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Data Labels */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Data Labels</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: TOKENS.text.primary, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={dataLabelsShow} onChange={(e) => setDataLabelsShow(e.target.checked)} style={{ accentColor: TOKENS.accent }} />
+                  Show Data Labels
+                </label>
+              </div>
+              {dataLabelsShow && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: '10px' }}>Format</label>
+                    <select value={dataLabelsFormat} onChange={(e) => setDataLabelsFormat(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                      <option value="auto">Auto</option>
+                      <option value="integer">Integer</option>
+                      <option value="decimal">Decimal</option>
+                      <option value="currency">Currency</option>
+                      <option value="percent">Percent</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: '10px' }}>Position</label>
+                    <select value={dataLabelsPosition} onChange={(e) => setDataLabelsPosition(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                      <option value="top">Top</option>
+                      <option value="inside">Inside (bars)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Tooltip */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Tooltip</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: TOKENS.text.primary, cursor: 'pointer', marginBottom: 8 }}>
+                <input type="checkbox" checked={tooltipShow} onChange={(e) => setTooltipShow(e.target.checked)} style={{ accentColor: TOKENS.accent }} />
+                Show Tooltip
+              </label>
+              {tooltipShow && (
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Template</label>
+                  <textarea
+                    value={tooltipTemplate}
+                    onChange={(e) => setTooltipTemplate(e.target.value)}
+                    rows={2}
+                    style={{ ...inputStyle, resize: 'vertical', fontSize: '13px' }}
+                    placeholder='Use {fieldName} for values, e.g. Revenue: {revenue}'
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Reference Lines */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Reference Lines</label>
+              <ReferenceLineEditor lines={referenceLines} onChange={setReferenceLines} />
+            </div>
+
+            {/* Sort */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Sort</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Field</label>
+                  <select value={sortField ?? ''} onChange={(e) => setSortField(e.target.value || null)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    <option value="">None</option>
+                    {columns.map((col) => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Order</label>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {['asc', 'desc'].map((o) => (
+                      <button key={o} onClick={() => setSortOrder(o)} style={{
+                        padding: '5px 14px', fontSize: 11, borderRadius: TOKENS.radius.sm, cursor: 'pointer',
+                        background: sortOrder === o ? TOKENS.accentGlow : TOKENS.bg.surface,
+                        border: sortOrder === o ? `1px solid ${TOKENS.accent}` : `1px solid ${TOKENS.border.default}`,
+                        color: sortOrder === o ? TOKENS.accentLight : TOKENS.text.secondary,
+                        transition: TOKENS.transition, textTransform: 'uppercase',
+                      }}>{o}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            </>)}
+
+            {/* ════════════════════════ COLORS TAB ════════════════════════ */}
+            {activeTab === 'colors' && (<>
+
+            {/* Color Mode Selector */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Color Mode</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {['inherit', 'palette', 'custom'].map((m) => (
+                  <button key={m} onClick={() => setColorMode(m)} style={{
+                    padding: '6px 16px', fontSize: 12, borderRadius: TOKENS.radius.sm, cursor: 'pointer',
+                    background: colorMode === m ? TOKENS.accentGlow : TOKENS.bg.surface,
+                    border: colorMode === m ? `1px solid ${TOKENS.accent}` : `1px solid ${TOKENS.border.default}`,
+                    color: colorMode === m ? TOKENS.accentLight : TOKENS.text.secondary,
+                    transition: TOKENS.transition, textTransform: 'capitalize', fontWeight: colorMode === m ? 600 : 400,
+                  }}>{m}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Inherit mode */}
+            {colorMode === 'inherit' && (
+              <div style={sectionStyle}>
+                <span style={{ fontSize: 13, color: TOKENS.text.secondary }}>Using dashboard theme palette</span>
+                <div style={{ display: 'flex', gap: 3, marginTop: 8 }}>
+                  {CHART_PALETTES[palette || 'default'].map((c, i) => (
+                    <span key={i} style={{
+                      width: 22, height: 22, borderRadius: '4px',
+                      background: c, display: 'inline-block',
+                    }} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Palette mode */}
+            {colorMode === 'palette' && (
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Color Palette</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {PALETTE_KEYS.map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => { setPalette(key); setColorPalette(key); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '8px 10px', borderRadius: TOKENS.radius.sm,
+                        background: (colorPalette || palette) === key ? TOKENS.accentGlow : 'transparent',
+                        border: (colorPalette || palette) === key
+                          ? `2px solid ${TOKENS.accent}`
+                          : `1px solid ${TOKENS.border.default}`,
+                        cursor: 'pointer', transition: TOKENS.transition,
+                      }}
+                    >
+                      <span style={{ fontSize: '12px', color: TOKENS.text.secondary, minWidth: 70, textAlign: 'left', textTransform: 'capitalize' }}>
+                        {key}
+                      </span>
+                      <div style={{ display: 'flex', gap: 3 }}>
+                        {CHART_PALETTES[key].map((c, i) => (
+                          <span key={i} style={{
+                            width: 18, height: 18, borderRadius: '4px',
+                            background: c, display: 'inline-block',
+                          }} />
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Custom mode */}
+            {colorMode === 'custom' && (
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Per-Measure Colors</label>
+                {columns.length === 0 && (
+                  <span style={{ fontSize: 13, color: TOKENS.text.muted }}>No columns available</span>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {columns.map((col) => (
+                    <div key={col} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <ColorPickerButton
+                        color={measureColors[col] || CHART_PALETTES['default'][columns.indexOf(col) % 8]}
+                        onChange={(c) => setMeasureColors((prev) => ({ ...prev, [col]: c }))}
+                      />
+                      <span style={{ fontSize: 13, color: TOKENS.text.primary }}>{col}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Conditional Rules */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Conditional Color Rules</label>
+              <ConditionalRuleBuilder
+                rules={colorRules}
+                measures={columns}
+                onChange={setColorRules}
+              />
+            </div>
+
+            </>)}
+
+            {/* ════════════════════════ STYLE TAB ════════════════════════ */}
+            {activeTab === 'style' && (<>
+
+            {/* Background */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Background</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <ColorPickerButton color={tileBg} onChange={setTileBg} />
+                <button onClick={() => setTileBg(null)} style={{
+                  padding: '4px 10px', fontSize: 11, borderRadius: TOKENS.radius.sm,
+                  background: TOKENS.bg.surface, border: `1px solid ${TOKENS.border.default}`,
+                  color: TOKENS.text.secondary, cursor: 'pointer', transition: TOKENS.transition,
+                }}>Reset</button>
+                <span style={{ fontSize: 12, color: TOKENS.text.muted }}>{tileBg || 'Theme default'}</span>
+              </div>
+            </div>
+
+            {/* Border */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Border</label>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Color</label>
+                  <ColorPickerButton color={tileBorderColor} onChange={setTileBorderColor} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Width (0-5px)</label>
+                  <input type="number" min={0} max={5} value={tileBorderWidth ?? ''} onChange={(e) => setTileBorderWidth(e.target.value ? Number(e.target.value) : null)} style={inputStyle} placeholder="Default" />
+                </div>
+              </div>
+              <span style={{ fontSize: 11, color: TOKENS.text.muted, marginTop: 6, display: 'block' }}>Border style is solid by default</span>
+            </div>
+
+            {/* Corner Radius */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Corner Radius</label>
+              <input type="number" min={0} max={24} value={tileRadius ?? ''} onChange={(e) => setTileRadius(e.target.value ? Number(e.target.value) : null)} style={{ ...inputStyle, maxWidth: 140 }} placeholder="Default" />
+              <span style={{ fontSize: 11, color: TOKENS.text.muted, marginTop: 4, display: 'block' }}>0-24px</span>
+            </div>
+
+            {/* Inner Padding */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Inner Padding</label>
+              <input type="number" min={8} max={32} value={tilePadding ?? ''} onChange={(e) => setTilePadding(e.target.value ? Number(e.target.value) : null)} style={{ ...inputStyle, maxWidth: 140 }} placeholder="Default" />
+              <span style={{ fontSize: 11, color: TOKENS.text.muted, marginTop: 4, display: 'block' }}>8-32px</span>
+            </div>
+
+            {/* Shadow */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>Shadow</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: TOKENS.text.primary, cursor: 'pointer' }}>
+                <input type="checkbox" checked={tileShadow} onChange={(e) => setTileShadow(e.target.checked)} style={{ accentColor: TOKENS.accent }} />
+                Enable drop shadow
+              </label>
+            </div>
+
+            </>)}
 
           </div>
         </motion.div>
