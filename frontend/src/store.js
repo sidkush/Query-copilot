@@ -75,7 +75,13 @@ export const useStore = create((set, get) => ({
   dashboardGlobalFilters: { dateColumn: "", range: "all_time", fields: [] },
   dashboardFilterVersion: 0,
   applyGlobalFilters: (filters) => set((s) => ({
-    dashboardGlobalFilters: filters,
+    dashboardGlobalFilters: {
+      dateColumn: filters?.dateColumn ?? "",
+      range: filters?.range ?? "all_time",
+      dateStart: filters?.dateStart,
+      dateEnd: filters?.dateEnd,
+      fields: Array.isArray(filters?.fields) ? filters.fields : [],
+    },
     dashboardFilterVersion: s.dashboardFilterVersion + 1,
   })),
   resetGlobalFilters: () => set({

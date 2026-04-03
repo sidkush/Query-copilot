@@ -108,6 +108,8 @@ export default function DashboardBuilder() {
       localStorage.setItem("qc_sidebar_collapsed", JSON.stringify(next));
       return next;
     });
+    // Trigger resize after CSS transition completes so grid recalculates column widths
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 250);
   }, []);
 
   // ── Derived: active tab and its sections ──
@@ -680,31 +682,35 @@ export default function DashboardBuilder() {
   }, [autoSave, clearPrefetchCache, applyGlobalFilters]);
 
   // ── Reactive tile refresh: watches Zustand filter/edit version counters ──
-  const filterVersionRef = useRef(0);
-  const editVersionRef = useRef(0);
+  // Debounced to prevent rapid-fire refreshes from concurrent filter + tile edits
+  const filterVersionRef = useRef(dashboardFilterVersion);
+  const editVersionRef = useRef(tileEditVersion);
+  const refreshDebounceRef = useRef(null);
   useEffect(() => {
-    // Skip the initial render (version 0)
-    if (dashboardFilterVersion === 0 && tileEditVersion === 0) return;
-    // Only refresh if either version actually changed
     const filterChanged = dashboardFilterVersion !== filterVersionRef.current;
     const editChanged = tileEditVersion !== editVersionRef.current;
     if (!filterChanged && !editChanged) return;
     filterVersionRef.current = dashboardFilterVersion;
     editVersionRef.current = tileEditVersion;
 
-    const dash = dashboardRef.current;
-    const tabId = activeTabIdRef.current;
-    if (!dash || !tabId) return;
+    // Debounce: coalesce rapid changes into a single refresh
+    if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    refreshDebounceRef.current = setTimeout(() => {
+      const dash = dashboardRef.current;
+      const tabId = activeTabIdRef.current;
+      if (!dash || !tabId) return;
 
-    const currentTab = dash.tabs.find(t => t.id === tabId);
-    if (!currentTab) return;
+      const currentTab = dash.tabs.find(t => t.id === tabId);
+      if (!currentTab) return;
 
-    const tileIds = [];
-    currentTab.sections.forEach(s => s.tiles.forEach(t => tileIds.push(t.id)));
-    // Fire all tile refreshes in parallel
-    Promise.allSettled(
-      tileIds.map(tid => handleTileRefresh(tid, activeConnId, globalFiltersRef.current))
-    );
+      const tileIds = [];
+      currentTab.sections.forEach(s => s.tiles.forEach(t => tileIds.push(t.id)));
+      Promise.allSettled(
+        tileIds.map(tid => handleTileRefresh(tid, activeConnId, globalFiltersRef.current))
+      );
+    }, 300);
+
+    return () => { if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current); };
   }, [dashboardFilterVersion, tileEditVersion, handleTileRefresh, activeConnId]);
 
   const handleCrossFilterClick = useCallback((field, value) => {
