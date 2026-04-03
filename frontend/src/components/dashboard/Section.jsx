@@ -25,7 +25,7 @@ function SectionGrid({ tiles, layout, onLayoutChange, sectionId, connId, onTileE
       {width > 0 && (
         <GridLayout
           className="layout"
-          layout={layout}
+          layout={layout.map(item => ({ minW: 2, minH: 2, ...item }))}
           cols={12}
           rowHeight={60}
           width={width}

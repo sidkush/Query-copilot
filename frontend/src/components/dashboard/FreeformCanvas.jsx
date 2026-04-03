@@ -131,8 +131,8 @@ export default function FreeformCanvas({
               position={{ x: layout.x, y: layout.y }}
               size={{ width: layout.width, height: layout.height }}
               style={{ zIndex: layout.zIndex || idx }}
-              minWidth={200}
-              minHeight={160}
+              minWidth={100}
+              minHeight={80}
               bounds="parent"
               scale={zoom}
               onDragStart={() => onTileSelect?.(tile.id)}
