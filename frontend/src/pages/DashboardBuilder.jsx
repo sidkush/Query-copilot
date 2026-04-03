@@ -1108,7 +1108,7 @@ export default function DashboardBuilder() {
       {/* ── Sidebar: Dashboard List (hidden in fullscreen) ── */}
       {!fullscreenMode && <aside
         style={{
-          width: 280,
+          width: sidebarCollapsed ? 48 : 280,
           background: TOKENS.bg.surface,
           borderRight: `1px solid ${TOKENS.border.default}`,
           display: "flex",
@@ -1117,176 +1117,231 @@ export default function DashboardBuilder() {
           position: "sticky",
           top: 0,
           zIndex: 20,
+          transition: "width 0.2s ease",
+          overflow: "hidden",
+          flexShrink: 0,
         }}
       >
-        {/* Sidebar header */}
-        <div
-          style={{
-            padding: "16px 16px 12px",
-            borderBottom: `1px solid ${TOKENS.border.default}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <span
-            style={{
-              color: TOKENS.text.primary,
-              fontWeight: 600,
-              fontSize: 15,
-            }}
-          >
-            Dashboards
-          </span>
-          <button
-            onClick={() => setShowCreatePrompt(true)}
-            style={{
-              background: TOKENS.accent,
-              color: "#fff",
-              border: "none",
-              borderRadius: 6,
-              width: 28,
-              height: 28,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              fontSize: 18,
-              lineHeight: 1,
-            }}
-            title="Create dashboard"
-          >
-            +
-          </button>
-        </div>
-
-        {/* Create inline prompt */}
-        {showCreatePrompt && (
-          <div style={{ padding: "8px 12px", borderBottom: `1px solid ${TOKENS.border.default}` }}>
-            <input
-              value={newDashName}
-              onChange={(e) => setNewDashName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newDashName.trim()) {
-                  handleCreateDashboard(newDashName.trim());
-                }
-                if (e.key === "Escape") {
-                  setShowCreatePrompt(false);
-                  setNewDashName("");
-                }
-              }}
-              placeholder="Dashboard name..."
+        {sidebarCollapsed ? (
+          /* ── Collapsed: thin strip with expand button ── */
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12, gap: 8 }}>
+            <button
+              onClick={toggleSidebar}
               style={{
-                background: TOKENS.bg.elevated,
-                border: `1px solid ${TOKENS.accent}`,
+                background: "transparent",
+                border: "none",
+                color: "#94a3b8",
+                cursor: "pointer",
+                fontSize: 18,
+                padding: "6px",
                 borderRadius: 6,
-                padding: "6px 10px",
-                color: TOKENS.text.primary,
-                fontSize: 13,
-                width: "100%",
-                outline: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "color 0.15s",
               }}
-              autoFocus
-            />
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; }}
+              title="Expand sidebar"
+            >
+              »
+            </button>
           </div>
-        )}
-
-        {/* Dashboard list */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
-          {dashboards.map((d) => (
+        ) : (
+          /* ── Expanded: full sidebar ── */
+          <>
+            {/* Sidebar header */}
             <div
-              key={d.id}
-              onClick={() => handleSelectDashboard(d.id)}
               style={{
-                ...sidebarItemStyle,
-                background:
-                  activeDashboard?.id === d.id
-                    ? TOKENS.bg.elevated
-                    : "transparent",
-                color:
-                  activeDashboard?.id === d.id
-                    ? TOKENS.text.primary
-                    : TOKENS.text.secondary,
-                marginBottom: 2,
-              }}
-              onMouseEnter={(e) => {
-                if (activeDashboard?.id !== d.id) {
-                  e.currentTarget.style.background = TOKENS.bg.elevated + "80";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeDashboard?.id !== d.id) {
-                  e.currentTarget.style.background = "transparent";
-                }
+                padding: "16px 16px 12px",
+                borderBottom: `1px solid ${TOKENS.border.default}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
-              <span
-                style={{
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  flex: 1,
-                }}
-              >
-                {d.name}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  onClick={toggleSidebar}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#94a3b8",
+                    cursor: "pointer",
+                    fontSize: 16,
+                    padding: "2px 4px",
+                    borderRadius: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; }}
+                  title="Collapse sidebar"
+                >
+                  «
+                </button>
+                <span
+                  style={{
+                    color: TOKENS.text.primary,
+                    fontWeight: 600,
+                    fontSize: 15,
+                  }}
+                >
+                  Dashboards
+                </span>
+              </div>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteDashboard(d.id);
-                }}
+                onClick={() => setShowCreatePrompt(true)}
                 style={{
-                  background: "none",
+                  background: TOKENS.accent,
+                  color: "#fff",
                   border: "none",
-                  color: TOKENS.text.muted,
-                  cursor: "pointer",
-                  padding: 4,
-                  borderRadius: 4,
+                  borderRadius: 6,
+                  width: 28,
+                  height: 28,
                   display: "flex",
                   alignItems: "center",
-                  opacity: 0.5,
-                  transition: "opacity 0.15s",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  fontSize: 18,
+                  lineHeight: 1,
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.opacity = "1";
-                  e.currentTarget.style.color = "#ef4444";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.opacity = "0.5";
-                  e.currentTarget.style.color = TOKENS.text.muted;
-                }}
-                title="Delete dashboard"
+                title="Create dashboard"
               >
-                <svg
-                  width="14"
-                  height="14"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                  />
-                </svg>
+                +
               </button>
             </div>
-          ))}
-        </div>
 
-        {/* Sidebar footer with count */}
-        <div
-          style={{
-            padding: "10px 16px",
-            borderTop: `1px solid ${TOKENS.border.default}`,
-            color: TOKENS.text.muted,
-            fontSize: 12,
-          }}
-        >
-          {dashboards.length} dashboard{dashboards.length !== 1 ? "s" : ""}
-        </div>
+            {/* Create inline prompt */}
+            {showCreatePrompt && (
+              <div style={{ padding: "8px 12px", borderBottom: `1px solid ${TOKENS.border.default}` }}>
+                <input
+                  value={newDashName}
+                  onChange={(e) => setNewDashName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newDashName.trim()) {
+                      handleCreateDashboard(newDashName.trim());
+                    }
+                    if (e.key === "Escape") {
+                      setShowCreatePrompt(false);
+                      setNewDashName("");
+                    }
+                  }}
+                  placeholder="Dashboard name..."
+                  style={{
+                    background: TOKENS.bg.elevated,
+                    border: `1px solid ${TOKENS.accent}`,
+                    borderRadius: 6,
+                    padding: "6px 10px",
+                    color: TOKENS.text.primary,
+                    fontSize: 13,
+                    width: "100%",
+                    outline: "none",
+                  }}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {/* Dashboard list */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+              {dashboards.map((d) => (
+                <div
+                  key={d.id}
+                  onClick={() => handleSelectDashboard(d.id)}
+                  style={{
+                    ...sidebarItemStyle,
+                    background:
+                      activeDashboard?.id === d.id
+                        ? TOKENS.bg.elevated
+                        : "transparent",
+                    color:
+                      activeDashboard?.id === d.id
+                        ? TOKENS.text.primary
+                        : TOKENS.text.secondary,
+                    marginBottom: 2,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeDashboard?.id !== d.id) {
+                      e.currentTarget.style.background = TOKENS.bg.elevated + "80";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeDashboard?.id !== d.id) {
+                      e.currentTarget.style.background = "transparent";
+                    }
+                  }}
+                >
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      flex: 1,
+                    }}
+                  >
+                    {d.name}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteDashboard(d.id);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: TOKENS.text.muted,
+                      cursor: "pointer",
+                      padding: 4,
+                      borderRadius: 4,
+                      display: "flex",
+                      alignItems: "center",
+                      opacity: 0.5,
+                      transition: "opacity 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = "1";
+                      e.currentTarget.style.color = "#ef4444";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = "0.5";
+                      e.currentTarget.style.color = TOKENS.text.muted;
+                    }}
+                    title="Delete dashboard"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Sidebar footer with count */}
+            <div
+              style={{
+                padding: "10px 16px",
+                borderTop: `1px solid ${TOKENS.border.default}`,
+                color: TOKENS.text.muted,
+                fontSize: 12,
+              }}
+            >
+              {dashboards.length} dashboard{dashboards.length !== 1 ? "s" : ""}
+            </div>
+          </>
+        )}
       </aside>}
 
       {/* ── Main Content ── */}
