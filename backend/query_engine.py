@@ -14,6 +14,7 @@ Pipeline:
 import anthropic
 import chromadb
 import hashlib
+import math
 import time
 import logging
 import pandas as pd
@@ -27,6 +28,32 @@ from db_connector import DatabaseConnector
 from pii_masking import mask_dataframe
 
 logger = logging.getLogger(__name__)
+
+
+class _HashEmbeddingFunction:
+    """Pure-Python character n-gram embedding — no onnxruntime or torch required.
+    Produces 384-dim vectors consistent with the default ChromaDB collection dimension."""
+
+    DIM = 384
+
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        result = []
+        for text in input:
+            text = text.lower()
+            vec = [0.0] * self.DIM
+            # Word unigrams (weighted 2×)
+            for word in text.split():
+                h = int(hashlib.md5(word.encode()).hexdigest(), 16)
+                vec[h % self.DIM] += 2.0
+            # Character trigrams
+            for i in range(len(text) - 2):
+                gram = text[i:i + 3]
+                h = int(hashlib.md5(gram.encode()).hexdigest(), 16)
+                vec[h % self.DIM] += 1.0
+            # L2-normalize
+            norm = math.sqrt(sum(x * x for x in vec)) or 1.0
+            result.append([x / norm for x in vec])
+        return result
 
 
 @dataclass
@@ -108,13 +135,16 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
         self.chroma_client = chromadb.PersistentClient(
             path=settings.CHROMA_PERSIST_DIR,
         )
+        _ef = _HashEmbeddingFunction()
         self.schema_collection = self.chroma_client.get_or_create_collection(
             name=f"schema_context_{namespace}",
-            metadata={"description": "Table and column descriptions"}
+            metadata={"description": "Table and column descriptions"},
+            embedding_function=_ef,
         )
         self.examples_collection = self.chroma_client.get_or_create_collection(
             name=f"query_examples_{namespace}",
-            metadata={"description": "Question-SQL training pairs"}
+            metadata={"description": "Question-SQL training pairs"},
+            embedding_function=_ef,
         )
         self._business_rules: List[str] = []
         self._cache: Dict[str, dict] = {}

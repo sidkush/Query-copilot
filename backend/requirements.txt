@@ -8,6 +8,7 @@ python-dotenv>=1.0
 # ── AI & RAG ────────────────────────────────────────────────
 anthropic>=0.86
 chromadb>=1.0
+onnxruntime>=1.16                  # Required by ChromaDB's default ONNX embedding model
 
 # ── Database — Core ────────────────────────────────────────
 sqlalchemy>=2.0
