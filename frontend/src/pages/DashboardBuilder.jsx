@@ -64,6 +64,11 @@ export default function DashboardBuilder() {
   const setPrefetchData = useStore(s => s.setPrefetchData);
   const getPrefetchData = useStore(s => s.getPrefetchData);
   const clearPrefetchCache = useStore(s => s.clearPrefetchCache);
+  const applyGlobalFilters = useStore(s => s.applyGlobalFilters);
+  const dashboardGlobalFilters = useStore(s => s.dashboardGlobalFilters);
+  const dashboardFilterVersion = useStore(s => s.dashboardFilterVersion);
+  const tileEditVersion = useStore(s => s.tileEditVersion);
+  const bumpTileEditVersion = useStore(s => s.bumpTileEditVersion);
 
   // ── State ──
   const [dashboards, setDashboards] = useState([]);
@@ -76,13 +81,17 @@ export default function DashboardBuilder() {
   const [undoStack, setUndoStack] = useState([]); // [{tile, sectionId, dashboard}]
   const [showCreatePrompt, setShowCreatePrompt] = useState(false);
   const [newDashName, setNewDashName] = useState("");
-  const [globalFilters, setGlobalFilters] = useState({ dateColumn: "", range: "all_time" });
+  // globalFilters now lives in Zustand store as dashboardGlobalFilters
+  const globalFilters = dashboardGlobalFilters;
   const [showMetricEditor, setShowMetricEditor] = useState(false);
   const [showThemeEditor, setShowThemeEditor] = useState(false);
   const [selectedTileId, setSelectedTileId] = useState(null);
   const [crossFilter, setCrossFilter] = useState(null); // { field, value }
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [fullscreenMode, setFullscreenMode] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("qc_sidebar_collapsed")) === true; } catch { return false; }
+  });
   const [aiCommandLoading, setAiCommandLoading] = useState(false);
   const [aiCommandError, setAiCommandError] = useState(null);
   const [searchParams] = useSearchParams();
@@ -92,6 +101,14 @@ export default function DashboardBuilder() {
   const undoTimers = useRef([]);
   const dashboardRef = useRef(activeDashboard);
   dashboardRef.current = activeDashboard;
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("qc_sidebar_collapsed", JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   // ── Derived: active tab and its sections ──
   const activeTab =
@@ -276,13 +293,13 @@ export default function DashboardBuilder() {
         setActiveDashboardId(full.id);
         if (full.tabs?.length > 0) setActiveTabId(full.tabs[0].id);
         else setActiveTabId(null);
-        // Restore persisted global filters
-        if (full.globalFilters) setGlobalFilters(full.globalFilters);
+        // Restore persisted global filters into Zustand store
+        if (full.globalFilters) applyGlobalFilters(full.globalFilters);
       } catch (err) {
         console.error("Failed to load dashboard:", err);
       }
     },
-    [setActiveDashboardId]
+    [setActiveDashboardId, applyGlobalFilters]
   );
 
   const handleDeleteDashboard = useCallback(
@@ -654,25 +671,41 @@ export default function DashboardBuilder() {
     []
   );
 
-  const handleGlobalFiltersChange = useCallback(async (newFilters) => {
+  const handleGlobalFiltersChange = useCallback((newFilters) => {
     clearPrefetchCache(dashboardRef.current?.id);
-    setGlobalFilters(newFilters);
+    // Write to Zustand store — bumps dashboardFilterVersion, triggering reactive refresh
+    applyGlobalFilters(newFilters);
+    const dash = dashboardRef.current;
+    if (dash) autoSave({ ...dash, globalFilters: newFilters });
+  }, [autoSave, clearPrefetchCache, applyGlobalFilters]);
+
+  // ── Reactive tile refresh: watches Zustand filter/edit version counters ──
+  const filterVersionRef = useRef(0);
+  const editVersionRef = useRef(0);
+  useEffect(() => {
+    // Skip the initial render (version 0)
+    if (dashboardFilterVersion === 0 && tileEditVersion === 0) return;
+    // Only refresh if either version actually changed
+    const filterChanged = dashboardFilterVersion !== filterVersionRef.current;
+    const editChanged = tileEditVersion !== editVersionRef.current;
+    if (!filterChanged && !editChanged) return;
+    filterVersionRef.current = dashboardFilterVersion;
+    editVersionRef.current = tileEditVersion;
+
     const dash = dashboardRef.current;
     const tabId = activeTabIdRef.current;
     if (!dash || !tabId) return;
 
-    // Persist filters in the dashboard
-    autoSave({ ...dash, globalFilters: newFilters });
-
-    // Trigger bulk refresh for all tiles inside the active tab
     const currentTab = dash.tabs.find(t => t.id === tabId);
     if (!currentTab) return;
 
     const tileIds = [];
     currentTab.sections.forEach(s => s.tiles.forEach(t => tileIds.push(t.id)));
-
-    await Promise.allSettled(tileIds.map(tid => handleTileRefresh(tid, activeConnId, newFilters)));
-  }, [handleTileRefresh, autoSave, activeConnId, clearPrefetchCache]);
+    // Fire all tile refreshes in parallel
+    Promise.allSettled(
+      tileIds.map(tid => handleTileRefresh(tid, activeConnId, globalFiltersRef.current))
+    );
+  }, [dashboardFilterVersion, tileEditVersion, handleTileRefresh, activeConnId]);
 
   const handleCrossFilterClick = useCallback((field, value) => {
     setCrossFilter(prev => {
@@ -694,11 +727,13 @@ export default function DashboardBuilder() {
         const fresh = await api.getDashboard(dash.id);
         if (fresh) setActiveDashboard(fresh);
         setEditingTile(null);
+        // Bump tileEditVersion to trigger reactive refresh of all tiles
+        bumpTileEditVersion();
       } catch (err) {
         console.error("Failed to save tile:", err);
       }
     },
-    []
+    [bumpTileEditVersion]
   );
 
   const handleTileDelete = useCallback(
@@ -736,9 +771,9 @@ export default function DashboardBuilder() {
 
   const applyBookmarkState = useCallback((state) => {
     if (state.activeTabId) setActiveTabId(state.activeTabId);
-    if (state.globalFilters) setGlobalFilters(state.globalFilters);
+    if (state.globalFilters) applyGlobalFilters(state.globalFilters);
     if (state.crossFilter !== undefined) setCrossFilter(state.crossFilter);
-  }, []);
+  }, [applyGlobalFilters]);
 
   // ── Apply bookmark from URL search params ──
   useEffect(() => {
