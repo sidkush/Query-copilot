@@ -20,6 +20,9 @@ npm run dev                 # http://localhost:5173 (proxied to backend at local
 
 # Lint frontend
 npm run lint
+
+# Build frontend for production
+npm run build
 ```
 
 There are no automated tests. `test_registration.py` and `regression_test.py` are manual scripts, not pytest suites.
@@ -56,6 +59,8 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 
 **Data persistence (file-based, no application database):**
 - `.data/users.json` — user accounts (bcrypt hashed passwords), thread-locked
+- `.data/pending_verifications.json` — temporary OTP verification state (email/phone must be OTP-verified before account creation completes)
+- `.data/oauth_states.json` — short-lived OAuth CSRF state tokens (10-min TTL, auto-purged)
 - `.data/user_data/{sha256_prefix}/` — per-user: `connections.json` (Fernet-encrypted passwords), `chat_history/`, `query_stats.json`, `er_positions/`, `dashboards.json`, `profile.json`
 - `.chroma/querycopilot/` — ChromaDB vector store. Deleting it loses all trained context; re-seed only by reconnecting.
 - Atomic file writes (write-then-rename) are used intentionally for crash safety; preserve this pattern.
@@ -82,6 +87,8 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 
 **Dashboard lib utilities** (`src/lib/`): `dataBlender.js` — client-side left-join across multiple query result sets; `metricEvaluator.js` — KPI threshold/conditional logic; `visibilityRules.js` — tile show/hide rule engine; `formatUtils.js` — number/date formatting helpers.
 
+**Charts:** Both ECharts (`echarts-for-react`) and Recharts (`recharts`) are used — check which library an existing component uses before adding a new chart.
+
 **Styling:** Tailwind CSS 4.2 + custom glassmorphism classes in `index.css`. Dark theme (`#06060e` bg). Fonts: Poppins (headings) + Open Sans (body). Animations: Framer Motion + GSAP. Three.js for 3D landing backgrounds.
 
 ## Key Constraints
@@ -96,3 +103,4 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 - **User deletion** is soft-delete — archived in `deleted_users.json`.
 - **CORS** configured for `localhost:5173`, `localhost:3000`, and `FRONTEND_URL`. Update for production.
 - **OAuth redirect URI** defaults to `http://localhost:5173/auth/callback` (configurable via `OAUTH_REDIRECT_URI`).
+- **OTP-first registration** — email (and optionally phone) must be OTP-verified before `create_user()` is called. The `pending_verifications.json` file tracks this state; do not skip verification in the registration flow.

@@ -13,11 +13,11 @@ Pipeline:
 
 import anthropic
 import chromadb
+from chromadb import EmbeddingFunction, Documents, Embeddings
 import hashlib
 import math
 import time
 import logging
-import pandas as pd
 from datetime import datetime
 from typing import Optional, Dict, List, Any, Tuple
 from dataclasses import dataclass
@@ -30,13 +30,16 @@ from pii_masking import mask_dataframe
 logger = logging.getLogger(__name__)
 
 
-class _HashEmbeddingFunction:
+class _HashEmbeddingFunction(EmbeddingFunction[Documents]):
     """Pure-Python character n-gram embedding — no onnxruntime or torch required.
     Produces 384-dim vectors consistent with the default ChromaDB collection dimension."""
 
     DIM = 384
 
-    def __call__(self, input: List[str]) -> List[List[float]]:
+    def __init__(self):
+        pass
+
+    def __call__(self, input: Documents) -> Embeddings:
         result = []
         for text in input:
             text = text.lower()
@@ -71,6 +74,7 @@ class QueryResult:
     retries: int = 0
 
     def to_dict(self) -> dict:
+        import pandas as pd  # Lazy import: avoids native DLL conflict with ChromaDB on Windows
         result = {
             "question": self.question,
             "sql": self.sql,

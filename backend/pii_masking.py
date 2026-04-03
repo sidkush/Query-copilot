@@ -3,7 +3,6 @@ PII Masking — Detect and redact sensitive data in query results.
 """
 
 import re
-import pandas as pd
 from typing import Set
 
 SENSITIVE_COLUMN_PATTERNS = {
@@ -29,7 +28,8 @@ PII_PATTERNS = {
 }
 
 
-def mask_dataframe(df: pd.DataFrame, mask_char: str = "*", extra_columns: Set[str] = None) -> pd.DataFrame:
+def mask_dataframe(df, mask_char: str = "*", extra_columns: Set[str] = None):
+    import pandas as pd  # Lazy import: avoids native DLL conflict with ChromaDB on Windows
     if df is None or df.empty:
         return df
 

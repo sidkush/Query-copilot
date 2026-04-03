@@ -9,7 +9,6 @@ from sqlalchemy.pool import QueuePool, StaticPool
 from typing import Optional, Dict, List, Any
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from urllib.parse import quote_plus
-import pandas as pd
 import logging
 
 from config import settings, DBType
@@ -180,7 +179,8 @@ class DatabaseConnector:
         """Return True if connected to a warehouse / big-data engine."""
         return self.db_type in BIG_DATA_ENGINES
 
-    def execute_query(self, sql: str, timeout: Optional[int] = None) -> pd.DataFrame:
+    def execute_query(self, sql: str, timeout: Optional[int] = None):
+        import pandas as pd  # Lazy import: avoids native DLL conflict with ChromaDB on Windows
         if not self._engine:
             raise RuntimeError("Not connected. Call connect() first.")
 

@@ -1,0 +1,50 @@
+# ── Secrets & credentials ──────────────────────────────────────
+backend/.env
+backend/gcp-credentials.json
+backend/.data/admin_credentials.json
+backend/.data/Twilio recovery code.txt
+
+# ── User data (runtime, not source) ───────────────────────────
+backend/.data/users.json
+backend/.data/deleted_users.json
+backend/.data/pending_verifications.json
+backend/.data/oauth_states.json
+backend/.data/otp_store.json
+backend/.data/sent_otps.log
+backend/.data/server.log
+backend/.data/user_data/
+
+# ── ChromaDB vector store (rebuilt on reconnect) ──────────────
+backend/.chroma/
+
+# ── Python bytecode ───────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Node / Frontend ──────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# ── IDE & OS ─────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
+
+# ── Claude Code / Superpowers local state ────────────────────
+.claude/settings.local.json
+.superpowers/brainstorm/*/state/
+
+# ── Logs ─────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
