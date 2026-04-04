@@ -349,30 +349,126 @@ export default function Chat() {
       api.appendMessage(chatId, { type: "user", content: question }).catch((e) => console.error("appendMessage failed:", e));
     }
 
+    // ── Agent streaming flow ──
     try {
-      const result = await api.generateSQL(question, resolvedConnId);
-      if (result.error) {
-        const errMsg = { type: "error", content: result.error };
-        addMessage(errMsg);
-        if (chatId) api.appendMessage(chatId, errMsg).catch((e) => console.error("appendMessage failed:", e));
-      } else {
-        const sqlMsg = {
-          type: "sql_preview",
-          question,
-          sql: result.formatted_sql || result.sql,
-          rawSQL: result.sql,
-          model: result.model_used,
-          latency: result.latency_ms,
-          connId: result.conn_id,
-          dbLabel: result.database_name,
-        };
-        addMessage(sqlMsg);
-        if (chatId) api.appendMessage(chatId, sqlMsg).catch((e) => console.error("appendMessage failed:", e));
-      }
+      let agentFailed = false;
+      let agentChatId = chatId;
+      const agentStepMsg = { type: "agent_steps", steps: [], status: "running" };
+      addMessage(agentStepMsg);
+
+      await new Promise((resolve, reject) => {
+        const stream = api.agentRun(question, resolvedConnId, agentChatId, (step) => {
+          if (step.chat_id && !agentChatId) agentChatId = step.chat_id;
+
+          if (step.type === "error") {
+            agentFailed = true;
+            reject(new Error(step.content || "Agent error"));
+            return;
+          }
+
+          if (step.type === "thinking" || step.type === "tool_call") {
+            // Update the agent_steps message in-place
+            agentStepMsg.steps = [...(agentStepMsg.steps || []), step];
+            setMessages((prev) => {
+              const updated = [...prev];
+              const idx = updated.findIndex((m) => m === agentStepMsg);
+              if (idx >= 0) updated[idx] = { ...agentStepMsg };
+              return updated;
+            });
+          }
+
+          if (step.type === "ask_user") {
+            const askMsg = {
+              type: "agent_ask",
+              content: step.content,
+              options: step.tool_input,
+              chatId: agentChatId,
+            };
+            addMessage(askMsg);
+          }
+
+          // Final result with SQL/data
+          if (step.final_answer || step.sql) {
+            agentStepMsg.status = "done";
+            setMessages((prev) => {
+              const updated = [...prev];
+              const idx = updated.findIndex((m) => m === agentStepMsg);
+              if (idx >= 0) updated[idx] = { ...agentStepMsg, status: "done" };
+              return updated;
+            });
+
+            if (step.sql) {
+              const sqlMsg = {
+                type: "sql_preview",
+                question,
+                sql: step.sql,
+                rawSQL: step.sql,
+                model: "agent",
+                connId: resolvedConnId,
+              };
+              addMessage(sqlMsg);
+              if (chatId) api.appendMessage(chatId, sqlMsg).catch(() => {});
+            }
+            if (step.final_answer) {
+              const ansMsg = { type: "assistant", content: step.final_answer };
+              addMessage(ansMsg);
+              if (chatId) api.appendMessage(chatId, ansMsg).catch(() => {});
+            }
+            if (step.columns && step.rows && step.rows.length > 0) {
+              const resMsg = {
+                type: "result",
+                question,
+                sql: step.sql,
+                columns: step.columns,
+                data: step.rows,
+                rowCount: step.rows.length,
+                summary: step.final_answer || "",
+                chartSuggestion: step.chart_suggestion,
+              };
+              addMessage(resMsg);
+              if (chatId) api.appendMessage(chatId, resMsg).catch(() => {});
+            }
+            resolve();
+          }
+
+          if (step.type === "result" && !step.final_answer && !step.sql) {
+            resolve();
+          }
+        });
+
+        // Timeout fallback
+        setTimeout(() => {
+          if (!agentFailed) resolve();
+        }, 35000);
+      }).catch(async (err) => {
+        // Fallback to single-shot generate if agent fails
+        console.warn("Agent failed, falling back to generateSQL:", err.message);
+        try {
+          const result = await api.generateSQL(question, resolvedConnId);
+          if (result.error) {
+            addMessage({ type: "error", content: result.error });
+          } else {
+            const sqlMsg = {
+              type: "sql_preview",
+              question,
+              sql: result.formatted_sql || result.sql,
+              rawSQL: result.sql,
+              model: result.model_used,
+              latency: result.latency_ms,
+              connId: result.conn_id,
+              dbLabel: result.database_name,
+            };
+            addMessage(sqlMsg);
+            if (chatId) api.appendMessage(chatId, sqlMsg).catch(() => {});
+          }
+        } catch (fallbackErr) {
+          addMessage({ type: "error", content: fallbackErr.message });
+        }
+      });
     } catch (err) {
       const errMsg = { type: "error", content: err.message };
       addMessage(errMsg);
-      if (chatId) api.appendMessage(chatId, errMsg).catch((e) => console.error("appendMessage failed:", e));
+      if (chatId) api.appendMessage(chatId, errMsg).catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -502,11 +598,11 @@ export default function Chat() {
     }
   };
 
-  const handleApprove = async (sql, question, connId) => {
+  const handleApprove = async (sql, question, connId, originalSql = null) => {
     setExecuting(true);
     try {
       const cid = connId || resolvedConnId;
-      const result = await api.executeSQL(sql, question, cid);
+      const result = await api.executeSQL(sql, question, cid, originalSql);
       if (result.error) {
         const errMsg = { type: "error", content: result.error };
         addMessage(errMsg);
@@ -892,7 +988,7 @@ export default function Chat() {
                   </div>
                   <SQLPreview
                     sql={msg.sql}
-                    onApprove={(sql) => handleApprove(sql, msg.question, msg.connId)}
+                    onApprove={(sql, origSql) => handleApprove(sql, msg.question, msg.connId, origSql)}
                     onReject={() => addMessage({ type: "system", content: "Query rejected." })}
                     loading={executing}
                     onCopySQL={() => showToast("Copied to clipboard!")}
@@ -969,6 +1065,44 @@ export default function Chat() {
               )}
 
 
+
+              {msg.type === "agent_steps" && (
+                <div className="bg-[#111114]/70 border border-white/[0.06] rounded-xl p-3 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs text-blue-400 font-medium mb-1">
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {msg.status === "done" ? "Agent completed" : "Agent working..."}
+                  </div>
+                  {(msg.steps || []).map((step, si) => (
+                    <div key={si} className="text-xs text-[#6B6F76] pl-4 flex items-center gap-1.5">
+                      {step.type === "thinking" && <span className="italic text-[#5C5F66]">Analyzing...</span>}
+                      {step.type === "tool_call" && (
+                        <span>
+                          <span className="text-blue-400/70">{step.tool_name}</span>
+                          {step.tool_result && <span className="text-emerald-500/60 ml-1">done</span>}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {msg.type === "agent_ask" && (
+                <div className="bg-amber-900/20 border border-amber-700/40 rounded-xl p-4">
+                  <p className="text-sm text-amber-200 mb-2">{msg.content}</p>
+                  {msg.options && msg.options.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {msg.options.map((opt, oi) => (
+                        <button key={oi}
+                          onClick={() => api.agentRespond(msg.chatId, opt)}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all cursor-pointer"
+                        >{opt}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {msg.type === "error" && (
                 <div className="bg-red-900/20 border border-red-800/50 rounded-xl px-4 py-3 text-red-400 text-sm" role="alert">
