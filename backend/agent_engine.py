@@ -358,6 +358,35 @@ class AgentEngine:
         # Compact memory before starting
         self.memory.compact()
 
+        # ── Parallel schema prefetch (Task 4) ────────────────────
+        # Pre-fetch relevant tables before the Claude loop to eliminate
+        # 1 round-trip. Inject results into system prompt as context.
+        prefetch_context = ""
+        try:
+            prefetch_result = self._tool_find_relevant_tables(question)
+            self._tool_calls -= 1  # Don't count prefetch against guardrail
+            prefetch_data = json.loads(prefetch_result)
+            if prefetch_data.get("tables"):
+                tables_text = "\n".join(
+                    t.get("summary", t.get("table", ""))
+                    for t in prefetch_data["tables"]
+                )
+                prefetch_context = (
+                    f"\n\nPRE-LOADED SCHEMA CONTEXT (from vector search):\n"
+                    f"{tables_text}\n"
+                    f"You already have schema context above — you may skip "
+                    f"find_relevant_tables unless you need different tables."
+                )
+        except Exception as e:
+            _logger.debug("Schema prefetch failed (non-fatal): %s", e)
+
+        # Fast path: simple queries need fewer tool calls
+        simple_keywords = {"why", "compare", "trend", "correlat", "over time", "vs"}
+        if not any(kw in question.lower() for kw in simple_keywords):
+            self._max_tool_calls = 3
+
+        system_prompt = self.SYSTEM_PROMPT + prefetch_context
+
         # Add user question to memory
         self.memory.add_turn("user", question)
 
@@ -378,7 +407,7 @@ class AgentEngine:
                     response = self.client.messages.create(
                         model=model,
                         max_tokens=settings.MAX_TOKENS,
-                        system=self.SYSTEM_PROMPT,
+                        system=system_prompt,
                         tools=TOOL_DEFINITIONS,
                         messages=messages,
                     )
