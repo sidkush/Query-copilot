@@ -16,7 +16,7 @@ from user_storage import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/user", tags=["user"])
+router = APIRouter(prefix="/api/v1/user", tags=["user"])
 
 _MAX_DISPLAY_NAME = 100
 _MAX_FIELD = 200
@@ -30,6 +30,7 @@ class ProfileUpdate(BaseModel):
     avatar_color: Optional[str] = None
     notification_preferences: Optional[dict] = None
     preferences: Optional[dict] = None
+    agent_auto_execute: Optional[bool] = None
 
 
 def _sanitize(val: str, max_len: int = _MAX_FIELD) -> str:
@@ -57,8 +58,10 @@ def get_profile(user: dict = Depends(get_current_user)):
         "notification_preferences": profile.get("notification_preferences", {
             "email_notifications": True,
             "query_alerts": False,
+            "digest_frequency": "none",
         }),
         "preferences": profile.get("preferences", {}),
+        "agent_auto_execute": profile.get("agent_auto_execute", True),
         "created_at": user_record.get("created_at", ""),
         "oauth_provider": user_record.get("oauth_provider"),
     }
@@ -82,9 +85,16 @@ def update_profile(body: ProfileUpdate, user: dict = Depends(get_current_user)):
         if body.avatar_color in allowed_colors:
             profile["avatar_color"] = body.avatar_color
     if body.notification_preferences is not None:
+        # Validate digest_frequency if provided
+        freq = body.notification_preferences.get("digest_frequency")
+        if freq and freq not in ("none", "daily", "weekly"):
+            raise HTTPException(400, "digest_frequency must be 'none', 'daily', or 'weekly'")
         profile["notification_preferences"] = body.notification_preferences
     if body.preferences is not None:
         profile["preferences"] = body.preferences
+    if body.agent_auto_execute is not None:
+        profile["agent_auto_execute"] = body.agent_auto_execute
+    profile["email"] = email  # persist for digest scheduler lookup
     save_profile(email, profile)
     return {"status": "ok", "profile": profile}
 
