@@ -481,25 +481,204 @@ class AgentEngine:
         self._result.steps = self._steps
         return self._result
 
-    # ── Tool Stubs (implemented in Tasks 2a/2b) ──────────────────
+    # ── Schema Tools (Task 2a) ──────────────────────────────────
 
     def _tool_find_relevant_tables(self, question: str) -> str:
-        raise NotImplementedError("find_relevant_tables")
+        """Query ChromaDB for tables relevant to the user's question."""
+        try:
+            results = self.engine.schema_collection.query(
+                query_texts=[question], n_results=8
+            )
+            tables = []
+            if results and results.get("documents"):
+                for doc_list in results["documents"]:
+                    for doc in doc_list:
+                        # Each doc is "Table: name\nDescription: ...\nColumns: ..."
+                        lines = doc.split("\n")
+                        table_name = ""
+                        for line in lines:
+                            if line.startswith("Table:"):
+                                table_name = line.replace("Table:", "").strip()
+                                break
+                        tables.append({
+                            "table": table_name,
+                            "summary": doc[:500],
+                        })
+            return json.dumps({"tables": tables, "count": len(tables)})
+        except Exception as e:
+            _logger.exception("find_relevant_tables failed")
+            return json.dumps({"error": str(e), "tables": []})
 
     def _tool_inspect_schema(self, table_name: str) -> str:
-        raise NotImplementedError("inspect_schema")
+        """Get DDL + 5 sample rows for a table. Caches results."""
+        if table_name in self._schema_cache:
+            return self._schema_cache[table_name]
+
+        try:
+            schema_info = self.engine.db.get_schema_info()
+            if table_name not in schema_info:
+                return json.dumps({"error": f"Table '{table_name}' not found"})
+
+            info = schema_info[table_name]
+            ddl_lines = [f"Table: {table_name}"]
+            ddl_lines.append("Columns:")
+            for col in info["columns"]:
+                nullable = "NULL" if col.get("nullable", True) else "NOT NULL"
+                ddl_lines.append(f"  {col['name']} {col['type']} {nullable}")
+            if info.get("primary_key"):
+                ddl_lines.append(f"Primary Key: {', '.join(info['primary_key'])}")
+            if info.get("foreign_keys"):
+                for fk in info["foreign_keys"]:
+                    ddl_lines.append(
+                        f"FK: {', '.join(fk['columns'])} -> "
+                        f"{fk['referred_table']}({', '.join(fk['referred_columns'])})"
+                    )
+
+            # Fetch 5 sample rows
+            sample_rows = []
+            try:
+                # Quote table name to prevent injection
+                quoted = f'"{table_name}"'
+                is_valid, clean_sql, err = self.engine.validator.validate(
+                    f"SELECT * FROM {quoted} LIMIT 5"
+                )
+                if is_valid:
+                    df = self.engine.db.execute_query(clean_sql)
+                    from pii_masking import mask_dataframe
+                    df = mask_dataframe(df)
+                    sample_rows = df.values.tolist()[:5]
+                    ddl_lines.append(f"\nSample rows ({len(sample_rows)}):")
+                    ddl_lines.append(f"Columns: {list(df.columns)}")
+                    for row in sample_rows:
+                        ddl_lines.append(f"  {row}")
+            except Exception as e:
+                ddl_lines.append(f"\n(Sample rows unavailable: {e})")
+
+            result = "\n".join(ddl_lines)
+            self._schema_cache[table_name] = result
+            return result
+        except Exception as e:
+            _logger.exception("inspect_schema failed for %s", table_name)
+            return json.dumps({"error": str(e)})
+
+    # ── Execution & Analysis Tools (Task 2b) ─────────────────────
 
     def _tool_run_sql(self, sql: str) -> str:
-        raise NotImplementedError("run_sql")
+        """Validate, execute, PII-mask, and return query results."""
+        if self._sql_retries >= self.MAX_SQL_RETRIES:
+            return json.dumps({
+                "error": f"Maximum SQL retries ({self.MAX_SQL_RETRIES}) exceeded",
+                "columns": [], "rows": [], "row_count": 0,
+            })
+
+        # Check auto-execute
+        if not self.auto_execute:
+            self._waiting_for_user = True
+            self._pending_question = f"Execute this SQL?\n```sql\n{sql}\n```"
+            self._pending_options = ["Yes, execute", "No, skip"]
+            return json.dumps({"status": "awaiting_approval", "sql": sql})
+
+        try:
+            is_valid, clean_sql, error = self.engine.validator.validate(sql)
+            if not is_valid:
+                self._sql_retries += 1
+                return json.dumps({
+                    "error": f"SQL validation failed: {error}",
+                    "columns": [], "rows": [], "row_count": 0,
+                })
+
+            df = self.engine.db.execute_query(clean_sql)
+            from pii_masking import mask_dataframe
+            df = mask_dataframe(df)
+
+            columns = list(df.columns)
+            rows = df.values.tolist()
+            row_count = len(rows)
+
+            # Store in result for final output
+            self._result.sql = clean_sql
+            self._result.columns = columns
+            self._result.rows = rows[:5000]  # Cap for transport
+
+            return json.dumps({
+                "columns": columns,
+                "rows": rows[:100],  # Preview
+                "row_count": row_count,
+                "error": None,
+            })
+        except Exception as e:
+            self._sql_retries += 1
+            _logger.warning("run_sql failed (retry %d): %s", self._sql_retries, e)
+            return json.dumps({
+                "error": str(e),
+                "columns": [], "rows": [], "row_count": 0,
+            })
 
     def _tool_suggest_chart(self, columns: list, sample_rows: list) -> str:
-        raise NotImplementedError("suggest_chart")
+        """Ask Haiku for chart type + config given columns and sample data."""
+        try:
+            prompt = (
+                "Given these query result columns and sample data, suggest the best "
+                "chart type and configuration.\n\n"
+                f"Columns: {columns}\n"
+                f"Sample rows (first 5): {sample_rows[:5]}\n\n"
+                "Respond with ONLY a JSON object: "
+                '{"chart_type": "bar|line|pie|scatter|area|table", '
+                '"x_axis": "column_name", "y_axis": "column_name", '
+                '"reason": "brief explanation"}'
+            )
+            response = self.client.messages.create(
+                model=self.primary_model,
+                max_tokens=300,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text.strip()
+            # Try to parse as JSON
+            try:
+                chart = json.loads(text)
+                self._result.chart_suggestion = chart
+                return json.dumps(chart)
+            except json.JSONDecodeError:
+                # Extract JSON from markdown code block if present
+                if "```" in text:
+                    text = text.split("```")[1]
+                    if text.startswith("json"):
+                        text = text[4:]
+                    text = text.strip()
+                    chart = json.loads(text)
+                    self._result.chart_suggestion = chart
+                    return json.dumps(chart)
+                return json.dumps({"chart_type": "table", "reason": "Could not determine chart type"})
+        except Exception as e:
+            _logger.warning("suggest_chart failed: %s", e)
+            return json.dumps({"chart_type": "table", "reason": str(e)})
 
     def _tool_ask_user(self, question: str, options: list = None) -> str:
-        raise NotImplementedError("ask_user")
+        """Pause the agent loop to ask the user a question."""
+        self._waiting_for_user = True
+        self._pending_question = question
+        self._pending_options = options
+        return json.dumps({"status": "waiting_for_user", "question": question, "options": options})
 
     def _tool_summarize_results(self, question: str, data_preview: str) -> str:
-        raise NotImplementedError("summarize_results")
+        """Generate a concise NL summary of query results."""
+        try:
+            prompt = (
+                "Summarize these query results concisely in 1-2 sentences. "
+                "Focus on the key insight.\n\n"
+                f"Question: {question}\n"
+                f"Data:\n{data_preview[:2000]}"
+            )
+            response = self.client.messages.create(
+                model=self.primary_model,
+                max_tokens=200,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            summary = response.content[0].text.strip()
+            return summary
+        except Exception as e:
+            _logger.warning("summarize_results failed: %s", e)
+            return f"Query executed successfully for: {question}"
 
 
 # ── Exceptions ───────────────────────────────────────────────────
