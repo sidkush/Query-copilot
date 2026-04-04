@@ -1,4 +1,4 @@
-const API_BASE = "/api";
+const API_BASE = "/api/v1";
 
 function getHeaders() {
   const token = localStorage.getItem("token");
@@ -130,10 +130,55 @@ export const api = {
       body: JSON.stringify({ question, conn_id: connId }),
     }),
 
-  executeSQL: (sql, question, connId = null) =>
+  /**
+   * Stream SQL generation tokens via SSE.
+   * @param {string} question
+   * @param {string|null} connId
+   * @param {function} onToken - called with each text chunk
+   * @returns {Promise<{sql: string|null, error: string|null}>}
+   */
+  generateSQLStream: async (question, connId, onToken) => {
+    const token = localStorage.getItem("token");
+    const params = new URLSearchParams({ question });
+    if (connId) params.set("conn_id", connId);
+    const res = await fetch(`${API_BASE}/queries/generate-stream?${params}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Stream failed");
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let validatedSql = null;
+    let error = null;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") continue;
+          if (data.startsWith("__VALID__:")) { validatedSql = data.slice(10); continue; }
+          if (data.startsWith("__ERROR__:")) { error = data.slice(10); continue; }
+          onToken?.(data);
+        }
+      }
+    }
+    return { sql: validatedSql, error };
+  },
+
+  previewSQL: (sql, connId = null) =>
+    request("/queries/preview", {
+      method: "POST",
+      body: JSON.stringify({ question: sql, conn_id: connId }),
+    }),
+
+  executeSQL: (sql, question, connId = null, originalSql = null) =>
     request("/queries/execute", {
       method: "POST",
-      body: JSON.stringify({ sql, question, conn_id: connId }),
+      body: JSON.stringify({ sql, question, conn_id: connId, original_sql: originalSql || undefined }),
     }),
 
   generateDashboard: (requestText, connId = null) =>
@@ -252,14 +297,18 @@ export const api = {
     request(`/dashboards/${dashboardId}/tabs/${tabId}/sections/${sectionId}/tiles`, { method: "POST", body: JSON.stringify(tile) }),
   updateTile: (dashboardId, tileId, updates) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}`, { method: "PUT", body: JSON.stringify(updates) }),
-  refreshTile: (dashboardId, tileId, connId, filters = null, sourceId = null) =>
-    request(`/dashboards/${dashboardId}/tiles/${tileId}/refresh`, { method: "POST", body: JSON.stringify({ conn_id: connId, filters, source_id: sourceId }) }),
+  refreshTile: (dashboardId, tileId, connId, filters = null, sourceId = null, parameters = null) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}/refresh`, { method: "POST", body: JSON.stringify({ conn_id: connId, filters, source_id: sourceId, parameters: parameters || undefined }) }),
 
   // ── Annotations ──
   addDashboardAnnotation: (dashboardId, text, authorName) =>
     request(`/dashboards/${dashboardId}/annotations`, { method: "POST", body: JSON.stringify({ text, authorName }) }),
   addTileAnnotation: (dashboardId, tileId, text, authorName) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}/annotations`, { method: "POST", body: JSON.stringify({ text, authorName }) }),
+  deleteDashboardAnnotation: (dashboardId, annotationId) =>
+    request(`/dashboards/${dashboardId}/annotations/${annotationId}`, { method: "DELETE" }),
+  deleteTileAnnotation: (dashboardId, tileId, annotationId) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}/annotations/${annotationId}`, { method: "DELETE" }),
 
   // ── AI Suggestions ──
   aiSuggestChart: (dashboardId, tileId, columns, sampleRows, question) =>
@@ -267,6 +316,74 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ columns, sample_rows: sampleRows, question }),
     }),
+  editTileNL: (instruction, tileState, connId = null) =>
+    request('/queries/edit-tile', {
+      method: "POST",
+      body: JSON.stringify({ instruction, tile_state: tileState, conn_id: connId }),
+    }),
+  imageToDashboard: (imageBase64, mediaType = 'image/png', connId = null) =>
+    request('/queries/image-to-dashboard', {
+      method: "POST",
+      body: JSON.stringify({ image_base64: imageBase64, media_type: mediaType, conn_id: connId }),
+    }),
+
+  explainAnomaly: (data) =>
+    request('/queries/explain-anomaly', {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  explainChart: (columns, rows, chartType, question, title) =>
+    request('/queries/explain-chart', {
+      method: "POST",
+      body: JSON.stringify({ columns, rows: rows?.slice(0, 20), chartType, question, title }),
+    }),
+  drillDownSuggestions: (sql, columns, rows, question) =>
+    request('/queries/drill-down-suggestions', {
+      method: "POST",
+      body: JSON.stringify({ sql, columns, rows: rows?.slice(0, 5), question }),
+    }),
+  explainValue: (sql, column, value, rowContext, connId = null) =>
+    request('/queries/explain-value', {
+      method: "POST",
+      body: JSON.stringify({ sql, column, value: String(value), row_context: rowContext, conn_id: connId }),
+    }),
+  statisticalInsight: (columns, rows, question, title) =>
+    request('/queries/statistical-insight', {
+      method: "POST",
+      body: JSON.stringify({ columns, rows, question, title }),
+    }),
+  drillDown: (parentSql, dimension, value, connId = null) =>
+    request('/queries/drill-down', {
+      method: "POST",
+      body: JSON.stringify({ parent_sql: parentSql, dimension, value, conn_id: connId }),
+    }),
+  batchRefreshTiles: (dashboardId, tileIds, connId, filters = null, parameters = null) =>
+    request(`/dashboards/${dashboardId}/tiles/batch-refresh`, {
+      method: "POST",
+      body: JSON.stringify({ tile_ids: tileIds, conn_id: connId, filters, parameters }),
+    }),
+  refreshAllBackground: (dashboardId, connId) =>
+    request(`/dashboards/${dashboardId}/refresh-all`, {
+      method: "POST",
+      body: JSON.stringify({ conn_id: connId }),
+    }),
+  getDashboardTemplates: (connId) =>
+    request(`/queries/dashboard-templates?conn_id=${connId || ''}`),
+  shareDashboard: (dashboardId, expiresHours = 168) =>
+    request(`/dashboards/${dashboardId}/share`, {
+      method: "POST",
+      body: JSON.stringify({ expires_hours: expiresHours }),
+    }),
+  revokeShare: (dashboardId, token) =>
+    request(`/dashboards/${dashboardId}/share/${token}`, { method: "DELETE" }),
+  getSharedDashboard: (token) =>
+    request(`/dashboards/shared/${token}`),
+
+  // ── Version History ──
+  listVersions: (dashboardId) =>
+    request(`/dashboards/${dashboardId}/versions`),
+  restoreVersion: (dashboardId, versionId) =>
+    request(`/dashboards/${dashboardId}/versions/restore`, { method: "POST", body: JSON.stringify({ version_id: versionId }) }),
 
   // ── Bookmarks ──
   saveBookmark: (dashboardId, name, state) =>
@@ -279,6 +396,145 @@ export const api = {
   // ── Generation with preferences ──
   generateDashboardV2: (requestText, connId, preferences) =>
     request('/queries/generate-dashboard', { method: "POST", body: JSON.stringify({ request: requestText, conn_id: connId, preferences }) }),
+
+  // ── Alerts ──
+  listAlerts: () => request("/alerts/"),
+  createAlert: (rule) =>
+    request("/alerts/", { method: "POST", body: JSON.stringify(rule) }),
+  updateAlert: (alertId, updates) =>
+    request(`/alerts/${alertId}`, { method: "PUT", body: JSON.stringify(updates) }),
+  deleteAlert: (alertId) =>
+    request(`/alerts/${alertId}`, { method: "DELETE" }),
+  checkAlert: (alertId) =>
+    request(`/alerts/${alertId}/check`, { method: "POST" }),
+  parseAlertCondition: (conditionText, connId = null) =>
+    request("/alerts/parse", { method: "POST", body: JSON.stringify({ condition_text: conditionText, conn_id: connId }) }),
+
+  // ── Live Tile Updates (SSE) ──
+  subscribeTileUpdates: (dashboardId, onUpdate) => {
+    const token = localStorage.getItem("token");
+    const url = `${API_BASE}/dashboards/${dashboardId}/subscribe`;
+    const controller = new AbortController();
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+
+    const connect = async () => {
+      try {
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        if (res.status === 503 || res.status === 429) {
+          // Redis unavailable or too many connections — no retry, SSE not available
+          console.info("[SSE] Server returned", res.status, "— real-time updates unavailable");
+          return;
+        }
+        if (!res.ok) return;
+        retryCount = 0; // Reset on successful connection
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6).trim();
+              if (data === "ping" || !data) continue;
+              try {
+                onUpdate(JSON.parse(data));
+              } catch { /* ignore parse errors */ }
+            }
+          }
+        }
+        // Stream ended — reconnect with backoff if not aborted
+        if (!controller.signal.aborted && retryCount < MAX_RETRIES) {
+          retryCount++;
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          setTimeout(connect, delay);
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return; // intentional close
+        if (retryCount < MAX_RETRIES) {
+          retryCount++;
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          setTimeout(connect, delay);
+        }
+      }
+    };
+
+    connect();
+    return { close: () => controller.abort() };
+  },
+
+  // ── Agent ──────────────────────────────────────────────────
+  agentRun: (question, connId, chatId, onStep) => {
+    const controller = new AbortController();
+    const body = JSON.stringify({
+      question,
+      conn_id: connId || null,
+      chat_id: chatId || null,
+    });
+    const run = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/agent/run`, {
+          method: "POST",
+          headers: getHeaders(),
+          body,
+          signal: controller.signal,
+        });
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          window.location.href = "/login";
+          return;
+        }
+        if (!res.ok) {
+          const errText = await res.text();
+          onStep({ type: "error", content: errText || `Server error (${res.status})` });
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                onStep(data);
+              } catch { /* skip malformed */ }
+            }
+          }
+        }
+        // Process remaining buffer
+        if (buffer.startsWith("data: ")) {
+          try {
+            onStep(JSON.parse(buffer.slice(6)));
+          } catch { /* skip */ }
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          onStep({ type: "error", content: err.message });
+        }
+      }
+    };
+    run();
+    return { close: () => controller.abort() };
+  },
+
+  agentRespond: (chatId, response) =>
+    request("/agent/respond", {
+      method: "POST",
+      body: JSON.stringify({ chat_id: chatId, response }),
+    }),
 
   // Health
   health: () => request("/health"),

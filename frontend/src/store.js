@@ -117,4 +117,28 @@ export const useStore = create((set, get) => ({
     else return { prefetchCache: {} };
     return { prefetchCache: cache };
   }),
+
+  // ── Agent Slice ──────────────────────────────────────────────
+  agentSteps: [],
+  agentLoading: false,
+  agentError: null,
+  agentWaiting: null,
+  agentAutoExecute: true,
+  agentChatId: null,
+
+  addAgentStep: (step) => set((s) => ({
+    agentSteps: [...s.agentSteps, step],
+  })),
+  clearAgent: () => set({
+    agentSteps: [],
+    agentLoading: false,
+    agentError: null,
+    agentWaiting: null,
+  }),
+  setAgentLoading: (v) => set({ agentLoading: v }),
+  setAgentError: (e) => set({ agentError: e }),
+  setAgentWaiting: (q) => set({ agentWaiting: q }),
+  clearAgentWaiting: () => set({ agentWaiting: null }),
+  setAgentAutoExecute: (v) => set({ agentAutoExecute: v }),
+  setAgentChatId: (id) => set({ agentChatId: id }),
 }));
