@@ -4,23 +4,33 @@ import os
 import re
 import uuid
 import socket
+import hashlib
 import logging
 from pathlib import Path
 from urllib.parse import quote_plus
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, model_validator, field_validator
 from typing import Optional
 from auth import get_current_user
-from config import DBType
+from config import DBType, settings
 from db_connector import DatabaseConnector
 from query_engine import QueryEngine
 from models import ConnectionEntry
+from schema_intelligence import SchemaIntelligence
+from duckdb_twin import DuckDBTwin, get_warm_priorities
+from audit_trail import log_turbo_event
 from user_storage import (
     save_connection_config, load_connection_configs, delete_connection_config,
     decrypt_password,
 )
+from provider_registry import get_provider_for_user
 
 _MAX_FIELD_LENGTH = 500
+
+
+def get_user_provider(request, email: str):
+    """Get the ModelProvider for a user. Reusable by other routers."""
+    return get_provider_for_user(email)
 
 
 def _safe_error(e: Exception) -> str:
@@ -69,7 +79,11 @@ def _safe_error(e: Exception) -> str:
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/connections", tags=["connections"])
+_schema_intel = SchemaIntelligence()
+_duckdb_twin = DuckDBTwin()
+_turbo_status: dict = {}  # conn_id -> {enabled: bool, syncing: bool}
+
+router = APIRouter(prefix="/api/v1/connections", tags=["connections"])
 
 
 def get_user_connections(email: str) -> dict:
@@ -416,7 +430,8 @@ def connect_database(req: ConnectRequest, user: dict = Depends(get_current_user)
         conn_id = uuid.uuid4().hex[:8]
 
         # Initialize and train the query engine with namespaced collections
-        engine = QueryEngine(connector, namespace=conn_id)
+        provider = get_provider_for_user(email)
+        engine = QueryEngine(connector, namespace=conn_id, provider=provider)
         table_count = engine.train_schema()
 
         # Determine database name for display
@@ -434,6 +449,44 @@ def connect_database(req: ConnectRequest, user: dict = Depends(get_current_user)
             database_name=database_name,
         )
         user_conns[conn_id] = entry
+
+        # Profile schema for Query Intelligence
+        try:
+            schema_profile = _schema_intel.profile_connection(connector, conn_id)
+            entry.schema_profile = schema_profile
+            logger.info(f"Schema profiled: {len(schema_profile.tables)} tables, hash={schema_profile.schema_hash[:8]}")
+        except Exception as e:
+            logger.warning(f"Schema profiling failed (non-fatal): {e}")
+
+        # Behavior-based warm priorities (Task 4.3)
+        # Log the tables that should be prioritised for twin pre-warming.
+        # Twin creation itself is triggered by the existing turbo enable flow;
+        # this block only computes and logs the priority order so operators
+        # can observe it and future automation can consume it.
+        if settings.BEHAVIOR_WARMING_ENABLED and settings.TURBO_MODE_ENABLED:
+            try:
+                priority_tables = get_warm_priorities(conn_id)
+                if not priority_tables:
+                    # New connection — default to top-10 tables by estimated row count
+                    # from the schema profile (if available).
+                    if entry.schema_profile and entry.schema_profile.tables:
+                        sorted_by_rows = sorted(
+                            entry.schema_profile.tables,
+                            key=lambda t: getattr(t, "row_count", 0) or 0,
+                            reverse=True,
+                        )
+                        priority_tables = [t.name for t in sorted_by_rows[:10]]
+                    logger.info(
+                        "connect(%s): warm priorities (default by row count): %s",
+                        conn_id, priority_tables,
+                    )
+                else:
+                    logger.info(
+                        "connect(%s): warm priorities (from query patterns): %s",
+                        conn_id, priority_tables,
+                    )
+            except Exception as warm_exc:
+                logger.warning("connect(%s): warm priority calculation failed (non-fatal): %s", conn_id, warm_exc)
 
         # Auto-save config if requested
         saved_config_id = None
@@ -519,6 +572,17 @@ def disconnect_database(conn_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail=f"Connection '{conn_id}' not found")
     try:
         entry.connector.disconnect()
+    except Exception:
+        pass
+    # P1 fix: clean up turbo status and twin on disconnect
+    _turbo_status.pop(conn_id, None)
+    try:
+        _duckdb_twin.delete_twin(conn_id)
+    except Exception:
+        pass
+    # P1 fix: invalidate schema cache on disconnect
+    try:
+        _schema_intel.invalidate(conn_id)
     except Exception:
         pass
     return {"status": "disconnected", "conn_id": conn_id}
@@ -617,7 +681,8 @@ def reconnect_from_saved(config_id: str, user: dict = Depends(get_current_user))
         user_conns = get_user_connections(email)
         conn_id = uuid.uuid4().hex[:8]
 
-        engine = QueryEngine(connector, namespace=conn_id)
+        provider = get_provider_for_user(email)
+        engine = QueryEngine(connector, namespace=conn_id, provider=provider)
         table_count = engine.train_schema()
 
         database_name = (
@@ -662,3 +727,119 @@ def reconnect_from_saved(config_id: str, user: dict = Depends(get_current_user))
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=_safe_error(e))
+
+
+@router.get("/connections/{conn_id}/schema-profile")
+async def get_schema_profile(conn_id: str, request: Request, user: dict = Depends(get_current_user)):
+    email = user["email"]
+    connections = request.app.state.connections.get(email, {})
+    entry = connections.get(conn_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    if not entry.schema_profile:
+        raise HTTPException(status_code=404, detail="Schema not profiled yet")
+    p = entry.schema_profile
+    return {
+        "conn_id": conn_id,
+        "tables": [{"name": t.name, "row_count_estimate": t.row_count_estimate, "columns": t.columns, "indexes": t.indexes, "primary_keys": t.primary_keys} for t in p.tables],
+        "schema_hash": p.schema_hash,
+        "cached_at": p.cached_at.isoformat() if p.cached_at else None,
+        "table_count": len(p.tables),
+    }
+
+
+@router.post("/connections/{conn_id}/refresh-schema")
+async def refresh_schema(conn_id: str, request: Request, user: dict = Depends(get_current_user)):
+    email = user["email"]
+    connections = request.app.state.connections.get(email, {})
+    entry = connections.get(conn_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    try:
+        result = _schema_intel.validate_freshness(conn_id, entry.connector)
+        if result.get("refreshed"):
+            entry.schema_profile = _schema_intel.get_profile(conn_id)
+        return {"stale": result["stale"], "refreshed": result.get("refreshed", False), "schema_hash": entry.schema_profile.schema_hash if entry.schema_profile else None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Schema refresh failed: {str(e)}")
+
+
+@router.post("/connections/{conn_id}/turbo/enable")
+async def enable_turbo(conn_id: str, request: Request, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
+    email = user["email"]
+    connections = request.app.state.connections.get(email, {})
+    entry = connections.get(conn_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    if not entry.schema_profile:
+        raise HTTPException(status_code=400, detail="Schema not profiled yet. Connect first.")
+
+    _turbo_status[conn_id] = {"enabled": True, "syncing": True}
+    log_turbo_event(conn_id, "sync_started", {"email_hash": hashlib.sha256(email.encode()).hexdigest()[:12]})
+
+    def sync_twin():
+        try:
+            result = _duckdb_twin.create_twin(conn_id, entry.connector, entry.schema_profile)
+            _turbo_status[conn_id] = {"enabled": True, "syncing": False, "result": result}
+            log_turbo_event(conn_id, "sync_completed", result)
+        except Exception as e:
+            _turbo_status[conn_id] = {"enabled": False, "syncing": False, "error": str(e)}
+            log_turbo_event(conn_id, "sync_failed", {"error": str(e)})
+
+    background_tasks.add_task(sync_twin)
+    return {"status": "syncing", "message": "Turbo Mode sync started in background"}
+
+
+@router.post("/connections/{conn_id}/turbo/disable")
+async def disable_turbo(conn_id: str, request: Request, user: dict = Depends(get_current_user)):
+    email = user["email"]
+    connections = request.app.state.connections.get(email, {})
+    if conn_id not in connections:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    _duckdb_twin.delete_twin(conn_id)
+    _turbo_status.pop(conn_id, None)
+    log_turbo_event(conn_id, "disabled", {"email_hash": hashlib.sha256(email.encode()).hexdigest()[:12]})
+    return {"status": "disabled"}
+
+
+@router.get("/connections/{conn_id}/turbo/status")
+async def turbo_status(conn_id: str, request: Request, user: dict = Depends(get_current_user)):
+    email = user["email"]
+    connections = request.app.state.connections.get(email, {})
+    if conn_id not in connections:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    status = _turbo_status.get(conn_id, {"enabled": False, "syncing": False})
+    twin_info = _duckdb_twin.get_twin_info(conn_id)
+    return {
+        "enabled": status.get("enabled", False),
+        "syncing": status.get("syncing", False),
+        "twin_info": twin_info,
+    }
+
+
+@router.post("/connections/{conn_id}/turbo/refresh")
+async def refresh_turbo(conn_id: str, request: Request, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
+    email = user["email"]
+    connections = request.app.state.connections.get(email, {})
+    entry = connections.get(conn_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    if not _turbo_status.get(conn_id, {}).get("enabled"):
+        raise HTTPException(status_code=400, detail="Turbo Mode not enabled")
+
+    _turbo_status[conn_id]["syncing"] = True
+    log_turbo_event(conn_id, "sync_started", {"type": "refresh"})
+
+    def refresh():
+        try:
+            result = _duckdb_twin.refresh_twin(conn_id, entry.connector, entry.schema_profile)
+            _turbo_status[conn_id] = {"enabled": True, "syncing": False, "result": result}
+            log_turbo_event(conn_id, "sync_completed", result)
+        except Exception as e:
+            _turbo_status[conn_id]["syncing"] = False
+            log_turbo_event(conn_id, "sync_failed", {"error": str(e)})
+
+    background_tasks.add_task(refresh)
+    return {"status": "refreshing"}
