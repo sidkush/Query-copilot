@@ -13,6 +13,7 @@ Preserves Anthropic-specific features:
 """
 
 import logging
+import threading
 import time
 from typing import Iterator, Optional
 
@@ -37,30 +38,34 @@ class _CircuitBreaker:
         self.cooldown_sec = cooldown_sec
         self._failures = 0
         self._open_since: Optional[float] = None
+        self._lock = threading.Lock()
 
     def record_success(self):
-        self._failures = 0
-        self._open_since = None
+        with self._lock:
+            self._failures = 0
+            self._open_since = None
 
     def record_failure(self):
-        self._failures += 1
-        if self._failures >= self.threshold:
-            self._open_since = time.time()
-            logger.warning(
-                "Circuit breaker OPEN after %d consecutive API failures",
-                self._failures,
-            )
+        with self._lock:
+            self._failures += 1
+            if self._failures >= self.threshold:
+                self._open_since = time.time()
+                logger.warning(
+                    "Circuit breaker OPEN after %d consecutive API failures",
+                    self._failures,
+                )
 
     def is_open(self) -> bool:
-        if self._open_since is None:
-            return False
-        elapsed = time.time() - self._open_since
-        if elapsed >= self.cooldown_sec:
-            self._open_since = None
-            self._failures = 0
-            logger.info("Circuit breaker half-open — allowing retry")
-            return False
-        return True
+        with self._lock:
+            if self._open_since is None:
+                return False
+            elapsed = time.time() - self._open_since
+            if elapsed >= self.cooldown_sec:
+                self._open_since = None
+                self._failures = 0
+                logger.info("Circuit breaker half-open — allowing retry")
+                return False
+            return True
 
     @property
     def status(self) -> str:

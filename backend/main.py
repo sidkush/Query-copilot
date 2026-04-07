@@ -74,6 +74,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Global exception handler for BYOK key errors ──────────────
+# InvalidKeyError can be raised from any route that calls
+# get_provider_for_user() — return a 422 with a user-friendly
+# message + error code that the frontend auto-detects.
+from model_provider import InvalidKeyError
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
+@app.exception_handler(InvalidKeyError)
+async def invalid_key_handler(request: Request, exc: InvalidKeyError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": str(exc),
+            "error": "api_key_invalid",
+        },
+    )
+
 # Mount routers
 app.include_router(auth_routes.router)
 app.include_router(query_routes.router)

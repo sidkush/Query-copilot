@@ -311,7 +311,9 @@ def delete_api_key(user: dict = Depends(get_current_user)):
     for field in ("api_key_encrypted", "api_key_provider",
                   "api_key_validated_at", "api_key_valid"):
         profile.pop(field, None)
-    save_api_key_to_profile(email, profile)
+    # Use save_profile (full overwrite) — save_api_key_to_profile does
+    # a merge which would NOT delete existing fields.
+    save_profile(email, profile)
     return {"status": "ok", "message": "API key removed"}
 
 
