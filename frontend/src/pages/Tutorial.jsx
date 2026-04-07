@@ -4,17 +4,18 @@ import { AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import { useStore } from "../store";
 import MotionButton from "../components/animation/MotionButton";
+import DataLensLogo from "../components/DataLensLogo";
 
 const STEPS = [
   {
-    title: (<>Welcome to <span className="text-white">Query</span><span className="text-indigo-400">Copilot</span></>),
+    title: (<>Welcome to <DataLensLogo size="md" /></>),
     subtitle: "Let's get you set up in 60 seconds.",
     icon: (
       <svg className="w-20 h-20 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
       </svg>
     ),
-    content: "QueryCopilot is your AI-powered analytics copilot. Ask questions about your data in plain English and get instant SQL queries, charts, and insights.",
+    content: "DataLens is your AI-powered analytics copilot. Ask questions about your data in plain English and get instant SQL queries, charts, and insights.",
   },
   {
     title: "Connect a Database",
@@ -36,7 +37,7 @@ const STEPS = [
         ))}
       </div>
     ),
-    content: "Connect your database with read-only credentials. QueryCopilot auto-discovers your schema and can never modify your data.",
+    content: "Connect your database with read-only credentials. DataLens auto-discovers your schema and can never modify your data.",
   },
   {
     title: "Ask Questions",
@@ -48,7 +49,7 @@ const STEPS = [
         <p className="text-green-400/80 mt-1 text-xs">SELECT COUNT(*) FROM users WHERE created_at &gt;= NOW() - INTERVAL '7 days'</p>
       </div>
     ),
-    content: "Type any business question. QueryCopilot generates SQL, shows it for your review, and executes only after your approval. Human-in-the-loop safety.",
+    content: "Type any business question. DataLens generates SQL, shows it for your review, and executes only after your approval. Human-in-the-loop safety.",
   },
   {
     title: "Get Instant Results",

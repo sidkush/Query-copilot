@@ -18,6 +18,7 @@ export const TOKENS = {
   accent: '#2563EB',
   accentLight: '#3B82F6',
   accentGlow: 'rgba(37,99,235,0.15)',
+  brandPurple: '#A855F7',
   success: '#22C55E',
   warning: '#F59E0B',
   danger: '#EF4444',

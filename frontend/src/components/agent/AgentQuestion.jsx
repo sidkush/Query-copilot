@@ -6,21 +6,33 @@ import { TOKENS } from "../dashboard/tokens";
 export default function AgentQuestion({ question, options, chatId }) {
   const [textInput, setTextInput] = useState("");
   const [responded, setResponded] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
   const clearAgentWaiting = useStore((s) => s.clearAgentWaiting);
 
   const handleRespond = async (response) => {
-    if (responded) return;
-    setResponded(true);
-    clearAgentWaiting();
+    if (responded || sending) return;
+    if (!chatId) {
+      setError("No active session — please start a new conversation.");
+      return;
+    }
+    setSending(true);
+    setError(null);
     try {
       await api.agentRespond(chatId, response);
+      setResponded(true);
+      clearAgentWaiting();
     } catch (err) {
       console.error("Agent respond failed:", err);
+      setSending(false);
+      setError("Failed to send response. Click to retry.");
     }
   };
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       style={{
         background: "rgba(245, 158, 11, 0.08)",
         border: `1px solid rgba(245, 158, 11, 0.25)`,
@@ -32,13 +44,17 @@ export default function AgentQuestion({ question, options, chatId }) {
         {question}
       </p>
 
+      {error && (
+        <p style={{ color: TOKENS.danger, fontSize: "11px", marginBottom: "6px" }}>{error}</p>
+      )}
+
       {options && options.length > 0 ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", maxHeight: "160px", overflowY: "auto" }}>
           {options.map((opt, i) => (
             <button
               key={i}
               onClick={() => handleRespond(opt)}
-              disabled={responded}
+              disabled={responded || sending}
               style={{
                 padding: "6px 14px",
                 fontSize: "12px",
@@ -47,7 +63,8 @@ export default function AgentQuestion({ question, options, chatId }) {
                 border: "1px solid rgba(245, 158, 11, 0.3)",
                 background: responded ? "transparent" : "rgba(245, 158, 11, 0.1)",
                 color: responded ? TOKENS.text.muted : "#FCD34D",
-                cursor: responded ? "default" : "pointer",
+                cursor: responded || sending ? "default" : "pointer",
+                opacity: sending ? 0.6 : 1,
                 transition: TOKENS.transition,
               }}
             >
@@ -62,8 +79,9 @@ export default function AgentQuestion({ question, options, chatId }) {
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && textInput.trim() && handleRespond(textInput.trim())}
-            disabled={responded}
+            disabled={responded || sending}
             placeholder="Type your answer..."
+            aria-label="Response to agent question"
             style={{
               flex: 1,
               padding: "6px 10px",
@@ -77,7 +95,7 @@ export default function AgentQuestion({ question, options, chatId }) {
           />
           <button
             onClick={() => textInput.trim() && handleRespond(textInput.trim())}
-            disabled={responded || !textInput.trim()}
+            disabled={responded || sending || !textInput.trim()}
             style={{
               padding: "6px 12px",
               fontSize: "12px",
@@ -85,11 +103,11 @@ export default function AgentQuestion({ question, options, chatId }) {
               background: TOKENS.accent,
               color: "#fff",
               border: "none",
-              cursor: responded ? "default" : "pointer",
-              opacity: responded || !textInput.trim() ? 0.5 : 1,
+              cursor: responded || sending ? "default" : "pointer",
+              opacity: responded || sending || !textInput.trim() ? 0.5 : 1,
             }}
           >
-            Send
+            {sending ? "..." : "Send"}
           </button>
         </div>
       )}

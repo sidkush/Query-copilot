@@ -1,16 +1,79 @@
 """Dashboard CRUD routes — hierarchical (tabs > sections > tiles)."""
 
+import asyncio
+import json as _json
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 from auth import get_current_user
 from user_storage import (
     list_dashboards, create_dashboard, load_dashboard, update_dashboard,
     delete_dashboard, add_dashboard_tab, add_section_to_tab,
-    add_tile_to_section, update_tile, add_annotation,
+    add_tile_to_section, update_tile, add_annotation, delete_annotation,
+    create_share_token, validate_share_token, revoke_share_token, load_shared_dashboard,
+    list_dashboard_versions, restore_dashboard_version,
 )
 
-router = APIRouter(prefix="/api/dashboards", tags=["dashboards"])
+router = APIRouter(prefix="/api/v1/dashboards", tags=["dashboards"])
+
+
+# ── Auto-reconnect helper ─────────────────────────────────────────
+
+def _auto_reconnect(email: str, app):
+    """Try to restore a live DB connection from the user's saved configs."""
+    import uuid
+    from user_storage import load_connection_configs, decrypt_password
+    from config import DBType
+    from db_connector import DatabaseConnector
+    from query_engine import QueryEngine
+    from models import ConnectionEntry
+
+    configs = load_connection_configs(email)
+    if not configs:
+        return None
+
+    for cfg in configs:
+        try:
+            working = dict(cfg)
+            if working.get("password"):
+                working["password"] = decrypt_password(working["password"])
+            if working.get("token"):
+                working["token"] = decrypt_password(working["token"])
+
+            from routers.connection_routes import _build_uri_from_config
+            db_type = DBType(working["db_type"])
+            uri = _build_uri_from_config(working)
+            connector = DatabaseConnector(
+                db_type=db_type,
+                connection_uri=uri,
+                credentials_path=working.get("credentials_path"),
+            )
+            connector.connect()
+
+            new_conn_id = uuid.uuid4().hex[:8]
+            engine = QueryEngine(connector, namespace=new_conn_id)
+            engine.train_schema()
+
+            database_name = (
+                working.get("database") or working.get("project")
+                or working.get("account") or working.get("catalog")
+                or working.get("path") or "unknown"
+            )
+            entry = ConnectionEntry(
+                conn_id=new_conn_id,
+                connector=connector,
+                engine=engine,
+                db_type=working["db_type"],
+                database_name=database_name,
+            )
+            app.state.connections.setdefault(email, {})[new_conn_id] = entry
+            _logger.info("Auto-reconnected %s for %s", database_name, email)
+            return entry
+        except Exception as e:
+            _logger.debug("Auto-reconnect failed for config %s: %s", cfg.get('id'), e)
+            continue
+    return None
 
 
 # ── Request Models ──────────────────────────────────────────────────
@@ -26,6 +89,7 @@ class UpdateDashboardBody(BaseModel):
     globalFilters: Optional[dict] = None
     customMetrics: Optional[list] = None
     themeConfig: Optional[dict] = None
+    settings: Optional[dict] = None  # includes refresh_interval_minutes
 
 class AddTab(BaseModel):
     name: str
@@ -70,6 +134,7 @@ class RefreshTileBody(BaseModel):
     conn_id: Optional[str] = None
     filters: Optional[dict] = None
     source_id: Optional[str] = None
+    parameters: Optional[dict] = None  # What-If param name → numeric value
 
 class SaveBookmark(BaseModel):
     name: str
@@ -235,7 +300,10 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
     elif connections:
         entry = next(iter(connections.values()))
     else:
-        raise HTTPException(400, "No active database connection")
+        # Auto-reconnect from saved connection configs
+        entry = _auto_reconnect(email, app)
+        if not entry:
+            raise HTTPException(400, "No active database connection. Please connect to a database first.")
 
     try:
         from sql_validator import SQLValidator
@@ -243,14 +311,19 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
         validator = SQLValidator()
         if target_sql is None:
             target_sql = target_tile["sql"]
-        is_valid, msg = validator.validate(target_sql)
+        is_valid, validated_sql, validation_err = validator.validate(target_sql)
         if not is_valid:
-            raise HTTPException(400, f"SQL validation failed: {msg}")
+            raise HTTPException(400, f"SQL validation failed: {validation_err}")
+        target_sql = validated_sql
 
         # Apply Global Filters if present
         filters = body.filters
         if filters and filters.get("dateColumn") and filters.get("range") and filters.get("range") != "all_time":
             date_col = filters["dateColumn"]
+            # Validate dateColumn: only allow safe identifier characters
+            import re as _re_dc
+            if not _re_dc.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*$', date_col):
+                raise HTTPException(400, "Invalid date column name")
             date_range = filters["range"]
             
             from datetime import datetime, timedelta, timezone
@@ -311,21 +384,222 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                 end_date = start_date.replace(year=start_date.year + 1) - timedelta(microseconds=1)
                 prev_start = start_date.replace(year=start_date.year - 1)
                 prev_end = start_date - timedelta(microseconds=1)
-                
+            elif date_range == "custom":
+                # Custom date range: use dateStart/dateEnd from frontend
+                ds = filters.get("dateStart", "")
+                de = filters.get("dateEnd", "")
+                if ds and de:
+                    start_date = datetime.fromisoformat(ds).replace(tzinfo=timezone.utc) if 'T' in ds else datetime.strptime(ds, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                    end_date = datetime.fromisoformat(de).replace(tzinfo=timezone.utc) if 'T' in de else datetime.strptime(de, '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc)
+
             if start_date and end_date:
                 s_str = start_date.strftime('%Y-%m-%d %H:%M:%S')
                 e_str = end_date.strftime('%Y-%m-%d %H:%M:%S')
-                
-                # Wrap original query in CTE
-                target_sql = f"SELECT * FROM ({target_tile['sql']}) sq_wrap WHERE {date_col} >= '{s_str}' AND {date_col} <= '{e_str}'"
-                
+
+                def _find_qualified_col(sql, col_name):
+                    """Find the fully-qualified column reference in SQL.
+                    e.g. for col_name='created_at', find 'o.created_at' in the SQL.
+                    Returns the qualified name or None if column not found."""
+                    import re
+                    # Match alias.col_name (e.g., o.created_at, orders.created_at)
+                    pattern = r'\b(\w+\.' + re.escape(col_name) + r')\b'
+                    match = re.search(pattern, sql, re.IGNORECASE)
+                    if match:
+                        return match.group(1)
+                    # Match bare col_name (no alias)
+                    pattern2 = r'(?<!\w\.)(\b' + re.escape(col_name) + r'\b)'
+                    match2 = re.search(pattern2, sql, re.IGNORECASE)
+                    if match2:
+                        return col_name
+                    return None
+
+                def _inject_date_filter(sql, col, start, end):
+                    """Inject date conditions into SQL WHERE clause.
+                    Handles nested subqueries by finding the correct scope."""
+                    import re
+                    sql = sql.rstrip().rstrip(';').rstrip()
+                    cond = f"{col} >= '{start}' AND {col} <= '{end}'"
+                    # If date_col is in the tile's output columns, subquery wrapping works
+                    tile_cols = target_tile.get("columns") or []
+                    bare_col = col.split('.')[-1] if '.' in col else col
+                    if bare_col in tile_cols:
+                        return f"SELECT * FROM ({sql}) sq_wrap WHERE {bare_col} >= '{start}' AND {bare_col} <= '{end}'"
+
+                    # Find the innermost subquery that contains the column,
+                    # or use the full SQL if the column is at the top level.
+                    col_match = re.search(re.escape(col), sql, re.IGNORECASE)
+                    col_pos = col_match.start() if col_match else 0
+
+                    # Walk backwards from col_pos to find the enclosing subquery
+                    # paren '(SELECT ...)' — skip function-call parens like DATE().
+                    scope_start = 0
+                    scope_end = len(sql)
+                    depth = 0
+                    for i in range(col_pos - 1, -1, -1):
+                        if sql[i] == ')':
+                            depth += 1
+                        elif sql[i] == '(':
+                            if depth == 0:
+                                # Check if this is a subquery paren (content starts with SELECT)
+                                rest = sql[i + 1:].lstrip()
+                                if rest.upper().startswith('SELECT'):
+                                    scope_start = i + 1
+                                    d = 1
+                                    for j in range(i + 1, len(sql)):
+                                        if sql[j] == '(':
+                                            d += 1
+                                        elif sql[j] == ')':
+                                            d -= 1
+                                            if d == 0:
+                                                scope_end = j
+                                                break
+                                    break
+                                # Otherwise it's a function call paren — keep walking
+                            else:
+                                depth -= 1
+
+                    # Extract the scope (subquery or full SQL)
+                    scope_sql = sql[scope_start:scope_end]
+
+                    # Find the first GROUP BY/ORDER BY/HAVING/LIMIT in this scope
+                    boundary = re.search(
+                        r'\b(GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT)\b',
+                        scope_sql, re.IGNORECASE
+                    )
+                    if boundary:
+                        inject_pos = scope_start + boundary.start()
+                        before = sql[:inject_pos].rstrip()
+                        after = sql[inject_pos:]
+                        # Check if there's a WHERE in the scope before the boundary
+                        scope_before = scope_sql[:boundary.start()]
+                        if re.search(r'\bWHERE\b', scope_before, re.IGNORECASE):
+                            return f"{before} AND {cond} {after}"
+                        else:
+                            return f"{before} WHERE {cond} {after}"
+                    else:
+                        # No boundary found in scope — append at end of scope
+                        before = sql[:scope_end].rstrip()
+                        after = sql[scope_end:]
+                        scope_text = sql[scope_start:scope_end]
+                        if re.search(r'\bWHERE\b', scope_text, re.IGNORECASE):
+                            return f"{before} AND {cond}{after}"
+                        else:
+                            return f"{before} WHERE {cond}{after}"
+
+                def _inject_date_filter_overlap(sql, start_col, end_col, start, end):
+                    """Inject overlap filter for start_date/end_date pairs.
+                    A record is active during [start, end] if:
+                    start_col <= end AND (end_col >= start OR end_col IS NULL)"""
+                    import re
+                    sql = sql.rstrip().rstrip(';').rstrip()
+                    cond = (f"{start_col} <= '{end}' AND "
+                            f"({end_col} >= '{start}' OR {end_col} IS NULL)")
+                    # Use the same scope-aware injection as _inject_date_filter
+                    col_match = re.search(re.escape(start_col), sql, re.IGNORECASE)
+                    col_pos = col_match.start() if col_match else 0
+                    scope_start = 0
+                    scope_end = len(sql)
+                    depth = 0
+                    for i in range(col_pos - 1, -1, -1):
+                        if sql[i] == ')': depth += 1
+                        elif sql[i] == '(':
+                            if depth == 0:
+                                rest = sql[i + 1:].lstrip()
+                                if rest.upper().startswith('SELECT'):
+                                    scope_start = i + 1
+                                    d = 1
+                                    for j in range(i + 1, len(sql)):
+                                        if sql[j] == '(': d += 1
+                                        elif sql[j] == ')':
+                                            d -= 1
+                                            if d == 0: scope_end = j; break
+                                    break
+                            else: depth -= 1
+                    scope_sql = sql[scope_start:scope_end]
+                    boundary = re.search(
+                        r'\b(GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT)\b',
+                        scope_sql, re.IGNORECASE)
+                    if boundary:
+                        inject_pos = scope_start + boundary.start()
+                        before = sql[:inject_pos].rstrip()
+                        after = sql[inject_pos:]
+                        scope_before = scope_sql[:boundary.start()]
+                        if re.search(r'\bWHERE\b', scope_before, re.IGNORECASE):
+                            return f"{before} AND {cond} {after}"
+                        else:
+                            return f"{before} WHERE {cond} {after}"
+                    else:
+                        if re.search(r'\bWHERE\b', sql, re.IGNORECASE):
+                            return f"{sql} AND {cond}"
+                        else:
+                            return f"{sql} WHERE {cond}"
+
+                # Find the actual qualified column name in this tile's SQL.
+                # If the user-selected date_col isn't present, fall back to
+                # any recognised date-like column so the filter still applies
+                # (e.g. campaigns use start_date instead of created_at).
+                _DATE_COL_CANDIDATES = [
+                    'created_at', 'updated_at', 'order_date', 'start_date',
+                    'end_date', 'date', 'timestamp', 'datetime',
+                    'purchased_at', 'shipped_at', 'delivered_at',
+                    'cancelled_at', 'modified_at', 'event_date',
+                    'due_date', 'birth_date', 'registered_at', 'signup_date',
+                    'last_login', 'transaction_date',
+                ]
+
+                qualified_col = _find_qualified_col(target_sql, date_col)
+                end_col_for_overlap = None  # set when start_date/end_date pair detected
+                if not qualified_col:
+                    # Try common date column names as fallback
+                    for fallback in _DATE_COL_CANDIDATES:
+                        if fallback == date_col:
+                            continue
+                        qualified_col = _find_qualified_col(target_sql, fallback)
+                        if qualified_col:
+                            _logger.info("Filter: tile '%s' — '%s' not found, using fallback '%s'", target_tile.get('title'), date_col, qualified_col)
+                            # If we matched start_date, check for end_date pair (overlap semantics)
+                            if fallback == 'start_date':
+                                end_col_for_overlap = _find_qualified_col(target_sql, 'end_date')
+                            break
+
+                if not qualified_col:
+                    # Last resort: detect table alias and inject alias.dateColumn
+                    # e.g., SQL has "FROM orders AS o" and dateColumn is created_at → inject o.created_at
+                    import re as _re
+                    alias_match = _re.search(
+                        r'\bFROM\s+(\w+)\s+(?:AS\s+)?(\w+)',
+                        target_sql, _re.IGNORECASE
+                    )
+                    if alias_match:
+                        table_alias = alias_match.group(2)
+                        qualified_col = f"{table_alias}.{date_col}"
+                        _logger.info("Filter: tile '%s' — injecting '%s' via table alias", target_tile.get('title'), qualified_col)
+
+                if not qualified_col:
+                    _logger.info("Filter: tile '%s' has no date column — skipping date filter", target_tile.get('title'))
+                elif end_col_for_overlap:
+                    # Overlap filter: campaign was active during the date range
+                    # start_date <= range_end AND (end_date >= range_start OR end_date IS NULL)
+                    target_sql = _inject_date_filter_overlap(
+                        target_sql, qualified_col, end_col_for_overlap, s_str, e_str)
+                else:
+                    target_sql = _inject_date_filter(target_sql, qualified_col, s_str, e_str)
+
                 # KPI Twin Query logic: Return previous and current inside rows
-                if target_tile.get("chartType") == "kpi" and prev_start and prev_end:
+                if target_tile.get("chartType") == "kpi" and prev_start and prev_end and qualified_col:
                     ps_str = prev_start.strftime('%Y-%m-%d %H:%M:%S')
                     pe_str = prev_end.strftime('%Y-%m-%d %H:%M:%S')
-                    prev_sql = f"SELECT * FROM ({target_tile['sql']}) sq_wrap WHERE {date_col} >= '{ps_str}' AND {date_col} <= '{pe_str}'"
-                    
+                    prev_sql = _inject_date_filter(target_tile['sql'], qualified_col, ps_str, pe_str)
+
+                    # Re-validate post-mutation SQL to prevent validator bypass
+                    from sql_validator import SQLValidator
+                    _kpi_validator = SQLValidator(dialect=entry.connector.db_type if hasattr(entry.connector, 'db_type') else 'postgres')
+                    _pv_ok, prev_sql, _pv_err = _kpi_validator.validate(prev_sql)
+                    _tv_ok, target_sql, _tv_err = _kpi_validator.validate(target_sql)
+
                     try:
+                        if not _pv_ok or not _tv_ok:
+                            raise ValueError(f"Post-filter validation failed: {_pv_err or _tv_err}")
                         df_current = entry.connector.execute_query(target_sql)
                         df_prev = entry.connector.execute_query(prev_sql)
                         
@@ -362,20 +636,30 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                             update_tile(email, dashboard_id, tile_id, {"dataSources": sources})
                         else:
                             update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
+                        _publish_tile_update(dashboard_id, tile_id, columns, rows)
                         return {"columns": columns, "rows": rows, "rowCount": 2}
                     except Exception as e:
-                        print("Warning: KPI twin query failed:", str(e))
+                        _logger.warning("KPI twin query failed: %s", e)
                         # Fallback to single query below if twin query fails
 
         # Apply additional field filters (column/operator/value)
         if filters and filters.get("fields"):
             _ALLOWED_OPS = {'=', '!=', '>', '<', '>=', '<=', 'LIKE', 'IN'}
             conditions = []
+
+            def _sql_escape(v: str) -> str:
+                """Escape single quotes to prevent SQL injection."""
+                return v.replace("'", "''")
+
             for f in filters["fields"]:
                 col = f.get("column", "")
                 op  = f.get("operator", "=").upper()
                 val = f.get("value", "")
                 if not col or not val or op not in _ALLOWED_OPS:
+                    continue
+                # Validate column name: only allow alphanumeric, underscores, dots (for qualified names)
+                import re as _re_col
+                if not _re_col.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*$', col):
                     continue
                 # Quote identifier safely using sqlglot if available, otherwise basic quoting
                 try:
@@ -384,23 +668,60 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                 except Exception:
                     quoted_col = f'"{col}"'
                 if op == "IN":
-                    quoted_val = f"({val})"
-                    conditions.append(f"{quoted_col} IN {quoted_val}")
+                    # Split on comma, escape and quote each element individually
+                    elements = [e.strip() for e in val.split(",") if e.strip()]
+                    safe_elements = []
+                    for elem in elements:
+                        try:
+                            float(elem)
+                            safe_elements.append(elem)
+                        except ValueError:
+                            safe_elements.append(f"'{_sql_escape(elem)}'")
+                    if safe_elements:
+                        conditions.append(f"{quoted_col} IN ({', '.join(safe_elements)})")
                 elif op == "LIKE":
-                    conditions.append(f"{quoted_col} LIKE '{val}'")
+                    conditions.append(f"{quoted_col} LIKE '{_sql_escape(val)}'")
                 else:
                     # Numeric check: avoid quoting numbers
                     try:
                         float(val)
                         conditions.append(f"{quoted_col} {op} {val}")
                     except ValueError:
-                        conditions.append(f"{quoted_col} {op} '{val}'")
+                        conditions.append(f"{quoted_col} {op} '{_sql_escape(val)}'")
             if conditions:
                 where_clause = " AND ".join(conditions)
                 target_sql = f"SELECT * FROM ({target_sql}) _field_filter WHERE {where_clause}"
 
+        # Apply What-If parameters (numeric only, validated)
+        if body.parameters:
+            import re as _re
+            for pname, pval in body.parameters.items():
+                # Validate: only allow alphanumeric param names and numeric values
+                if not _re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', str(pname)):
+                    continue
+                try:
+                    numeric_val = float(pval)
+                except (ValueError, TypeError):
+                    continue
+                # Replace :param_name placeholders
+                target_sql = _re.sub(
+                    r':' + _re.escape(str(pname)) + r'\b',
+                    str(numeric_val),
+                    target_sql
+                )
+
         # Standard singular execution (or fallback)
-        df = entry.connector.execute_query(target_sql)
+        original_sql = target_tile["sql"]
+        try:
+            df = entry.connector.execute_query(target_sql)
+        except Exception as filter_err:
+            # If filtered SQL fails (e.g., injected column doesn't exist), fall back to original
+            if target_sql != original_sql:
+                _logger.info("Filtered SQL failed, falling back to original: %s", filter_err)
+                is_valid2, validated2, _ = validator.validate(original_sql)
+                df = entry.connector.execute_query(validated2 if is_valid2 else original_sql)
+            else:
+                raise
         df = mask_dataframe(df)
         from decimal import Decimal
         rows = df.head(5000).to_dict("records")
@@ -420,11 +741,99 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
             update_tile(email, dashboard_id, tile_id, {"dataSources": sources})
         else:
             update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
+        _publish_tile_update(dashboard_id, tile_id, columns, rows)
         return {"columns": columns, "rows": rows, "rowCount": len(df)}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"Refresh failed: {str(e)}")
+        _logger.exception("Tile refresh failed for dashboard=%s tile=%s", dashboard_id, tile_id)
+        raise HTTPException(500, "Tile refresh failed — please try again")
+
+
+# ── Batch Tile Refresh ─────────────────────────────────────────────
+
+class BatchRefreshBody(BaseModel):
+    tile_ids: list  # list of tile_id strings
+    conn_id: Optional[str] = None
+    filters: Optional[dict] = None
+    parameters: Optional[dict] = None
+
+
+@router.post("/{dashboard_id}/tiles/batch-refresh")
+async def batch_refresh_tiles(dashboard_id: str, body: BatchRefreshBody, user=Depends(get_current_user)):
+    """Refresh multiple tiles concurrently. Returns results keyed by tile_id."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    email = user["email"]
+    d = load_dashboard(email, dashboard_id)
+    if not d:
+        raise HTTPException(404, "Dashboard not found")
+
+    # Resolve connection once
+    import main as app_module
+    app = app_module.app
+    connections = app.state.connections.get(email, {})
+    conn_id = body.conn_id
+    if conn_id and conn_id in connections:
+        entry = connections[conn_id]
+    elif connections:
+        entry = next(iter(connections.values()))
+    else:
+        entry = _auto_reconnect(email, app)
+        if not entry:
+            raise HTTPException(400, "No active database connection")
+
+    # Build tile lookup
+    tile_map = {}
+    for tab in d.get("tabs", []):
+        for sec in tab.get("sections", []):
+            for tile in sec.get("tiles", []):
+                if tile["id"] in body.tile_ids:
+                    tile_map[tile["id"]] = tile
+
+    from sql_validator import SQLValidator
+    from pii_masking import mask_dataframe
+    from decimal import Decimal
+    validator = SQLValidator()
+
+    def _refresh_one(tile_id: str) -> dict:
+        tile = tile_map.get(tile_id)
+        if not tile or not tile.get("sql"):
+            return {"error": "Tile not found or has no SQL"}
+        target_sql = tile["sql"]
+        is_valid, validated_sql, err = validator.validate(target_sql)
+        if not is_valid:
+            return {"error": f"SQL validation failed: {err}"}
+        df = entry.connector.execute_query(validated_sql)
+        df = mask_dataframe(df)
+        rows = df.head(5000).to_dict("records")
+        for row in rows:
+            for k, v in row.items():
+                if isinstance(v, Decimal):
+                    row[k] = float(v)
+        columns = list(df.columns)
+        update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
+        _publish_tile_update(dashboard_id, tile_id, columns, rows)
+        return {"columns": columns, "rows": rows, "rowCount": len(df)}
+
+    results = {}
+    errors = {}
+    max_workers = min(5, len(body.tile_ids))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_id = {executor.submit(_refresh_one, tid): tid for tid in body.tile_ids}
+        for future in as_completed(future_to_id):
+            tid = future_to_id[future]
+            try:
+                result = future.result()
+                if "error" in result:
+                    errors[tid] = result["error"]
+                else:
+                    results[tid] = result
+            except Exception as e:
+                errors[tid] = str(e)[:200]
+
+    return {"results": results, "errors": errors}
 
 
 # ── AI Chart Suggestion ────────────────────────────────────────────
@@ -438,9 +847,9 @@ async def ai_suggest_chart(dashboard_id: str, tile_id: str, body: AIChartSuggest
     """Ask Claude to suggest optimal chart type and formatting for tile data."""
     import json as _json
     try:
-        import anthropic
-        from config import settings
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        from provider_registry import get_provider_for_user
+        email = user["email"]
+        provider = get_provider_for_user(email)
 
         sample = body.sample_rows[:5]  # Send max 5 rows to keep prompt small
         prompt = f"""Given this dataset:
@@ -463,21 +872,22 @@ Suggest the optimal chart configuration. Return ONLY valid JSON:
   }}
 }}"""
 
-        response = client.messages.create(
-            model=settings.PRIMARY_MODEL,
+        response = provider.complete(
+            model=provider.default_model,
             max_tokens=500,
             messages=[{"role": "user", "content": prompt}],
             system="You are a data visualization expert. Return ONLY valid JSON, no markdown.",
         )
 
-        text = response.content[0].text.strip()
+        text = response.text.strip()
         # Strip markdown fences if present
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         result = _json.loads(text)
         return result
     except Exception as e:
-        raise HTTPException(500, f"AI suggestion failed: {str(e)}")
+        _logger.exception("AI chart suggestion failed for dashboard=%s tile=%s", dashboard_id, tile_id)
+        raise HTTPException(500, "AI suggestion failed — please try again")
 
 
 # ── Bookmarks ──────────────────────────────────────────────────────
@@ -543,3 +953,269 @@ async def add_tile_annotation(dashboard_id: str, tile_id: str, body: AddAnnotati
     if not d:
         raise HTTPException(404, "Dashboard or tile not found")
     return d
+
+
+@router.delete("/{dashboard_id}/annotations/{annotation_id}")
+async def delete_dashboard_annotation(dashboard_id: str, annotation_id: str, user=Depends(get_current_user)):
+    d = delete_annotation(user["email"], dashboard_id, annotation_id)
+    if not d:
+        raise HTTPException(404, "Annotation not found")
+    return d
+
+
+@router.delete("/{dashboard_id}/tiles/{tile_id}/annotations/{annotation_id}")
+async def delete_tile_annotation(dashboard_id: str, tile_id: str, annotation_id: str, user=Depends(get_current_user)):
+    d = delete_annotation(user["email"], dashboard_id, annotation_id, tile_id=tile_id)
+    if not d:
+        raise HTTPException(404, "Annotation not found")
+    return d
+
+
+# ── Background Refresh ────────────────────────────────────────────
+
+from concurrent.futures import ThreadPoolExecutor as _ThreadPoolExecutor
+_bg_executor = _ThreadPoolExecutor(max_workers=10)  # Shared bounded pool
+_active_refresh_dashboards: set[str] = set()  # Prevent duplicate refresh-all
+
+
+@router.post("/{dashboard_id}/refresh-all")
+async def refresh_all_tiles_background(dashboard_id: str, body: RefreshTileBody, user=Depends(get_current_user)):
+    """Refresh all tiles in a dashboard using the batch mechanism.
+    Returns immediately; tiles are refreshed in the background."""
+    email = user["email"]
+
+    # Prevent duplicate concurrent refresh for same dashboard
+    refresh_key = f"{email}:{dashboard_id}"
+    if refresh_key in _active_refresh_dashboards:
+        return {"status": "already_refreshing", "count": 0}
+
+    d = load_dashboard(email, dashboard_id)
+    if not d:
+        raise HTTPException(404, "Dashboard not found")
+
+    # Resolve connection
+    import main as app_module
+    app = app_module.app
+    connections = app.state.connections.get(email, {})
+    conn_id = body.conn_id
+    if conn_id and conn_id in connections:
+        entry = connections[conn_id]
+    elif connections:
+        entry = next(iter(connections.values()))
+    else:
+        entry = _auto_reconnect(email, app)
+        if not entry:
+            raise HTTPException(400, "No active database connection")
+
+    # Collect all tile IDs
+    tile_ids = []
+    for tab in d.get("tabs", []):
+        for sec in tab.get("sections", []):
+            for tile in sec.get("tiles", []):
+                if tile.get("sql"):
+                    tile_ids.append(tile["id"])
+
+    if not tile_ids:
+        return {"status": "no_tiles", "count": 0}
+
+    from sql_validator import SQLValidator
+    from pii_masking import mask_dataframe
+    from decimal import Decimal
+    validator = SQLValidator()
+
+    def _refresh_tile(tile_id):
+        dash = load_dashboard(email, dashboard_id)
+        if not dash:
+            return
+        tile = None
+        for tab in dash.get("tabs", []):
+            for sec in tab.get("sections", []):
+                for t in sec.get("tiles", []):
+                    if t["id"] == tile_id:
+                        tile = t
+                        break
+        if not tile or not tile.get("sql"):
+            return
+        try:
+            is_valid, validated_sql, _ = validator.validate(tile["sql"])
+            if not is_valid:
+                return
+            df = entry.connector.execute_query(validated_sql)
+            df = mask_dataframe(df)
+            rows = df.head(5000).to_dict("records")
+            for row in rows:
+                for k, v in row.items():
+                    if isinstance(v, Decimal):
+                        row[k] = float(v)
+            columns = list(df.columns)
+            update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
+            _publish_tile_update(dashboard_id, tile_id, columns, rows)
+        except Exception as e:
+            _logger.warning("Background refresh tile %s failed: %s", tile_id, e)
+
+    _active_refresh_dashboards.add(refresh_key)
+
+    def _run_batch():
+        try:
+            futures = [_bg_executor.submit(_refresh_tile, tid) for tid in tile_ids]
+            for f in futures:
+                f.result(timeout=60)  # Wait with timeout
+        except Exception as e:
+            _logger.warning("Background batch refresh failed: %s", e)
+        finally:
+            _active_refresh_dashboards.discard(refresh_key)
+
+    import threading
+    threading.Thread(target=_run_batch, daemon=True).start()
+
+    return {"status": "refreshing", "count": len(tile_ids)}
+
+
+# ── Share links [ADV-FIX H1] ──────────────────────────────────
+
+class ShareRequest(BaseModel):
+    expires_hours: int = 168  # 7 days default
+
+
+@router.post("/{dashboard_id}/share")
+async def share_dashboard(dashboard_id: str, body: ShareRequest, user=Depends(get_current_user)):
+    """Generate an opaque share token for read-only access."""
+    result = create_share_token(user["email"], dashboard_id, body.expires_hours)
+    return result
+
+
+@router.delete("/{dashboard_id}/share/{token}")
+async def revoke_share(dashboard_id: str, token: str, user=Depends(get_current_user)):
+    """Revoke a share token — only the dashboard owner can revoke [ADV-FIX M3, M5]."""
+    # Verify the user owns this dashboard
+    dash = load_dashboard(user["email"], dashboard_id)
+    if not dash:
+        raise HTTPException(404, "Dashboard not found")
+    # Verify the token belongs to this specific dashboard before revoking
+    token_info = validate_share_token(token)
+    if not token_info or token_info.get("dashboard_id") != dashboard_id:
+        raise HTTPException(404, "Token not found for this dashboard")
+    ok = revoke_share_token(token)
+    if not ok:
+        raise HTTPException(404, "Token not found")
+    return {"status": "revoked"}
+
+
+# ── Version History ──────────────────────────────────────────────
+
+@router.get("/{dashboard_id}/versions")
+async def get_versions(dashboard_id: str, user=Depends(get_current_user)):
+    """List version history metadata for a dashboard."""
+    versions = list_dashboard_versions(user["email"], dashboard_id)
+    return {"versions": versions}
+
+
+class RestoreVersionRequest(BaseModel):
+    version_id: str
+
+
+@router.post("/{dashboard_id}/versions/restore")
+async def restore_version(dashboard_id: str, body: RestoreVersionRequest, user=Depends(get_current_user)):
+    """Restore a dashboard to a specific version."""
+    result = restore_dashboard_version(user["email"], dashboard_id, body.version_id)
+    if not result:
+        raise HTTPException(404, "Version not found")
+    return result
+
+
+# Public endpoint — no auth required
+@router.get("/shared/{token}")
+async def get_shared_dashboard(token: str):
+    """Public read-only dashboard access via share token."""
+    dashboard = load_shared_dashboard(token)
+    if not dashboard:
+        raise HTTPException(404, "Dashboard not found or link expired")
+    # Strip sensitive fields: sharing config, raw SQL, and row data [ADV-FIX H8]
+    def _strip_tile(tile):
+        return {k: v for k, v in tile.items() if k not in ("sql", "rows", "conn_id", "columns")}
+
+    safe = {k: v for k, v in dashboard.items() if k not in ("sharing",)}
+    if "tabs" in safe:
+        safe["tabs"] = [
+            {**tab, "sections": [
+                {**sec, "tiles": [_strip_tile(t) for t in sec.get("tiles", [])]}
+                for sec in tab.get("sections", [])
+            ]}
+            for tab in safe["tabs"]
+        ]
+    return safe
+
+
+# ── SSE Live Tile Updates ────────────────────────────────────────
+
+import logging as _logging
+_logger = _logging.getLogger(__name__)
+
+_MAX_SSE_PER_USER = 3
+_sse_connections: dict[str, int] = {}  # email → active count
+
+_MAX_PUBLISH_BYTES = 2 * 1024 * 1024  # 2MB cap for Redis pub/sub payloads
+
+
+def _publish_tile_update(dashboard_id: str, tile_id: str, columns: list, rows: list):
+    """Fire-and-forget publish of tile refresh result to Redis pub/sub.
+    No-op if Redis is unavailable or payload exceeds size cap."""
+    try:
+        from redis_client import get_redis
+        r = get_redis()
+        if r:
+            payload = _json.dumps({
+                "tile_id": tile_id,
+                "columns": columns,
+                "rows": rows[:5000],
+                "row_count": len(rows),
+            }, default=str)
+            if len(payload) > _MAX_PUBLISH_BYTES:
+                _logger.warning("Tile %s payload too large for pub/sub (%d bytes), skipping", tile_id, len(payload))
+                return
+            r.publish(f"qc:tile_updates:{dashboard_id}", payload)
+    except Exception as exc:
+        _logger.warning("Failed to publish tile update for %s: %s", tile_id, exc)
+
+
+@router.get("/{dashboard_id}/subscribe")
+async def subscribe_tile_updates(dashboard_id: str, user: dict = Depends(get_current_user)):
+    """SSE endpoint — streams live tile updates for a dashboard via Redis pub/sub.
+    Returns 503 if Redis is unavailable (frontend falls back to polling)."""
+    from redis_client import get_redis
+    r = get_redis()
+    if not r:
+        raise HTTPException(503, "Real-time updates require Redis — tile refresh still works via polling")
+
+    email = user["email"]
+    current = _sse_connections.get(email, 0)
+    if current >= _MAX_SSE_PER_USER:
+        raise HTTPException(429, f"Too many SSE connections (max {_MAX_SSE_PER_USER})")
+    _sse_connections[email] = current + 1
+
+    async def event_generator():
+        pubsub = r.pubsub()
+        pubsub.subscribe(f"qc:tile_updates:{dashboard_id}")
+        try:
+            while True:
+                # Run blocking Redis call in a thread to avoid blocking the event loop
+                msg = await asyncio.to_thread(
+                    pubsub.get_message, ignore_subscribe_messages=True, timeout=1.0
+                )
+                if msg and msg["type"] == "message":
+                    yield f"data: {msg['data']}\n\n"
+                else:
+                    yield "data: ping\n\n"
+                await asyncio.sleep(0.1)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            pubsub.unsubscribe()
+            pubsub.close()
+            _sse_connections[email] = max(0, _sse_connections.get(email, 1) - 1)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

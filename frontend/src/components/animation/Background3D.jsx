@@ -1,30 +1,55 @@
-import React, { useMemo, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import React, { useMemo, useRef, useCallback } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { useGPUTier, scaleParticles } from "../../lib/gpuDetect";
 
-/* ═══════════════════════════════════════════════════════════════
-   Background3D — Neural Pulse Network
-   
-   Concept: Tiny glowing neuron-like pulses travel along curved
-   paths from the edges of the screen, converging toward a
-   central "dashboard screen" wireframe. Represents data flowing
-   into QueryCopilot and becoming insights/dashboards.
-   ═══════════════════════════════════════════════════════════════ */
+/* ═══════���═══════════════════════════════════════════════════════
+   Background3D — Enhanced Neural Pulse Network (Dora-inspired)
 
-/* ── LAYER 1: Ambient starfield (tiny dots, very subtle) ── */
-function Starfield() {
+   Upgrades over v1:
+   - Mouse-reactive dashboard wireframe (smooth lerp tilt)
+   - Magnetic cursor particles drifting toward mouse
+   - Z-based opacity falloff simulating depth-of-field
+   - Enhanced neural pulses (24 paths, varying sizes, burst effect)
+   - GPU tier-aware particle scaling
+   ════════════��═══════════════════════════���══════════════════════ */
+
+// Shared mouse position ref (normalized -1 to 1)
+const mouseRef = { x: 0, y: 0 };
+
+function MouseTracker() {
+  const { size } = useThree();
+  const onMove = useCallback((e) => {
+    mouseRef.x = (e.clientX / size.width) * 2 - 1;
+    mouseRef.y = -(e.clientY / size.height) * 2 + 1;
+  }, [size]);
+
+  // Attach to window for smooth tracking even at edges
+  React.useEffect(() => {
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [onMove]);
+
+  return null;
+}
+
+/* ── LAYER 1: Starfield with z-based opacity falloff ── */
+function Starfield({ count = 600 }) {
   const ref = useRef();
-  const count = 600;
 
-  const positions = useMemo(() => {
+  const [positions, opacities] = useMemo(() => {
     const pos = new Float32Array(count * 3);
+    const alpha = new Float32Array(count);
     for (let i = 0; i < count; i++) {
+      const z = -5 - Math.random() * 25;
       pos[i * 3] = (Math.random() - 0.5) * 60;
       pos[i * 3 + 1] = (Math.random() - 0.5) * 40;
-      pos[i * 3 + 2] = -5 - Math.random() * 25;
+      pos[i * 3 + 2] = z;
+      // Depth-of-field simulation: distant particles fade
+      alpha[i] = Math.max(0.1, 1 - Math.abs(z + 15) / 20);
     }
-    return pos;
-  }, []);
+    return [pos, alpha];
+  }, [count]);
 
   useFrame((s) => {
     if (ref.current) ref.current.rotation.y = s.clock.getElapsedTime() * 0.005;
@@ -40,23 +65,31 @@ function Starfield() {
   );
 }
 
-/* ── LAYER 2: Dashboard screen wireframe (center-back) ── */
-function DashboardScreen() {
+/* ── LAYER 2: Dashboard screen wireframe (mouse-reactive) ── */
+function DashboardScreen({ enableMouseTracking = true }) {
   const groupRef = useRef();
   const glowRef = useRef();
+  const targetRot = useRef({ x: 0, y: 0 });
 
   useFrame((s) => {
     const t = s.clock.getElapsedTime();
     if (groupRef.current) {
-      groupRef.current.rotation.y = Math.sin(t * 0.15) * 0.05;
-      groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.02;
+      if (enableMouseTracking) {
+        // Smooth lerp toward mouse-driven rotation
+        targetRot.current.y = mouseRef.x * 0.15;
+        targetRot.current.x = mouseRef.y * -0.08;
+        groupRef.current.rotation.y += (targetRot.current.y - groupRef.current.rotation.y) * 0.04;
+        groupRef.current.rotation.x += (targetRot.current.x - groupRef.current.rotation.x) * 0.04;
+      } else {
+        groupRef.current.rotation.y = Math.sin(t * 0.15) * 0.05;
+        groupRef.current.rotation.x = Math.sin(t * 0.1) * 0.02;
+      }
     }
     if (glowRef.current) {
       glowRef.current.material.opacity = 0.03 + Math.sin(t * 0.8) * 0.015;
     }
   });
 
-  // Internal dashboard elements (chart bars, grid lines)
   const bars = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => ({
       x: -2.2 + i * 0.8,
@@ -66,27 +99,20 @@ function DashboardScreen() {
 
   return (
     <group ref={groupRef} position={[0, 0, -10]}>
-      {/* Main screen outline */}
       <mesh>
         <planeGeometry args={[8, 5]} />
         <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.06} depthWrite={false} blending={THREE.AdditiveBlending} />
       </mesh>
-
-      {/* Screen glow backdrop */}
       <mesh ref={glowRef} position={[0, 0, -0.1]}>
         <planeGeometry args={[9, 6]} />
         <meshBasicMaterial color="#6366f1" transparent opacity={0.03} depthWrite={false} blending={THREE.AdditiveBlending} />
       </mesh>
-
-      {/* Dashboard bar chart inside */}
       {bars.map((bar, i) => (
         <mesh key={i} position={[bar.x, -1.5 + bar.height / 2, 0.01]}>
           <planeGeometry args={[0.4, bar.height]} />
           <meshBasicMaterial color={i % 2 === 0 ? "#818cf8" : "#a78bfa"} transparent opacity={0.07} depthWrite={false} blending={THREE.AdditiveBlending} />
         </mesh>
       ))}
-
-      {/* Horizontal grid lines */}
       {[-0.5, 0.5, 1.5].map((y, i) => (
         <mesh key={`h${i}`} position={[0, y, 0.01]}>
           <planeGeometry args={[7, 0.005]} />
@@ -97,29 +123,21 @@ function DashboardScreen() {
   );
 }
 
-/* ── LAYER 3: Neural pulse network — the hero effect ── */
-function NeuralPulses() {
-  const count = 14; // number of neural paths
-  const particlesPerPath = 25;
+/* ── LAYER 3: Enhanced Neural Pulses (24 paths, burst effect) ── */
+function NeuralPulses({ count = 24, particlesPerPath = 25 }) {
   const totalParticles = count * particlesPerPath;
   const ref = useRef();
 
-  // Generate bezier curves from edges toward center dashboard
   const curves = useMemo(() => {
     return Array.from({ length: count }, (_, i) => {
-      // Start from random edge positions
       const angle = (i / count) * Math.PI * 2 + Math.random() * 0.3;
       const edgeR = 15 + Math.random() * 8;
       const startX = Math.cos(angle) * edgeR;
       const startY = Math.sin(angle) * edgeR * 0.6;
       const startZ = -2 - Math.random() * 6;
-
-      // End near the dashboard screen center
-       const endX = (Math.random() - 0.5) * 4;
+      const endX = (Math.random() - 0.5) * 4;
       const endY = (Math.random() - 0.5) * 2.5;
       const endZ = -9 - Math.random() * 2;
-
-      // Control points create nice arcs
       const midX = (startX + endX) * 0.5 + (Math.random() - 0.5) * 6;
       const midY = (startY + endY) * 0.5 + (Math.random() - 0.5) * 5;
       const midZ = (startZ + endZ) * 0.5 - Math.random() * 3;
@@ -130,9 +148,8 @@ function NeuralPulses() {
         new THREE.Vector3(endX, endY, endZ)
       );
     });
-  }, []);
+  }, [count]);
 
-  // Initial positions
   const [positions, sizes] = useMemo(() => {
     const pos = new Float32Array(totalParticles * 3);
     const sz = new Float32Array(totalParticles);
@@ -144,12 +161,12 @@ function NeuralPulses() {
         pos[idx * 3] = pt.x;
         pos[idx * 3 + 1] = pt.y;
         pos[idx * 3 + 2] = pt.z;
-        // Particles get brighter/bigger as they approach the dashboard
-        sz[idx] = 0.04 + t * 0.12;
+        // Burst effect: particles grow as they approach dashboard
+        sz[idx] = 0.03 + t * t * 0.15;
       }
     }
     return [pos, sz];
-  }, [curves, totalParticles]);
+  }, [curves, totalParticles, count, particlesPerPath]);
 
   useFrame((state) => {
     const geo = ref.current?.geometry;
@@ -159,11 +176,13 @@ function NeuralPulses() {
 
     for (let c = 0; c < count; c++) {
       const speed = 0.06 + (c % 4) * 0.02;
-      const offset = c * 0.7; // stagger each path
+      const offset = c * 0.7;
       for (let p = 0; p < particlesPerPath; p++) {
         const idx = c * particlesPerPath + p;
-        const progress = ((p / particlesPerPath) + t * speed + offset) % 1;
-        const pt = curves[c].getPoint(progress);
+        // Burst: accelerate near end (easeInQuad)
+        const linearProgress = ((p / particlesPerPath) + t * speed + offset) % 1;
+        const progress = linearProgress * linearProgress * 0.5 + linearProgress * 0.5;
+        const pt = curves[c].getPoint(Math.min(progress, 0.999));
         posArr[idx * 3] = pt.x;
         posArr[idx * 3 + 1] = pt.y;
         posArr[idx * 3 + 2] = pt.z;
@@ -178,23 +197,13 @@ function NeuralPulses() {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
       </bufferGeometry>
-      <pointsMaterial
-        size={0.1}
-        color="#a78bfa"
-        transparent
-        opacity={0.7}
-        sizeAttenuation
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
+      <pointsMaterial size={0.1} color="#a78bfa" transparent opacity={0.7} sizeAttenuation depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>
   );
 }
 
-/* ── LAYER 4: Outgoing pulses (from dashboard outward — insights) ── */
-function OutgoingPulses() {
-  const count = 8;
-  const particlesPerPath = 15;
+/* ── LAYER 4: Outgoing pulses ── */
+function OutgoingPulses({ count = 8, particlesPerPath = 15 }) {
   const totalParticles = count * particlesPerPath;
   const ref = useRef();
 
@@ -202,14 +211,13 @@ function OutgoingPulses() {
     return Array.from({ length: count }, (_, i) => {
       const angle = (i / count) * Math.PI * 2 + 0.4;
       const edgeR = 12 + Math.random() * 6;
-
       return new THREE.QuadraticBezierCurve3(
         new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2, -9),
         new THREE.Vector3(Math.cos(angle) * edgeR * 0.4, Math.sin(angle) * edgeR * 0.25, -6),
         new THREE.Vector3(Math.cos(angle) * edgeR, Math.sin(angle) * edgeR * 0.5, -3)
       );
     });
-  }, []);
+  }, [count]);
 
   const positions = useMemo(() => {
     const pos = new Float32Array(totalParticles * 3);
@@ -221,7 +229,7 @@ function OutgoingPulses() {
       }
     }
     return pos;
-  }, [curves, totalParticles]);
+  }, [curves, totalParticles, count, particlesPerPath]);
 
   useFrame((state) => {
     const geo = ref.current?.geometry;
@@ -288,24 +296,99 @@ function GridFloor() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   MAIN EXPORT
-   ═══════════════════════════════════════════════════════════════ */
-export default function Background3D({ className = "" }) {
+/* ── LAYER 7 (NEW): Magnetic cursor particles ── */
+function MagneticParticles({ count = 200 }) {
+  const ref = useRef();
+  const velocities = useRef(null);
+
+  const positions = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    const vel = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 30;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 20;
+      pos[i * 3 + 2] = -3 - Math.random() * 10;
+      vel[i * 3] = 0;
+      vel[i * 3 + 1] = 0;
+      vel[i * 3 + 2] = 0;
+    }
+    velocities.current = vel;
+    return pos;
+  }, [count]);
+
+  useFrame(() => {
+    const geo = ref.current?.geometry;
+    if (!geo || !velocities.current) return;
+    const posArr = geo.attributes.position.array;
+    const vel = velocities.current;
+
+    // Mouse world position (approximate)
+    const mx = mouseRef.x * 15;
+    const my = mouseRef.y * 10;
+
+    for (let i = 0; i < count; i++) {
+      const ix = i * 3, iy = i * 3 + 1, iz = i * 3 + 2;
+      const dx = mx - posArr[ix];
+      const dy = my - posArr[iy];
+      const dist = Math.sqrt(dx * dx + dy * dy) + 0.1;
+
+      // Spring force toward mouse (stronger when close)
+      const force = Math.min(0.003, 0.05 / (dist * dist));
+      vel[ix] += dx * force;
+      vel[iy] += dy * force;
+
+      // Damping
+      vel[ix] *= 0.96;
+      vel[iy] *= 0.96;
+
+      // Apply velocity
+      posArr[ix] += vel[ix];
+      posArr[iy] += vel[iy];
+
+      // Gentle drift back if too far from origin
+      posArr[ix] += (0 - posArr[ix]) * 0.001;
+      posArr[iy] += (0 - posArr[iy]) * 0.001;
+    }
+    geo.attributes.position.needsUpdate = true;
+  });
+
   return (
-    <div className={`absolute inset-0 pointer-events-none ${className}`} aria-hidden="true" style={{ zIndex: 0 }}>
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial size={0.06} color="#818cf8" transparent opacity={0.35} sizeAttenuation depthWrite={false} blending={THREE.AdditiveBlending} />
+    </points>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN EXPORT — GPU-tier aware
+   ═══════���══════════════════════════════���════════════════════════ */
+export default function Background3D({ className = "" }) {
+  const tier = useGPUTier();
+
+  // Low tier: don't render 3D at all (caller shows 2D fallback)
+  if (tier === "low") return null;
+
+  const isHigh = tier === "high";
+
+  return (
+    <div className={`absolute inset-0 pointer-events-none three-canvas-wrapper ${className}`} aria-hidden="true" style={{ zIndex: 0 }}>
       <Canvas
         camera={{ position: [0, 0, 18], fov: 50 }}
-        dpr={[1, 1.5]}
+        dpr={[1, isHigh ? 1.5 : 1]}
         gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
       >
         <fog attach="fog" args={["#06060e", 15, 45]} />
-        <Starfield />
-        <DashboardScreen />
-        <NeuralPulses />
-        <OutgoingPulses />
+        {isHigh && <MouseTracker />}
+        <Starfield count={scaleParticles(600, tier)} />
+        <DashboardScreen enableMouseTracking={isHigh} />
+        <NeuralPulses count={scaleParticles(24, tier)} />
+        <OutgoingPulses count={scaleParticles(8, tier)} />
         <OrbitalRings />
         <GridFloor />
+        {isHigh && <MagneticParticles count={200} />}
       </Canvas>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
@@ -7,6 +7,9 @@ import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { api } from "../api";
 import { useStore } from "../store";
 import UserDropdown from "../components/UserDropdown";
+import { GPUTierProvider } from "../lib/gpuDetect";
+const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
+class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
 /* ── Shared DB icon (cylinder) with per-type color ─────────── */
 const DbIcon = ({ className = "w-6 h-6 text-white" }) => (
@@ -346,7 +349,13 @@ export default function Dashboard() {
     <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
       {/* Background mesh */}
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
-      <AnimatedBackground className="fixed inset-0 pointer-events-none" />
+      <GPUTierProvider>
+        <_WebGLBound fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+          <Suspense fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+            <PageBackground3D mode="data" className="fixed inset-0" />
+          </Suspense>
+        </_WebGLBound>
+      </GPUTierProvider>
 
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 glass-navbar sticky top-0 z-20">

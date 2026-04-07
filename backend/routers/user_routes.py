@@ -11,8 +11,12 @@ from auth import get_current_user, _load_users
 from user_storage import (
     load_profile, save_profile, load_connection_configs,
     list_chats, load_query_stats, clear_chat_history,
-    delete_connection_config,
+    delete_connection_config, save_api_key_to_profile,
+    encrypt_password, decrypt_password,
 )
+from provider_registry import ANTHROPIC_MODELS, get_provider_for_user
+from model_provider import InvalidKeyError
+from anthropic_provider import AnthropicProvider
 
 logger = logging.getLogger(__name__)
 
@@ -253,3 +257,103 @@ def get_my_tickets(user: dict = Depends(get_current_user)):
     tickets = _load_tickets()
     my_tickets = [t for t in tickets if t.get("created_by") == user["email"]]
     return {"tickets": my_tickets}
+
+
+# ── API Key Management ──────────────────────────────────────────
+
+class SaveApiKeyBody(BaseModel):
+    api_key: str
+
+
+class UpdateModelBody(BaseModel):
+    model: str
+
+
+@router.post("/api-key")
+def save_api_key(body: SaveApiKeyBody, user: dict = Depends(get_current_user)):
+    """Validate and save an Anthropic API key."""
+    email = user["email"]
+    try:
+        provider = AnthropicProvider(api_key=body.api_key)
+        provider.validate_key()
+    except InvalidKeyError as exc:
+        raise HTTPException(422, detail=str(exc))
+    encrypted = encrypt_password(body.api_key)
+    save_api_key_to_profile(email, {
+        "api_key_encrypted": encrypted,
+        "api_key_provider": "anthropic",
+        "api_key_validated_at": datetime.now(timezone.utc).isoformat(),
+        "api_key_valid": True,
+    })
+    return {"status": "ok", "message": "API key saved and validated"}
+
+
+@router.get("/api-key/status")
+def get_api_key_status(user: dict = Depends(get_current_user)):
+    """Return current API key status (never exposes the real key)."""
+    email = user["email"]
+    profile = load_profile(email)
+    encrypted = profile.get("api_key_encrypted", "")
+    return {
+        "provider": profile.get("api_key_provider"),
+        "valid": profile.get("api_key_valid"),
+        "validated_at": profile.get("api_key_validated_at"),
+        "masked_key": "..." + encrypted[-8:] if encrypted else None,
+        "configured": bool(encrypted),
+    }
+
+
+@router.delete("/api-key")
+def delete_api_key(user: dict = Depends(get_current_user)):
+    """Remove the stored API key from the user profile."""
+    email = user["email"]
+    profile = load_profile(email)
+    for field in ("api_key_encrypted", "api_key_provider",
+                  "api_key_validated_at", "api_key_valid"):
+        profile.pop(field, None)
+    save_api_key_to_profile(email, profile)
+    return {"status": "ok", "message": "API key removed"}
+
+
+@router.post("/api-key/validate")
+def validate_api_key(user: dict = Depends(get_current_user)):
+    """Re-validate the stored API key."""
+    email = user["email"]
+    profile = load_profile(email)
+    encrypted = profile.get("api_key_encrypted")
+    if not encrypted:
+        raise HTTPException(404, detail="No API key configured")
+    try:
+        raw_key = decrypt_password(encrypted)
+        provider = AnthropicProvider(api_key=raw_key)
+        provider.validate_key()
+    except InvalidKeyError as exc:
+        save_api_key_to_profile(email, {
+            "api_key_valid": False,
+            "api_key_validated_at": datetime.now(timezone.utc).isoformat(),
+        })
+        raise HTTPException(422, detail=str(exc))
+    save_api_key_to_profile(email, {
+        "api_key_valid": True,
+        "api_key_validated_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"status": "ok", "valid": True,
+            "validated_at": datetime.now(timezone.utc).isoformat()}
+
+
+@router.put("/preferred-model")
+def update_preferred_model(body: UpdateModelBody, user: dict = Depends(get_current_user)):
+    """Set the user's preferred Claude model."""
+    if body.model not in ANTHROPIC_MODELS:
+        raise HTTPException(422, detail=f"Unknown model: {body.model}")
+    email = user["email"]
+    profile = load_profile(email)
+    profile["preferred_model"] = body.model
+    save_profile(email, profile)
+    return {"status": "ok", "model": body.model}
+
+
+@router.get("/available-models")
+def list_available_models(user: dict = Depends(get_current_user)):
+    """Return all available Anthropic models."""
+    return {"models": [{"id": k, **v} for k, v in ANTHROPIC_MODELS.items()]}

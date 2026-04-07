@@ -3,18 +3,18 @@ import { TOKENS } from './tokens';
 import { api } from '../../api';
 
 const RANGES = [
-  { id: 'all_time',     label: 'All Time' },
-  { id: 'today',        label: 'Today' },
-  { id: 'yesterday',    label: 'Yesterday' },
-  { id: 'this_week',    label: 'This Week' },
-  { id: 'last_week',    label: 'Last Week' },
-  { id: 'this_month',   label: 'This Month' },
-  { id: 'last_month',   label: 'Last Month' },
+  { id: 'all_time', label: 'All Time' },
+  { id: 'today', label: 'Today' },
+  { id: 'yesterday', label: 'Yesterday' },
+  { id: 'this_week', label: 'This Week' },
+  { id: 'last_week', label: 'Last Week' },
+  { id: 'this_month', label: 'This Month' },
+  { id: 'last_month', label: 'Last Month' },
   { id: 'this_quarter', label: 'This Quarter' },
   { id: 'last_quarter', label: 'Last Quarter' },
-  { id: 'this_year',    label: 'This Year' },
-  { id: 'last_year',    label: 'Last Year' },
-  { id: 'custom',       label: 'Custom Range' },
+  { id: 'this_year', label: 'This Year' },
+  { id: 'last_year', label: 'Last Year' },
+  { id: 'custom', label: 'Custom Range' },
 ];
 
 const OPERATORS = ['=', '!=', '>', '<', '>=', '<=', 'LIKE', 'IN'];
@@ -30,18 +30,58 @@ const inputStyle = {
   transition: `border-color ${TOKENS.transition}`,
 };
 
-export default function GlobalFilterBar({ globalFilters, connId, onChange }) {
-  const [dateColumn, setDateColumn]   = useState(globalFilters?.dateColumn || '');
-  const [range, setRange]             = useState(globalFilters?.range || 'all_time');
-  const [dateStart, setDateStart]     = useState(globalFilters?.dateStart || '');
-  const [dateEnd, setDateEnd]         = useState(globalFilters?.dateEnd || '');
-  const [fields, setFields]           = useState(globalFilters?.fields || []);
+// Date-like column name patterns (used for auto-detection)
+const DATE_PATTERNS = /^(date|created_at|updated_at|order_date|timestamp|time|datetime|purchased_at|shipped_at|delivered_at|cancelled_at|modified_at|event_date|start_date|end_date|due_date|birth_date|registered_at|signup_date|last_login)/i;
+
+function detectDateColumns(dashboard) {
+  if (!dashboard?.tabs) return [];
+  const found = new Set();
+  for (const tab of dashboard.tabs) {
+    for (const sec of tab.sections || []) {
+      for (const tile of sec.tiles || []) {
+        // Check tile output columns for date-like names
+        for (const col of tile.columns || []) {
+          if (DATE_PATTERNS.test(col)) found.add(col);
+        }
+        // Check SQL for date column references (e.g., o.created_at, created_at)
+        if (tile.sql) {
+          const matches = tile.sql.match(/\b\w*\.?(created_at|updated_at|order_date|date|timestamp|datetime|purchased_at|shipped_at)\b/gi);
+          if (matches) {
+            for (const m of matches) {
+              // Extract just the column name (strip table alias)
+              const col = m.includes('.') ? m.split('.').pop() : m;
+              found.add(col);
+            }
+          }
+        }
+      }
+    }
+  }
+  return [...found].sort();
+}
+
+export default function GlobalFilterBar({ globalFilters, connId, onChange, dashboard }) {
+  const [dateColumn, setDateColumn] = useState(globalFilters?.dateColumn || '');
+  const [range, setRange] = useState(globalFilters?.range || 'all_time');
+  const [dateStart, setDateStart] = useState(globalFilters?.dateStart || '');
+  const [dateEnd, setDateEnd] = useState(globalFilters?.dateEnd || '');
+  const [fields, setFields] = useState(globalFilters?.fields || []);
   const [showFieldPicker, setShowFieldPicker] = useState(false);
-  const [allColumns, setAllColumns]   = useState([]);
-  const [colSearch, setColSearch]     = useState('');
+  const [allColumns, setAllColumns] = useState([]);
+  const [colSearch, setColSearch] = useState('');
   const [loadingCols, setLoadingCols] = useState(false);
-  const [newFilter, setNewFilter]     = useState({ column: '', operator: '=', value: '' });
+  const [newFilter, setNewFilter] = useState({ column: '', operator: '=', value: '' });
   const pickerRef = useRef(null);
+
+  // Auto-detect date columns from dashboard tiles
+  const detectedDateCols = dashboard ? detectDateColumns(dashboard) : [];
+
+  // Auto-fill dateColumn if empty and we detected exactly one candidate
+  useEffect(() => {
+    if (!dateColumn && detectedDateCols.length > 0) {
+      setDateColumn(detectedDateCols[0]);
+    }
+  }, [detectedDateCols.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load schema columns when picker opens
   useEffect(() => {
@@ -58,7 +98,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange }) {
         });
         setAllColumns(cols.sort());
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingCols(false));
   }, [showFieldPicker, connId, allColumns.length]);
 
@@ -74,19 +114,33 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange }) {
     return () => document.removeEventListener('mousedown', handle);
   }, [showFieldPicker]);
 
+  // Cleanup applyTimer on unmount
+  useEffect(() => () => { if (applyTimer.current) clearTimeout(applyTimer.current); }, []);
+
   const filteredCols = allColumns.filter(c => c.toLowerCase().includes(colSearch.toLowerCase()));
+
+  const applyTimer = useRef(null);
+
+  const debouncedApply = (newState) => {
+    if (applyTimer.current) clearTimeout(applyTimer.current);
+    applyTimer.current = setTimeout(() => {
+      onChange(newState);
+    }, 500);
+  };
 
   const addField = () => {
     if (!newFilter.column || !newFilter.value) return;
-    setFields(prev => [...prev, { ...newFilter }]);
+    const updatedFields = [...fields, { ...newFilter }];
+    setFields(updatedFields);
     setNewFilter({ column: '', operator: '=', value: '' });
     setShowFieldPicker(false);
+    debouncedApply({ dateColumn, range, dateStart, dateEnd, fields: updatedFields });
   };
 
-  const removeField = (idx) => setFields(prev => prev.filter((_, i) => i !== idx));
-
-  const handleApply = () => {
-    onChange({ dateColumn, range, dateStart, dateEnd, fields });
+  const removeField = (idx) => {
+    const updatedFields = fields.filter((_, i) => i !== idx);
+    setFields(updatedFields);
+    debouncedApply({ dateColumn, range, dateStart, dateEnd, fields: updatedFields });
   };
 
   const hasActiveFilters = dateColumn || fields.length > 0;
@@ -112,21 +166,38 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange }) {
 
         <div className="w-px h-4 flex-shrink-0" style={{ background: TOKENS.border.default }} />
 
-        {/* Date column input with column picker */}
+        {/* Date column selector — auto-detected from tile SQL + schema */}
         <div className="relative flex-shrink-0">
-          <input
-            style={{ ...inputStyle, width: 130 }}
-            placeholder="Date column…"
-            value={dateColumn}
-            onChange={e => setDateColumn(e.target.value)}
-            onFocus={e => { e.target.style.borderColor = TOKENS.accent; }}
-            onBlur={e => { e.target.style.borderColor = TOKENS.border.default; }}
-            list="date-col-list"
-          />
-          {allColumns.length > 0 && (
+          {detectedDateCols.length > 0 ? (
+            <select
+              style={{ ...inputStyle, width: 150, paddingRight: 28, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
+              value={dateColumn}
+              onChange={e => { const v = e.target.value; setDateColumn(v); debouncedApply({ dateColumn: v, range, dateStart, dateEnd, fields }); }}
+            >
+              <option value="">Select date column…</option>
+              {detectedDateCols.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          ) : (
+            <input
+              style={{ ...inputStyle, width: 130 }}
+              placeholder="Date column…"
+              value={dateColumn}
+              onChange={e => { const v = e.target.value; setDateColumn(v); debouncedApply({ dateColumn: v, range, dateStart, dateEnd, fields }); }}
+              onFocus={e => { e.target.style.borderColor = TOKENS.accent; }}
+              onBlur={e => { e.target.style.borderColor = TOKENS.border.default; }}
+              list="date-col-list"
+            />
+          )}
+          {allColumns.length > 0 && !detectedDateCols.length && (
             <datalist id="date-col-list">
               {allColumns.map(c => <option key={c} value={c} />)}
             </datalist>
+          )}
+          {detectedDateCols.length > 0 && (
+            <svg className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: TOKENS.text.muted }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
           )}
         </div>
 
@@ -135,7 +206,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange }) {
           <select
             style={{ ...inputStyle, paddingRight: 28, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
             value={range}
-            onChange={e => setRange(e.target.value)}
+            onChange={e => { const v = e.target.value; setRange(v); debouncedApply({ dateColumn, range: v, dateStart, dateEnd, fields }); }}
           >
             {RANGES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
           </select>
@@ -149,10 +220,10 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange }) {
         {range === 'custom' && (
           <>
             <input type="date" style={{ ...inputStyle, colorScheme: 'dark' }}
-              value={dateStart} onChange={e => setDateStart(e.target.value)} />
+              value={dateStart} onChange={e => { const v = e.target.value; setDateStart(v); debouncedApply({ dateColumn, range, dateStart: v, dateEnd, fields }); }} />
             <span style={{ color: TOKENS.text.muted, fontSize: 12 }}>to</span>
             <input type="date" style={{ ...inputStyle, colorScheme: 'dark' }}
-              value={dateEnd} onChange={e => setDateEnd(e.target.value)} />
+              value={dateEnd} onChange={e => { const v = e.target.value; setDateEnd(v); debouncedApply({ dateColumn, range, dateStart, dateEnd: v, fields }); }} />
           </>
         )}
 
@@ -265,26 +336,8 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange }) {
           )}
         </div>
 
-        {/* Divider + Apply */}
+        {/* Filters auto-apply on change — no Apply button needed */}
         <div className="flex-1" />
-        <button
-          onClick={handleApply}
-          style={{
-            background: TOKENS.accent,
-            color: '#fff',
-            border: 'none',
-            borderRadius: TOKENS.radius.md,
-            padding: '5px 16px',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-            transition: `opacity ${TOKENS.transition}`,
-          }}
-          onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
-          onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}>
-          Apply
-        </button>
 
         {hasActiveFilters && (
           <button

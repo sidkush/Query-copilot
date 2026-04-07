@@ -345,7 +345,7 @@ export default function AdminDashboard() {
               </svg>
             </div>
             <div>
-              <h1 className="text-lg font-bold">QueryCopilot Admin</h1>
+              <h1 className="text-lg font-bold">DataLens Admin</h1>
               <p className="text-xs text-gray-500">Logged in as {adminUser?.username || "admin"}</p>
             </div>
           </div>

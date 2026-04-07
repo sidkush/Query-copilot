@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -7,7 +8,11 @@ import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import AnimatedCounter from "../components/animation/AnimatedCounter";
 import MotionButton from "../components/animation/MotionButton";
+import TiltCard from "../components/animation/TiltCard";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
+import { GPUTierProvider } from "../lib/gpuDetect";
+const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
+class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
 const DB_NAMES = {
   postgresql: "PostgreSQL", mysql: "MySQL", mariadb: "MariaDB", sqlite: "SQLite",
@@ -54,6 +59,199 @@ function DbBadge({ dbType }) {
   const name = DB_NAMES[dbType] || dbType;
   const color = DB_COLORS[dbType] || "bg-gray-500/20 text-gray-400 border-gray-700/40";
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${color}`}>{name}</span>;
+}
+
+function ApiConfigSection() {
+  const [keyStatus, setKeyStatus] = useState(null);
+  const [models, setModels] = useState([]);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [newKey, setNewKey] = useState("");
+  const [keyValidating, setKeyValidating] = useState(false);
+  const [keyError, setKeyError] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const setApiKeyStatus = useStore((s) => s.setApiKeyStatus);
+  const preferredModel = useStore((s) => s.preferredModel);
+  const setPreferredModel = useStore((s) => s.setPreferredModel);
+  const keyModalRef = useRef(null);
+
+  useEffect(() => {
+    api.getApiKeyStatus().then((data) => { setKeyStatus(data); setApiKeyStatus(data); }).catch(() => {});
+    api.getAvailableModels().then((data) => setModels(Array.isArray(data) ? data : data?.models || [])).catch(() => {});
+  }, [setApiKeyStatus]);
+
+  const statusColor = keyStatus?.valid ? "bg-green-500" : keyStatus?.configured ? "bg-red-500" : "bg-gray-500";
+  const statusLabel = keyStatus?.valid ? "Valid" : keyStatus?.configured ? "Invalid" : "Not configured";
+
+  const handleSaveKey = async () => {
+    if (!newKey.trim()) return;
+    setKeyValidating(true);
+    setKeyError("");
+    try {
+      const data = await api.saveApiKey(newKey.trim());
+      setKeyStatus(data);
+      setApiKeyStatus(data);
+      setShowKeyModal(false);
+      setNewKey("");
+    } catch (err) {
+      setKeyError(err.message || "Failed to save API key");
+    } finally {
+      setKeyValidating(false);
+    }
+  };
+
+  const handleModelChange = async (e) => {
+    const model = e.target.value;
+    try {
+      await api.updatePreferredModel(model);
+      setPreferredModel(model);
+    } catch { /* ignore */ }
+  };
+
+  return (
+    <>
+      <StaggerItem>
+        <TiltCard><div className="glass-card rounded-2xl p-6">
+          <h2 className="text-sm font-semibold text-white mb-4">API Configuration</h2>
+          <div className="space-y-4">
+            {/* Status */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Status</label>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${statusColor}`} />
+                  <span className="text-sm text-gray-200">{statusLabel}</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Provider</label>
+                <span className="text-sm text-gray-200">Anthropic</span>
+              </div>
+            </div>
+
+            {/* Masked Key */}
+            <div>
+              <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">API Key</label>
+              <p className="text-sm text-gray-400 font-mono">
+                {keyStatus?.masked_key ? `...${keyStatus.masked_key.slice(-8)}` : "Not set"}
+              </p>
+            </div>
+
+            {/* Preferred Model */}
+            <div>
+              <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Preferred Model</label>
+              <select
+                value={preferredModel || ""}
+                onChange={handleModelChange}
+                className="w-full glass-input rounded-lg px-3 py-2 text-white text-sm bg-transparent"
+              >
+                <option value="" className="bg-[#0e0e1a]">Default</option>
+                {(Array.isArray(models) ? models : []).map((m) => (
+                  <option key={m.id || m} value={m.id || m} className="bg-[#0e0e1a]">
+                    {m.name || m.id || m}{m.cost ? ` ($${m.cost})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Last Validated */}
+            {keyStatus?.validated_at && (
+              <div>
+                <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Last Validated</label>
+                <p className="text-sm text-gray-400">{new Date(keyStatus.validated_at).toLocaleString()}</p>
+              </div>
+            )}
+
+            {/* Update Key Button */}
+            <MotionButton
+              onClick={() => setShowKeyModal(true)}
+              className="px-4 py-2 text-sm font-medium text-indigo-400 bg-indigo-900/20 border border-indigo-800/50 rounded-lg hover:bg-indigo-900/40 transition cursor-pointer"
+            >
+              Update Key
+            </MotionButton>
+          </div>
+        </div></TiltCard>
+      </StaggerItem>
+
+      {/* Update Key Modal */}
+      <AnimatePresence>
+        {showKeyModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+            onClick={() => { setShowKeyModal(false); setNewKey(""); setKeyError(""); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              ref={keyModalRef}
+              className="glass-card rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-white mb-2">Update API Key</h3>
+              <p className="text-sm text-gray-400 mb-4">Enter your Anthropic API key. It will be validated and encrypted before saving.</p>
+
+              <div className="relative mb-3">
+                <input
+                  type={showKey ? "text" : "password"}
+                  value={newKey}
+                  onChange={(e) => setNewKey(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !keyValidating) handleSaveKey(); }}
+                  placeholder="sk-ant-..."
+                  className="w-full glass-input rounded-lg px-4 py-2.5 text-white pr-10 input-glow"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                >
+                  {showKey ? (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.879L21 21" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+
+              {keyError && (
+                <p className="text-sm text-red-400 mb-3">{keyError}</p>
+              )}
+
+              <div className="flex gap-3">
+                <MotionButton
+                  onClick={() => { setShowKeyModal(false); setNewKey(""); setKeyError(""); }}
+                  className="flex-1 glass hover:bg-white/10 text-gray-300 font-medium rounded-lg py-2.5 transition cursor-pointer"
+                >
+                  Cancel
+                </MotionButton>
+                <MotionButton
+                  onClick={handleSaveKey}
+                  disabled={keyValidating || !newKey.trim()}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-medium rounded-lg py-2.5 transition cursor-pointer"
+                >
+                  {keyValidating ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Validating
+                    </span>
+                  ) : "Validate & Save"}
+                </MotionButton>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
 }
 
 export default function Account() {
@@ -118,11 +316,17 @@ export default function Account() {
   return (
     <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
-      <AnimatedBackground className="fixed inset-0 pointer-events-none" />
+      <GPUTierProvider>
+        <_WebGLBound fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+          <Suspense fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+            <PageBackground3D mode="data" className="fixed inset-0" />
+          </Suspense>
+        </_WebGLBound>
+      </GPUTierProvider>
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
           <h1 className="text-xl font-bold text-white">Account</h1>
-          <p className="text-xs text-gray-400">Your account details, usage stats & connections</p>
+          <p className="text-xs text-gray-400">Your data ecosystem at a glance</p>
         </div>
         <UserDropdown />
       </header>
@@ -146,7 +350,7 @@ export default function Account() {
           <StaggerContainer className="space-y-6">
             {/* 1. Account Info */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Account Information</h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -166,12 +370,12 @@ export default function Account() {
                     <p className="text-sm text-gray-200">{authLabel(account?.oauth_provider)}</p>
                   </div>
                 </div>
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* 2. Active Connections */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-semibold text-white">Active Connections</h2>
                   <span className="text-xs text-gray-500">{account?.active_connection_count || 0} live</span>
@@ -195,12 +399,12 @@ export default function Account() {
                 ) : (
                   <p className="text-sm text-gray-600">No active connections</p>
                 )}
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* 3. Query Statistics */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Query Statistics</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <StatCard value={qs.total_queries ?? 0} label="Total Queries" isNumber />
@@ -209,26 +413,26 @@ export default function Account() {
                   <StatCard value={qs.success_rate ? `${qs.success_rate}%` : "\u2014"} label="Success Rate" gradient="from-yellow-400 to-orange-400" />
                 </div>
                 {qs.last_query_at && <p className="text-xs text-gray-600 mt-3">Last query: {new Date(qs.last_query_at).toLocaleString()}</p>}
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* 4. Storage & Usage */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Storage & Usage</h2>
                 <div className="grid grid-cols-3 gap-3">
                   <StatCard value={account?.saved_connections ?? 0} label="Saved Connections" isNumber />
                   <StatCard value={account?.chat_count ?? 0} label="Chat Sessions" gradient="from-purple-400 to-pink-400" isNumber />
                   <StatCard value={account?.trained_tables ?? 0} label="Trained Tables" gradient="from-emerald-400 to-teal-400" isNumber />
                 </div>
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* 5. Saved Databases */}
             <AnimatePresence>
               {account?.saved_connections_list?.length > 0 && (
                 <StaggerItem>
-                  <div className="glass-card rounded-2xl p-6">
+                  <TiltCard><div className="glass-card rounded-2xl p-6">
                     <h2 className="text-sm font-semibold text-white mb-3">Saved Databases</h2>
                     <div className="flex flex-wrap gap-2">
                       {account.saved_connections_list.map((s, i) => (
@@ -244,14 +448,17 @@ export default function Account() {
                         </motion.div>
                       ))}
                     </div>
-                  </div>
+                  </div></TiltCard>
                 </StaggerItem>
               )}
             </AnimatePresence>
 
-            {/* 6. Danger Zone */}
+            {/* 6. API Configuration */}
+            <ApiConfigSection />
+
+            {/* 7. Danger Zone */}
             <StaggerItem>
-              <div className="glass-card border-red-900/30 rounded-2xl p-6">
+              <TiltCard><div className="glass-card border-red-900/30 rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-red-400 mb-2">Danger Zone</h2>
                 <p className="text-xs text-gray-500 mb-4">These actions cannot be undone.</p>
                 <AnimatePresence>
@@ -299,7 +506,7 @@ export default function Account() {
                     </MotionButton>
                   </div>
                 </div>
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* Delete Account Confirmation Modal */}

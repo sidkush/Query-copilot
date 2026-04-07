@@ -16,7 +16,7 @@ from otp import (
 )
 from config import settings
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 # ── OTP Pydantic models ─────────────────────────────────────
@@ -55,7 +55,7 @@ def send_email_otp_endpoint(body: SendOTPRequest):
         otp = generate_otp(email, "email")
     except ValueError as e:
         raise HTTPException(status_code=429, detail=str(e))
-    logger.info(f"Sending OTP {otp} to {email}...")
+    logger.info(f"Sending OTP to {email}...")
     send_email_otp(email, otp)
     logger.info(f"send_email_otp() completed for {email}")
     return {
@@ -177,13 +177,18 @@ def login(user: UserLogin):
 
 
 # ── Demo login (for testing — remove before production) ─────
-DEMO_EMAIL = "demo@querycopilot.test"
+DEMO_EMAIL = "demo@datalens.dev"
 DEMO_PASSWORD = "DemoTest2026!"
 DEMO_NAME = "Demo User"
 
 @router.post("/demo-login", response_model=TokenResponse)
 def demo_login():
-    """Create or log in as the demo test user. No OTP required."""
+    """Create or log in as the demo test user. No OTP required.
+    Disabled in production unless DEMO_LOGIN_ENABLED=true."""
+    import os
+    if (os.environ.get("DATALENS_ENV") or os.environ.get("QUERYCOPILOT_ENV", "")).lower() in ("production", "prod", "staging"):
+        if not os.environ.get("DEMO_LOGIN_ENABLED", "").lower() in ("true", "1"):
+            raise HTTPException(status_code=403, detail="Demo login is disabled in production")
     authenticated = authenticate_user(email=DEMO_EMAIL, password=DEMO_PASSWORD)
     if not authenticated:
         # First time — create the demo user

@@ -2,7 +2,10 @@
 PII Masking — Detect and redact sensitive data in query results.
 """
 
+import json
 import re
+import threading
+from pathlib import Path
 from typing import Set
 
 SENSITIVE_COLUMN_PATTERNS = {
@@ -28,13 +31,80 @@ PII_PATTERNS = {
 }
 
 
-def mask_dataframe(df, mask_char: str = "*", extra_columns: Set[str] = None):
+# ── PII Suppression Registry ───────────────────────────────────────
+# Admin-flagged columns that are always redacted, regardless of pattern matching.
+
+_suppression_lock = threading.Lock()
+_SUPPRESSION_FILE = Path(__file__).resolve().parent / ".data" / "pii_suppressions.json"
+
+
+def _load_suppressions() -> dict:
+    """Load {conn_id: [col1, col2, ...]} mapping."""
+    if _SUPPRESSION_FILE.exists():
+        try:
+            return json.loads(_SUPPRESSION_FILE.read_text("utf-8"))
+        except Exception:
+            return {}
+    return {}
+
+
+def _save_suppressions(data: dict):
+    _SUPPRESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = _SUPPRESSION_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2), "utf-8")
+    tmp.replace(_SUPPRESSION_FILE)
+
+
+def add_suppressed_column(conn_id: str, column: str):
+    """Admin: flag a column as always-redacted for a connection."""
+    with _suppression_lock:
+        data = _load_suppressions()
+        cols = data.setdefault(conn_id, [])
+        col_lower = column.lower().strip()
+        if col_lower not in cols:
+            cols.append(col_lower)
+        _save_suppressions(data)
+
+
+def remove_suppressed_column(conn_id: str, column: str):
+    """Admin: unflag a column."""
+    with _suppression_lock:
+        data = _load_suppressions()
+        cols = data.get(conn_id, [])
+        col_lower = column.lower().strip()
+        if col_lower in cols:
+            cols.remove(col_lower)
+            if not cols:
+                del data[conn_id]
+            _save_suppressions(data)
+
+
+def list_suppressed_columns(conn_id: str = None) -> dict:
+    """List suppressed columns, optionally filtered by conn_id."""
+    data = _load_suppressions()
+    if conn_id:
+        return {conn_id: data.get(conn_id, [])}
+    return data
+
+
+def get_suppressed_set(conn_id: str = None) -> Set[str]:
+    """Get all suppressed column names (global + per-connection) as a set."""
+    data = _load_suppressions()
+    result = set(data.get("_global", []))
+    if conn_id and conn_id in data:
+        result.update(data[conn_id])
+    return result
+
+
+def mask_dataframe(df, mask_char: str = "*", extra_columns: Set[str] = None, conn_id: str = None):
     import pandas as pd  # Lazy import: avoids native DLL conflict with ChromaDB on Windows
     if df is None or df.empty:
         return df
 
     masked = df.copy()
     extra = extra_columns or set()
+    # Merge admin-suppressed columns
+    extra = extra | get_suppressed_set(conn_id)
     columns_to_mask = set()
 
     for col in masked.columns:

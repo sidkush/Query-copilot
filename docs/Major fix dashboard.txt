@@ -1,0 +1,128 @@
+All 20 agents have reported. Here's the full synthesis.                                                                                                                                                                                                                                                                                                                             ---                                                                                                                                                                                       Council Synthesis: Implementation Approaches                                                                                                                                            
+                                                                                                                                                                                            Consensus Signal (STRONG)                                                                                                                                                               
+
+  All 10 personas agree: Fix broken buttons first, then build a Presentation Engine. No dissent.
+
+  ┌─────┬───────────────────────────────┬──────────────────────────────────────────────────────────────────────────┬────────┬──────────────────────────────────────────┬─────────────┐    
+  │  #  │           Approach            │                                Core Idea                                 │ Effort │                   Risk                   │   Persona   │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 1   │ Surgical Fix + Presentation   │ Fix 4 broken items, bolt on auto-layout fullscreen engine                │ M      │ Layout state corruption during reflow    │ Pragmatist  │    
+  │     │ Layer                         │                                                                          │        │                                          │             │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 2   │ Layered Polish + Presentation │ Fix wiring → visibility rule editor → presentation with slide nav +      │ L      │ react-grid-layout coordinate conflicts   │ Architect   │    
+  │     │  Engine                       │ speaker notes                                                            │        │                                          │             │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 3   │ Surgical Patch + Slide        │ Fix bugs → visibility UI → fullscreen CSS snap-scroll slides with        │ M      │ Layout fighting controlled state         │ Hacker      │    
+  │     │ Presentation                  │ progress bar                                                             │        │                                          │             │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 4   │ Progressive Enhancement +     │ Fix → section rules → 16:9 slide reflow scored by tile importance (KPI > │ L      │ Auto-layout heuristic fails on unusual   │ Researcher  │    
+  │     │ Slide Columns                 │  chart > table)                                                          │        │ mixes                                    │             │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 5   │ Minimal Patch + CSS           │ Delete section "..." menu (replace inline), ~115 LOC total for all fixes │ M      │ Column math wrong on non-16:9 screens    │ Minimalist  │    
+  │     │ Auto-Layout                   │  + presentation                                                          │        │                                          │             │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 6   │ Unified Context-Aware Canvas  │ Replace dual grid/freeform with adaptive canvas + command palette        │ XL     │ Breaks existing saved dashboard layouts  │ Futurist    │    
+  │     │                               │ replacing scattered menus                                                │        │                                          │             │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 7   │ Hardened Incremental Repair   │ Fix UI + move filter injection server-side + re-validate all SQL +       │ L      │ Server-side filter regression breaks all │ Guardian    │    
+  │     │                               │ presentation                                                             │        │  dashboards                              │             │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 8   │ Parallel-First Stabilization  │ Fix UI → parallel refresh (Promise.allSettled) → drop Recharts →         │ L      │ Per-tile state slice conflicts with      │ Optimizer   │    
+  │     │                               │ per-tile React.memo → presentation                                       │        │ full-dashboard saves                     │             │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 9   │ Zero-Friction Editing         │ Auto-save layout (300ms debounce) → instant filter apply → parallel      │ L      │ Auto-save conflicts with undo history    │ User        │    
+  │     │                               │ loading → presentation with ken-burns                                    │        │                                          │ Advocate    │    
+  ├─────┼───────────────────────────────┼──────────────────────────────────────────────────────────────────────────┼────────┼──────────────────────────────────────────┼─────────────┤    
+  │ 10  │ Modal-First Gap Fill          │ Wire existing modal patterns (SettingsModal, KPI toolbar parity) →       │ M      │ Prop-drilling refactor for sectionId     │ Integrator  │    
+  │     │                               │ PresentationMode overlay                                                 │        │                                          │             │    
+  └─────┴───────────────────────────────┴──────────────────────────────────────────────────────────────────────────┴────────┴──────────────────────────────────────────┴─────────────┘    
+
+  Top Combined Approaches
+
+  ┌─────┬─────────────────────────────────────────────────────┬────────────────────────────────────────┬──────────────────────────────────────────────────────────────┐
+  │  #  │                  Combined Approach                  │                Sources                 │                             Why                              │
+  ├─────┼─────────────────────────────────────────────────────┼────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ A   │ Fix → Parallel Perf → Presentation Engine           │ Pragmatist + Optimizer + User Advocate │ Fix trust → feel fast → wow factor. Three clear phases.      │
+  ├─────┼─────────────────────────────────────────────────────┼────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ B   │ Fix → Auto-Save + Security Hardening → Presentation │ Guardian + User Advocate + Integrator  │ Solid foundation before the showpiece feature.               │
+  ├─────┼─────────────────────────────────────────────────────┼────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ C   │ Fix → Presentation Engine → AI Features             │ Architect + Researcher + Futurist      │ Ship the differentiator early, layer AI capabilities on top. │
+  └─────┴─────────────────────────────────────────────────────┴────────────────────────────────────────┴──────────────────────────────────────────────────────────────┘
+
+  ---
+  Domain Scan: Future Capabilities (All 10 Personas)
+
+  Tier 1: High Consensus (4+ personas recommend)
+
+  ┌───────────────────────────────┬──────────────────────────────────────────────────────────────────────┬──────────┬────────────┬───────────────────────────────────────────────────┐    
+  │            Feature            │                             What It Does                             │ Mentions │ Complexity │           Why It Beats Tableau/Power BI           │    
+  ├───────────────────────────────┼──────────────────────────────────────────────────────────────────────┼──────────┼────────────┼───────────────────────────────────────────────────┤    
+  │ Anomaly Narrator              │ Auto-detects statistical outliers on charts, surfaces AI-written     │ 6/10     │ S-M        │ Insights come to you — no hunting                 │    
+  │                               │ explanations                                                         │          │            │                                                   │    
+  ├───────────────────────────────┼──────────────────────────────────────────────────────────────────────┼──────────┼────────────┼───────────────────────────────────────────────────┤    
+  │ Conversational Dashboard      │ "Make this a bar chart, filter to Q1" — modify tiles via chat        │ 4/10     │ M          │ No modal-switching, true inline NL editing        │    
+  │ Editing                       │                                                                      │          │            │                                                   │    
+  ├───────────────────────────────┼──────────────────────────────────────────────────────────────────────┼──────────┼────────────┼───────────────────────────────────────────────────┤    
+  │ Scheduled Snapshot Digests    │ Email/Slack PDF dashboards on cron with change summaries             │ 4/10     │ M          │ No Tableau Server license, AI-generated delta     │    
+  │                               │                                                                      │          │            │ summaries                                         │    
+  ├───────────────────────────────┼──────────────────────────────────────────────────────────────────────┼──────────┼────────────┼───────────────────────────────────────────────────┤    
+  │ Shareable Read-Only Links     │ Token-gated public URLs for non-account viewers                      │ 3/10     │ S          │ No workspace/license needed for viewers           │    
+  ├───────────────────────────────┼──────────────────────────────────────────────────────────────────────┼──────────┼────────────┼───────────────────────────────────────────────────┤    
+  │ Drill-Down / Drill-Through    │ Click data point → AI generates scoped child query                   │ 3/10     │ M          │ LLM generates drill SQL vs manual config          │    
+  ├───────────────────────────────┼──────────────────────────────────────────────────────────────────────┼──────────┼────────────┼───────────────────────────────────────────────────┤    
+  │ NL Alerts                     │ "Alert me when revenue drops 15%" → AI parses condition, polls,      │ 3/10     │ M          │ Natural language rules, not GUI wizards           │    
+  │                               │ emails                                                               │          │            │                                                   │    
+  └───────────────────────────────┴──────────────────────────────────────────────────────────────────────┴──────────┴────────────┴───────────────────────────────────────────────────┘    
+
+  Tier 2: High Impact, Unique Ideas
+
+  ┌──────────────────────────┬─────────────────────────────────────────────────────────────────────────┬────────────┬────────────┬───────────────────────────────────────────────┐        
+  │         Feature          │                              What It Does                               │    From    │ Complexity │                  Wow Factor                   │        
+  ├──────────────────────────┼─────────────────────────────────────────────────────────────────────────┼────────────┼────────────┼───────────────────────────────────────────────┤        
+  │ Screenshot-to-Dashboard  │ Drop a photo of any dashboard/whiteboard → AI rebuilds it as live tiles │ Hacker     │ M          │ "I can't do THIS in Tableau"                  │        
+  ├──────────────────────────┼─────────────────────────────────────────────────────────────────────────┼────────────┼────────────┼───────────────────────────────────────────────┤        
+  │ Query What-If Sliders    │ Bind sliders to SQL parameters, re-execute live as user drags           │ Pragmatist │ M          │ Parameterized queries without LOD expressions │        
+  ├──────────────────────────┼─────────────────────────────────────────────────────────────────────────┼────────────┼────────────┼───────────────────────────────────────────────┤        
+  │ Time-Warp Playback       │ Scrubber replays data at any past timestamp, animated like video        │ Hacker     │ L          │ Historical without pre-prepared extracts      │        
+  ├──────────────────────────┼─────────────────────────────────────────────────────────────────────────┼────────────┼────────────┼───────────────────────────────────────────────┤        
+  │ Rage-Click Detector      │ Detects frustration clicks → auto-suggests drill-down or reformulation  │ Hacker     │ S          │ No BI tool tracks UX frustration signals      │        
+  ├──────────────────────────┼─────────────────────────────────────────────────────────────────────────┼────────────┼────────────┼───────────────────────────────────────────────┤        
+  │ Query Confidence Scoring │ Every SQL gets 0-100 confidence + caveats ("assumes status is enum")    │ Futurist   │ S          │ Trust is the #1 AI-SQL adoption blocker       │        
+  ├──────────────────────────┼─────────────────────────────────────────────────────────────────────────┼────────────┼────────────┼───────────────────────────────────────────────┤        
+  │ Embeddable Tile SDK      │ <script> tag renders any tile in third-party pages, no iframe           │ Architect  │ L          │ Headless distribution                         │        
+  ├──────────────────────────┼─────────────────────────────────────────────────────────────────────────┼────────────┼────────────┼───────────────────────────────────────────────┤        
+  │ Optimistic SQL Execution │ Pre-executes probable query while user reviews, cache result            │ Optimizer  │ M          │ Eliminates second round-trip latency          │        
+  ├──────────────────────────┼─────────────────────────────────────────────────────────────────────────┼────────────┼────────────┼───────────────────────────────────────────────┤        
+  │ Streamed SQL + Summary   │ SSE streams Claude tokens to frontend in real-time                      │ Optimizer  │ M          │ 3x faster perceived time-to-first-token       │        
+  └──────────────────────────┴─────────────────────────────────────────────────────────────────────────┴────────────┴────────────┴───────────────────────────────────────────────┘        
+
+  Tier 3: Infrastructure & Trust
+
+  ┌─────────────────────────────────┬──────────────────────────────────────────────────────────────────┬──────────────────────┬────────────┐
+  │             Feature             │                           What It Does                           │         From         │ Complexity │
+  ├─────────────────────────────────┼──────────────────────────────────────────────────────────────────┼──────────────────────┼────────────┤
+  │ SQL Diff Audit Log              │ Captures every user-edited SQL diff with metadata                │ Guardian             │ S          │
+  ├─────────────────────────────────┼──────────────────────────────────────────────────────────────────┼──────────────────────┼────────────┤
+  │ Formula Sandbox                 │ Runs metric formulas in a restricted Web Worker with CPU timeout │ Guardian             │ M          │
+  ├─────────────────────────────────┼──────────────────────────────────────────────────────────────────┼──────────────────────┼────────────┤
+  │ PII Column Suppression Registry │ Admin-flagged columns always redacted                            │ Guardian             │ S          │
+  ├─────────────────────────────────┼──────────────────────────────────────────────────────────────────┼──────────────────────┼────────────┤
+  │ Per-Connection Rate Limiting    │ Circuit-breaker on repeated query failures per connection        │ Guardian             │ S          │
+  ├─────────────────────────────────┼──────────────────────────────────────────────────────────────────┼──────────────────────┼────────────┤
+  │ Semantic Metric Layer           │ Define "ARR" once, reuse across all dashboards via ChromaDB      │ Architect + Futurist │ L          │
+  ├─────────────────────────────────┼──────────────────────────────────────────────────────────────────┼──────────────────────┼────────────┤
+  │ Dashboard Version History       │ Immutable snapshots with diff viewer                             │ Architect            │ S          │
+  ├─────────────────────────────────┼──────────────────────────────────────────────────────────────────┼──────────────────────┼────────────┤
+  │ CSV/JSON Export Per Tile        │ One-click download of raw result behind any tile                 │ Minimalist           │ S          │
+  └─────────────────────────────────┴──────────────────────────────────────────────────────────────────┴──────────────────────┴────────────┘
+
+  ---
+  The Big Picture: What Makes QueryCopilot Win
+
+  The council converges on a three-layer differentiation strategy:
+
+  1. Foundation (Week 1): Fix broken elements + parallel perf + auto-save = trust & speed
+  2. Showpiece (Week 2): Presentation Engine with auto-layout = "better than Tableau" moment
+  3. AI Moat (Week 3+): Conversational editing + anomaly narrator + NL alerts = things no traditional BI tool can do
+
+  The AI capabilities are QueryCopilot's unfair advantage — Tableau and Power BI can't easily add conversational editing or anomaly narration because they lack an LLM at the core.  

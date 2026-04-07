@@ -14,7 +14,7 @@ async function request(path, options = {}) {
       headers: getHeaders(),
       ...options,
     });
-  } catch (err) {
+  } catch {
     throw new Error("Cannot connect to server. Please ensure the backend is running.");
   }
   if (res.status === 401) {
@@ -29,7 +29,16 @@ async function request(path, options = {}) {
   } catch {
     throw new Error(res.ok ? "Invalid response from server" : `Server error (${res.status})`);
   }
-  if (!res.ok) throw new Error(data.detail || "Request failed");
+  if (!res.ok) {
+    // Detect invalid API key errors and flag in store
+    if (res.status === 422 && data.error === "api_key_invalid") {
+      try {
+        const store = await import("./store");
+        store.useStore.getState().setApiKeyStatus({ valid: false });
+      } catch { /* store not available */ }
+    }
+    throw new Error(data.detail || "Request failed");
+  }
   return data;
 }
 
@@ -123,6 +132,44 @@ export const api = {
   reconnect: (configId) =>
     request(`/connections/reconnect/${configId}`, { method: "POST" }),
 
+  // Turbo Mode (Query Intelligence)
+  enableTurbo: (connId) =>
+    request(`/connections/${connId}/turbo/enable`, { method: "POST" }),
+
+  disableTurbo: (connId) =>
+    request(`/connections/${connId}/turbo/disable`, { method: "POST" }),
+
+  getTurboStatus: (connId) =>
+    request(`/connections/${connId}/turbo/status`),
+
+  refreshTurbo: (connId) =>
+    request(`/connections/${connId}/turbo/refresh`, { method: "POST" }),
+
+  getSchemaProfile: (connId) =>
+    request(`/connections/${connId}/schema-profile`),
+
+  refreshSchema: (connId) =>
+    request(`/connections/${connId}/refresh-schema`, { method: "POST" }),
+
+  // API Key Management (BYOK)
+  saveApiKey: (key) =>
+    request("/user/api-key", { method: "POST", body: JSON.stringify({ api_key: key }) }),
+
+  getApiKeyStatus: () =>
+    request("/user/api-key/status"),
+
+  deleteApiKey: () =>
+    request("/user/api-key", { method: "DELETE" }),
+
+  validateApiKey: () =>
+    request("/user/api-key/validate", { method: "POST" }),
+
+  updatePreferredModel: (model) =>
+    request("/user/preferred-model", { method: "PUT", body: JSON.stringify({ model }) }),
+
+  getAvailableModels: () =>
+    request("/user/available-models"),
+
   // Queries (human-in-the-loop)
   generateSQL: (question, connId = null) =>
     request("/queries/generate", {
@@ -196,6 +243,42 @@ export const api = {
   getStats: () => request("/queries/stats"),
   getSuggestions: (connId = null) =>
     request(`/queries/suggestions${connId ? `?conn_id=${connId}` : ""}`),
+
+  getPredictions: (connId = null, currentQuestion = "", currentSql = "") =>
+    request("/queries/predictions", {
+      method: "POST",
+      body: JSON.stringify({
+        conn_id: connId || null,
+        current_question: currentQuestion,
+        current_sql: currentSql,
+      }),
+    }),
+
+  submitBehaviorDelta: (delta) =>
+    request("/behavior/delta", {
+      method: "POST",
+      body: JSON.stringify(delta),
+    }),
+
+  getBehaviorConsent: () => request("/behavior/consent"),
+
+  updateBehaviorConsent: (level) =>
+    request("/behavior/consent", {
+      method: "PUT",
+      body: JSON.stringify({ consent_level: level }),
+    }),
+
+  getAutocomplete: (query, connId = null) =>
+    request(`/queries/autocomplete?q=${encodeURIComponent(query)}${connId ? `&conn_id=${connId}` : ""}`),
+
+  getPersonas: () => request("/behavior/personas"),
+
+  getInsightChains: () => request("/behavior/insight-chains"),
+  getPreloadTargets: () => request("/behavior/preload-targets"),
+  getPrecacheQueries: () => request("/behavior/precache-queries"),
+  getWorkflowPatterns: () => request("/behavior/workflow-patterns"),
+  getSkillGaps: () => request("/behavior/skill-gaps"),
+  getCollaborativeSuggestions: () => request("/behavior/collaborative-suggestions"),
 
   // Schema
   getTables: (connId = null) =>
@@ -456,7 +539,7 @@ export const api = {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
           setTimeout(connect, delay);
         }
-      } catch (err) {
+      } catch {
         if (controller.signal.aborted) return; // intentional close
         if (retryCount < MAX_RETRIES) {
           retryCount++;
@@ -471,12 +554,14 @@ export const api = {
   },
 
   // ── Agent ──────────────────────────────────────────────────
-  agentRun: (question, connId, chatId, onStep) => {
+  agentRun: (question, connId, chatId, onStep, { persona, permissionMode } = {}) => {
     const controller = new AbortController();
     const body = JSON.stringify({
       question,
       conn_id: connId || null,
       chat_id: chatId || null,
+      persona: persona || null,
+      permission_mode: permissionMode || "supervised",
     });
     const run = async () => {
       try {

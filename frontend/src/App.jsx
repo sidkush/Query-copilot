@@ -1,6 +1,9 @@
+import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useStore } from "./store";
+import { api } from "./api";
+import behaviorEngine from "./lib/behaviorEngine";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import OAuthCallback from "./pages/OAuthCallback";
@@ -15,11 +18,31 @@ import AppLayout from "./components/AppLayout";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import DashboardBuilder from "./pages/DashboardBuilder";
+import SharedDashboard from "./pages/SharedDashboard";
 import PageTransition from "./components/animation/PageTransition";
+
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 
 function ProtectedRoute({ children }) {
   const token = useStore((s) => s.token);
-  return token ? children : <Navigate to="/login" replace />;
+  const onboardingComplete = useStore((s) => s.onboardingComplete);
+  const apiKeyStatus = useStore((s) => s.apiKeyStatus);
+  const location = useLocation();
+
+  if (!token) return <Navigate to="/login" replace />;
+
+  // Allow /onboarding route itself
+  if (location.pathname === "/onboarding") return children;
+
+  // New users: full onboarding
+  if (!onboardingComplete) return <Navigate to="/onboarding" replace />;
+
+  // Existing users without API key: direct to step 3
+  if (apiKeyStatus && !apiKeyStatus.configured && apiKeyStatus.configured !== undefined) {
+    return <Navigate to="/onboarding?step=3" replace />;
+  }
+
+  return children;
 }
 
 function AppPage({ children }) {
@@ -32,6 +55,25 @@ function AppPage({ children }) {
 
 function AnimatedRoutes() {
   const location = useLocation();
+  const token = useStore((s) => s.token);
+
+  // Initialize behavior engine with user's consent level
+  useEffect(() => {
+    if (token) {
+      api.getBehaviorConsent()
+        .then((data) => behaviorEngine.init(data.consent_level || 0))
+        .catch(() => behaviorEngine.init(0)); // Feature disabled or error — no tracking
+    } else {
+      behaviorEngine.stop();
+    }
+    return () => behaviorEngine.stop();
+  }, [token]);
+
+  // Track page navigation
+  useEffect(() => {
+    const page = location.pathname.replace(/^\//, "") || "landing";
+    behaviorEngine.trackNavigation(page);
+  }, [location.pathname]);
 
   return (
     <AnimatePresence mode="wait">
@@ -40,9 +82,10 @@ function AnimatedRoutes() {
         <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
         <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
         <Route path="/auth/callback" element={<OAuthCallback />} />
+        <Route path="/shared/:token" element={<PageTransition><SharedDashboard /></PageTransition>} />
 
         {/* Protected — no sidebar */}
-        <Route path="/tutorial" element={<ProtectedRoute><PageTransition><Tutorial /></PageTransition></ProtectedRoute>} />
+        <Route path="/onboarding" element={<ProtectedRoute><Suspense fallback={<div className="flex-1 bg-[#06060e]" />}><PageTransition><Onboarding /></PageTransition></Suspense></ProtectedRoute>} />
 
         {/* Protected — with sidebar */}
         <Route path="/dashboard" element={<AppPage><PageTransition><Dashboard /></PageTransition></AppPage>} />

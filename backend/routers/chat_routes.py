@@ -11,7 +11,7 @@ from user_storage import create_chat, list_chats, load_chat, append_message, del
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/chats", tags=["chats"])
+router = APIRouter(prefix="/api/v1/chats", tags=["chats"])
 
 _MAX_TITLE_LENGTH = 500
 _MAX_CONTENT_LENGTH = 10000
@@ -39,6 +39,17 @@ class CreateChatRequest(BaseModel):
         return v
 
 
+_VALID_MSG_TYPES = {"user", "sql_preview", "result", "error", "system", "chart", "dashboard"}
+_ALLOWED_MSG_FIELDS = {
+    "type", "content", "question", "sql", "rawSQL", "model", "latency",
+    "connId", "dbLabel", "summary", "columns", "rows", "rowCount",
+    "chartType", "chartConfig", "chartSuggestion", "timestamp",
+    "dashboardId", "tileId", "error",
+}
+_MAX_FIELD_SIZE = 50000  # 50KB cap per string field
+_MAX_ROWS = 500  # Cap stored rows
+
+
 def _validate_message(msg: dict) -> dict:
     """Sanitize and validate an incoming chat message dict.
 
@@ -49,14 +60,26 @@ def _validate_message(msg: dict) -> dict:
       - error:       {type, content}
       - system:      {type, content}
 
-    We store the full dict as-is so chat history loads back correctly.
+    We store validated fields only — unknown keys are stripped.
     """
     if not isinstance(msg, dict) or "type" not in msg:
         raise ValueError("Message must have a 'type' field")
-    # Truncate content if present
-    if "content" in msg and isinstance(msg["content"], str) and len(msg["content"]) > _MAX_CONTENT_LENGTH:
-        msg["content"] = msg["content"][:_MAX_CONTENT_LENGTH]
-    return msg
+    # Validate type is a known string
+    if not isinstance(msg["type"], str) or msg["type"] not in _VALID_MSG_TYPES:
+        raise ValueError(f"Invalid message type: {msg.get('type')}")
+    # Strip unknown fields
+    cleaned = {k: v for k, v in msg.items() if k in _ALLOWED_MSG_FIELDS}
+    # Cap string fields
+    for key in ("content", "sql", "rawSQL", "summary", "question"):
+        if key in cleaned and isinstance(cleaned[key], str) and len(cleaned[key]) > _MAX_FIELD_SIZE:
+            cleaned[key] = cleaned[key][:_MAX_FIELD_SIZE]
+    # Sanitize content for XSS
+    if "content" in cleaned and isinstance(cleaned["content"], str):
+        cleaned["content"] = _sanitize(cleaned["content"])
+    # Cap rows to prevent storage exhaustion
+    if "rows" in cleaned and isinstance(cleaned["rows"], list):
+        cleaned["rows"] = cleaned["rows"][:_MAX_ROWS]
+    return cleaned
 
 
 @router.get("/")

@@ -7,6 +7,14 @@ import React, { Suspense, Component, lazy } from "react";
 import AnimatedCounter from "../components/animation/AnimatedCounter";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import MotionButton from "../components/animation/MotionButton";
+import { GPUTierProvider, useGPUTier } from "../lib/gpuDetect";
+import useScrollParallax from "../components/animation/useScrollParallax";
+import useVisibilityMount from "../components/animation/useVisibilityMount";
+import TiltCard from "../components/animation/TiltCard";
+import AnimatedBorderGradient from "../components/animation/AnimatedBorderGradient";
+import CursorGlow from "../components/animation/CursorGlow";
+import ScrollProgress from "../components/animation/ScrollProgress";
+import LoadingScreen from "../components/animation/LoadingScreen";
 
 // WebGL Fallback Error Boundary
 class WebGLErrorBoundary extends Component {
@@ -25,7 +33,9 @@ class WebGLErrorBoundary extends Component {
 
 const Background3D = lazy(() => import("../components/animation/Background3D"));
 const SectionBackground3D = lazy(() => import("../components/animation/SectionBackground3D"));
+const DeviceFrame3D = lazy(() => import("../components/animation/DeviceFrame3D"));
 import { useScrollReveal } from "../components/animation/useScrollReveal";
+import ScrollReveal from "../components/animation/ScrollReveal";
 import demoChat from "../assets/chat_to_chart.webp";
 import demoAssembly from "../assets/dashboard_assembly.webp";
 import demoFilter from "../assets/dashboard_filter.webp";
@@ -34,15 +44,15 @@ import demoMultiDB from "../assets/multi_db_er.webp";
 const DEMO_SLIDES = [
   {
     id: "chat_to_chart",
-    label: "Chat to Analytics",
+    label: "AI Agent",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
       </svg>
     ),
     gif: demoChat,
-    title: "From Question to Insight",
-    desc: "Type 'What was our revenue by segment?' and instantly receive a perfectly configured, interactive chart generated in seconds.",
+    title: "Autonomous Multi-Step Analysis",
+    desc: "Watch the AI agent find tables, validate queries, and generate the right chart \u2014 all from a single natural language question.",
   },
   {
     id: "dashboard_assembly",
@@ -53,8 +63,8 @@ const DEMO_SLIDES = [
       </svg>
     ),
     gif: demoAssembly,
-    title: "Drag & Drop Assembly",
-    desc: "Seamlessly align your charts to a dynamic grid. Drag, resize, and arrange KPI tiles to build a highly professional presentation.",
+    title: "Drag-Drop Intelligence Grid",
+    desc: "Pin any insight to a responsive grid. Drag, resize, add KPI tiles, and configure global filters that sync every chart.",
   },
   {
     id: "dashboard_filter",
@@ -65,20 +75,20 @@ const DEMO_SLIDES = [
       </svg>
     ),
     gif: demoFilter,
-    title: "Intelligent Dashboard Sync",
-    desc: "Apply a date range or category filter globally. QueryCopilot understands the underlying schemas and dynamically updates every connected chart at once.",
+    title: "Cross-Database Sync",
+    desc: "Apply a date range or category filter once. DataLens understands the underlying schemas and updates every connected chart simultaneously.",
   },
   {
     id: "multi_db",
-    label: "Unified Data Sync",
+    label: "Unified Data",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375" />
       </svg>
     ),
     gif: demoMultiDB,
-    title: "16+ Data Connectors",
-    desc: "Hook into Postgres, MySQL, Snowflake, BigQuery, and more. Explore interactive ER diagrams and start dashboarding without manual mappings.",
+    title: "18 Engines, One Ecosystem",
+    desc: "Connect Postgres, MySQL, Snowflake, BigQuery, Databricks, ClickHouse, and more. Explore interactive ER diagrams across all your data sources.",
   },
 ];
 
@@ -89,41 +99,49 @@ const PAYMENT_LINKS = {
 };
 
 const FEATURES = [
-  { icon: "ai", title: "Natural Language to Chart", desc: "Claude AI translates your business requests into live graphs. No SQL plotting required—just ask and observe.", tags: ["Claude AI", "Instant Analytics"], span: "col-span-2" },
-  { icon: "speed", title: "Time to Dashboard", num: "1m", desc: "Average setup time", span: "" },
-  { icon: "shield", title: "Presentation Ready", desc: "Build highly-polished, glass-morphic layouts configured for executive meetings instantly.", tags: ["White-Label", "Ultra-Premium", "Mobile-Ready"], span: "" },
-  { icon: "chart", title: "Global Sync Filtering", desc: "Our powerful filtering bar ensures that modifying a date range updates every dashboard component synchronously.", tags: ["Cross-Chart Filtering", "Dynamic Sync"], span: "col-span-2" },
-  { icon: "database", title: "Connectors", num: "16", desc: "PG \u00B7 Snowflake \u00B7 BigQuery \u00B7 Databricks & more", span: "" },
-  { icon: "export", title: "Instant Export", desc: "Deploy your dashboard as a PDF or share a dynamic link straight to Slack.", tags: ["PDF", "Slack", "Live Link"], span: "" },
-  { icon: "brain", title: "Data Accuracy", num: "100%", desc: "Grounded directly in your DB", span: "" },
+  { icon: "ai", title: "Agentic Analysis", desc: "Ask a question \u2014 the AI agent finds tables, validates SQL, and picks the right chart. Autonomously.", tags: ["Multi-Step AI", "Tool-Use Agent"], span: "col-span-2" },
+  { icon: "database", title: "18 Database Engines", num: "18", desc: "Postgres, Snowflake, BigQuery, and 15 more. One platform, every source.", span: "" },
+  { icon: "shield", title: "3-Layer Read-Only Security", desc: "Driver-level + SQL validation + connector re-check. Your data is never modified.", tags: ["Read-Only", "PII Masking", "OTP Auth"], span: "col-span-2" },
+  { icon: "chart", title: "NL Dashboards", desc: "Question \u2192 chart \u2192 drag-drop grid with global filters and live KPIs.", tags: ["Drag & Drop", "Global Filters"], span: "" },
+  { icon: "brain", title: "Self-Improving RAG", desc: "Every feedback loop retrains the system. Queries get smarter over time.", span: "" },
+  { icon: "speed", title: "Instant to Boardroom", desc: "One-click 16:9 slides, PDF export, or Slack push.", tags: ["PDF", "Slack", "Presentation Mode"], span: "" },
+  { icon: "export", title: "Alerts & Digests", desc: "Define conditions in plain English. Get Slack/Teams webhooks and scheduled emails.", tags: ["Slack", "Teams", "Email"], span: "" },
 ];
 
 const STEPS = [
-  { num: 1, title: "Connect your database", desc: "Enter your secure credentials once. QueryCopilot auto-discovers your schema natively—never modifying your actual data.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg> },
-  { num: 2, title: "Query in Natural English", desc: "Ask questions like 'What is the top performing tier?', and instantly generated data visualizations appear in your chat.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg> },
-  { num: 3, title: "Build and Present", desc: "Save visualizations to a custom grid or freeform array. Configure global layout filtering and go straight into your executive meeting.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg> },
+  { num: 1, title: "Connect any database", desc: "Securely connect PostgreSQL, Snowflake, BigQuery, or any of 18 supported engines. Your schema is auto-discovered and indexed \u2014 your data is never copied or modified.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg> },
+  { num: 2, title: "Ask your AI agent", desc: "Describe what you need in plain English. The agent autonomously finds relevant tables, validates SQL, executes queries, and suggests the optimal visualization.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg> },
+  { num: 3, title: "Build, present, automate", desc: "Pin insights to drag-drop dashboards with global filters. Auto-layout into presentation slides. Set up NL alerts and scheduled digests to stay ahead.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg> },
 ];
 
 const STATS = [
-  { value: 1, suffix: "m", label: "Dashboard setup time" },
-  { value: 100, suffix: "%", label: "Business ready aesthetics" },
-  { value: 31, suffix: "+", label: "SQL dialects supported" },
-  { value: 16, suffix: " DBs", label: "Connectors ready to use" },
+  { value: 18, suffix: "+", label: "Supported databases" },
+  { value: 6, suffix: "-layer", label: "SQL security pipeline" },
+  { value: 100, suffix: "%", label: "Read-only enforcement" },
+  { value: 0, suffix: "", label: "Write access \u2014 ever" },
 ];
 
 const TESTIMONIALS = [
-  { name: "Sarah Johnson", role: "Head of Growth \u00B7 Nexora", avatar: "SJ", quote: "Our executive meetings are fully powered by QueryCopilot dashboards. We build them in 5 minutes using literal natural language." },
-  { name: "Marcus Chen", role: "Senior Data Engineer \u00B7 TechFlow", avatar: "MC", quote: "I was skeptical, but the visual quality of the output is incredibly premium. It completely eliminates dashboarding bottlenecks." },
-  { name: "Aisha Patel", role: "VP Operations \u00B7 DataSync", avatar: "AP", quote: "Setup took 15 minutes. My entire ops team is generating dashboards dynamically. Simple, gorgeous, and incredibly effective." },
+  { name: "Sarah Johnson", role: "Head of Data \u00B7 Nexora", avatar: "SJ", quote: "We replaced three BI tools with DataLens. The AI agent handles 80% of our ad-hoc analysis, and the 3-layer security model got us past our CISO\u2019s review in a single meeting." },
+  { name: "Marcus Chen", role: "VP Engineering \u00B7 TechFlow", avatar: "MC", quote: "Connecting Snowflake, Postgres, and BigQuery into one dashboard took 10 minutes. The agent even figured out the join logic across databases." },
+  { name: "Aisha Patel", role: "VP Operations \u00B7 DataSync", avatar: "AP", quote: "The presentation engine turned our weekly ops review into a one-click workflow. NL alerts in Slack catch anomalies before our team even logs in." },
 ];
 
 const PLANS = [
-  { name: "Starter", price: "$0", period: "forever free", badge: null, featured: false, features: ["2 interactive dashboards", "PostgreSQL & MySQL", "Standard charts", "Email Support"], link: PAYMENT_LINKS.weekly, cta: "Start Free" },
-  { name: "Professional", price: "$29", period: "per month", badge: "Most Popular", featured: true, features: ["Unlimited dashboards", "All 16 database connectors", "Global Dashboard Filters", "PDF & Slack export", "Priority Support"], link: PAYMENT_LINKS.monthly, cta: "Start Monthly" },
-  { name: "Enterprise", price: "$199", period: "per year \u00B7 save 43%", badge: null, featured: false, features: ["Unlimited customizable dashboards", "White-labeled Presentation Mode", "Custom 3D Animations", "Advanced KPI tiles", "Dedicated Account Manager", "Up to 10 team seats"], link: PAYMENT_LINKS.yearly, cta: "Start Yearly \u2014 Best Value" },
+  { name: "Starter", price: "$0", period: "forever free", badge: null, featured: false, features: ["10 AI queries per day", "2 connectors (Postgres & MySQL)", "1 dashboard with basic charts", "Community support"], link: PAYMENT_LINKS.weekly, cta: "Start Free" },
+  { name: "Professional", price: "$29", period: "per month", badge: "Most Popular", featured: true, features: ["Unlimited AI queries", "All 18 database connectors", "Global filters, KPIs & drag-drop", "NL alerts + Slack/Teams webhooks", "PDF & Slack export", "Priority support"], link: PAYMENT_LINKS.monthly, cta: "Start Monthly" },
+  { name: "Enterprise", price: "$199", period: "per year \u00B7 save 43%", badge: null, featured: false, features: ["Everything in Professional", "16:9 presentation auto-layout", "Scheduled email digests", "White-label dashboards", "Up to 10 team seats", "Dedicated account manager"], link: PAYMENT_LINKS.yearly, cta: "Start Yearly \u2014 Best Value" },
 ];
 
-const TRUST = ["Acme Corp", "TechFlow", "DataSync", "Nexora", "PulseAI", "Velotech"];
+const TRUST = [
+  { name: "PostgreSQL", color: "text-blue-400/80" },
+  { name: "Snowflake", color: "text-cyan-400/80" },
+  { name: "BigQuery", color: "text-yellow-400/80" },
+  { name: "Databricks", color: "text-red-400/80" },
+  { name: "MySQL", color: "text-orange-400/80" },
+  { name: "ClickHouse", color: "text-amber-400/80" },
+  { name: "+ 12 more", color: "text-gray-400" },
+];
 
 
 const FEATURE_ICONS = {
@@ -213,10 +231,12 @@ const fadeScale = {
   },
 };
 
-/* ── Section wrapper with scroll-reveal ── */
-function RevealSection({ children, className = "", ...props }) {
+/* ── Section wrapper with scroll-reveal + parallax ── */
+function RevealSection({ children, className = "", parallaxSpeed, ...props }) {
   const { ref, isInView } = useScrollReveal({ once: true, margin: "-60px", amount: 0.08 });
-  return (
+  const parallax = useScrollParallax({ speed: parallaxSpeed || 0 });
+
+  const content = (
     <motion.div
       ref={ref}
       initial="hidden"
@@ -228,11 +248,32 @@ function RevealSection({ children, className = "", ...props }) {
       {children}
     </motion.div>
   );
+
+  // Wrap in parallax if speed specified
+  if (parallaxSpeed) {
+    return (
+      <motion.div ref={parallax.ref} style={{ y: parallax.parallaxY }}>
+        {content}
+      </motion.div>
+    );
+  }
+  return content;
+}
+
+/* ── Visibility-gated section background (unmounts off-screen Canvases) ── */
+function VisibleSectionBg({ children }) {
+  const { ref, isVisible } = useVisibilityMount({ rootMargin: "300px" });
+  return (
+    <div ref={ref}>
+      {isVisible ? children : null}
+    </div>
+  );
 }
 
 /* ── Demo Carousel Component ── */
 function DemoCarousel() {
   const [active, setActive] = useState(0);
+  const nav = useNavigate();
   const slide = DEMO_SLIDES[active];
 
   return (
@@ -291,7 +332,14 @@ function DemoCarousel() {
                 {slide.icon}
               </div>
               <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">{slide.title}</h3>
-              <p className="text-gray-400 leading-relaxed mb-6">{slide.desc}</p>
+              <p className="text-gray-400 leading-relaxed mb-5">{slide.desc}</p>
+              <button
+                onClick={() => nav("/login")}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-6 cursor-pointer group"
+              >
+                Try this feature
+                <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+              </button>
 
               {/* Progress dots */}
               <div className="flex items-center gap-3">
@@ -350,11 +398,12 @@ function StaggeredText({ text, className = "" }) {
           key={i}
           className="inline-block mr-[0.3em]"
           variants={{
-            hidden: { opacity: 0, y: 20, filter: "blur(4px)" },
+            hidden: { opacity: 0, y: 20, filter: "blur(4px)", scale: 1.03 },
             visible: {
               opacity: 1,
               y: 0,
               filter: "blur(0px)",
+              scale: 1,
               transition: { type: "spring", stiffness: 150, damping: 15, delay: i * 0.06 },
             },
           }}
@@ -366,12 +415,14 @@ function StaggeredText({ text, className = "" }) {
   );
 }
 
-export default function Landing() {
+function LandingInner() {
   const navigate = useNavigate();
   const token = useStore((s) => s.token);
+  const tier = useGPUTier();
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   const [scrolled, setScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [heroLoaded, setHeroLoaded] = useState(tier === "low");
 
   useEffect(() => {
     const handler = () => {
@@ -382,8 +433,18 @@ export default function Landing() {
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
+  // Auto-dismiss loading screen after timeout (in case Canvas never fires onCreated)
+  useEffect(() => {
+    if (heroLoaded) return;
+    const timer = setTimeout(() => setHeroLoaded(true), 3000);
+    return () => clearTimeout(timer);
+  }, [heroLoaded]);
+
   return (
     <div className="min-h-screen bg-[#06060e] text-gray-100 overflow-x-hidden relative noise-overlay">
+      <LoadingScreen visible={!heroLoaded} />
+      <ScrollProgress />
+      <CursorGlow />
       {/* ── Navbar (Glassmorphism) ── */}
       <nav className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "glass-navbar shadow-lg" : "bg-transparent border-b border-transparent"}`}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -408,10 +469,10 @@ export default function Landing() {
 
       {/* ── Hero (with 3D Background & Fallback) ── */}
       <section className="relative min-h-[92vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
-        {/* 3D glassmorphism tech background with 2D falback */}
+        {/* 3D glassmorphism tech background with 2D fallback */}
         <WebGLErrorBoundary fallback={<AnimatedBackground />}>
           <Suspense fallback={<AnimatedBackground />}>
-            <Background3D />
+            <Background3D onCreated={() => setHeroLoaded(true)} />
           </Suspense>
         </WebGLErrorBoundary>
 
@@ -425,8 +486,8 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 120, damping: 14, delay: 0.1 }}
           >
-            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" /></svg>
-            Next-Generation Dashboard Analytics
+            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+            The Agentic Data Intelligence Platform
           </motion.div>
 
           <motion.h1
@@ -435,9 +496,9 @@ export default function Landing() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 80, damping: 16, delay: 0.25 }}
           >
-            Business-Ready Dashboards{" "}
+            Your AI Analyst Across{" "}
             <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-pink-400 bg-clip-text text-transparent text-shimmer">
-              in minutes
+              Every Database
             </span>
           </motion.h1>
 
@@ -447,7 +508,7 @@ export default function Landing() {
             animate="visible"
           >
             <StaggeredText
-              text="QueryCopilot translates plain English into premium, interactive presentations. Drag, filter, and share executive-level insights instantly."
+              text="One AI agent. 18 databases. Enterprise-grade security. DataLens autonomously explores your data, generates insights, and builds presentation-ready dashboards — no SQL required."
             />
           </motion.p>
 
@@ -458,7 +519,7 @@ export default function Landing() {
             transition={{ type: "spring", stiffness: 100, damping: 16, delay: 0.7 }}
           >
             <MotionButton onClick={() => navigate("/login")} className="px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-full shadow-xl shadow-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/40 transition-all duration-300 cursor-pointer btn-glow">Start for free</MotionButton>
-            <MotionButton onClick={() => scrollTo("pricing")} className="px-8 py-3.5 glass text-white font-bold rounded-full hover:border-indigo-500/40 transition-all duration-300 cursor-pointer">See pricing</MotionButton>
+            <MotionButton onClick={() => scrollTo("demo")} className="px-8 py-3.5 glass text-white font-bold rounded-full hover:border-indigo-500/40 transition-all duration-300 cursor-pointer">Watch it work</MotionButton>
           </motion.div>
 
           <motion.p
@@ -473,55 +534,67 @@ export default function Landing() {
       </section>
 
       {/* ── Trust Strip (Glassmorphism) ── */}
-      <section className="glass-navbar py-6">
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-center gap-8 sm:gap-16 flex-wrap">
-          <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Trusted by</span>
-          {TRUST.map((name) => (
-            <span key={name} className="text-sm font-bold text-gray-600 uppercase tracking-wider hover:text-gray-300 transition-colors duration-300">{name}</span>
+      <section className="glass-navbar py-5">
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+          <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold mr-2">Connects to</span>
+          {TRUST.map((db) => (
+            <span key={db.name} className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wide border border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.07] transition-colors duration-200 ${db.color}`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
+              {db.name}
+            </span>
           ))}
         </div>
       </section>
 
       {/* ── Features Bento (Glassmorphism Cards) ── */}
       <section id="features" className="py-24 sm:py-32 relative overflow-hidden">
-        <Suspense fallback={null}><SectionBackground3D mode="features" /></Suspense>
-        <RevealSection className="max-w-7xl mx-auto px-6">
+        <VisibleSectionBg><Suspense fallback={null}><SectionBackground3D mode="features" /></Suspense></VisibleSectionBg>
+        <RevealSection className="max-w-7xl mx-auto px-6" parallaxSpeed={0.15}>
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Features</p>
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">Everything your team needs</h2>
-            <p className="text-gray-400 max-w-xl mx-auto">Built for the speed of modern business &mdash; from question to insight in under 3 seconds.</p>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 text-white font-heading">Intelligence, security, and scale — in one platform</ScrollReveal>
+            <p className="text-gray-400 max-w-xl mx-auto">From ad-hoc questions to automated monitoring, DataLens replaces your entire BI stack.</p>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map((f, i) => (
-              <motion.div
-                key={i}
-                className={`${f.span} glass-card rounded-2xl p-6 sm:p-8 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group`}
-                variants={{
-                  hidden: { opacity: 0, y: 40, scale: 0.95 },
-                  visible: {
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
-                    transition: { type: "spring", stiffness: 100, damping: 14, delay: i * 0.07 },
-                  },
-                }}
-              >
-                <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative z-10">
-                  {FEATURE_ICONS[f.icon]}
-                  {f.num && <span className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent block mb-1">{f.num}</span>}
-                  <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
-                  <p className="text-sm text-gray-400 leading-relaxed">{f.desc}</p>
-                  {f.tags && (
-                    <div className="flex gap-2 mt-4 flex-wrap">
-                      {f.tags.map((tag) => (
-                        <span key={tag} className="text-xs bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 rounded-full px-3 py-1 font-medium">{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
+            {FEATURES.map((f, i) => {
+              const isWide = f.span?.includes("col-span-2");
+              return (
+                <motion.div
+                  key={i}
+                  className={f.span || ""}
+                  variants={{
+                    hidden: { opacity: 0, y: 40, scale: 0.95 },
+                    visible: {
+                      opacity: 1,
+                      y: 0,
+                      scale: 1,
+                      transition: { type: "spring", stiffness: 100, damping: 14, delay: i * 0.07 },
+                    },
+                  }}
+                >
+                  <AnimatedBorderGradient active={isWide} borderRadius="1rem">
+                    <TiltCard className="h-full">
+                      <div className="glass-card rounded-2xl p-6 sm:p-8 h-full relative overflow-hidden group">
+                        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <div className="relative z-10">
+                          {FEATURE_ICONS[f.icon]}
+                          {f.num && <span className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent block mb-1">{f.num}</span>}
+                          <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
+                          <p className="text-sm text-gray-400 leading-relaxed">{f.desc}</p>
+                          {f.tags && (
+                            <div className="flex gap-2 mt-4 flex-wrap">
+                              {f.tags.map((tag) => (
+                                <span key={tag} className="text-xs bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 rounded-full px-3 py-1 font-medium">{tag}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TiltCard>
+                  </AnimatedBorderGradient>
+                </motion.div>
+              );
+            })}
           </div>
         </RevealSection>
       </section>
@@ -529,17 +602,16 @@ export default function Landing() {
       {/* ── How It Works (Glassmorphism) ── */}
       <section id="how" className="py-24 sm:py-32 relative overflow-hidden">
         <div className="absolute inset-0 mesh-gradient opacity-50 pointer-events-none" />
-        <Suspense fallback={null}><SectionBackground3D mode="howItWorks" /></Suspense>
-        <RevealSection className="max-w-7xl mx-auto px-6 relative z-10">
+        <VisibleSectionBg><Suspense fallback={null}><SectionBackground3D mode="howItWorks" /></Suspense></VisibleSectionBg>
+        <RevealSection className="max-w-7xl mx-auto px-6 relative z-10" parallaxSpeed={0.1}>
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">How It Works</p>
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">From question to insight in 3 steps</h2>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight text-white font-heading">From connection to intelligence in 3 steps</ScrollReveal>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {STEPS.map((s) => (
               <motion.div
                 key={s.num}
-                className="text-center glass-card rounded-2xl p-8 hover:-translate-y-1 transition-all duration-300"
                 variants={{
                   hidden: { opacity: 0, y: 50, scale: 0.9 },
                   visible: {
@@ -550,12 +622,16 @@ export default function Landing() {
                   },
                 }}
               >
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-500/30">
-                  {s.icon}
-                </div>
-                <div className="inline-flex items-center justify-center w-8 h-8 rounded-full glass text-indigo-400 text-sm font-bold mb-4">{s.num}</div>
-                <h3 className="text-lg font-bold text-white mb-3">{s.title}</h3>
-                <p className="text-sm text-gray-400 leading-relaxed">{s.desc}</p>
+                <TiltCard className="h-full">
+                  <div className="text-center glass-card rounded-2xl p-8 h-full">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-500/30">
+                      {s.icon}
+                    </div>
+                    <div className="inline-flex items-center justify-center w-8 h-8 rounded-full glass text-indigo-400 text-sm font-bold mb-4">{s.num}</div>
+                    <h3 className="text-lg font-bold text-white mb-3">{s.title}</h3>
+                    <p className="text-sm text-gray-400 leading-relaxed">{s.desc}</p>
+                  </div>
+                </TiltCard>
               </motion.div>
             ))}
           </div>
@@ -563,13 +639,13 @@ export default function Landing() {
       </section>
 
       {/* ── Live Demo Carousel ── */}
-      <section className="py-24 sm:py-32 relative overflow-hidden">
-        <Suspense fallback={null}><SectionBackground3D mode="demo" /></Suspense>
+      <section id="demo" className="py-24 sm:py-32 relative overflow-hidden">
+        <VisibleSectionBg><Suspense fallback={null}><SectionBackground3D mode="demo" /></Suspense></VisibleSectionBg>
         <RevealSection className="max-w-7xl mx-auto px-6">
           <motion.div className="text-center mb-10" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Live Demo</p>
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">See every feature in action</h2>
-            <p className="text-gray-400">Click a tab to explore how QueryCopilot works end to end.</p>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 text-white font-heading">See agentic intelligence in action</ScrollReveal>
+            <p className="text-gray-400">Click a tab to explore how DataLens works end to end.</p>
           </motion.div>
           <motion.div variants={fadeScale}>
             <DemoCarousel />
@@ -577,94 +653,114 @@ export default function Landing() {
         </RevealSection>
       </section>
 
-      {/* ── Stats (Glassmorphism + AnimatedCounter) ── */}
+      {/* ── Stats ── */}
       <section className="py-20 relative overflow-hidden">
         <div className="absolute inset-0 mesh-gradient opacity-30 pointer-events-none" />
-        <Suspense fallback={null}><SectionBackground3D mode="stats" /></Suspense>
-        <RevealSection className="max-w-5xl mx-auto px-6 relative z-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {STATS.map((s, i) => (
-              <motion.div
-                key={s.label}
-                className="text-center glass-card rounded-2xl p-6 hover:border-indigo-500/30 transition-all duration-300"
-                variants={{
-                  hidden: { opacity: 0, y: 30, scale: 0.9 },
-                  visible: {
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
-                    transition: { type: "spring", stiffness: 120, damping: 14, delay: i * 0.1 },
-                  },
-                }}
-              >
-                <div className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent mb-2">
-                  <AnimatedCounter
-                    value={s.value}
-                    suffix={s.suffix}
-                    duration={2}
-                    className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent"
-                  />
-                </div>
-                <p className="text-sm text-gray-400">{s.label}</p>
-              </motion.div>
-            ))}
-          </div>
+        <VisibleSectionBg><Suspense fallback={null}><SectionBackground3D mode="stats" /></Suspense></VisibleSectionBg>
+        <RevealSection className="max-w-5xl mx-auto px-6 relative z-10" parallaxSpeed={0.12}>
+          <TiltCard maxTilt={4}>
+            <div className="glass-card rounded-2xl relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/[0.03] via-transparent to-violet-500/[0.03] pointer-events-none" />
+              <div className="relative grid grid-cols-2 md:grid-cols-4">
+                {STATS.map((s, i) => (
+                  <motion.div
+                    key={s.label}
+                    className={`flex flex-col items-center justify-center py-8 sm:py-10 px-4 sm:px-6${
+                      i < 2 ? " border-b border-white/[0.06] md:border-b-0" : ""
+                    }${i % 2 === 0 ? " border-r border-white/[0.06]" : ""
+                    }${i === 1 ? " md:border-r md:border-white/[0.06]" : ""
+                    }${i === 2 ? " md:border-r md:border-white/[0.06]" : ""
+                    }${i === 3 ? " border-r-0" : ""}`}
+                    variants={{
+                      hidden: { opacity: 0, y: 20 },
+                      visible: {
+                        opacity: 1,
+                        y: 0,
+                        transition: { type: "spring", stiffness: 120, damping: 14, delay: i * 0.12 },
+                      },
+                    }}
+                  >
+                    <div className="mb-3 w-full text-center">
+                      <AnimatedCounter
+                        value={s.value}
+                        suffix={s.suffix}
+                        duration={2}
+                        className="text-3xl sm:text-4xl md:text-[2.75rem] font-extrabold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent leading-none tracking-tight"
+                      />
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed text-center max-w-[140px]">{s.label}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </TiltCard>
         </RevealSection>
       </section>
 
-      {/* ── Testimonials (Glassmorphism) ── */}
+      {/* ── Testimonials (Glassmorphism + TiltCard) ── */}
       <section className="py-24 sm:py-32 relative overflow-hidden">
-        <Suspense fallback={null}><SectionBackground3D mode="testimonials" /></Suspense>
-        <RevealSection className="max-w-7xl mx-auto px-6">
+        <VisibleSectionBg><Suspense fallback={null}><SectionBackground3D mode="testimonials" /></Suspense></VisibleSectionBg>
+        <RevealSection className="max-w-7xl mx-auto px-6" parallaxSpeed={0.1}>
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Testimonials</p>
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">Loved by data-driven teams</h2>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight text-white font-heading">Trusted by security-conscious data teams</ScrollReveal>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {TESTIMONIALS.map((t, i) => (
               <motion.div
                 key={t.name}
-                className="glass-card rounded-2xl p-6 sm:p-8 hover:-translate-y-1 transition-all duration-300"
                 variants={{
-                  hidden: { opacity: 0, y: 40, scale: 0.95 },
+                  hidden: { opacity: 0, y: 40, scale: 0.95, rotateY: -5 },
                   visible: {
                     opacity: 1,
                     y: 0,
                     scale: 1,
+                    rotateY: 0,
                     transition: { type: "spring", stiffness: 100, damping: 14, delay: i * 0.12 },
                   },
                 }}
               >
-                <div className="text-yellow-400 text-lg mb-4">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-                <p className="text-gray-300 italic leading-relaxed mb-6">&ldquo;{t.quote}&rdquo;</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg shadow-indigo-500/20">{t.avatar}</div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">{t.name}</p>
-                    <p className="text-xs text-gray-500">{t.role}</p>
+                <TiltCard className="h-full">
+                  <div className="glass-card rounded-2xl p-6 sm:p-8 h-full relative">
+                    {/* Floating quote mark */}
+                    <motion.span
+                      className="absolute -top-2 -left-1 text-4xl text-indigo-500/20 font-serif select-none pointer-events-none"
+                      animate={{ y: [0, -6, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      &ldquo;
+                    </motion.span>
+                    <div className="text-yellow-400 text-lg mb-4">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <p className="text-gray-300 italic leading-relaxed mb-6">&ldquo;{t.quote}&rdquo;</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg shadow-indigo-500/20">{t.avatar}</div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{t.name}</p>
+                        <p className="text-xs text-gray-500">{t.role}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </TiltCard>
               </motion.div>
             ))}
           </div>
         </RevealSection>
       </section>
 
-      {/* ── Pricing (Glassmorphism) ── */}
+      {/* ── Pricing (Glassmorphism + TiltCard + AnimatedBorder) ── */}
       <section id="pricing" className="py-24 sm:py-32 relative overflow-hidden">
         <div className="absolute inset-0 mesh-gradient opacity-40 pointer-events-none" />
-        <Suspense fallback={null}><SectionBackground3D mode="pricing" /></Suspense>
-        <RevealSection className="max-w-7xl mx-auto px-6 relative z-10">
+        <VisibleSectionBg><Suspense fallback={null}><SectionBackground3D mode="pricing" /></Suspense></VisibleSectionBg>
+        <RevealSection className="max-w-7xl mx-auto px-6 relative z-10" parallaxSpeed={0.08}>
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Pricing</p>
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4">Simple, transparent pricing</h2>
-            <p className="text-gray-400 max-w-md mx-auto">Start free, upgrade when you&apos;re ready. No hidden fees. 7-day trial on all plans.</p>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 text-white font-heading">Simple, transparent pricing</ScrollReveal>
+            <p className="text-gray-400 max-w-md mx-auto">Start free with 2 databases. Unlock the full ecosystem when you&apos;re ready.</p>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {PLANS.map((plan, i) => (
               <motion.div
                 key={plan.name}
-                className={`relative rounded-2xl p-8 transition-all duration-300 hover:-translate-y-1 ${plan.featured ? "glass-card border-indigo-500/40 shadow-xl shadow-indigo-500/10 scale-[1.03]" : "glass-card"}`}
                 variants={{
                   hidden: { opacity: 0, y: 50, scale: 0.9 },
                   visible: {
@@ -675,16 +771,22 @@ export default function Landing() {
                   },
                 }}
               >
-                {plan.badge && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg shadow-indigo-500/30">{plan.badge}</div>}
-                <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
-                <div className="mb-1"><span className="text-5xl font-extrabold text-white">{plan.price}</span></div>
-                <p className="text-sm text-gray-500 mb-6">{plan.period}</p>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-gray-300"><span className="text-green-400 mt-0.5 flex-shrink-0">&#10003;</span>{f}</li>
-                  ))}
-                </ul>
-                <a href={plan.link} target="_blank" rel="noopener noreferrer" className={`block text-center py-3 rounded-full font-bold text-sm transition-all duration-300 cursor-pointer ${plan.featured ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30 hover:-translate-y-0.5 btn-glow" : "glass text-white hover:border-indigo-500/40 hover:-translate-y-0.5"}`}>{plan.cta}</a>
+                <AnimatedBorderGradient active={plan.featured} borderRadius="1rem">
+                  <TiltCard className="h-full">
+                    <div className={`relative rounded-2xl p-8 h-full ${plan.featured ? "glass-card border-indigo-500/40 shadow-xl shadow-indigo-500/10" : "glass-card"}`}>
+                      {plan.badge && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg shadow-indigo-500/30">{plan.badge}</div>}
+                      <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
+                      <div className="mb-1"><span className="text-5xl font-extrabold text-white">{plan.price}</span></div>
+                      <p className="text-sm text-gray-500 mb-6">{plan.period}</p>
+                      <ul className="space-y-3 mb-8">
+                        {plan.features.map((f) => (
+                          <li key={f} className="flex items-start gap-2 text-sm text-gray-300"><span className="text-green-400 mt-0.5 flex-shrink-0">&#10003;</span>{f}</li>
+                        ))}
+                      </ul>
+                      <a href={plan.link} target="_blank" rel="noopener noreferrer" className={`block text-center py-3 rounded-full font-bold text-sm transition-all duration-300 cursor-pointer ${plan.featured ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30 hover:-translate-y-0.5 btn-glow shine-sweep" : "glass text-white hover:border-indigo-500/40 hover:-translate-y-0.5"}`}>{plan.cta}</a>
+                    </div>
+                  </TiltCard>
+                </AnimatedBorderGradient>
               </motion.div>
             ))}
           </div>
@@ -693,22 +795,23 @@ export default function Landing() {
 
       {/* ── CTA Banner (Glassmorphism) ── */}
       <section className="py-24 sm:py-32 relative overflow-hidden">
-        <Suspense fallback={null}><SectionBackground3D mode="cta" /></Suspense>
+        <VisibleSectionBg><Suspense fallback={null}><SectionBackground3D mode="cta" /></Suspense></VisibleSectionBg>
         <RevealSection className="max-w-4xl mx-auto px-6 text-center">
-          <motion.div
-            className="glass-card rounded-3xl p-12 sm:p-16 relative overflow-hidden"
-            variants={fadeScale}
-          >
-            <div className="absolute top-[-50px] right-[-50px] w-[200px] h-[200px] rounded-full bg-indigo-500/20 blur-[60px] pointer-events-none" />
-            <div className="absolute bottom-[-50px] left-[-50px] w-[200px] h-[200px] rounded-full bg-violet-500/15 blur-[60px] pointer-events-none" />
-            <div className="relative z-10">
-              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-6">Start querying your data today</h2>
-              <p className="text-gray-400 max-w-xl mx-auto mb-10">Join hundreds of teams who&apos;ve eliminated the data bottleneck. Free to start, no credit card needed.</p>
+          <motion.div variants={fadeScale}>
+            <TiltCard maxTilt={4}>
+              <div className="glass-card rounded-3xl p-12 sm:p-16 relative overflow-hidden">
+                <div className="absolute top-[-50px] right-[-50px] w-[200px] h-[200px] rounded-full bg-indigo-500/20 blur-[60px] pointer-events-none" />
+                <div className="absolute bottom-[-50px] left-[-50px] w-[200px] h-[200px] rounded-full bg-violet-500/15 blur-[60px] pointer-events-none" />
+                <div className="relative z-10">
+                  <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-6 text-white font-heading">Your data is waiting. Your AI agent is ready.</ScrollReveal>
+              <p className="text-gray-400 max-w-xl mx-auto mb-10">Connect any database in under 60 seconds. Enterprise-grade security from day one. No credit card needed.</p>
               <div className="flex items-center justify-center gap-4 flex-wrap">
                 <MotionButton onClick={() => navigate("/login")} className="px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-full shadow-xl shadow-indigo-500/30 hover:shadow-2xl transition-all duration-300 cursor-pointer btn-glow">Get started free</MotionButton>
                 <MotionButton onClick={() => scrollTo("pricing")} className="px-8 py-3.5 glass text-white font-bold rounded-full hover:border-indigo-500/40 transition-all duration-300 cursor-pointer">View plans</MotionButton>
               </div>
-            </div>
+                </div>
+              </div>
+            </TiltCard>
           </motion.div>
         </RevealSection>
       </section>
@@ -719,38 +822,35 @@ export default function Landing() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
             <div className="col-span-2">
               <span className="text-xl font-extrabold">Query<span className="text-indigo-400">Copilot</span></span>
-              <p className="text-sm text-gray-500 mt-3 max-w-xs leading-relaxed">The AI analytics assistant that makes your entire team data-fluent &mdash; no SQL required.</p>
+              <p className="text-sm text-gray-500 mt-3 max-w-xs leading-relaxed">The agentic data intelligence platform &mdash; one AI, every database, zero-trust security.</p>
             </div>
             <div>
               <h4 className="text-sm font-semibold text-gray-300 mb-4">Product</h4>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li><button onClick={() => scrollTo("features")} className="hover:text-gray-300 transition cursor-pointer">Features</button></li>
                 <li><button onClick={() => scrollTo("pricing")} className="hover:text-gray-300 transition cursor-pointer">Pricing</button></li>
-                <li><span className="text-gray-600">Changelog</span></li>
-                <li><span className="text-gray-600">Roadmap</span></li>
+                <li><button onClick={() => scrollTo("how")} className="hover:text-gray-300 transition cursor-pointer">How It Works</button></li>
+                <li><button onClick={() => scrollTo("demo")} className="hover:text-gray-300 transition cursor-pointer">Live Demo</button></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-gray-300 mb-4">Company</h4>
+              <h4 className="text-sm font-semibold text-gray-300 mb-4">Resources</h4>
               <ul className="space-y-2 text-sm text-gray-500">
-                <li><span className="text-gray-600">About</span></li>
-                <li><span className="text-gray-600">Blog</span></li>
-                <li><span className="text-gray-600">Careers</span></li>
-                <li><span className="text-gray-600">Press</span></li>
+                <li><span className="text-gray-600">Documentation <span className="text-[10px] text-indigo-400/60 ml-1">Soon</span></span></li>
+                <li><span className="text-gray-600">Changelog <span className="text-[10px] text-indigo-400/60 ml-1">Soon</span></span></li>
+                <li><span className="text-gray-600">API Reference <span className="text-[10px] text-indigo-400/60 ml-1">Soon</span></span></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-gray-300 mb-4">Support</h4>
+              <h4 className="text-sm font-semibold text-gray-300 mb-4">Contact</h4>
               <ul className="space-y-2 text-sm text-gray-500">
-                <li><span className="text-gray-600">Docs</span></li>
-                <li><span className="text-gray-600">Status</span></li>
-                <li><span className="text-gray-600">hello@querycopilot.ai</span></li>
-                <li><span className="text-gray-600">@QueryCopilot</span></li>
+                <li><span className="text-gray-400">hello@datalens.ai</span></li>
+                <li><span className="text-gray-400">@DataLens</span></li>
               </ul>
             </div>
           </div>
           <div className="border-t border-gray-800/50 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-600">&copy; 2026 QueryCopilot. All rights reserved.</p>
+            <p className="text-xs text-gray-600">&copy; 2026 DataLens. All rights reserved.</p>
             <div className="flex gap-6 text-xs text-gray-600"><span>Privacy</span><span>Terms</span></div>
           </div>
         </div>
@@ -770,5 +870,14 @@ export default function Landing() {
         document.body
       )}
     </div>
+  );
+}
+
+/* ── Wrap in GPUTierProvider so all 3D components can read the tier ── */
+export default function Landing() {
+  return (
+    <GPUTierProvider>
+      <LandingInner />
+    </GPUTierProvider>
   );
 }

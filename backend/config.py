@@ -1,5 +1,5 @@
 """
-QueryCopilot Configuration
+DataLens Configuration
 Central configuration management using Pydantic settings.
 """
 
@@ -76,8 +76,19 @@ class Settings(BaseSettings):
 
     # ── JWT Auth ──────────────────────────────────────────────────
     JWT_SECRET_KEY: str = Field(default="change-me-in-production-use-a-long-random-string")
+    ADMIN_JWT_SECRET_KEY: str = Field(default="")  # Separate admin JWT secret; falls back to JWT_SECRET_KEY if empty
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=1440)  # 24 hours
+
+    # ── Encryption ───────────────────────────────────────────────
+    FERNET_SECRET_KEY: str = Field(default="")  # Dedicated Fernet key; falls back to SHA256(JWT_SECRET_KEY) if empty
+
+    # ── Share Tokens ─────────────────────────────────────────────
+    SHARE_TOKEN_EXPIRE_HOURS: int = Field(default=168)  # 7 days
+
+    # ── SQL Allowlist ────────────────────────────────────────────
+    SQL_ALLOWLIST_MODE: bool = Field(default=False)
+    SQL_ALLOWED_TABLES: list = Field(default=[])
 
     # ── OAuth ─────────────────────────────────────────────────────
     GOOGLE_CLIENT_ID: Optional[str] = Field(default=None)
@@ -89,14 +100,14 @@ class Settings(BaseSettings):
     # ── Email Delivery (OTP) ────────────────────────────────────
     # Option 1: Resend (recommended — free 100 emails/day, no domain setup)
     RESEND_API_KEY: str = Field(default="")
-    RESEND_FROM_EMAIL: str = Field(default="QueryCopilot <onboarding@resend.dev>")
+    RESEND_FROM_EMAIL: str = Field(default="DataLens <onboarding@resend.dev>")
     # Option 2: SMTP (Gmail App Password, SendGrid, Brevo, etc.)
     SMTP_HOST: str = Field(default="smtp.gmail.com")
     SMTP_PORT: int = Field(default=587)
     SMTP_USER: str = Field(default="")
     SMTP_PASSWORD: str = Field(default="")
     SMTP_FROM_EMAIL: str = Field(default="")
-    SMTP_FROM_NAME: str = Field(default="QueryCopilot")
+    SMTP_FROM_NAME: str = Field(default="DataLens")
     OTP_EXPIRY_SECONDS: int = Field(default=600)  # 10 minutes
 
     # ── SMS Delivery (Phone OTP via Twilio) ───────────────────
@@ -105,16 +116,79 @@ class Settings(BaseSettings):
     TWILIO_FROM_NUMBER: str = Field(default="")  # Your Twilio phone number
     TWILIO_MESSAGING_SERVICE_SID: str = Field(default="")  # Optional: better deliverability
 
+    # ── Integrations ─────────────────────────────────────────────
+    SLACK_WEBHOOK_URL: str = Field(default="")  # Incoming webhook URL for alert notifications
+
     # ── App ───────────────────────────────────────────────────────
-    APP_TITLE: str = Field(default="QueryCopilot")
+    APP_TITLE: str = Field(default="DataLens")
     FRONTEND_URL: str = Field(default="http://localhost:5173")
 
     # ── ChromaDB ──────────────────────────────────────────────────
     CHROMA_PERSIST_DIR: str = Field(default=".chroma/querycopilot")
 
+    # ── Redis ────────────────────────────────────────────────────
+    REDIS_URL: str = Field(default="redis://localhost:6379/0")
+
+    # ── Storage ───────────────────────────────────────────────────
+    STORAGE_BACKEND: str = Field(default="file")  # Pluggable: "file" (default). Future: "s3", "sqlite", "postgres"
+
+    # ── Email Digests ────────────────────────────────────────────
+    DIGEST_ENABLED: bool = Field(default=False)  # Enable scheduled email digests
+    DIGEST_HOUR_UTC: int = Field(default=9)  # Hour (UTC) to send daily digests
+    DIGEST_WEEKDAY: int = Field(default=0)  # Day of week for weekly digests (0=Monday)
+
     # ── Caching ───────────────────────────────────────────────────
     CACHE_ENABLED: bool = Field(default=True)
     CACHE_TTL_SECONDS: int = Field(default=3600)
+
+    # ── Query Intelligence ───────────────────────────────────────
+    SCHEMA_CACHE_MAX_AGE_MINUTES: int = Field(default=60)
+    SCHEMA_CACHE_DIR: str = Field(default=".data/schema_cache")
+    QUERY_MEMORY_ENABLED: bool = Field(default=True)
+    QUERY_MEMORY_COLLECTION_PREFIX: str = Field(default="query_memory_")
+    QUERY_MEMORY_TTL_HOURS: int = Field(default=168)  # 7 days
+    TURBO_MODE_ENABLED: bool = Field(default=True)
+    TURBO_TWIN_DIR: str = Field(default=".data/turbo_twins")
+    TURBO_TWIN_MAX_SIZE_MB: int = Field(default=500)
+    TURBO_TWIN_SAMPLE_PERCENT: float = Field(default=1.0)  # 1% sample for TB-scale
+    TURBO_TWIN_REFRESH_HOURS: int = Field(default=4)
+    DECOMPOSITION_ENABLED: bool = Field(default=True)
+    DECOMPOSITION_MIN_ROWS: int = Field(default=1_000_000)  # only decompose if estimated > 1M rows
+    STREAMING_PROGRESS_INTERVAL_MS: int = Field(default=1000)
+    WATERFALL_CAN_ANSWER_BUDGET_MS: int = Field(default=200, ge=10)   # P1 NEMESIS: min 10ms prevents accidental disable
+    WATERFALL_ANSWER_BUDGET_MS: int = Field(default=1000, ge=50)     # P1 NEMESIS: min 50ms prevents accidental disable
+
+    # ── Dual-Response (Progressive Dual-Response Data Acceleration) ──
+    DUAL_RESPONSE_ENABLED: bool = Field(default=True)                # T1: master toggle for cached+live dual-stream
+    DUAL_RESPONSE_STALENESS_TTL_SECONDS: int = Field(default=300)    # T2: cache age threshold for staleness gate
+    DUAL_RESPONSE_ALWAYS_CORRECT: bool = Field(default=True)         # T2: True=always fire live; False=skip live when fresh
+    WRITE_TIME_MASKING: bool = Field(default=False)                  # T3: PII mask at DuckDB write time (not read)
+    BEHAVIOR_WARMING_ENABLED: bool = Field(default=False)            # T4: warm cache based on query patterns
+
+    # ── Infrastructure ──────────────────────────────────────────────
+    THREAD_POOL_MAX_WORKERS: int = Field(default=32, ge=4, le=256)    # M1: explicit thread pool (P2 NEMESIS: bounded 4-256)
+
+    # ── Predictive Intelligence Feature Flags ────────────────────
+    FEATURE_PREDICTIONS: bool = Field(default=True)  # #1: 3 predictive suggestions
+    FEATURE_ADAPTIVE_COMPLEXITY: bool = Field(default=True)  # #4: skill-level detection
+    FEATURE_INTENT_DISAMBIGUATION: bool = Field(default=True)  # #15: term→meaning maps
+    FEATURE_ANALYST_TONE: bool = Field(default=True)  # #21: immutable analyst persona
+    FEATURE_TIME_PATTERNS: bool = Field(default=True)  # #5: day/hour predictions
+    FEATURE_SESSION_TRACKING: bool = Field(default=False)  # #2: client-side behavior capture
+    FEATURE_CONSENT_FLOW: bool = Field(default=False)  # #3: 2-tier opt-in
+    FEATURE_AUTOCOMPLETE: bool = Field(default=False)  # #9: typing prediction
+    FEATURE_PERSONAS: bool = Field(default=False)  # #10: Explorer/Auditor/Storyteller
+    FEATURE_INSIGHT_CHAINS: bool = Field(default=False)  # #11: cross-session resume
+    FEATURE_COLLABORATIVE: bool = Field(default=False)  # #12: cross-user predictions
+    FEATURE_STYLE_MATCHING: bool = Field(default=False)  # #13: NL tone adaptation
+    FEATURE_DATA_PREP: bool = Field(default=False)  # #14: pre-caching
+    FEATURE_WORKFLOW_TEMPLATES: bool = Field(default=False)  # #16: repeated pattern detection
+    FEATURE_SKILL_GAPS: bool = Field(default=False)  # #17: unused SQL suggestions
+    FEATURE_AGENT_DASHBOARD: bool = Field(default=True)  # #19: agent tile control
+    FEATURE_PERMISSION_SYSTEM: bool = Field(default=True)  # #20: supervised/autonomous
+    FEATURE_ANOMALY_ALERTS: bool = Field(default=False)  # #7: proactive anomaly detection
+    FEATURE_AUTO_SWITCH: bool = Field(default=False)  # #6: connection switching prediction
+    FEATURE_SMART_PRELOAD: bool = Field(default=False)  # #8: dashboard pre-loading
 
     model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8", "extra": "ignore"}
 
@@ -130,3 +204,31 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# ── Startup Security Checks ─────────────────────────────────────
+import logging as _logging
+_cfg_logger = _logging.getLogger("config")
+
+if settings.JWT_SECRET_KEY in ("change-me-in-production-use-a-long-random-string", "change-me-in-production"):
+    _cfg_logger.critical(
+        "JWT_SECRET_KEY is set to the default value! "
+        "Set a strong random secret in .env before deploying. "
+        "Example: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+    )
+    import os as _os
+    if (_os.environ.get("DATALENS_ENV") or _os.environ.get("QUERYCOPILOT_ENV", "")).lower() in ("production", "prod", "staging"):
+        raise SystemExit("FATAL: JWT_SECRET_KEY must be changed from default in production/staging")
+
+# Cap MAX_ROWS to prevent env-var abuse
+_MAX_ROWS_CEILING = 50000
+if settings.MAX_ROWS > _MAX_ROWS_CEILING:
+    _cfg_logger.warning("MAX_ROWS=%d exceeds ceiling %d — capping", settings.MAX_ROWS, _MAX_ROWS_CEILING)
+    object.__setattr__(settings, "MAX_ROWS", _MAX_ROWS_CEILING)
+
+# Ensure critical keywords are always blocked (even if BLOCKED_KEYWORDS is overridden)
+_MANDATORY_BLOCKED = {"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE", "CREATE", "GRANT", "REVOKE", "MERGE"}
+_current_blocked = {k.upper() for k in settings.BLOCKED_KEYWORDS}
+_missing = _MANDATORY_BLOCKED - _current_blocked
+if _missing:
+    _cfg_logger.warning("BLOCKED_KEYWORDS missing mandatory entries: %s — adding them", _missing)
+    settings.BLOCKED_KEYWORDS.extend(sorted(_missing))

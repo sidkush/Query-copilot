@@ -12,6 +12,7 @@ class WebGLBoundary extends Component {
 const SectionBackground3D = lazy(() => import("../components/animation/SectionBackground3D"));
 import { api } from "../api";
 import { useStore } from "../store";
+import behaviorEngine from "../lib/behaviorEngine";
 import { TOKENS } from "../components/dashboard/tokens";
 import AgentPanel from "../components/agent/AgentPanel";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
@@ -77,6 +78,12 @@ export default function DashboardBuilder() {
   const bumpTileEditVersion = useStore(s => s.bumpTileEditVersion);
   const agentLoading = useStore(s => s.agentLoading);
   const agentSteps = useStore(s => s.agentSteps);
+  const agentDock = useStore(s => s.agentDock);
+  const agentPanelWidth = useStore(s => s.agentPanelWidth);
+  const agentPanelHeight = useStore(s => s.agentPanelHeight);
+  const agentPanelOpen = useStore(s => s.agentPanelOpen);
+  const setAgentPanelOpen = useStore(s => s.setAgentPanelOpen);
+  const agentResizing = useStore(s => s.agentResizing);
 
   // ── State ──
   const [dashboards, setDashboards] = useState([]);
@@ -660,6 +667,7 @@ export default function DashboardBuilder() {
   const handleTileEdit = useCallback(
     (tile) => {
       openTileEditor(tile);
+      behaviorEngine.trackDashboardInteraction(tile?.id || "unknown", "edit");
     },
     [openTileEditor]
   );
@@ -1409,9 +1417,12 @@ export default function DashboardBuilder() {
     <div
       style={{
         background: TOKENS.bg.deep,
-        minHeight: "100vh",
+        minHeight: agentPanelOpen && agentDock === "bottom" && !fullscreenMode ? `calc(100vh - ${agentPanelHeight}px)` : "100vh",
         display: "flex",
         position: "relative",
+        marginLeft: agentPanelOpen && agentDock === "left" && !fullscreenMode ? agentPanelWidth : 0,
+        marginRight: agentPanelOpen && agentDock === "right" && !fullscreenMode ? agentPanelWidth : 0,
+        transition: agentResizing ? "none" : "margin 0.2s ease, min-height 0.2s ease",
       }}
     >
       {/* Ambient 3D background */}
@@ -1662,6 +1673,11 @@ export default function DashboardBuilder() {
         )}
       </aside>}
 
+      {/* Agent Panel (always available when toggled, independent of dashboard selection) */}
+      {!fullscreenMode && agentPanelOpen && (
+        <AgentPanel connId={activeConnId} defaultDock="right" onClose={() => setAgentPanelOpen(false)} />
+      )}
+
       {/* ── Main Content ── */}
       <main
         id="dashboard-export-area"
@@ -1669,10 +1685,13 @@ export default function DashboardBuilder() {
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          minHeight: "100vh",
+          minWidth: 200,
+          minHeight: agentPanelOpen && agentDock === "bottom" && !fullscreenMode ? `calc(100vh - ${agentPanelHeight}px)` : "100vh",
+          maxHeight: agentPanelOpen && agentDock === "bottom" && !fullscreenMode ? `calc(100vh - ${agentPanelHeight}px)` : undefined,
           overflowY: "auto",
           position: "relative",
           zIndex: 10,
+          transition: agentResizing ? "none" : "min-height 0.2s ease, max-height 0.2s ease",
         }}
       >
         {!activeDashboard ? (
@@ -1691,11 +1710,6 @@ export default function DashboardBuilder() {
         ) : (
           <>
             {/* Fullscreen mode now handled by PresentationEngine overlay */}
-
-            {/* Agent Panel (replaces CommandBar, hidden in fullscreen) */}
-            {!fullscreenMode && (
-              <AgentPanel connId={activeConnId} defaultDock="right" />
-            )}
 
             {/* Dashboard Header (hidden in fullscreen) */}
             {!fullscreenMode && (

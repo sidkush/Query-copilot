@@ -1,6 +1,11 @@
 """
-Per-user file-based data layer for QueryCopilot.
+Per-user file-based data layer for DataLens.
 Stores connection configs, chat history, and user profiles.
+
+Storage is pluggable via the StorageBackend ABC.  The active backend is
+selected by ``settings.STORAGE_BACKEND`` (default: ``"file"``).  All
+public functions in this module delegate to the module-level ``_backend``
+instance, so swapping to S3/SQLite/Postgres only requires a new subclass.
 """
 
 import json
@@ -9,9 +14,10 @@ import logging
 import threading
 import uuid
 import base64
+from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from cryptography.fernet import Fernet
 
@@ -22,9 +28,104 @@ logger = logging.getLogger(__name__)
 _lock = threading.Lock()
 
 DATA_ROOT = Path(__file__).resolve().parent / ".data" / "user_data"
+_STORAGE_ROOT = DATA_ROOT.parent  # .data/
+
+
+# ── StorageBackend ABC ────────────────────────────────────────────
+
+class StorageBackend(ABC):
+    """Abstract interface for all data persistence operations."""
+
+    @abstractmethod
+    def read_json(self, key: str) -> Optional[Any]:
+        """Read and parse JSON at *key*. Return ``None`` if not found."""
+
+    @abstractmethod
+    def write_json(self, key: str, data: Any, *, atomic: bool = False) -> None:
+        """Serialise *data* as JSON and write to *key*.
+        If *atomic* is ``True``, use write-then-rename for crash safety."""
+
+    @abstractmethod
+    def delete(self, key: str) -> bool:
+        """Delete *key*. Return ``True`` if it existed."""
+
+    @abstractmethod
+    def exists(self, key: str) -> bool:
+        """Return ``True`` if *key* exists."""
+
+    @abstractmethod
+    def list_keys(self, prefix: str, suffix: str = ".json") -> list[str]:
+        """Return all keys under *prefix* that end with *suffix*."""
+
+
+class FileStorage(StorageBackend):
+    """Local-filesystem implementation — the default backend."""
+
+    def __init__(self, root: Path):
+        self.root = root
+
+    def _resolve(self, key: str) -> Path:
+        return self.root / key
+
+    def read_json(self, key: str) -> Optional[Any]:
+        path = self._resolve(key)
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+
+    def write_json(self, key: str, data: Any, *, atomic: bool = False) -> None:
+        path = self._resolve(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = json.dumps(data, indent=2, default=str)
+        if atomic:
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(text, encoding="utf-8")
+            tmp.replace(path)
+        else:
+            path.write_text(text, encoding="utf-8")
+
+    def delete(self, key: str) -> bool:
+        path = self._resolve(key)
+        if path.exists():
+            path.unlink()
+            return True
+        return False
+
+    def exists(self, key: str) -> bool:
+        return self._resolve(key).exists()
+
+    def list_keys(self, prefix: str, suffix: str = ".json") -> list[str]:
+        directory = self._resolve(prefix)
+        if not directory.exists():
+            return []
+        return [
+            f"{prefix}/{p.name}"
+            for p in directory.iterdir()
+            if p.name.endswith(suffix)
+        ]
+
+
+def _create_backend() -> StorageBackend:
+    """Factory: select backend from config."""
+    backend_type = settings.STORAGE_BACKEND
+    if backend_type == "file":
+        return FileStorage(_STORAGE_ROOT)
+    raise ValueError(f"Unknown STORAGE_BACKEND: {backend_type!r}. Supported: 'file'")
+
+
+_backend: StorageBackend = _create_backend()
 
 
 # ── Helpers ──────────────────────────────────────────────────────
+
+def _user_prefix(email: str) -> str:
+    """Return the storage key prefix for a user (e.g. 'user_data/a1b2c3d4...')."""
+    h = hashlib.sha256(email.lower().encode("utf-8")).hexdigest()[:16]
+    return f"user_data/{h}"
+
 
 def _user_dir(email: str) -> Path:
     """Return per-user directory based on sha256 hash prefix of email."""
@@ -33,9 +134,12 @@ def _user_dir(email: str) -> Path:
 
 
 def _fernet() -> Fernet:
-    """Create a Fernet cipher from the JWT secret key."""
+    """Create a Fernet cipher. Uses FERNET_SECRET_KEY if configured,
+    otherwise falls back to SHA256(JWT_SECRET_KEY) for backward compatibility."""
+    if settings.FERNET_SECRET_KEY:
+        # Use dedicated Fernet key directly (must be valid base64-encoded 32-byte key)
+        return Fernet(settings.FERNET_SECRET_KEY.encode("utf-8"))
     key_bytes = settings.JWT_SECRET_KEY.encode("utf-8")
-    # Derive a 32-byte key via sha256, then base64-encode for Fernet
     derived = hashlib.sha256(key_bytes).digest()
     return Fernet(base64.urlsafe_b64encode(derived))
 
@@ -52,23 +156,20 @@ def decrypt_password(cipher: str) -> str:
 
 # ── Connection Config CRUD ───────────────────────────────────────
 
+def _connections_key(email: str) -> str:
+    return f"{_user_prefix(email)}/connections.json"
+
+
 def _connections_file(email: str) -> Path:
     return _user_dir(email) / "connections.json"
 
 
 def _load_connections(email: str) -> list:
-    path = _connections_file(email)
-    if not path.exists():
-        return []
-    with open(path, "r") as f:
-        return json.load(f)
+    return _backend.read_json(_connections_key(email)) or []
 
 
 def _save_connections(email: str, configs: list):
-    path = _connections_file(email)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(configs, f, indent=2)
+    _backend.write_json(_connections_key(email), configs)
 
 
 def save_connection_config(email: str, config_dict: dict) -> dict:
@@ -119,6 +220,14 @@ def update_connection_config(email: str, config_id: str, updates: dict):
 
 # ── Chat CRUD ────────────────────────────────────────────────────
 
+def _chat_prefix(email: str) -> str:
+    return f"{_user_prefix(email)}/chat_history"
+
+
+def _chat_key(email: str, chat_id: str) -> str:
+    return f"{_chat_prefix(email)}/{chat_id}.json"
+
+
 def _chat_dir(email: str) -> Path:
     return _user_dir(email) / "chat_history"
 
@@ -143,24 +252,20 @@ def create_chat(email: str, title: str, conn_id: Optional[str] = None,
             "updated_at": now,
             "messages": [],
         }
-        path = _chat_file(email, chat_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
-            json.dump(chat, f, indent=2)
+        _backend.write_json(_chat_key(email, chat_id), chat)
         logger.info("Created chat %s for user %s", chat_id, email)
         return chat
 
 
 def list_chats(email: str) -> list:
     """List all chats for a user (summary only, no messages)."""
-    chat_d = _chat_dir(email)
-    if not chat_d.exists():
-        return []
+    keys = _backend.list_keys(_chat_prefix(email))
     result = []
-    for p in chat_d.glob("*.json"):
+    for key in keys:
         try:
-            with open(p, "r") as f:
-                chat = json.load(f)
+            chat = _backend.read_json(key)
+            if not chat:
+                continue
             result.append({
                 "chat_id": chat["chat_id"],
                 "title": chat.get("title", ""),
@@ -176,33 +281,25 @@ def list_chats(email: str) -> list:
 
 def load_chat(email: str, chat_id: str) -> Optional[dict]:
     """Load a full chat with messages."""
-    path = _chat_file(email, chat_id)
-    if not path.exists():
-        return None
-    with open(path, "r") as f:
-        return json.load(f)
+    return _backend.read_json(_chat_key(email, chat_id))
 
 
 def append_message(email: str, chat_id: str, message_dict: dict):
     """Append a message to a chat and update the timestamp."""
     with _lock:
-        path = _chat_file(email, chat_id)
-        if not path.exists():
+        key = _chat_key(email, chat_id)
+        chat = _backend.read_json(key)
+        if not chat:
             raise FileNotFoundError(f"Chat {chat_id} not found")
-        with open(path, "r") as f:
-            chat = json.load(f)
         chat["messages"].append(message_dict)
         chat["updated_at"] = datetime.now(timezone.utc).isoformat()
-        with open(path, "w") as f:
-            json.dump(chat, f, indent=2)
+        _backend.write_json(key, chat)
 
 
 def delete_chat(email: str, chat_id: str):
     """Delete a chat conversation."""
     with _lock:
-        path = _chat_file(email, chat_id)
-        if path.exists():
-            path.unlink()
+        if _backend.delete(_chat_key(email, chat_id)):
             logger.info("Deleted chat %s for user %s", chat_id, email)
 
 
@@ -215,24 +312,21 @@ def _er_positions_dir(email: str) -> Path:
 def save_er_positions(email: str, conn_id: str, positions: dict):
     """Save ER diagram table positions for a specific connection."""
     with _lock:
-        d = _er_positions_dir(email)
-        d.mkdir(parents=True, exist_ok=True)
-        path = d / f"{conn_id}.json"
-        with open(path, "w") as f:
-            json.dump(positions, f, indent=2)
+        key = f"{_user_prefix(email)}/er_positions/{conn_id}.json"
+        _backend.write_json(key, positions)
         logger.info("Saved ER positions for conn %s, user %s", conn_id, email)
 
 
 def load_er_positions(email: str, conn_id: str) -> dict:
     """Load ER diagram table positions for a specific connection."""
-    path = _er_positions_dir(email) / f"{conn_id}.json"
-    if not path.exists():
-        return {}
-    with open(path, "r") as f:
-        return json.load(f)
+    return _backend.read_json(f"{_user_prefix(email)}/er_positions/{conn_id}.json") or {}
 
 
 # ── Query Statistics ────────────────────────────────────────────
+
+def _stats_key(email: str) -> str:
+    return f"{_user_prefix(email)}/query_stats.json"
+
 
 def _stats_file(email: str) -> Path:
     return _user_dir(email) / "query_stats.json"
@@ -240,19 +334,16 @@ def _stats_file(email: str) -> Path:
 
 def load_query_stats(email: str) -> dict:
     """Load query usage statistics for a user. Auto-backfills from chat history on first load."""
-    path = _stats_file(email)
-    if not path.exists():
-        # Backfill from existing chat history
-        stats = _backfill_stats_from_chats(email)
-        if stats["total_queries"] > 0:
-            # Persist so we don't re-scan next time
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "w") as f:
-                json.dump(stats, f, indent=2)
-            logger.info("Backfilled query stats for %s: %d queries", email, stats["total_queries"])
+    key = _stats_key(email)
+    stats = _backend.read_json(key)
+    if stats is not None:
         return stats
-    with open(path, "r") as f:
-        return json.load(f)
+    # Backfill from existing chat history
+    stats = _backfill_stats_from_chats(email)
+    if stats["total_queries"] > 0:
+        _backend.write_json(key, stats)
+        logger.info("Backfilled query stats for %s: %d queries", email, stats["total_queries"])
+    return stats
 
 
 def _backfill_stats_from_chats(email: str) -> dict:
@@ -266,17 +357,18 @@ def _backfill_stats_from_chats(email: str) -> dict:
         "fail_count": 0,
         "last_query_at": None,
     }
-    chat_d = _chat_dir(email)
-    if not chat_d.exists():
+    keys = _backend.list_keys(_chat_prefix(email))
+    if not keys:
         return stats
 
     current_month = stats["current_month"]
     last_query_ts = None
 
-    for p in chat_d.glob("*.json"):
+    for key in keys:
         try:
-            with open(p, "r") as f:
-                chat = json.load(f)
+            chat = _backend.read_json(key)
+            if not chat:
+                continue
             chat_updated = chat.get("updated_at", "")
             for msg in chat.get("messages", []):
                 if msg.get("type") == "result":
@@ -287,10 +379,8 @@ def _backfill_stats_from_chats(email: str) -> dict:
                         stats["fail_count"] += 1
                     else:
                         stats["success_count"] += 1
-                    # Check if this query was in the current month
                     if chat_updated and chat_updated[:7] == current_month:
                         stats["queries_this_month"] += 1
-                    # Track latest query time
                     if chat_updated and (last_query_ts is None or chat_updated > last_query_ts):
                         last_query_ts = chat_updated
         except Exception:
@@ -339,10 +429,7 @@ def increment_query_stats(email: str, latency_ms: float, success: bool):
             stats["fail_count"] = stats.get("fail_count", 0) + 1
         stats["last_query_at"] = now.isoformat()
 
-        path = _stats_file(email)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
-            json.dump(stats, f, indent=2)
+        _backend.write_json(_stats_key(email), stats)
 
 
 def get_daily_usage(email: str) -> dict:
@@ -372,14 +459,18 @@ def get_daily_usage(email: str) -> dict:
 def clear_chat_history(email: str):
     """Delete all chat files for a user."""
     with _lock:
-        chat_d = _chat_dir(email)
-        if chat_d.exists():
-            for p in chat_d.glob("*.json"):
-                p.unlink()
+        keys = _backend.list_keys(_chat_prefix(email))
+        for key in keys:
+            _backend.delete(key)
+        if keys:
             logger.info("Cleared chat history for user %s", email)
 
 
 # ── Profile ──────────────────────────────────────────────────────
+
+def _profile_key(email: str) -> str:
+    return f"{_user_prefix(email)}/profile.json"
+
 
 def _profile_file(email: str) -> Path:
     return _user_dir(email) / "profile.json"
@@ -387,42 +478,46 @@ def _profile_file(email: str) -> Path:
 
 def load_profile(email: str) -> dict:
     """Load user profile preferences."""
-    path = _profile_file(email)
-    if not path.exists():
-        return {}
-    with open(path, "r") as f:
-        return json.load(f)
+    return _backend.read_json(_profile_key(email)) or {}
 
 
 def save_profile(email: str, data: dict):
     """Save user profile preferences."""
     with _lock:
-        path = _profile_file(email)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
-            json.dump(data, f, indent=2)
+        _backend.write_json(_profile_key(email), data)
         logger.info("Saved profile for user %s", email)
 
 
+def save_api_key_to_profile(email: str, updates: dict):
+    """Save API key fields to profile with atomic writes (crash-safe).
+
+    Unlike save_profile(), this uses atomic=True because API keys
+    are Fernet-encrypted secrets that must not be corrupted on crash.
+    """
+    with _lock:
+        profile = _backend.read_json(_profile_key(email)) or {}
+        profile.update(updates)
+        _backend.write_json(_profile_key(email), profile, atomic=True)
+        logger.info("Saved API key config for user %s", email)
+
+
 # ── Dashboards ─────────────────────────────────────────────────
+
+def _dashboards_key(email: str) -> str:
+    return f"{_user_prefix(email)}/dashboards.json"
+
 
 def _dashboards_file(email: str) -> Path:
     return _user_dir(email) / "dashboards.json"
 
 
 def _load_dashboards(email: str) -> list:
-    path = _dashboards_file(email)
-    if not path.exists():
-        return []
-    with open(path, "r") as f:
-        return json.load(f)
+    return _backend.read_json(_dashboards_key(email)) or []
 
 
 def _save_dashboards(email: str, dashboards: list):
-    path = _dashboards_file(email)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(dashboards, f, indent=2)
+    """Atomic write-then-rename for crash safety [ADV-FIX]."""
+    _backend.write_json(_dashboards_key(email), dashboards, atomic=True)
 
 
 def list_dashboards(email: str) -> list:
@@ -497,11 +592,15 @@ def load_dashboard(email: str, dashboard_id: str) -> Optional[dict]:
 
 
 def update_dashboard(email: str, dashboard_id: str, updates: dict) -> Optional[dict]:
-    """Update dashboard fields (name, description, tabs, annotations)."""
+    """Update dashboard fields (name, description, tabs, annotations).
+    Auto-snapshots version history on structural changes (tabs)."""
     with _lock:
         dashboards = _load_dashboards(email)
         for d in dashboards:
             if d["id"] == dashboard_id:
+                # Snapshot before structural changes (tabs/tiles)
+                if "tabs" in updates:
+                    _auto_version_snapshot(email, dashboard_id, d)
                 for key in ("name", "description", "tabs", "annotations", "sharing", "customMetrics", "globalFilters", "themeConfig", "bookmarks"):
                     if key in updates:
                         d[key] = updates[key]
@@ -509,6 +608,31 @@ def update_dashboard(email: str, dashboard_id: str, updates: dict) -> Optional[d
                 _save_dashboards(email, dashboards)
                 return d
         return None
+
+
+def _auto_version_snapshot(email: str, dashboard_id: str, dashboard: dict):
+    """Internal: save version snapshot without re-acquiring _lock."""
+    versions = _load_versions(email, dashboard_id)
+    # Debounce: skip if last version was < 60s ago
+    if versions:
+        from datetime import timedelta
+        last_ts = versions[-1].get("timestamp", "")
+        try:
+            last_dt = datetime.fromisoformat(last_ts)
+            if datetime.now(timezone.utc) - last_dt < timedelta(seconds=60):
+                return
+        except Exception:
+            pass
+    version = {
+        "id": uuid.uuid4().hex[:12],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "label": "",
+        "snapshot": dict(dashboard),
+    }
+    versions.append(version)
+    if len(versions) > MAX_VERSIONS:
+        versions = versions[-MAX_VERSIONS:]
+    _save_versions(email, dashboard_id, versions)
 
 
 def add_dashboard_tab(email: str, dashboard_id: str, tab_name: str) -> Optional[dict]:
@@ -639,6 +763,36 @@ def add_annotation(email: str, dashboard_id: str, annotation: dict, tile_id: str
         return None
 
 
+def delete_annotation(email: str, dashboard_id: str, annotation_id: str, tile_id: str = None) -> Optional[dict]:
+    """Remove an annotation from a dashboard or a specific tile."""
+    with _lock:
+        dashboards = _load_dashboards(email)
+        for d in dashboards:
+            if d["id"] == dashboard_id:
+                if tile_id:
+                    found = False
+                    for tab in d.get("tabs", []):
+                        for sec in tab.get("sections", []):
+                            for tile in sec.get("tiles", []):
+                                if tile["id"] == tile_id:
+                                    original = tile.get("annotations", [])
+                                    tile["annotations"] = [a for a in original if a.get("id") != annotation_id]
+                                    if len(tile["annotations"]) < len(original):
+                                        found = True
+                                    break
+                    if not found:
+                        return None
+                else:
+                    original = d.get("annotations", [])
+                    d["annotations"] = [a for a in original if a.get("id") != annotation_id]
+                    if len(d["annotations"]) == len(original):
+                        return None
+                d["updated_at"] = datetime.now(timezone.utc).isoformat()
+                _save_dashboards(email, dashboards)
+                return d
+        return None
+
+
 def delete_dashboard(email: str, dashboard_id: str) -> bool:
     """Delete a dashboard."""
     with _lock:
@@ -679,3 +833,447 @@ def migrate_dashboard_if_needed(dashboard: dict) -> dict:
     dashboard.pop("tiles", None)
     dashboard.pop("layout", None)
     return dashboard
+
+
+# ── Share tokens [ADV-FIX H1] ─────────────────────────────────
+
+SHARE_TOKENS_FILE = Path(__file__).resolve().parent / ".data" / "share_tokens.json"
+_SHARE_TOKENS_KEY = "share_tokens.json"
+
+def _load_share_tokens() -> dict:
+    return _backend.read_json(_SHARE_TOKENS_KEY) or {}
+
+def _save_share_tokens(tokens: dict):
+    _backend.write_json(_SHARE_TOKENS_KEY, tokens, atomic=True)
+
+def create_share_token(email: str, dashboard_id: str, expires_hours: int = 0) -> dict:
+    """Generate an opaque share token for a dashboard.
+    Uses SHARE_TOKEN_EXPIRE_HOURS from config if expires_hours is 0."""
+    from datetime import timedelta
+    if expires_hours <= 0:
+        expires_hours = settings.SHARE_TOKEN_EXPIRE_HOURS
+    with _lock:
+        tokens = _load_share_tokens()
+        token = uuid.uuid4().hex
+        entry = {
+            "dashboard_id": dashboard_id,
+            "created_by": email,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=expires_hours)).isoformat(),
+            "revoked": False,
+            "audit_log": [{"action": "created", "by": email, "at": datetime.now(timezone.utc).isoformat()}],
+        }
+        tokens[token] = entry
+        _save_share_tokens(tokens)
+
+        # Also update dashboard's sharing field
+        dashboards = _load_dashboards(email)
+        for d in dashboards:
+            if d["id"] == dashboard_id:
+                d["sharing"] = {"enabled": True, "token": token}
+                d["updated_at"] = datetime.now(timezone.utc).isoformat()
+                break
+        _save_dashboards(email, dashboards)
+
+        return {"token": token, **{k: v for k, v in entry.items() if k != "audit_log"}}
+
+def validate_share_token(token: str) -> Optional[dict]:
+    """Validate a share token. Returns {dashboard_id, created_by} or None.
+    Records access in the audit log."""
+    with _lock:
+        tokens = _load_share_tokens()
+        entry = tokens.get(token)
+        if not entry:
+            return None
+        if entry.get("revoked"):
+            return None
+        if entry.get("expires_at"):
+            exp = datetime.fromisoformat(entry["expires_at"])
+            if datetime.now(timezone.utc) > exp:
+                return None
+        # Record access in audit log
+        audit = entry.setdefault("audit_log", [])
+        audit.append({"action": "accessed", "at": datetime.now(timezone.utc).isoformat()})
+        # Cap audit log to last 100 entries
+        if len(audit) > 100:
+            entry["audit_log"] = audit[-100:]
+        _save_share_tokens(tokens)
+        return entry
+
+def revoke_share_token(token: str) -> bool:
+    """Revoke a share token and record in audit log."""
+    with _lock:
+        tokens = _load_share_tokens()
+        if token in tokens:
+            tokens[token]["revoked"] = True
+            audit = tokens[token].setdefault("audit_log", [])
+            audit.append({"action": "revoked", "at": datetime.now(timezone.utc).isoformat()})
+            _save_share_tokens(tokens)
+            return True
+        return False
+
+def prune_expired_share_tokens() -> int:
+    """Remove expired and revoked share tokens. Returns count removed."""
+    now = datetime.now(timezone.utc)
+    with _lock:
+        tokens = _load_share_tokens()
+        to_remove = []
+        for tok, entry in tokens.items():
+            if entry.get("revoked"):
+                to_remove.append(tok)
+            elif entry.get("expires_at"):
+                exp = datetime.fromisoformat(entry["expires_at"])
+                if now > exp:
+                    to_remove.append(tok)
+        for tok in to_remove:
+            del tokens[tok]
+        if to_remove:
+            _save_share_tokens(tokens)
+        return len(to_remove)
+
+# ── Dashboard Version History ───────────────────────────────────────
+
+MAX_VERSIONS = 30  # keep last 30 versions per dashboard
+
+
+def _versions_key(email: str, dashboard_id: str) -> str:
+    return f"{_user_prefix(email)}/versions_{dashboard_id}.json"
+
+
+def _versions_file(email: str, dashboard_id: str) -> Path:
+    return _user_dir(email) / f"versions_{dashboard_id}.json"
+
+
+def _load_versions(email: str, dashboard_id: str) -> list:
+    return _backend.read_json(_versions_key(email, dashboard_id)) or []
+
+
+def _save_versions(email: str, dashboard_id: str, versions: list):
+    _backend.write_json(_versions_key(email, dashboard_id), versions, atomic=True)
+
+
+def save_dashboard_version(email: str, dashboard_id: str, snapshot: dict, label: str = ""):
+    """Snapshot the current dashboard state as a version."""
+    with _lock:
+        versions = _load_versions(email, dashboard_id)
+        version = {
+            "id": uuid.uuid4().hex[:12],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "label": label[:200] if label else "",
+            "snapshot": snapshot,
+        }
+        versions.append(version)
+        # Trim to MAX_VERSIONS
+        if len(versions) > MAX_VERSIONS:
+            versions = versions[-MAX_VERSIONS:]
+        _save_versions(email, dashboard_id, versions)
+        return version
+
+
+def list_dashboard_versions(email: str, dashboard_id: str) -> list:
+    """Return version metadata (without full snapshots) for a dashboard."""
+    versions = _load_versions(email, dashboard_id)
+    return [
+        {"id": v["id"], "timestamp": v["timestamp"], "label": v.get("label", "")}
+        for v in versions
+    ]
+
+
+def restore_dashboard_version(email: str, dashboard_id: str, version_id: str) -> Optional[dict]:
+    """Restore a dashboard to a specific version. Returns the restored dashboard."""
+    versions = _load_versions(email, dashboard_id)
+    target = None
+    for v in versions:
+        if v["id"] == version_id:
+            target = v
+            break
+    if not target:
+        return None
+
+    snapshot = target["snapshot"]
+    # Preserve the original id and created_at
+    with _lock:
+        dashboards = _load_dashboards(email)
+        for d in dashboards:
+            if d["id"] == dashboard_id:
+                # Save current state as a version before restoring
+                save_dashboard_version(email, dashboard_id, dict(d), label="Auto-save before restore")
+                # Restore from snapshot
+                for key in ("name", "description", "tabs", "annotations", "customMetrics", "globalFilters", "themeConfig", "bookmarks"):
+                    if key in snapshot:
+                        d[key] = snapshot[key]
+                d["updated_at"] = datetime.now(timezone.utc).isoformat()
+                _save_dashboards(email, dashboards)
+                return d
+        return None
+
+
+# ── SQL Diff Audit Log ──────────────────────────────────────────
+
+MAX_AUDIT_ENTRIES = 200
+
+
+def _audit_log_key(email: str) -> str:
+    return f"{_user_prefix(email)}/sql_audit_log.json"
+
+
+def _audit_log_file(email: str) -> Path:
+    return _user_dir(email) / "sql_audit_log.json"
+
+
+def log_sql_edit(email: str, question: str, original_sql: str, edited_sql: str, conn_id: str = None):
+    """Log when a user edits AI-generated SQL before execution."""
+    if original_sql.strip() == edited_sql.strip():
+        return  # No change, skip logging
+    with _lock:
+        key = _audit_log_key(email)
+        entries = _backend.read_json(key) or []
+        entry = {
+            "id": uuid.uuid4().hex[:12],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "question": question[:500],
+            "original_sql": original_sql,
+            "edited_sql": edited_sql,
+            "conn_id": conn_id,
+        }
+        entries.append(entry)
+        if len(entries) > MAX_AUDIT_ENTRIES:
+            entries = entries[-MAX_AUDIT_ENTRIES:]
+        _backend.write_json(key, entries, atomic=True)
+
+
+def load_sql_audit_log(email: str) -> list:
+    """Load the SQL edit audit log for a user."""
+    return _backend.read_json(_audit_log_key(email)) or []
+
+
+# ── Alert Rules ──────────────────────────────────────────────────
+
+# Per-plan alert limits [ADV-FIX H3]
+ALERT_LIMITS = {
+    "free": 2,
+    "weekly": 5,
+    "monthly": 10,
+    "yearly": 15,
+    "pro": 20,
+    "enterprise": -1,  # unlimited
+}
+ALERT_MIN_FREQUENCY = {
+    "free": 3600,       # 1 hour minimum
+    "weekly": 1800,     # 30 min
+    "monthly": 900,     # 15 min
+    "yearly": 900,
+    "pro": 900,
+    "enterprise": 300,  # 5 min
+}
+
+
+def _alerts_key(email: str) -> str:
+    return f"{_user_prefix(email)}/alerts.json"
+
+
+def _alerts_file(email: str) -> Path:
+    return _user_dir(email) / "alerts.json"
+
+
+def _load_alerts(email: str) -> list:
+    return _backend.read_json(_alerts_key(email)) or []
+
+
+def _save_alerts(email: str, alerts: list):
+    _backend.write_json(_alerts_key(email), alerts, atomic=True)
+
+
+def create_alert(email: str, rule: dict) -> dict:
+    """Create an alert rule. Enforces per-plan limits [ADV-FIX H3]."""
+    with _lock:
+        profile = load_profile(email)
+        plan = profile.get("plan", "free")
+        alerts = _load_alerts(email)
+        active = [a for a in alerts if a.get("status") == "active"]
+
+        limit = ALERT_LIMITS.get(plan, ALERT_LIMITS["free"])
+        if limit != -1 and len(active) >= limit:
+            raise ValueError(f"Alert limit reached ({limit} for {plan} plan)")
+
+        min_freq = ALERT_MIN_FREQUENCY.get(plan, 3600)
+        freq = rule.get("frequency_seconds", 3600)
+        if freq < min_freq:
+            freq = min_freq
+
+        alert = {
+            "id": uuid.uuid4().hex[:12],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "status": "active",
+            "name": rule.get("name", "Untitled Alert")[:200],
+            "condition_text": rule.get("condition_text", "")[:500],
+            "sql": rule.get("sql", ""),
+            "column": rule.get("column", ""),
+            "operator": rule.get("operator", ">"),
+            "threshold": rule.get("threshold", 0),
+            "frequency_seconds": freq,
+            "conn_id": rule.get("conn_id"),
+            "dashboard_id": rule.get("dashboard_id"),
+            "last_checked": None,
+            "last_triggered": None,
+            "trigger_count": 0,
+        }
+        alerts.append(alert)
+        _save_alerts(email, alerts)
+        return alert
+
+
+def list_alerts(email: str) -> list:
+    """List all alerts for a user."""
+    return _load_alerts(email)
+
+
+def update_alert(email: str, alert_id: str, updates: dict) -> Optional[dict]:
+    """Update an alert rule."""
+    with _lock:
+        alerts = _load_alerts(email)
+        for a in alerts:
+            if a["id"] == alert_id:
+                for key in ("name", "status", "sql", "column", "operator", "threshold", "frequency_seconds", "conn_id"):
+                    if key in updates:
+                        a[key] = updates[key]
+                _save_alerts(email, alerts)
+                return a
+        return None
+
+
+def delete_alert(email: str, alert_id: str) -> bool:
+    """Delete an alert rule."""
+    with _lock:
+        alerts = _load_alerts(email)
+        filtered = [a for a in alerts if a["id"] != alert_id]
+        if len(filtered) < len(alerts):
+            _save_alerts(email, filtered)
+            return True
+        return False
+
+
+def record_alert_check(email: str, alert_id: str, triggered: bool):
+    """Record that an alert was checked (counts against daily query limit) [ADV-FIX H3]."""
+    with _lock:
+        alerts = _load_alerts(email)
+        for a in alerts:
+            if a["id"] == alert_id:
+                a["last_checked"] = datetime.now(timezone.utc).isoformat()
+                if triggered:
+                    a["last_triggered"] = datetime.now(timezone.utc).isoformat()
+                    a["trigger_count"] = a.get("trigger_count", 0) + 1
+                break
+        _save_alerts(email, alerts)
+
+
+def load_shared_dashboard(token: str) -> Optional[dict]:
+    """Load a dashboard via share token. Returns dashboard dict or None."""
+    entry = validate_share_token(token)
+    if not entry:
+        return None
+    email = entry["created_by"]
+    dashboard_id = entry["dashboard_id"]
+    dashboards = _load_dashboards(email)
+    for d in dashboards:
+        if d["id"] == dashboard_id:
+            return d
+    return None
+
+
+# ── Behavior Profiles ────────────────────────────────────────────
+# Separate lock to avoid contention with _lock (used by users.json).
+# Council recommendation: behavior writes are fire-and-forget and
+# should never block auth or query operations.
+
+_behavior_lock = threading.Lock()
+
+_DECAY_HALF_LIFE_DAYS = 14  # 2-week half-life on signal weights
+
+
+def _behavior_key(email: str) -> str:
+    return f"{_user_prefix(email)}/behavior_profile.json"
+
+
+def load_behavior_profile(email: str) -> dict:
+    """Load the compacted behavior profile for a user."""
+    profile = _backend.read_json(_behavior_key(email))
+    return profile or {
+        "topic_interests": {},
+        "connection_patterns": [],
+        "page_visits": {},
+        "dashboard_usage": {},
+        "prediction_accuracy": None,
+        "total_signals": 0,
+        "consent_level": 0,
+        "last_compacted_at": None,
+    }
+
+
+def merge_behavior_delta(email: str, delta: dict) -> dict:
+    """Merge a compacted behavior delta into the user's stored profile.
+
+    Applies additive merging for counters and recency-weighted append
+    for list fields. Uses a separate lock from the main data lock.
+    """
+    with _behavior_lock:
+        profile = load_behavior_profile(email)
+
+        # Merge topic interests (additive counts)
+        for topic, count in delta.get("topic_interests", {}).items():
+            profile["topic_interests"][topic] = (
+                profile["topic_interests"].get(topic, 0) + count
+            )
+
+        # Merge connection patterns (append, keep last 20)
+        new_patterns = delta.get("connection_patterns", [])
+        profile["connection_patterns"] = (
+            profile["connection_patterns"] + new_patterns
+        )[-20:]
+
+        # Merge page visits (additive)
+        for page, count in delta.get("page_visits", {}).items():
+            profile["page_visits"][page] = (
+                profile["page_visits"].get(page, 0) + count
+            )
+
+        # Merge dashboard usage (additive)
+        for action, count in delta.get("dashboard_usage", {}).items():
+            profile["dashboard_usage"][action] = (
+                profile["dashboard_usage"].get(action, 0) + count
+            )
+
+        # Update prediction accuracy (exponential moving average)
+        new_accuracy = delta.get("prediction_accuracy")
+        if new_accuracy is not None:
+            old = profile.get("prediction_accuracy")
+            if old is not None:
+                profile["prediction_accuracy"] = old * 0.7 + new_accuracy * 0.3
+            else:
+                profile["prediction_accuracy"] = new_accuracy
+
+        # Accumulate total signals
+        profile["total_signals"] = (
+            profile.get("total_signals", 0) + delta.get("session_signals", 0)
+        )
+        profile["last_compacted_at"] = delta.get(
+            "compacted_at", datetime.now(timezone.utc).isoformat()
+        )
+
+        _backend.write_json(_behavior_key(email), profile, atomic=True)
+        return profile
+
+
+def update_consent_level(email: str, level: int) -> dict:
+    """Update the user's behavior tracking consent level (0=off, 1=personal, 2=collaborative)."""
+    with _behavior_lock:
+        profile = load_behavior_profile(email)
+        profile["consent_level"] = max(0, min(2, level))
+        _backend.write_json(_behavior_key(email), profile, atomic=True)
+        return profile
+
+
+def clear_behavior_profile(email: str) -> bool:
+    """Delete all behavior data for a user (right-to-erasure)."""
+    with _behavior_lock:
+        return _backend.delete(_behavior_key(email))

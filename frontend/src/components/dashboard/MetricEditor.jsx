@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS } from './tokens';
-import { computeMetricForRows } from '../../lib/metricEvaluator';
+import { sandboxComputeMetric } from '../../lib/formulaSandbox';
 
 const inputStyle = {
   width: '100%',
@@ -43,9 +43,10 @@ export default function MetricEditor({ metrics = [], sampleRows = [], onSave, on
     setTestResult(null); setEditingIdx(null);
   }, []);
 
-  const handleTest = useCallback(() => {
+  const handleTest = useCallback(async () => {
     if (!formula.trim()) return;
-    const result = computeMetricForRows(formula, sampleRows);
+    setTestResult({ value: null, error: null, message: 'Evaluating...' });
+    const result = await sandboxComputeMetric(formula, sampleRows);
     if (result.requiresBackend) {
       setTestResult({ value: null, error: null, message: 'LOD expression detected — will be computed server-side' });
     } else {

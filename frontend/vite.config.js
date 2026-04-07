@@ -9,4 +9,16 @@ export default defineConfig({
       '/api': 'http://localhost:8002',
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/echarts') || id.includes('echarts-for-react')) return 'vendor-echarts';
+          if (id.includes('node_modules/framer-motion')) return 'vendor-motion';
+          if (id.includes('node_modules/html2canvas') || id.includes('node_modules/jspdf')) return 'vendor-export';
+          if (id.includes('node_modules/three')) return 'vendor-three';
+        },
+      },
+    },
+  },
 })

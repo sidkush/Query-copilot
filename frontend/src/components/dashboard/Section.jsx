@@ -25,7 +25,7 @@ function SectionGrid({ tiles, layout, onLayoutChange, sectionId, connId, onTileE
       {width > 0 && (
         <GridLayout
           className="layout"
-          layout={layout.map(item => ({ minW: 2, minH: 2, ...item }))}
+          layout={layout.map(item => ({ ...item, minW: 2, minH: 1 }))}
           cols={12}
           rowHeight={60}
           width={width}
@@ -61,11 +61,26 @@ function SectionGrid({ tiles, layout, onLayoutChange, sectionId, connId, onTileE
 export default function Section({
   section, connId, onLayoutChange, onTileEdit, onTileEditSQL,
   onTileChartChange, onTileRemove, onTileRefresh, onAddTile, onEditSection,
+  onDeleteSection, onReorderSection, onRenameSection,
   customMetrics, onToggleLayoutMode, onFreeformLayoutChange, onCanvasViewportChange,
   onTileSelect, selectedTileId, themeConfig, crossFilter, onCrossFilterClick, dashboardId,
   fullscreenMode = false,
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameName, setRenameName] = useState('');
+  const menuRef = useRef(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!showMenu) return;
+    const handle = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [showMenu]);
 
   const tiles = section?.tiles || [];
   const layout = section?.layout || [];
@@ -79,7 +94,23 @@ export default function Section({
           xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
         </svg>
-        <span className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.text.primary }}>{section?.name || 'Untitled Section'}</span>
+        {renaming ? (
+          <input
+            autoFocus
+            value={renameName}
+            onChange={e => setRenameName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { onRenameSection?.(section.id, renameName); setRenaming(false); }
+              if (e.key === 'Escape') setRenaming(false);
+            }}
+            onBlur={() => { if (renameName.trim()) onRenameSection?.(section.id, renameName); setRenaming(false); }}
+            onClick={e => e.stopPropagation()}
+            className="text-[13px] font-semibold uppercase tracking-wider bg-transparent outline-none px-1 rounded"
+            style={{ color: TOKENS.text.primary, border: `1px solid ${TOKENS.accent}`, width: 180 }}
+          />
+        ) : (
+          <span className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: TOKENS.text.primary }}>{section?.name || 'Untitled Section'}</span>
+        )}
         {section?.visibilityRule && (
           <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(99,102,241,0.15)', color: '#818cf8', fontWeight: 600, textTransform: 'none', letterSpacing: 'normal' }}>
             conditional
@@ -100,9 +131,35 @@ export default function Section({
             <button onClick={e => { e.stopPropagation(); onAddTile?.(section.id); }} className="cursor-pointer" style={{ color: TOKENS.text.muted }}>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" /></svg>
             </button>
-            <button onClick={e => { e.stopPropagation(); onEditSection?.(); }} className="cursor-pointer" style={{ color: TOKENS.text.muted }}>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" /></svg>
-            </button>
+            <div className="relative" ref={menuRef}>
+              <button onClick={e => { e.stopPropagation(); setShowMenu(o => !o); }} className="cursor-pointer" style={{ color: TOKENS.text.muted }}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" /></svg>
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 top-7 z-50 rounded-lg shadow-2xl py-1" style={{
+                  background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.hover}`,
+                  minWidth: 160, boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+                }}>
+                  {[
+                    { label: 'Rename', action: () => { setRenaming(true); setRenameName(section?.name || ''); setShowMenu(false); } },
+                    { label: 'Move Up', action: () => { onReorderSection?.(section.id, 'up'); setShowMenu(false); } },
+                    { label: 'Move Down', action: () => { onReorderSection?.(section.id, 'down'); setShowMenu(false); } },
+                    { label: 'Delete Section', action: () => { if (confirm('Delete this section and all its tiles?')) { onDeleteSection?.(section.id); } setShowMenu(false); }, danger: true },
+                  ].map(item => (
+                    <button key={item.label} onClick={e => { e.stopPropagation(); item.action(); }}
+                      className="w-full text-left px-3 py-1.5 text-xs cursor-pointer"
+                      style={{
+                        color: item.danger ? TOKENS.danger : TOKENS.text.secondary,
+                        background: 'transparent', border: 'none',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = TOKENS.bg.hover; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
