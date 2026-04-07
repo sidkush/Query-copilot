@@ -5,6 +5,7 @@ import { useStore } from "../store";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
 import OnboardingWelcome from "../components/onboarding/OnboardingWelcome";
+import OnboardingTour from "../components/onboarding/OnboardingTour";
 import OnboardingApiKey from "../components/onboarding/OnboardingApiKey";
 import OnboardingConnect from "../components/onboarding/OnboardingConnect";
 import OnboardingFirstQuery from "../components/onboarding/OnboardingFirstQuery";
@@ -93,10 +94,12 @@ export default function Onboarding() {
       case 1:
         return <OnboardingWelcome onNext={goNext} />;
       case 2:
-        return <OnboardingApiKey onNext={goNext} isDemo={false} />;
+        return <OnboardingTour onNext={goNext} />;
       case 3:
-        return <OnboardingConnect onNext={goNext} />;
+        return <OnboardingApiKey onNext={goNext} isDemo={false} />;
       case 4:
+        return <OnboardingConnect onNext={goNext} />;
+      case 5:
         return <OnboardingFirstQuery onNext={handleFinish} />;
       case 5:
         // Completion — auto-redirect
