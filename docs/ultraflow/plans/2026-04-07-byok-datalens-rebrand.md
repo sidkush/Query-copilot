@@ -7,7 +7,7 @@
 ## Assumption Registry
 
 - ASSUMPTION: `_fernet()` in user_storage.py uses SHA256(JWT_SECRET_KEY) — validated by code read
-- ASSUMPTION: `load_profile()`/`save_profile()` use `_backend.read_json`/`write_json` with `_lock` — validated by code read
+- ASSUMPTION: `load_profile()`/`save_profile()` use `_backend.read_json`/`write_json` with `_lock` — validated by code read. NOTE: `save_profile()` does NOT pass `atomic=True` (unlike dashboards/chats). Task 4 must use `atomic=True` when saving API keys since they are encrypted secrets.
 - ASSUMPTION: `get_current_user` dependency returns `{"email": ...}` dict — validated by user_routes.py pattern
 - ASSUMPTION: QueryEngine constructor takes `db_connector` + `namespace` — validated by code read (line 187)
 - ASSUMPTION: AgentEngine constructor takes `engine`, `email`, `connection_entry` + kwargs — validated by code read (line 425)
@@ -19,20 +19,27 @@
 - ASSUMPTION: `SessionMemory._summarize_messages()` creates an ad-hoc `anthropic.Anthropic()` client (line 347) — validated by discovery agent scan
 - ASSUMPTION: HTTP 422 is the error code for invalid API key (spec said 407, but 407 means "Proxy Authentication Required" which is semantically wrong; 422 "Unprocessable Entity" is correct) — validated by HTTP spec
 - ASSUMPTION: Spec names `BRAND_PURPLE`, `complete_tools`, `decrypt_api_key` diverge from plan names `brandPurple` (matches TOKENS camelCase convention), `complete_with_tools` (more descriptive), `decrypt_password` (reuses existing function). Plan names are intentional and authoritative — validated by codebase conventions
-- ASSUMPTION: Demo user detection in frontend uses `user.email === "demo@datalens.dev"` check from Zustand store `user` object — UNVALIDATED — risk: backend demo endpoint must return this exact email in the user object
+- ASSUMPTION: Demo user email is currently `demo@querycopilot.test` (auth_routes.py line 130). Task 10 renames it to `demo@datalens.dev`. Frontend detects demo user via `user.email === "demo@datalens.dev"` — validated by auth_routes.py code read + planned rename
+- ASSUMPTION: Demo user is PERSISTENT (created in users.json via `create_user()`, not ephemeral). Tutorial is auto-completed via `mark_tutorial_complete()`. This is fine — no change needed — validated by auth_routes.py code read
+- ASSUMPTION: `save_profile()` currently does NOT use atomic writes. New `save_api_key_to_profile()` helper in Task 4 MUST pass `atomic=True` to `write_json()` since it stores Fernet-encrypted secrets — validated by user_storage.py code read (line 79: `atomic` param exists)
+- ASSUMPTION: `CHROMA_PERSIST_DIR` defaults to `.chroma/querycopilot` (config.py line 127). This is a filesystem path, NOT user-facing. Renaming it would break existing ChromaDB data. Do NOT rename this path — validated by config.py code read
+- ASSUMPTION: `QUERYCOPILOT_ENV` environment variable used in demo login production guard (auth_routes.py line 189). Add `DATALENS_ENV` as alias with fallback to `QUERYCOPILOT_ENV` for backward compat — validated by auth_routes.py code read
+- ASSUMPTION: Agent system prompt says "You are QueryCopilot, an AI data analyst agent" (agent_engine.py line 389). Must rename to "DataLens" — validated by agent_engine.py code read
+- ASSUMPTION: 21 backend "querycopilot" references exist (config.py, agent_engine.py, auth_routes.py, auth.py, otp.py, digest.py, main.py, redis_client.py, user_storage.py + test files). Task 10 must cover ALL of these — validated by grep scan
+- ASSUMPTION: `ProtectedRoute` in App.jsx only checks token, NOT tutorialComplete/onboardingComplete. Task 14 must add onboarding enforcement to ProtectedRoute — validated by App.jsx code read
 
 ## Invariant List
 
 - Invariant-1: **Read-only enforcement** — 3 independent layers (driver, SQL validator, connector). No task may weaken any layer.
 - Invariant-2: **Two-step query flow** — `/generate` then `/execute`. Provider migration must not collapse these.
 - Invariant-3: **PII masking** — `mask_dataframe()` runs before data reaches users or LLM. Provider changes must not bypass this.
-- Invariant-4: **Agent guardrails** — max 6 tool calls, 30s timeout, 3 SQL retries. Provider swap must preserve these.
-- Invariant-5: **Fernet key derivation** — JWT_SECRET_KEY → SHA256 → base64. Changing this invalidates all saved DB passwords AND API keys.
+- Invariant-4: **Agent guardrails** — MAX_TOOL_CALLS=12, WALL_CLOCK_LIMIT=60s per segment, ABSOLUTE_WALL_CLOCK_LIMIT=600s, MAX_SQL_RETRIES=3. Provider swap must preserve these.
+- Invariant-5: **Fernet key derivation** — `FERNET_SECRET_KEY` (if set) takes priority, else fallback to SHA256(JWT_SECRET_KEY) → base64. Changing EITHER key invalidates all saved DB passwords AND API keys. API key encryption reuses existing `encrypt_password()`/`decrypt_password()` which call `_fernet()` internally.
 - Invariant-6: **Atomic file writes** — write-then-rename pattern for crash safety. New storage operations must follow this.
 
 ## Failure Mode Map
 
-1. FM-1: Provider ABC leaks Anthropic-specific types into agent_engine.py (mitigated by Task 2 — ContentBlock dataclass abstracts blocks)
+1. FM-1: Provider ABC leaks Anthropic-specific types into agent_engine.py (mitigated by Task 2 — ContentBlock dataclass abstracts blocks. Validated: agent loop accesses exactly 5 attributes {type, text, name, input, id} on block objects (lines 935-943), all mapped to ContentBlock fields {type, text, tool_name, tool_input, tool_use_id}. No other Anthropic-specific attributes accessed.)
 2. FM-2: Broken connection flow from constructor signature change (mitigated by Task 4+5 — lockstep migration with connection_routes.py)
 3. FM-3: Partial rename leaves "QueryCopilot" visible (mitigated by Task 10 — grep verification step)
 4. FM-4: Demo login regression — platform key path not handled (mitigated by Task 3 — explicit demo user branch in registry)
@@ -158,7 +165,7 @@ from user_storage import load_profile, decrypt_password  # reuse Fernet
 from anthropic_provider import AnthropicProvider
 from model_provider import InvalidKeyError
 
-DEMO_USER_EMAIL = "demo@datalens.dev"
+DEMO_USER_EMAIL = "demo@datalens.dev"  # Renamed from "demo@querycopilot.test" in Task 10
 
 ANTHROPIC_MODELS = {
     "claude-haiku-4-5-20251001": {"name": "Claude Haiku 4.5", "tier": "fast", "cost": "$"},
@@ -195,8 +202,8 @@ def get_provider_for_user(email: str) -> AnthropicProvider:
 
 ### Task 4: Add API key endpoints to user_routes.py (~5 min)
 - **Files**: `backend/routers/user_routes.py` (modify)
-- **Intent**: Add 6 new endpoints: `POST /api-key` (validate + encrypt + save), `GET /api-key/status` (masked key + validity), `DELETE /api-key` (remove), `POST /api-key/validate` (re-validate), `PUT /preferred-model` (update selection), `GET /available-models` (list). All use `get_current_user` dependency. Key saved via `save_profile()`. Validation via `AnthropicProvider.validate_key()`. Import `encrypt_password` for encrypting (same Fernet).
-- **Invariants**: Invariant-5 (reuses existing Fernet), Invariant-6 (save_profile uses atomic writes)
+- **Intent**: Add 6 new endpoints: `POST /api-key` (validate + encrypt + save), `GET /api-key/status` (masked key + validity), `DELETE /api-key` (remove), `POST /api-key/validate` (re-validate), `PUT /preferred-model` (update selection), `GET /available-models` (list). All use `get_current_user` dependency. Validation via `AnthropicProvider.validate_key()`. Import `encrypt_password` for encrypting (same Fernet). CRITICAL: Create a `save_api_key_to_profile()` helper in `user_storage.py` that calls `_backend.write_json(key, data, atomic=True)` — existing `save_profile()` does NOT use atomic writes, but API keys are encrypted secrets and must use write-then-rename. Also returns HTTP 422 for invalid key errors.
+- **Invariants**: Invariant-5 (reuses existing Fernet `encrypt_password()`/`decrypt_password()`), Invariant-6 (new helper uses `atomic=True` for crash-safe API key writes)
 - **Invariant-Check**: `python -c "from user_storage import save_profile, load_profile; save_profile('test@x.com', {'test': True}); p = load_profile('test@x.com'); assert p.get('test'); print('atomic write OK')"` → confirms Invariant-6
 - **Test**: `cd "QueryCopilot V1/backend" && python -c "from routers.user_routes import router; paths = [r.path for r in router.routes]; assert '/api-key' in str(paths); print('routes OK')"` → expects `routes OK`
 - **Commit**: `feat(byok): add API key CRUD and model selection endpoints`
@@ -212,8 +219,8 @@ def get_provider_for_user(email: str) -> AnthropicProvider:
 ### Task 6: Migrate agent_engine.py to use ModelProvider (~5 min)
 - **Files**: `backend/agent_engine.py` (modify)
 - **Intent**: Change constructor to accept `provider: ModelProvider`. Remove `import anthropic`. Replace `self.client = anthropic.Anthropic(...)` with `self.provider = provider`. Replace main loop `self.client.messages.create(tools=...)` with `self.provider.complete_with_tools(...)`. Map returned `ContentBlock` objects to existing step-emission logic. Replace `SessionMemory._summarize_messages()` ad-hoc client with provider passed into SessionMemory constructor. Keep all guardrails (max tool calls, timeout, SQL retries) unchanged.
-- **Invariants**: Invariant-4 (agent guardrails — must preserve MAX_TOOL_CALLS, timeout, SQL retry limits)
-- **Invariant-Check**: `grep -c "MAX_TOOL_CALLS\|_max_tool_calls\|_sql_retries" backend/agent_engine.py` → should be ≥4 occurrences (unchanged)
+- **Invariants**: Invariant-4 (agent guardrails — must preserve MAX_TOOL_CALLS=12, WALL_CLOCK_LIMIT=60s, ABSOLUTE_WALL_CLOCK_LIMIT=600s, MAX_SQL_RETRIES=3)
+- **Invariant-Check**: `grep -c "MAX_TOOL_CALLS\|WALL_CLOCK_LIMIT\|MAX_SQL_RETRIES" backend/agent_engine.py` → should be ≥6 occurrences (unchanged). Also: `python -c "from agent_engine import AgentEngine; assert AgentEngine.MAX_TOOL_CALLS == 12; assert AgentEngine.MAX_SQL_RETRIES == 3; print('guardrails OK')"` → expects `guardrails OK`
 - **Test**: `cd "QueryCopilot V1/backend" && python -c "from agent_engine import AgentEngine; print('import OK')"` → expects `import OK`
 - **Commit**: `refactor(byok): migrate agent_engine.py to ModelProvider interface`
 
@@ -240,12 +247,13 @@ def get_provider_for_user(email: str) -> AnthropicProvider:
 - **Test**: `cd "QueryCopilot V1/frontend" && npx -y acorn --ecma2020 src/components/DataLensLogo.jsx 2>&1 | head -1` → expects no parse error (valid JSX). Also: `grep -c "brandPurple" src/components/dashboard/tokens.js` → expects `1`
 - **Commit**: `feat(rebrand): add BRAND_PURPLE token and DataLensLogo component`
 
-### Task 10: Rename all QueryCopilot references to DataLens (~5 min)
-- **Files**: `frontend/src/pages/Tutorial.jsx` (modify), `frontend/src/pages/Landing.jsx` (modify), `frontend/src/components/AppSidebar.jsx` (modify), `frontend/src/pages/AdminDashboard.jsx` (modify), `frontend/src/pages/Profile.jsx` (modify), `frontend/src/pages/SharedDashboard.jsx` (modify), `frontend/src/pages/Login.jsx` (modify), `frontend/src/index.css` (modify), `frontend/index.html` (modify), `backend/digest.py` (modify)
-- **Intent**: Replace all user-facing "QueryCopilot" strings with "DataLens". In components that render the brand name inline (sidebar, login, landing), replace with `<DataLensLogo />` component import. In plain text contexts (aria-labels, meta tags, comments, email templates), replace string directly. Update footer email to `hello@datalens.ai`, social to `@DataLens`, copyright to `DataLens`.
-- **Invariants**: none
-- **Test**: `cd "QueryCopilot V1/frontend" && grep -ri "querycopilot" src/ index.html --include="*.jsx" --include="*.js" --include="*.html" --include="*.css" | wc -l` → expects `0` (no remaining references). Also: `grep -ri "querycopilot" ../backend/digest.py | wc -l` → expects `0`
-- **Commit**: `feat(rebrand): rename all QueryCopilot references to DataLens`
+### Task 10: Rename all QueryCopilot references to DataLens (~10 min)
+- **Files** (frontend — 18 user-facing occurrences): `frontend/src/pages/Tutorial.jsx` (modify), `frontend/src/pages/Landing.jsx` (modify), `frontend/src/components/AppSidebar.jsx` (modify), `frontend/src/pages/AdminDashboard.jsx` (modify), `frontend/src/pages/Profile.jsx` (modify), `frontend/src/pages/SharedDashboard.jsx` (modify), `frontend/src/pages/Login.jsx` (modify), `frontend/src/index.css` (modify), `frontend/index.html` (modify)
+- **Files** (backend — 21 occurrences): `backend/config.py` (modify — APP_TITLE, RESEND_FROM_EMAIL, SMTP_FROM_NAME; do NOT rename CHROMA_PERSIST_DIR `.chroma/querycopilot` as it breaks existing data), `backend/agent_engine.py` (modify — system prompt "You are QueryCopilot" → "You are DataLens"), `backend/routers/auth_routes.py` (modify — DEMO_EMAIL `demo@querycopilot.test` → `demo@datalens.dev`, add `DATALENS_ENV` alias alongside `QUERYCOPILOT_ENV` for backward compat), `backend/auth.py` (modify — docstring), `backend/otp.py` (modify — email subject/body text), `backend/digest.py` (modify — email templates, docstring), `backend/main.py` (modify — log messages), `backend/redis_client.py` (modify — docstring), `backend/user_storage.py` (modify — docstring)
+- **Intent**: Replace all user-facing "QueryCopilot" strings with "DataLens". In frontend components that render the brand name inline (sidebar, login, landing), replace with `<DataLensLogo />` component import. In plain text contexts (aria-labels, meta tags, comments, email templates, system prompts, log messages), replace string directly. Update footer email to `hello@datalens.ai`, social to `@DataLens`, copyright to `DataLens`. PRESERVE: `CHROMA_PERSIST_DIR` path (`.chroma/querycopilot`) — this is a filesystem path, renaming it breaks existing vector stores. Add `DATALENS_ENV` env var check alongside `QUERYCOPILOT_ENV` (backward compat: `os.environ.get("DATALENS_ENV") or os.environ.get("QUERYCOPILOT_ENV")`). Do NOT rename test files (regression_test.py, test_registration.py, test_waterfall.py) — they are manual scripts.
+- **Invariants**: none (user-facing strings only; no security/data changes)
+- **Test**: `cd "QueryCopilot V1" && grep -ri "querycopilot" frontend/src/ frontend/index.html --include="*.jsx" --include="*.js" --include="*.html" --include="*.css" | wc -l` → expects `0`. Also: `grep -ri "querycopilot" backend/ --include="*.py" | grep -v "test_\|regression_\|chroma/querycopilot\|QUERYCOPILOT_ENV" | wc -l` → expects `0` (all user-facing references gone, only test files and preserved paths remain)
+- **Commit**: `feat(rebrand): rename all QueryCopilot references to DataLens across frontend and backend`
 
 ### Task 11: Add API key functions to api.js and Zustand store (~5 min)
 - **Files**: `frontend/src/api.js` (modify), `frontend/src/store.js` (modify)
@@ -270,7 +278,24 @@ def get_provider_for_user(email: str) -> AnthropicProvider:
 
 ### Task 14: Build Onboarding Step 5 (First Query) and wire routing (~5 min)
 - **Files**: `frontend/src/components/onboarding/OnboardingFirstQuery.jsx` (create), `frontend/src/App.jsx` (modify), `frontend/src/pages/Login.jsx` (modify), `frontend/src/pages/Tutorial.jsx` (delete or leave unused)
-- **Intent**: `OnboardingFirstQuery` — if DB connected, show pre-populated sample question + mini chat interface; if no DB, show "Connect a database" CTA. On successful query: celebration animation + "Go to Dashboard" button. In `App.jsx`: replace `/tutorial` route with `/onboarding` pointing to new `Onboarding.jsx`. Remove Tutorial import (file can stay but is dead code). Add redirect logic with two conditions: (a) NEW users (`!onboardingComplete`) → redirect to `/onboarding` step 1 (full flow); (b) EXISTING users who have `onboardingComplete` but no API key (`!apiKeyStatus?.valid && onboardingComplete`) → redirect to `/onboarding?step=3` (API key step only, skipping Welcome and Tour). The `Onboarding.jsx` component reads the `step` query param to set initial step. In `Login.jsx`: change `handleDemoLogin` and `handleLogin` success navigation from `/dashboard` to `/onboarding` (if not completed). Demo user detected via `user.email === "demo@datalens.dev"` from the auth response for conditional auto-fill in Step 3.
+- **Intent**: `OnboardingFirstQuery` — if DB connected, show pre-populated sample question + mini chat interface; if no DB, show "Connect a database" CTA. On successful query: celebration animation + "Go to Dashboard" button.
+
+  **App.jsx changes (CRITICAL — onboarding enforcement):**
+  1. Replace `/tutorial` route with `/onboarding` pointing to new `Onboarding.jsx`. Remove Tutorial import.
+  2. Modify `ProtectedRoute` to enforce onboarding. Current ProtectedRoute ONLY checks `token` — it does NOT check onboarding state. Add: if `token && !onboardingComplete && location.pathname !== "/onboarding"` → redirect to `/onboarding`. This prevents users from bypassing onboarding by navigating directly to `/dashboard`.
+  3. Add a separate `OnboardingGate` wrapper (or extend ProtectedRoute) that checks API key: if `token && onboardingComplete && !apiKeyConfigured` → redirect to `/onboarding?step=3` (existing users who completed old tutorial but have no API key).
+  4. The `Onboarding.jsx` component reads the `step` query param via `useSearchParams()` to set initial step, allowing direct-to-step-3 routing.
+
+  **Login.jsx changes:**
+  - `handleDemoLogin` and `handleLogin`: after `setAuth()`, check `data.user.tutorial_completed` (maps to old `onboardingComplete`). Navigate to `/onboarding` if not completed, `/dashboard` if completed AND has API key, `/onboarding?step=3` if completed but no API key.
+  - Demo user detected via `user.email === "demo@datalens.dev"` from auth response for conditional auto-fill in Step 3.
+
+  **Login redirect truth table:**
+  | tutorial_completed | has API key | Redirect to |
+  |---|---|---|
+  | false | N/A | `/onboarding` (full flow) |
+  | true | true | `/dashboard` |
+  | true | false | `/onboarding?step=3` (API key only) |
 - **Invariants**: none
 - **Test**: `cd "QueryCopilot V1/frontend" && npm run build 2>&1 | tail -5` → expects successful build. Also: `grep -c "onboarding" src/App.jsx` → expects ≥2 (route + import)
 - **Commit**: `feat(onboarding): add First Query step and wire onboarding routing`

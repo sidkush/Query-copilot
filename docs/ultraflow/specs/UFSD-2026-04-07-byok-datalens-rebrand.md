@@ -267,7 +267,7 @@ ANTHROPIC_MODELS = {
 - User's `preferred_model` replaces `settings.PRIMARY_MODEL` for that user
 - Fallback model auto-selected: if preferred is Haiku → fallback is Sonnet. If preferred is Sonnet/Opus → fallback is same tier or one up.
 - Existing circuit breaker logic in `AnthropicProvider` handles escalation
-- `agent_engine.py` guardrails unchanged (max 6 tools, 30s timeout, 3 SQL retries)
+- `agent_engine.py` guardrails unchanged (MAX_TOOL_CALLS=12, WALL_CLOCK_LIMIT=60s, ABSOLUTE_WALL_CLOCK_LIMIT=600s, MAX_SQL_RETRIES=3)
 
 ---
 
