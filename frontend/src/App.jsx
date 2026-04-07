@@ -38,7 +38,9 @@ function ProtectedRoute({ children }) {
   if (!onboardingComplete) return <Navigate to="/onboarding" replace />;
 
   // Existing users without API key: direct to step 3
-  if (apiKeyStatus && !apiKeyStatus.configured && apiKeyStatus.configured !== undefined) {
+  // apiKeyStatus is null on first load (before fetch) — only gate when
+  // we have a definitive answer that no key is configured.
+  if (apiKeyStatus !== null && apiKeyStatus.configured === false) {
     return <Navigate to="/onboarding?step=3" replace />;
   }
 
