@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useStore } from "./store";
@@ -21,9 +21,28 @@ import DashboardBuilder from "./pages/DashboardBuilder";
 import SharedDashboard from "./pages/SharedDashboard";
 import PageTransition from "./components/animation/PageTransition";
 
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+
 function ProtectedRoute({ children }) {
   const token = useStore((s) => s.token);
-  return token ? children : <Navigate to="/login" replace />;
+  const onboardingComplete = useStore((s) => s.onboardingComplete);
+  const apiKeyStatus = useStore((s) => s.apiKeyStatus);
+  const location = useLocation();
+
+  if (!token) return <Navigate to="/login" replace />;
+
+  // Allow /onboarding route itself
+  if (location.pathname === "/onboarding") return children;
+
+  // New users: full onboarding
+  if (!onboardingComplete) return <Navigate to="/onboarding" replace />;
+
+  // Existing users without API key: direct to step 3
+  if (apiKeyStatus && !apiKeyStatus.configured && apiKeyStatus.configured !== undefined) {
+    return <Navigate to="/onboarding?step=3" replace />;
+  }
+
+  return children;
 }
 
 function AppPage({ children }) {
@@ -66,7 +85,7 @@ function AnimatedRoutes() {
         <Route path="/shared/:token" element={<PageTransition><SharedDashboard /></PageTransition>} />
 
         {/* Protected — no sidebar */}
-        <Route path="/tutorial" element={<ProtectedRoute><PageTransition><Tutorial /></PageTransition></ProtectedRoute>} />
+        <Route path="/onboarding" element={<ProtectedRoute><Suspense fallback={<div className="flex-1 bg-[#06060e]" />}><PageTransition><Onboarding /></PageTransition></Suspense></ProtectedRoute>} />
 
         {/* Protected — with sidebar */}
         <Route path="/dashboard" element={<AppPage><PageTransition><Dashboard /></PageTransition></AppPage>} />

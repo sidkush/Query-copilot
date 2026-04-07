@@ -274,6 +274,7 @@ export default function Login() {
   const setAuth = useStore((s) => s.setAuth);
   const tutorialComplete = useStore((s) => s.tutorialComplete);
   const setTutorialComplete = useStore((s) => s.setTutorialComplete);
+  const setOnboardingComplete = useStore((s) => s.setOnboardingComplete);
 
   // Countdown timer for resend cooldown
   useEffect(() => {
@@ -321,9 +322,12 @@ export default function Login() {
     try {
       const data = await api.login({ email, password });
       setAuth(data.user, data.access_token);
-      const serverTutorialDone = data.user?.tutorial_completed === true;
-      if (serverTutorialDone) setTutorialComplete(true);
-      navigate(serverTutorialDone || tutorialComplete ? "/dashboard" : "/tutorial");
+      if (data.user?.tutorial_completed) {
+        setOnboardingComplete(true);
+        setTutorialComplete(true);
+      }
+      // ProtectedRoute will redirect to /onboarding if needed
+      navigate("/dashboard");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -339,6 +343,11 @@ export default function Login() {
     try {
       const data = await api.demoLogin();
       setAuth(data.user, data.access_token);
+      if (data.user?.tutorial_completed) {
+        setOnboardingComplete(true);
+        setTutorialComplete(true);
+      }
+      // ProtectedRoute will redirect to /onboarding if needed
       navigate("/dashboard");
     } catch (err) {
       setError(err.message || "Demo login failed");
@@ -443,7 +452,7 @@ export default function Login() {
         country_code: countryCode,
       });
       setAuth(data.user, data.access_token);
-      navigate("/tutorial");
+      navigate("/onboarding");
     } catch (err) {
       setError(err.message);
     } finally {
