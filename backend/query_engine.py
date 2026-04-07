@@ -11,10 +11,10 @@ Pipeline:
 7. Generate NL summary of results
 """
 
-import anthropic
 import chromadb
 from chromadb import EmbeddingFunction, Documents, Embeddings
 import hashlib
+import json
 import math
 import time
 import logging
@@ -26,6 +26,7 @@ from config import settings, DBType
 from sql_validator import SQLValidator
 from db_connector import DatabaseConnector
 from pii_masking import mask_dataframe
+from model_provider import ModelProvider
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,7 @@ class QueryResult:
     latency_ms: float = 0
     row_count: int = 0
     retries: int = 0
+    confidence: Optional[dict] = None  # { score: 0-100, caveats: [str] }
 
     def to_dict(self) -> dict:
         import pandas as pd  # Lazy import: avoids native DLL conflict with ChromaDB on Windows
@@ -85,6 +87,7 @@ class QueryResult:
             "latency_ms": round(self.latency_ms, 1),
             "row_count": self.row_count,
             "retries": self.retries,
+            "confidence": self.confidence,
         }
         if self.data is not None:
             result["columns"] = self.columns or []
@@ -124,16 +127,28 @@ RULES:
 8. If the question is ambiguous, make reasonable assumptions and note them.
 9. Do NOT wrap SQL in markdown code blocks. Return raw SQL only.
 
+ADVANCED SQL PATTERNS — use these when the question implies them:
+- "running total", "cumulative" → SUM(...) OVER (ORDER BY ...)
+- "moving average", "rolling" → AVG(...) OVER (ORDER BY ... ROWS BETWEEN N PRECEDING AND CURRENT ROW)
+- "rank", "top N per group" → ROW_NUMBER() / RANK() / DENSE_RANK() OVER (PARTITION BY ... ORDER BY ...)
+- "percent of total", "share" → value / SUM(value) OVER () * 100
+- "year over year", "period comparison" → LAG(..., 1) OVER (ORDER BY period)
+- "growth rate", "change" → (current - LAG(current)) / NULLIF(LAG(current), 0) * 100
+- For LOD-style calculations, use CTEs with GROUP BY at the desired granularity, then JOIN back.
+- For forecasting/trend keywords ("predict", "forecast", "trend"), compute a simple linear slope using:
+  (N * SUM(x*y) - SUM(x) * SUM(y)) / NULLIF(N * SUM(x*x) - SUM(x) * SUM(x), 0)
+
 RESPONSE FORMAT:
 Return ONLY the SQL query. No explanations, no markdown, no code fences.
 
 {business_rules}"""
 
-    def __init__(self, db_connector: DatabaseConnector, namespace: str = "default"):
+    def __init__(self, db_connector: DatabaseConnector, namespace: str = "default", *, provider: ModelProvider):
         self.db = db_connector
-        self.primary_model = settings.PRIMARY_MODEL
-        self.fallback_model = settings.FALLBACK_MODEL
-        self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self._namespace = namespace
+        self.provider = provider
+        self.primary_model = provider.default_model
+        self.fallback_model = provider.fallback_model
         self.validator = SQLValidator(dialect=db_connector.db_type.value)
 
         self.chroma_client = chromadb.PersistentClient(
@@ -227,6 +242,9 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
 
         formatted = self.validator.format_sql(clean_sql)
 
+        # ── Confidence scoring — quick self-critique ──
+        confidence = self._score_confidence(question, clean_sql, schema_context)
+
         return QueryResult(
             question=question,
             sql=clean_sql,
@@ -234,9 +252,83 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
             model_used=model_used,
             latency_ms=(time.time() - start_time) * 1000,
             retries=retries,
+            confidence=confidence,
         )
 
     # ── Execute approved SQL ──────────────────────────────────────
+
+    def _cache_key(self, sql: str, params: Optional[Dict] = None) -> str:
+        """Generate a deterministic cache key from SQL + optional parameters."""
+        raw = sql.strip().lower() + (str(sorted(params.items())) if params else "")
+        return hashlib.sha256(raw.encode()).hexdigest()
+
+    def _redis_cache_key(self, key: str) -> str:
+        return f"qc:cache:{self._namespace}:{key}"
+
+    def _get_cached(self, key: str) -> Optional[dict]:
+        """Return cached result — tries Redis first, then in-memory fallback."""
+        if not settings.CACHE_ENABLED:
+            return None
+        # Try Redis
+        try:
+            from redis_client import get_redis
+            r = get_redis()
+            if r:
+                raw = r.get(self._redis_cache_key(key))
+                if raw:
+                    return json.loads(raw)
+        except Exception:
+            pass
+        # Fallback to in-memory
+        entry = self._cache.get(key)
+        if entry and (time.time() - entry["ts"]) < settings.CACHE_TTL_SECONDS:
+            return entry
+        if entry:
+            del self._cache[key]
+        return None
+
+    def _set_cached(self, key: str, columns: list, rows: list, summary: str, formatted_sql: str):
+        """Store a query result — tries Redis first, always stores in-memory as fallback."""
+        if not settings.CACHE_ENABLED:
+            return
+        entry = {
+            "ts": time.time(),
+            "columns": columns,
+            "rows": rows,
+            "summary": summary,
+            "formatted_sql": formatted_sql,
+        }
+        # Try Redis with native TTL
+        try:
+            from redis_client import get_redis
+            r = get_redis()
+            if r:
+                r.setex(self._redis_cache_key(key), settings.CACHE_TTL_SECONDS, json.dumps(entry, default=str))
+        except Exception:
+            pass
+        # Always store in-memory as fallback
+        self._cache[key] = entry
+        if len(self._cache) > 200:
+            oldest_key = min(self._cache, key=lambda k: self._cache[k]["ts"])
+            del self._cache[oldest_key]
+
+    def clear_cache(self):
+        """Flush the query result cache (both Redis and in-memory)."""
+        self._cache.clear()
+        try:
+            from redis_client import get_redis
+            r = get_redis()
+            if r:
+                prefix = f"qc:cache:{self._namespace}:*"
+                cursor = 0
+                while True:
+                    cursor, keys = r.scan(cursor, match=prefix, count=100)
+                    if keys:
+                        r.delete(*keys)
+                    if cursor == 0:
+                        break
+        except Exception:
+            pass
 
     def execute_sql(self, sql: str, question: str = "") -> QueryResult:
         """Execute a user-approved SQL query."""
@@ -245,6 +337,24 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
         is_valid, clean_sql, error = self.validator.validate(sql)
         if not is_valid:
             return QueryResult(question=question, sql=sql, error=f"Validation failed: {error}")
+
+        # ── Check cache ──
+        cache_key = self._cache_key(clean_sql)
+        cached = self._get_cached(cache_key)
+        if cached:
+            import pandas as pd
+            logger.info(f"Cache hit for query: {clean_sql[:80]}...")
+            df = pd.DataFrame(cached["rows"], columns=cached["columns"])
+            return QueryResult(
+                question=question,
+                sql=clean_sql,
+                formatted_sql=cached["formatted_sql"],
+                data=df,
+                columns=cached["columns"],
+                summary=cached["summary"],
+                row_count=len(cached["rows"]),
+                latency_ms=(time.time() - start_time) * 1000,
+            )
 
         try:
             # ── Big data: estimate result size first ──────
@@ -263,10 +373,21 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
             if size_warning:
                 summary = f"{size_warning}\n\n{summary}" if summary else size_warning
 
+            formatted_sql = self.validator.format_sql(clean_sql)
+
+            # ── Store in cache ──
+            self._set_cached(
+                cache_key,
+                columns=list(masked_df.columns) if masked_df is not None else [],
+                rows=masked_df.head(5000).to_dict("records") if masked_df is not None else [],
+                summary=summary,
+                formatted_sql=formatted_sql,
+            )
+
             return QueryResult(
                 question=question,
                 sql=clean_sql,
-                formatted_sql=self.validator.format_sql(clean_sql),
+                formatted_sql=formatted_sql,
                 data=masked_df,
                 columns=list(masked_df.columns) if masked_df is not None else [],
                 summary=summary,
@@ -433,6 +554,8 @@ Generate the dashboard JSON now."""
 
     def _call_claude_dashboard(self, system_prompt: str, user_prompt: str, model: str) -> str:
         """Call Claude with a higher token limit for dashboard generation."""
+        if _claude_breaker.is_open():
+            raise RuntimeError("AI service temporarily unavailable (circuit breaker open). Please retry in 30 seconds.")
         try:
             response = self.client.messages.create(
                 model=model,
@@ -444,11 +567,13 @@ Generate the dashboard JSON now."""
                 }],
                 messages=[{"role": "user", "content": user_prompt}]
             )
+            _claude_breaker.record_success()
             text = response.content[0].text
             if response.stop_reason == "max_tokens":
                 logger.warning(f"Dashboard response was TRUNCATED (hit max_tokens). Length: {len(text)} chars")
             return text
         except anthropic.APIError as e:
+            _claude_breaker.record_failure()
             raise RuntimeError(f"AI service error: {str(e)}")
 
     @staticmethod
@@ -698,20 +823,41 @@ BIG DATA OPTIMIZATION RULES (this is a large-scale data warehouse — efficiency
         return sql, self.fallback_model, retries
 
     def _call_claude(self, system_prompt: str, user_prompt: str, model: str) -> str:
+        response = self.provider.complete(
+            model=model,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+            max_tokens=settings.MAX_TOKENS,
+        )
+        return response.text
+
+    def generate_sql_stream(self, question: str):
+        """Stream SQL generation tokens via a generator. Yields partial text chunks."""
+        schema_context = self._retrieve_schema(question)
+        example_context = self._retrieve_examples(question)
+        user_prompt = self._build_prompt(question, schema_context, example_context)
+        system_prompt = self._get_system_prompt()
+
         try:
-            response = self.client.messages.create(
-                model=model,
+            stream = self.provider.complete_stream(
+                model=self.primary_model,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
                 max_tokens=settings.MAX_TOKENS,
-                system=[{
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"}
-                }],
-                messages=[{"role": "user", "content": user_prompt}]
             )
-            return response.content[0].text
-        except anthropic.APIError as e:
-            raise RuntimeError(f"AI service error: {str(e)}")
+            full_text = ""
+            for text in stream:
+                full_text += text
+                yield text
+            # After streaming completes, validate
+            sql = self._clean_sql_response(full_text)
+            is_valid, clean_sql, error = self.validator.validate(sql)
+            if is_valid:
+                yield f"\n__VALID__:{clean_sql}"
+            else:
+                yield f"\n__ERROR__:{error}"
+        except Exception as e:
+            yield f"\n__ERROR__:{str(e)}"
 
     def _clean_sql_response(self, response: str) -> str:
         sql = response.strip()
@@ -743,3 +889,146 @@ BIG DATA OPTIMIZATION RULES (this is a large-scale data warehouse — efficiency
             return response.content[0].text.strip()
         except Exception:
             return ""
+
+    # ── Drill-down [ADV-FIX H7] ────────────────────────────────
+    def drill_down(self, parent_sql: str, dimension: str, value: str) -> QueryResult:
+        """Generate a scoped child query filtering by the clicked dimension value."""
+        start_time = time.time()
+        schema_context = self._retrieve_schema(f"drill down into {dimension} = {value}")
+
+        system_prompt = (
+            "You are an expert SQL analyst. Given a parent query and a filter condition, "
+            "generate a drill-down query that shows detail rows for the filtered value. "
+            "RULES: 1) Generate ONLY a SELECT statement. 2) Use the parent query as a subquery or CTE if needed. "
+            "3) Filter WHERE the specified dimension equals the specified value. "
+            "4) Show relevant detail columns. 5) Add LIMIT 100. "
+            "6) Return raw SQL only, no markdown."
+        )
+        user_prompt = (
+            f"Parent query:\n{parent_sql}\n\n"
+            f"Drill into: {dimension} = '{value}'\n\n"
+            f"Schema context:\n{schema_context}\n\n"
+            f"Generate a drill-down query that filters to this value and shows row-level detail."
+        )
+
+        sql, model_used, retries = self._generate_sql(
+            f"{system_prompt}\n\n{user_prompt}"
+        )
+        is_valid, clean_sql, error = self.validator.validate(sql)
+        if not is_valid:
+            return QueryResult(
+                question=f"Drill: {dimension}={value}",
+                sql=sql, error=f"Validation failed: {error}",
+                model_used=model_used,
+                latency_ms=(time.time() - start_time) * 1000,
+            )
+
+        # Execute the drill-down query
+        try:
+            df = self.db.execute_query(clean_sql)
+            masked_df = mask_dataframe(df)
+            return QueryResult(
+                question=f"Drill: {dimension}={value}",
+                sql=clean_sql,
+                formatted_sql=self.validator.format_sql(clean_sql),
+                data=masked_df,
+                columns=list(masked_df.columns) if masked_df is not None else [],
+                row_count=len(masked_df),
+                model_used=model_used,
+                latency_ms=(time.time() - start_time) * 1000,
+            )
+        except RuntimeError as e:
+            return QueryResult(
+                question=f"Drill: {dimension}={value}",
+                sql=clean_sql, error=str(e),
+                latency_ms=(time.time() - start_time) * 1000,
+            )
+
+    # ── Confidence scoring ─────────────────────────────────────
+    def _score_confidence(self, question: str, sql: str, schema_context: str) -> Optional[dict]:
+        """Quick self-critique: return {score: 0-100, caveats: [str]}."""
+        import json as _json
+        try:
+            response = self.client.messages.create(
+                model=self.primary_model,
+                max_tokens=200,
+                system=(
+                    "You are a SQL quality auditor. Given a question, generated SQL, and schema context, "
+                    "rate the SQL quality 0-100 and list up to 3 brief caveats. "
+                    "Return ONLY a JSON object: {\"score\": N, \"caveats\": [\"...\"]}"
+                ),
+                messages=[{"role": "user", "content": (
+                    f"Question: {question}\n\nSQL: {sql}\n\nSchema:\n{schema_context[:2000]}\n\n"
+                    "Rate this SQL. Return ONLY the JSON."
+                )}],
+            )
+            raw = response.content[0].text.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0]
+            result = _json.loads(raw)
+            return {
+                "score": max(0, min(100, int(result.get("score", 50)))),
+                "caveats": [str(c) for c in result.get("caveats", [])][:3],
+            }
+        except Exception as e:
+            logger.warning(f"Confidence scoring failed: {e}")
+            return None
+
+    # ── Conversational tile editing [ADV-FIX C8] ────────────────
+    TILE_EDIT_ALLOWLIST = {
+        "chartType", "title", "subtitle", "palette", "activeMeasures",
+        "selectedMeasure", "visualConfig",
+    }
+
+    def edit_tile_from_nl(self, instruction: str, tile_state: dict) -> dict:
+        """Parse a natural-language editing instruction into a safe JSON patch.
+        Only fields in TILE_EDIT_ALLOWLIST are returned.
+        sql, columns, rows are NEVER patchable."""
+        import json as _json
+
+        safe_state = {
+            "title": tile_state.get("title"),
+            "subtitle": tile_state.get("subtitle"),
+            "chartType": tile_state.get("chartType"),
+            "palette": tile_state.get("palette"),
+            "activeMeasures": tile_state.get("activeMeasures"),
+            "selectedMeasure": tile_state.get("selectedMeasure"),
+            "columns": tile_state.get("columns", []),
+        }
+
+        system_prompt = (
+            "You are a dashboard tile editor. Given a tile's current state and a user instruction, "
+            "return a JSON object with ONLY the fields that should change. "
+            "Allowed fields: chartType, title, subtitle, palette, activeMeasures, selectedMeasure, visualConfig. "
+            "NEVER include: sql, columns, rows, id, annotations, question. "
+            "Valid chartType values: bar, line, area, pie, donut, table, kpi, stacked_bar, horizontal_bar, scatter. "
+            "Valid palette values: default, ocean, sunset, forest, mono, colorblind. "
+            "Return ONLY the JSON patch. No markdown, no explanation."
+        )
+
+        user_prompt = (
+            f"Current tile state:\n{_json.dumps(safe_state, default=str)}\n\n"
+            f"User instruction: {instruction}\n\n"
+            f"Return ONLY the JSON patch object."
+        )
+
+        try:
+            response = self.client.messages.create(
+                model=self.primary_model,
+                max_tokens=300,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            raw = response.content[0].text.strip()
+            # Strip markdown fences if present
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0]
+
+            patch = _json.loads(raw)
+
+            # Filter to allowlist only [ADV-FIX C8]
+            safe_patch = {k: v for k, v in patch.items() if k in self.TILE_EDIT_ALLOWLIST}
+            return safe_patch
+        except Exception as e:
+            logger.error(f"edit_tile_from_nl failed: {e}")
+            raise RuntimeError(f"Could not parse editing instruction: {e}")
