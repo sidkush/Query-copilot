@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -272,7 +273,7 @@ export default function Login() {
   const [showConfirm, setShowConfirm] = useState(false);
   const navigate = useNavigate();
   const setAuth = useStore((s) => s.setAuth);
-  const tutorialComplete = useStore((s) => s.tutorialComplete);
+  const _tutorialComplete = useStore((s) => s.tutorialComplete);
   const setTutorialComplete = useStore((s) => s.setTutorialComplete);
   const setOnboardingComplete = useStore((s) => s.setOnboardingComplete);
 
@@ -477,7 +478,7 @@ export default function Login() {
   };
 
   /* ─── Derive a stable key for AnimatePresence step views ── */
-  const viewKey = isRegister ? `reg-${regStep}` : "login";
+  const _viewKey = isRegister ? `reg-${regStep}` : "login";
 
   /* ─── Render ──────────────────────────────────────────────── */
   return (

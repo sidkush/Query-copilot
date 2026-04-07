@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { api } from "../../api";
 import { useStore } from "../../store";
@@ -8,14 +9,16 @@ const CONFETTI_COLORS = [
   "#38bdf8", "#facc15", "#fb923c", "#f87171", "#22d3ee",
 ];
 
+const CONFETTI_DOTS = Array.from({ length: 24 }, (_, i) => ({
+  id: i,
+  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+  x: Math.random() * 100,
+  delay: Math.random() * 0.6,
+  size: 4 + Math.random() * 6,
+}));
+
 function ConfettiCelebration() {
-  const dots = Array.from({ length: 24 }, (_, i) => ({
-    id: i,
-    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-    x: Math.random() * 100,
-    delay: Math.random() * 0.6,
-    size: 4 + Math.random() * 6,
-  }));
+  const dots = CONFETTI_DOTS;
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">

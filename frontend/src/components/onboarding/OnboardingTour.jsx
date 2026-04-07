@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { CHART_PALETTES } from "../dashboard/tokens";
 
@@ -36,6 +37,7 @@ function TypingDemo({ text }) {
   const indexRef = useRef(0);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDisplayed("");
     indexRef.current = 0;
     const id = setInterval(() => {

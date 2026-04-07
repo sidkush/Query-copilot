@@ -14,7 +14,7 @@ async function request(path, options = {}) {
       headers: getHeaders(),
       ...options,
     });
-  } catch (err) {
+  } catch {
     throw new Error("Cannot connect to server. Please ensure the backend is running.");
   }
   if (res.status === 401) {
@@ -539,7 +539,7 @@ export const api = {
           const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
           setTimeout(connect, delay);
         }
-      } catch (err) {
+      } catch {
         if (controller.signal.aborted) return; // intentional close
         if (retryCount < MAX_RETRIES) {
           retryCount++;

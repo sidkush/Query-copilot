@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense, Component } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "../store";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
@@ -101,25 +102,6 @@ export default function Onboarding() {
         return <OnboardingConnect onNext={goNext} />;
       case 5:
         return <OnboardingFirstQuery onNext={handleFinish} />;
-      case 5:
-        // Completion — auto-redirect
-        return (
-          <div className="min-h-screen flex items-center justify-center">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center"
-            >
-              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">All set!</h2>
-              <p className="text-gray-400">You are ready to start exploring your data.</p>
-            </motion.div>
-          </div>
-        );
       default:
         return null;
     }
