@@ -4,7 +4,7 @@ import re
 import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field as PydField
 from typing import Optional
 
 from auth import get_current_user, _load_users
@@ -262,7 +262,7 @@ def get_my_tickets(user: dict = Depends(get_current_user)):
 # ── API Key Management ──────────────────────────────────────────
 
 class SaveApiKeyBody(BaseModel):
-    api_key: str
+    api_key: str = PydField(min_length=10, max_length=512)  # Anthropic keys ~108 chars
 
 
 class UpdateModelBody(BaseModel):
