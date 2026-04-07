@@ -47,7 +47,14 @@ def get_provider_for_user(email: str) -> AnthropicProvider:
             "No API key configured. Please add your Anthropic API key in Account settings."
         )
 
-    api_key = decrypt_password(api_key_encrypted)
+    try:
+        api_key = decrypt_password(api_key_encrypted)
+    except Exception:
+        # Fernet InvalidToken — key corrupted or JWT_SECRET_KEY rotated
+        raise InvalidKeyError(
+            "Stored API key is corrupted or the server encryption key changed. "
+            "Please save a new API key in Account settings."
+        )
     preferred_model = profile.get("preferred_model", settings.PRIMARY_MODEL)
     fallback = get_fallback_model(preferred_model)
 

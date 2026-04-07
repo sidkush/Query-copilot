@@ -74,8 +74,20 @@ class _CircuitBreaker:
         return "open"
 
 
-# Module-level breaker shared across all AnthropicProvider instances
-_breaker = _CircuitBreaker(threshold=3, cooldown_sec=30)
+# Per-API-key circuit breakers — prevents one user's failures from
+# blocking all users. Keyed by the first 16 chars of the API key hash.
+import hashlib as _hashlib
+_breakers: dict[str, _CircuitBreaker] = {}
+_breakers_lock = threading.Lock()
+
+
+def _get_breaker(api_key: str) -> _CircuitBreaker:
+    """Get or create a circuit breaker scoped to this API key."""
+    key_hash = _hashlib.sha256(api_key.encode()).hexdigest()[:16]
+    with _breakers_lock:
+        if key_hash not in _breakers:
+            _breakers[key_hash] = _CircuitBreaker(threshold=3, cooldown_sec=30)
+        return _breakers[key_hash]
 
 
 class AnthropicProvider(ModelProvider):
@@ -94,6 +106,7 @@ class AnthropicProvider(ModelProvider):
         self.default_model = default_model
         self.fallback_model = fallback_model or "claude-sonnet-4-5-20250514"
         self._client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
+        self._breaker = _get_breaker(api_key)  # Per-key circuit breaker
 
     # ── Capabilities ───────────────────────────────────────────────
 
@@ -119,7 +132,7 @@ class AnthropicProvider(ModelProvider):
                 system=system_blocks if system else anthropic.NOT_GIVEN,
                 messages=messages,
             )
-            _breaker.record_success()
+            self._breaker.record_success()
             text = response.content[0].text if response.content else ""
             return ProviderResponse(
                 text=text,
@@ -134,7 +147,7 @@ class AnthropicProvider(ModelProvider):
         except anthropic.PermissionDeniedError:
             raise InvalidKeyError("API key lacks required permissions")
         except anthropic.APIError as e:
-            _breaker.record_failure()
+            self._breaker.record_failure()
             raise RuntimeError(f"AI service error: {str(e)}")
 
     def complete_stream(
@@ -153,13 +166,13 @@ class AnthropicProvider(ModelProvider):
             ) as stream:
                 for text in stream.text_stream:
                     yield text
-            _breaker.record_success()
+            self._breaker.record_success()
         except anthropic.AuthenticationError:
             raise InvalidKeyError("Invalid Anthropic API key")
         except anthropic.PermissionDeniedError:
             raise InvalidKeyError("API key lacks required permissions")
         except anthropic.APIError as e:
-            _breaker.record_failure()
+            self._breaker.record_failure()
             raise RuntimeError(f"AI service error: {str(e)}")
 
     def complete_with_tools(
@@ -176,7 +189,7 @@ class AnthropicProvider(ModelProvider):
                 messages=messages,
                 tools=tools,
             )
-            _breaker.record_success()
+            self._breaker.record_success()
             blocks = []
             for block in response.content:
                 if block.type == "text":
@@ -201,7 +214,7 @@ class AnthropicProvider(ModelProvider):
         except anthropic.PermissionDeniedError:
             raise InvalidKeyError("API key lacks required permissions")
         except anthropic.APIError as e:
-            _breaker.record_failure()
+            self._breaker.record_failure()
             raise RuntimeError(f"AI service error: {str(e)}")
 
     def validate_key(self) -> bool:
@@ -224,7 +237,7 @@ class AnthropicProvider(ModelProvider):
 
     def _check_breaker(self):
         """Raise if circuit breaker is open."""
-        if _breaker.is_open():
+        if self._breaker.is_open():
             raise RuntimeError(
                 "AI service temporarily unavailable (circuit breaker open). "
                 "Please retry in 30 seconds."

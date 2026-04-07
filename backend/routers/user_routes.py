@@ -327,6 +327,11 @@ def validate_api_key(user: dict = Depends(get_current_user)):
         raise HTTPException(404, detail="No API key configured")
     try:
         raw_key = decrypt_password(encrypted)
+    except Exception:
+        # Fernet InvalidToken — corrupted or server key rotated
+        save_api_key_to_profile(email, {"api_key_valid": False})
+        raise HTTPException(422, detail="Stored API key is corrupted. Please save a new key.")
+    try:
         provider = AnthropicProvider(api_key=raw_key)
         provider.validate_key()
     except InvalidKeyError as exc:
