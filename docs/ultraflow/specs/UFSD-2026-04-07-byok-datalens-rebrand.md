@@ -18,7 +18,7 @@
 
 - **Name:** DataLens (one word, camelCase-style capital L)
 - **Color treatment:** "Data" in white (`#E2E8F0`), "Lens" in purple (`#A855F7` — the existing violet accent already in the palette)
-- **Design token:** Add `BRAND_PURPLE: '#A855F7'` to `frontend/src/components/dashboard/tokens.js`. All "Lens" purple text references this token — never hardcode.
+- **Design token:** Add `brandPurple: '#A855F7'` to `TOKENS` in `frontend/src/components/dashboard/tokens.js` (camelCase to match existing convention: `accent`, `accentLight`, `accentGlow`). All "Lens" purple text references this token — never hardcode.
 - **Typography:** Poppins (same as existing headings)
 
 ### Rename Locations (16 user-facing instances + metadata)
@@ -244,7 +244,7 @@ New routes in `routers/user_routes.py`:
 1. Any `401`/`403` from Anthropic API caught in `AnthropicProvider`
 2. Provider raises `InvalidKeyError` (custom exception)
 3. Router catches it, updates `api_key_valid = false` in profile
-4. Returns `HTTP 407` (or custom error code) to frontend with `{"error": "api_key_invalid", "message": "Your API key is no longer valid. Please update it in Account settings."}`
+4. Returns `HTTP 422` to frontend with `{"error": "api_key_invalid", "message": "Your API key is no longer valid. Please update it in Account settings."}`
 5. Frontend shows a persistent banner/modal prompting key update
 
 ---
@@ -422,3 +422,15 @@ When any API call returns the `api_key_invalid` error:
 ## 10. Migration Note: Existing Users
 
 When BYOK ships, any existing user accounts (created before this feature) will not have an API key configured. On their next login, they should be redirected to the onboarding flow (specifically Step 3: API key entry) before accessing the app. The redirect condition is: `!profile.api_key_encrypted || !onboardingComplete`.
+
+---
+
+## Planning Context (appended 2026-04-07)
+
+[2026-04-07] Planning complete. Branch: `feature/byok-datalens`. Fingerprint: Backend has 3 new files (model_provider.py, anthropic_provider.py, provider_registry.py), zero `import anthropic` outside anthropic_provider.py, 6 new API key endpoints; frontend has DataLensLogo component, 5-step onboarding flow, API key management in Account page; zero "QueryCopilot" strings remain in user-facing surfaces.
+
+**Invariants preserved:** Read-only enforcement (3 layers), two-step query flow, PII masking, agent guardrails (6 tools / 30s / 3 retries), Fernet key derivation, atomic file writes.
+
+**Naming decisions (plan overrides spec where noted):** `brandPurple` (not BRAND_PURPLE, matches TOKENS camelCase), `complete_with_tools` (not complete_tools), reuse `decrypt_password` (not new decrypt_api_key), HTTP 422 (not 407).
+
+**Accepted risks:** Demo user frontend detection relies on email string match (`demo@datalens.dev`).
