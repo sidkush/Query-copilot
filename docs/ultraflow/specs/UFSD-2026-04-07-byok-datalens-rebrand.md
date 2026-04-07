@@ -434,3 +434,34 @@ When BYOK ships, any existing user accounts (created before this feature) will n
 **Naming decisions (plan overrides spec where noted):** `brandPurple` (not BRAND_PURPLE, matches TOKENS camelCase), `complete_with_tools` (not complete_tools), reuse `decrypt_password` (not new decrypt_api_key), HTTP 422 (not 407).
 
 **Accepted risks:** Demo user frontend detection relies on email string match (`demo@datalens.dev`).
+
+---
+
+## UFSD adversarial-testing 2026-04-07
+
+**Verdict: PASS** | Coverage: 7/7 clusters examined (independent analysis + 20 analysts dispatched)
+
+### Findings Fixed (5 issues, all resolved):
+
+| Priority | Finding | Fix | Commit |
+|----------|---------|-----|--------|
+| **P1** | `InvalidKeyError` unhandled at 13 call sites — `get_provider_for_user()` throws but no router catches it → 500 errors | Global FastAPI exception handler in `main.py` returns 422 + `api_key_invalid` | `1911980` |
+| **P1** | `delete_api_key()` doesn't delete — uses `save_api_key_to_profile()` which merges (dict.update) instead of replacing. Encrypted key persists after "delete" | Changed to `save_profile()` for full overwrite | `1911980` |
+| **P2** | `ProtectedRoute` apiKeyStatus gate logic always passes on first load — `apiKeyStatus` is null initially, condition `apiKeyStatus && ...` evaluates to false | Simplified to `apiKeyStatus !== null && apiKeyStatus.configured === false` | `824b39f` |
+| **P2** | Circuit breaker `_CircuitBreaker` not thread-safe — `_failures` and `_open_since` can race under concurrent requests | Added `threading.Lock` to all state mutations | `1911980` |
+| **P3** | `SaveApiKeyBody.api_key` accepts any string length — potential DoS via 100MB payload | Added Pydantic `Field(min_length=10, max_length=512)` | `e3a81a3` |
+
+### Accepted Risks (documented, not fixed):
+
+- **P4: Old test emails** in `.data/users.json` (`debugtest@querycopilot.com`, `regflow_test@querycopilot.com`) — test data, not user-facing, `.data/` is gitignored
+- **P4: Demo user email string match** — frontend checks `user.email === "demo@datalens.dev"` which could be spoofed by registering that email. Mitigated: demo login endpoint creates the user first, so registration would fail with "email taken"
+- **P4: Anthropic rate limit on validate_key()** — each validation costs ~1 token to the user's key. No server-side rate limit on the validate endpoint. Mitigated: Anthropic's own rate limiter protects against abuse
+
+### Invariants Verified Post-Fix:
+
+1. ✅ Read-only enforcement (3 layers intact)
+2. ✅ Two-step query flow (generate/execute separate)
+3. ✅ PII masking (mask_dataframe at all data paths)
+4. ✅ Agent guardrails (MAX_TOOL_CALLS=12, WALL_CLOCK=60s, SQL_RETRIES=3)
+5. ✅ Fernet key derivation (unchanged)
+6. ✅ Atomic file writes (save_api_key_to_profile uses atomic=True)
