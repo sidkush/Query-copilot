@@ -15,6 +15,7 @@ from jose import JWTError, jwt
 
 from config import settings
 from auth import _load_users, _save_users, create_access_token
+from pii_masking import add_suppressed_column, remove_suppressed_column, list_suppressed_columns
 from user_storage import (
     load_query_stats, load_connection_configs, list_chats,
     load_profile, save_profile, clear_chat_history,
@@ -22,7 +23,7 @@ from user_storage import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / ".data"
 _ADMIN_FILE = _DATA_DIR / "admin_credentials.json"
@@ -81,10 +82,11 @@ def _save_deleted_users(data: dict):
 # ── Admin auth dependency ────────────────────────────────────
 
 def get_admin_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    """Verify the caller is an authenticated admin."""
+    """Verify the caller is an authenticated admin using the separate admin JWT secret."""
+    from auth import get_admin_jwt_secret
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(token, get_admin_jwt_secret(), algorithms=[settings.JWT_ALGORITHM])
         username = payload.get("sub")
         role = payload.get("role")
         if not username or role != "admin":
@@ -111,7 +113,8 @@ def admin_login(body: AdminLogin):
     if not bcrypt.checkpw(body.password.encode("utf-8"), admin["password_hash"].encode("utf-8")):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token({"sub": body.username, "name": "Admin", "role": "admin"})
+    from auth import create_admin_token
+    token = create_admin_token({"sub": body.username, "name": "Admin", "role": "admin"})
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -392,3 +395,30 @@ def list_deleted_users(admin: dict = Depends(get_admin_user)):
     return {"deleted_users": [
         {**v, "email": k} for k, v in deleted.items()
     ]}
+
+
+# ── PII Suppression Registry ──────────────────────────────────
+
+class PIISuppressionRequest(BaseModel):
+    conn_id: str
+    column: str
+
+
+@router.get("/pii-suppressions")
+def get_pii_suppressions(conn_id: Optional[str] = None, admin: dict = Depends(get_admin_user)):
+    """List all admin-flagged PII suppression columns."""
+    return {"suppressions": list_suppressed_columns(conn_id)}
+
+
+@router.post("/pii-suppressions")
+def add_pii_suppression(body: PIISuppressionRequest, admin: dict = Depends(get_admin_user)):
+    """Flag a column as always-redacted for a connection."""
+    add_suppressed_column(body.conn_id, body.column)
+    return {"status": "added", "conn_id": body.conn_id, "column": body.column}
+
+
+@router.delete("/pii-suppressions")
+def remove_pii_suppression(body: PIISuppressionRequest, admin: dict = Depends(get_admin_user)):
+    """Remove a column from the PII suppression registry."""
+    remove_suppressed_column(body.conn_id, body.column)
+    return {"status": "removed", "conn_id": body.conn_id, "column": body.column}

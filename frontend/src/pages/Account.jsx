@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
@@ -7,7 +7,11 @@ import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import AnimatedCounter from "../components/animation/AnimatedCounter";
 import MotionButton from "../components/animation/MotionButton";
+import TiltCard from "../components/animation/TiltCard";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
+import { GPUTierProvider } from "../lib/gpuDetect";
+const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
+class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
 const DB_NAMES = {
   postgresql: "PostgreSQL", mysql: "MySQL", mariadb: "MariaDB", sqlite: "SQLite",
@@ -118,11 +122,17 @@ export default function Account() {
   return (
     <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
-      <AnimatedBackground className="fixed inset-0 pointer-events-none" />
+      <GPUTierProvider>
+        <_WebGLBound fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+          <Suspense fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+            <PageBackground3D mode="data" className="fixed inset-0" />
+          </Suspense>
+        </_WebGLBound>
+      </GPUTierProvider>
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
           <h1 className="text-xl font-bold text-white">Account</h1>
-          <p className="text-xs text-gray-400">Your account details, usage stats & connections</p>
+          <p className="text-xs text-gray-400">Your data ecosystem at a glance</p>
         </div>
         <UserDropdown />
       </header>
@@ -146,7 +156,7 @@ export default function Account() {
           <StaggerContainer className="space-y-6">
             {/* 1. Account Info */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Account Information</h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -166,12 +176,12 @@ export default function Account() {
                     <p className="text-sm text-gray-200">{authLabel(account?.oauth_provider)}</p>
                   </div>
                 </div>
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* 2. Active Connections */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-semibold text-white">Active Connections</h2>
                   <span className="text-xs text-gray-500">{account?.active_connection_count || 0} live</span>
@@ -195,12 +205,12 @@ export default function Account() {
                 ) : (
                   <p className="text-sm text-gray-600">No active connections</p>
                 )}
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* 3. Query Statistics */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Query Statistics</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <StatCard value={qs.total_queries ?? 0} label="Total Queries" isNumber />
@@ -209,26 +219,26 @@ export default function Account() {
                   <StatCard value={qs.success_rate ? `${qs.success_rate}%` : "\u2014"} label="Success Rate" gradient="from-yellow-400 to-orange-400" />
                 </div>
                 {qs.last_query_at && <p className="text-xs text-gray-600 mt-3">Last query: {new Date(qs.last_query_at).toLocaleString()}</p>}
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* 4. Storage & Usage */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Storage & Usage</h2>
                 <div className="grid grid-cols-3 gap-3">
                   <StatCard value={account?.saved_connections ?? 0} label="Saved Connections" isNumber />
                   <StatCard value={account?.chat_count ?? 0} label="Chat Sessions" gradient="from-purple-400 to-pink-400" isNumber />
                   <StatCard value={account?.trained_tables ?? 0} label="Trained Tables" gradient="from-emerald-400 to-teal-400" isNumber />
                 </div>
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* 5. Saved Databases */}
             <AnimatePresence>
               {account?.saved_connections_list?.length > 0 && (
                 <StaggerItem>
-                  <div className="glass-card rounded-2xl p-6">
+                  <TiltCard><div className="glass-card rounded-2xl p-6">
                     <h2 className="text-sm font-semibold text-white mb-3">Saved Databases</h2>
                     <div className="flex flex-wrap gap-2">
                       {account.saved_connections_list.map((s, i) => (
@@ -244,14 +254,14 @@ export default function Account() {
                         </motion.div>
                       ))}
                     </div>
-                  </div>
+                  </div></TiltCard>
                 </StaggerItem>
               )}
             </AnimatePresence>
 
             {/* 6. Danger Zone */}
             <StaggerItem>
-              <div className="glass-card border-red-900/30 rounded-2xl p-6">
+              <TiltCard><div className="glass-card border-red-900/30 rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-red-400 mb-2">Danger Zone</h2>
                 <p className="text-xs text-gray-500 mb-4">These actions cannot be undone.</p>
                 <AnimatePresence>
@@ -299,7 +309,7 @@ export default function Account() {
                     </MotionButton>
                   </div>
                 </div>
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* Delete Account Confirmation Modal */}

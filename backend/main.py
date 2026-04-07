@@ -1,5 +1,5 @@
 """
-QueryCopilot — FastAPI Backend
+DataLens — FastAPI Backend
 """
 
 import logging
@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import auth_routes, query_routes, schema_routes, connection_routes, user_routes, chat_routes, admin_routes, dashboard_routes, alert_routes, agent_routes
+from routers import auth_routes, query_routes, schema_routes, connection_routes, user_routes, chat_routes, admin_routes, dashboard_routes, alert_routes, agent_routes, behavior_routes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -17,8 +17,15 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup — no auto DB connection; user connects via /api/connections/connect
-    logger.info("Starting QueryCopilot backend (lazy mode — waiting for user to connect a database)...")
+    logger.info("Starting DataLens backend (lazy mode — waiting for user to connect a database)...")
     app.state.connections = {}  # {email: {conn_id: ConnectionEntry}}
+    # M1: Explicit thread pool to prevent default 8-12 thread bottleneck
+    # P2 NEMESIS fix: use get_running_loop() (Python 3.10+ safe in async context)
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=settings.THREAD_POOL_MAX_WORKERS))
+    logger.info(f"Thread pool configured: max_workers={settings.THREAD_POOL_MAX_WORKERS}")
     # Prune expired share tokens on startup
     try:
         from user_storage import prune_expired_share_tokens
@@ -48,7 +55,7 @@ async def lifespan(app: FastAPI):
             except Exception:
                 pass
     app.state.connections.clear()
-    logger.info("QueryCopilot backend shut down.")
+    logger.info("DataLens backend shut down.")
 
 
 app = FastAPI(
@@ -78,6 +85,7 @@ app.include_router(admin_routes.router)
 app.include_router(dashboard_routes.router)
 app.include_router(alert_routes.router)
 app.include_router(agent_routes.router)
+app.include_router(behavior_routes.router)
 
 
 @app.get("/api/v1/health")

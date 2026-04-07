@@ -86,6 +86,8 @@ export default function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useStore((s) => s.user);
+  const agentPanelOpen = useStore((s) => s.agentPanelOpen);
+  const setAgentPanelOpen = useStore((s) => s.setAgentPanelOpen);
 
   const activePath = location.pathname;
   const initials = user?.name
@@ -98,7 +100,7 @@ export default function AppSidebar() {
       <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-indigo-500/5 to-transparent pointer-events-none" />
 
       {/* Logo */}
-      <Tooltip text="QueryCopilot Home">
+      <Tooltip text="DataLens Home">
         {(tooltipProps) => (
           <motion.button
             onClick={() => navigate("/chat")}
@@ -116,7 +118,7 @@ export default function AppSidebar() {
               scale: { type: "spring", stiffness: 400, damping: 17 },
             }}
             className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center mb-4 hover:from-indigo-500 hover:to-violet-500 transition-colors duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 relative z-10"
-            aria-label="QueryCopilot Home"
+            aria-label="DataLens Home"
             {...tooltipProps}
           >
             <span className="text-white font-bold text-sm" aria-hidden="true">Q</span>
@@ -167,6 +169,36 @@ export default function AppSidebar() {
           );
         })}
       </nav>
+
+      {/* Agent toggle */}
+      <Tooltip text={agentPanelOpen ? "Hide Agent" : "Show Agent"}>
+        {(tooltipProps) => (
+          <motion.button
+            onClick={() => setAgentPanelOpen(!agentPanelOpen)}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer relative z-10 ${
+              agentPanelOpen
+                ? "text-white"
+                : "text-gray-500 hover:text-white hover:bg-white/5"
+            }`}
+            aria-label={agentPanelOpen ? "Hide Agent" : "Show Agent"}
+            {...tooltipProps}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+            {agentPanelOpen && (
+              <motion.div
+                layoutId="sidebar-agent-indicator"
+                className="absolute inset-0 rounded-xl bg-white/[0.08] border border-white/[0.06]"
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              />
+            )}
+          </motion.button>
+        )}
+      </Tooltip>
 
       {/* Spacer */}
       <div className="flex-1" />

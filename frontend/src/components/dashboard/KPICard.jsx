@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { TOKENS, KPI_ACCENTS } from './tokens';
-import { ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
 export default function KPICard({ tile, index = 0, onEdit }) {
   const rows = tile?.rows || [];
@@ -62,13 +61,7 @@ export default function KPICard({ tile, index = 0, onEdit }) {
   const accentColor = KPI_ACCENTS[index % KPI_ACCENTS.length];
 
   return (
-    <div className="relative overflow-hidden rounded-[14px] p-[18px_20px] cursor-pointer group flex flex-col h-full"
-      onClick={() => onEdit?.(tile)}
-      style={{
-        background: TOKENS.bg.elevated,
-        border: `1px solid ${TOKENS.border.default}`,
-        transition: `all ${TOKENS.transition}`,
-      }}>
+    <div className="relative overflow-hidden p-[18px_20px] flex flex-col h-full">
       
       {/* Top accent line */}
       <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: accentColor }} />
@@ -109,15 +102,18 @@ export default function KPICard({ tile, index = 0, onEdit }) {
         {/* Sparkline */}
         {trendData.length > 2 && (
           <div className="w-[80px] h-[40px] opacity-70 group-hover:opacity-100 transition-opacity">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trendData}>
-                <Bar dataKey="value" radius={[2, 2, 0, 0]}>
-                  {trendData.map((entry, idx) => (
-                    <Cell key={idx} fill={accentColor} fillOpacity={idx === trendData.length - 1 ? 1 : 0.4} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <svg viewBox={`0 0 ${trendData.length * 12} 40`} className="w-full h-full">
+              {(() => {
+                const maxVal = Math.max(...trendData.map(d => d.value), 1);
+                return trendData.map((entry, idx) => {
+                  const barH = Math.max((entry.value / maxVal) * 36, 1);
+                  return (
+                    <rect key={idx} x={idx * 12 + 1} y={40 - barH} width={10} height={barH}
+                      rx={2} fill={accentColor} fillOpacity={idx === trendData.length - 1 ? 1 : 0.4} />
+                  );
+                });
+              })()}
+            </svg>
           </div>
         )}
       </div>

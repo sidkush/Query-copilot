@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "../api";
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter";
 import sql from "react-syntax-highlighter/dist/esm/languages/hljs/sql";
 import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
@@ -61,11 +62,22 @@ function formatSQL(sqlStr) {
   return result;
 }
 
-export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, loading, onCopySQL }) {
+export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, loading, onCopySQL, connId }) {
   const [editing, setEditing] = useState(false);
   const [editedSQL, setEditedSQL] = useState(sqlCode);
   const [copied, setCopied] = useState(false);
   const [formatted, setFormatted] = useState(false);
+  const [preview, setPreview] = useState(null);
+
+  // Auto-run dry-run preview when SQL appears
+  useEffect(() => {
+    if (!sqlCode) return;
+    let cancelled = false;
+    api.previewSQL(sqlCode, connId).then(res => {
+      if (!cancelled && !res.error) setPreview(res);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [sqlCode, connId]);
 
   const handleCopySQL = async () => {
     try {
@@ -114,6 +126,12 @@ export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, 
             </svg>
           </button>
           <span className="text-xs text-slate-500">Review before executing</span>
+          {preview && (
+            <span className="text-xs text-cyan-400 font-medium ml-1">
+              {preview.estimated_rows != null ? `~${preview.estimated_rows.toLocaleString()} rows` : ''}
+              {preview.column_count ? `${preview.estimated_rows != null ? ', ' : ''}${preview.column_count} cols` : ''}
+            </span>
+          )}
         </div>
       </div>
 
@@ -137,7 +155,7 @@ export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, 
 
       <div className="flex items-center gap-2.5 px-4 py-3 bg-slate-900/50 border-t border-slate-800">
         <button
-          onClick={() => onApprove(editing ? editedSQL : sqlCode)}
+          onClick={() => onApprove(editing ? editedSQL : sqlCode, sqlCode)}
           disabled={loading}
           aria-label={loading ? "Query is running" : "Run query"}
           className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors duration-200 cursor-pointer"

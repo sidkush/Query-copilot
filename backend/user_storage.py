@@ -1,5 +1,5 @@
 """
-Per-user file-based data layer for QueryCopilot.
+Per-user file-based data layer for DataLens.
 Stores connection configs, chat history, and user profiles.
 
 Storage is pluggable via the StorageBackend ABC.  The active backend is

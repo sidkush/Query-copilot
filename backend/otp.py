@@ -1,5 +1,5 @@
 """
-OTP generation, storage, and verification for QueryCopilot.
+OTP generation, storage, and verification for DataLens.
 Supports email and phone channels with file-based storage,
 rate limiting, and thread-safe operations.
 Real email delivery via SMTP (Gmail App Password, SendGrid, etc.)
@@ -7,7 +7,7 @@ Real email delivery via SMTP (Gmail App Password, SendGrid, etc.)
 
 import json
 import os
-import random
+import secrets
 import smtplib
 import threading
 import time
@@ -87,7 +87,7 @@ def _log_sent_otp(identifier: str, channel: str, otp: str):
     _ensure_data_dir()
     timestamp = time.time()
     human_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    log_line = f"{timestamp} | {channel} | {identifier} | OTP: {otp} | {human_time}\n"
+    log_line = f"{timestamp} | {channel} | {identifier} | OTP_SENT | {human_time}\n"
     with open(SENT_OTPS_LOG, "a") as f:
         f.write(log_line)
 
@@ -122,8 +122,8 @@ def generate_otp(identifier: str, channel: str) -> str:
                 f"per hour for this {channel}. Please try again later."
             )
 
-        # Generate 6-digit OTP
-        code = f"{random.randint(100000, 999999)}"
+        # Generate 6-digit OTP using cryptographic randomness
+        code = f"{secrets.randbelow(900000) + 100000}"
         now = time.time()
 
         key = _make_key(identifier, channel)
@@ -174,8 +174,9 @@ def verify_otp(identifier: str, channel: str, code: str) -> bool:
             _save_otp_store(store)
             return False
 
-        # Check code
-        if entry["code"] == code.strip():
+        # Check code — use constant-time comparison to prevent timing oracle
+        import hmac
+        if hmac.compare_digest(entry["code"], code.strip()):
             # Valid - remove the OTP entry (single use)
             del store[key]
             _save_otp_store(store)
@@ -241,10 +242,10 @@ def _send_via_resend(email: str, otp: str, settings) -> bool:
         r = resend.Emails.send({
             "from": settings.RESEND_FROM_EMAIL,
             "to": [email],
-            "subject": f"QueryCopilot — Your verification code is {otp}",
+            "subject": f"DataLens — Your verification code is {otp}",
             "html": _build_otp_email_html(otp, expiry_min),
             "text": (
-                f"Your QueryCopilot verification code is: {otp}\n\n"
+                f"Your DataLens verification code is: {otp}\n\n"
                 f"This code expires in {expiry_min} minutes.\n"
                 f"If you didn't request this code, please ignore this email."
             ),
@@ -261,12 +262,12 @@ def _send_via_smtp(email: str, otp: str, settings) -> bool:
     try:
         expiry_min = settings.OTP_EXPIRY_SECONDS // 60
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"QueryCopilot — Your verification code is {otp}"
+        msg["Subject"] = f"DataLens — Your verification code is {otp}"
         msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL or settings.SMTP_USER}>"
         msg["To"] = email
 
         text_body = (
-            f"Your QueryCopilot verification code is: {otp}\n\n"
+            f"Your DataLens verification code is: {otp}\n\n"
             f"This code expires in {expiry_min} minutes.\n"
             f"If you didn't request this code, please ignore this email."
         )
@@ -320,7 +321,7 @@ def _send_sms_via_twilio(phone: str, otp: str, settings) -> bool:
         from twilio.rest import Client
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
         params = {
-            "body": f"Your QueryCopilot verification code is: {otp}. It expires in {settings.OTP_EXPIRY_SECONDS // 60} minutes.",
+            "body": f"Your DataLens verification code is: {otp}. It expires in {settings.OTP_EXPIRY_SECONDS // 60} minutes.",
             "to": phone,
         }
         # Use MessagingServiceSid if available (better deliverability), else from_ number
@@ -334,6 +335,44 @@ def _send_sms_via_twilio(phone: str, otp: str, settings) -> bool:
     except Exception as exc:
         print(f"[OTP-ERROR] Twilio failed for {phone}: {exc}")
         return False
+
+
+def send_email(to: str, subject: str, html_body: str, text_body: str) -> bool:
+    """General-purpose email sender. Tries SMTP → Resend → logs warning.
+    Returns True if the email was sent successfully."""
+    from config import settings
+
+    # Priority 1: SMTP
+    if settings.SMTP_USER and settings.SMTP_PASSWORD:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL or settings.SMTP_USER}>"
+            msg["To"] = to
+            msg.attach(MIMEText(text_body, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                server.sendmail(settings.SMTP_FROM_EMAIL or settings.SMTP_USER, [to], msg.as_string())
+            return True
+        except Exception as exc:
+            print(f"[EMAIL-ERROR] SMTP failed for {to}: {exc}")
+
+    # Priority 2: Resend
+    if settings.RESEND_API_KEY:
+        try:
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({"from": settings.RESEND_FROM_EMAIL, "to": [to], "subject": subject, "html": html_body, "text": text_body})
+            return True
+        except Exception as exc:
+            print(f"[EMAIL-ERROR] Resend failed for {to}: {exc}")
+
+    print(f"[EMAIL-WARN] No email provider configured — could not send to {to}")
+    return False
 
 
 def send_phone_otp(phone: str, otp: str):

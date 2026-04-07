@@ -1,14 +1,9 @@
-import { useState, useRef, useMemo, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  AreaChart, Area, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  Treemap,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  ScatterChart, Scatter, ZAxis,
-  ReferenceLine,
-} from "recharts";
 import { mergeFormatting, resolveColor, formatTickValue } from '../lib/formatUtils';
+import { injectMetricColumns } from '../lib/metricEvaluator';
+
+const ReactECharts = lazy(() => import('echarts-for-react'));
 
 /* ── Color Palettes (corporate blue-first) ── */
 const PALETTES = {
@@ -203,82 +198,25 @@ const CHART_DEFS = [
 /* Minimum relevance score to show a chart type */
 const MIN_SCORE = 35;
 
-/* ── Custom Tooltip ── */
-function CustomTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 shadow-lg shadow-black/40 max-w-[280px]">
-      <p className="text-xs text-slate-400 mb-1.5 truncate font-semibold">{label}</p>
-      {payload.map((entry, i) => (
-        <div key={i} className="flex items-center gap-2 text-xs py-0.5">
-          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
-          <span className="text-slate-400 truncate">{entry.name}:</span>
-          <span className="text-white font-semibold ml-auto tabular-nums">{formatNumber(entry.value)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+/* (ECharts handles tooltips, pie labels, treemap content natively via option config) */
 
-/* ── Custom Pie Label ── */
-function renderPieLabel({ cx, cy, midAngle, outerRadius, percent, name }) {
-  const RADIAN = Math.PI / 180;
-  const radius = outerRadius + 22;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-  if (percent < 0.04) return null;
-  return (
-    <text x={x} y={y} fill="#9ca3af" textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={11}>
-      {name?.length > 14 ? name.slice(0, 14) + ".." : name} {(percent * 100).toFixed(0)}%
-    </text>
-  );
-}
-
-/* ── Treemap custom content ── */
-function TreemapContent({ x, y, width, height, name, value, colors, index }) {
-  if (width < 30 || height < 20) return null;
-  const color = colors[index % colors.length];
-  return (
-    <g>
-      <rect x={x} y={y} width={width} height={height} fill={color} stroke="#0B1120" strokeWidth={2} rx={4} opacity={0.85} />
-      {width > 50 && height > 35 && (
-        <>
-          <text x={x + width / 2} y={y + height / 2 - 7} textAnchor="middle" fill="#fff" fontSize={11} fontWeight={600}>
-            {name?.length > Math.floor(width / 7) ? name.slice(0, Math.floor(width / 7)) + ".." : name}
-          </text>
-          <text x={x + width / 2} y={y + height / 2 + 9} textAnchor="middle" fill="rgba(255,255,255,0.65)" fontSize={10}>
-            {formatNumber(value)}
-          </text>
-        </>
-      )}
-    </g>
-  );
-}
-
-/* ── Chart Export ── */
-function exportChart(chartRef, format = "png") {
-  const svgEl = chartRef.current?.querySelector("svg");
-  if (!svgEl) return;
-  const svgData = new XMLSerializer().serializeToString(svgEl);
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  const img = new Image();
-  const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-  img.onload = () => {
-    canvas.width = img.width * 2;
-    canvas.height = img.height * 2;
-    ctx.scale(2, 2);
-    ctx.fillStyle = "#111827";
-    ctx.fillRect(0, 0, img.width, img.height);
-    ctx.drawImage(img, 0, 0);
-    const link = document.createElement("a");
-    link.download = `chart.${format}`;
-    link.href = canvas.toDataURL(format === "jpg" ? "image/jpeg" : "image/png", 0.95);
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-  img.src = url;
+/* ── Chart Export (ECharts native) ── */
+function exportChart(echartsRef, format = "png") {
+  const instance = echartsRef.current?.getEchartsInstance?.();
+  if (!instance) {
+    console.warn("Chart not ready for export — try again in a moment.");
+    return false;
+  }
+  const url = instance.getDataURL({
+    type: format === "jpg" ? "jpeg" : "png",
+    pixelRatio: 2,
+    backgroundColor: "#111827",
+  });
+  const link = document.createElement("a");
+  link.download = `chart.${format}`;
+  link.href = url;
+  link.click();
+  return true;
 }
 
 /* ── Measure Selector ── */
@@ -336,7 +274,6 @@ export default function ResultsChart({
   const { columns: augColumns, rows: augRows } = useMemo(() => {
     if (!customMetrics?.length) return { columns, rows: coercedRows };
     try {
-      const { injectMetricColumns } = require('../lib/metricEvaluator');
       return injectMetricColumns(customMetrics, columns, coercedRows);
     } catch { return { columns, rows: coercedRows }; }
   }, [columns, coercedRows, customMetrics]);
@@ -395,12 +332,20 @@ export default function ResultsChart({
   // State
   const [activeType, setActiveType] = useState(defaultChartType);
   const [selectedMeasure, setSelectedMeasure] = useState(defaultMeasure || numericCols[0] || "");
-  const [activeMeasures, setActiveMeasures] = useState(defaultMeasures || numericCols);
+  const [activeMeasures, setActiveMeasures] = useState(
+    defaultMeasures?.length ? defaultMeasures : numericCols
+  );
   const [palette, setPalette] = useState(defaultPalette);
   const [showGrid, setShowGrid] = useState(true);
   const [showLegend, setShowLegend] = useState(!embedded);
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportError, setExportError] = useState(null);
+
+  // Sync activeMeasures when the parent tile updates (e.g. after TileEditor save)
+  useEffect(() => {
+    if (defaultMeasures?.length) setActiveMeasures(defaultMeasures);
+  }, [defaultMeasures]);
 
   const handleSingleSelect = useCallback((m) => setSelectedMeasure(m), []);
   const handleMultiToggle = useCallback((m) => {
@@ -460,323 +405,363 @@ export default function ResultsChart({
     }).filter(Boolean).filter((rl) => isFinite(rl.value));
   }, [fmt.referenceLines, sortedData, displayMeasures]);
 
-  // Custom tooltip with template support
-  const TemplateTooltip = useCallback(({ active, payload }) => {
-    if (!active || !payload?.length) return null;
-    const row = payload[0]?.payload;
-    if (!row) return null;
-    let text = fmt.tooltip.template;
-    for (const key of Object.keys(row)) {
-      text = text.replaceAll(`{${key}}`, row[key] ?? '');
-    }
-    return (
-      <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#e2e8f0', maxWidth: 280, whiteSpace: 'pre-wrap' }}>
-        {text}
-      </div>
-    );
-  }, [fmt.tooltip.template]);
-
-  const tooltipElement = fmt.tooltip.show
-    ? <Tooltip content={fmt.tooltip.template ? <TemplateTooltip /> : <CustomTooltip />} cursor={{ fill: 'rgba(99,102,241,0.08)' }} />
-    : null;
-
-  const legendElement = (showLegend && fmt.legend.show && displayMeasures.length > 1)
-    ? <Legend
-        layout={fmt.legend.position === 'left' || fmt.legend.position === 'right' ? 'vertical' : 'horizontal'}
-        align={fmt.legend.position === 'left' ? 'left' : fmt.legend.position === 'right' ? 'right' : 'center'}
-        verticalAlign={fmt.legend.position === 'top' ? 'top' : fmt.legend.position === 'bottom' ? 'bottom' : 'middle'}
-        wrapperStyle={{ fontSize: fmt.legend.fontSize, color: fmt.legend.color }}
-      />
-    : null;
-
-  const gridElement = (showGrid && fmt.grid.show)
-    ? <CartesianGrid
-        stroke={fmt.grid.color}
-        strokeDasharray={fmt.grid.style === 'dashed' ? '5 5' : fmt.grid.style === 'dotted' ? '2 2' : '0'}
-        vertical={fmt.grid.vertical}
-      />
-    : null;
-
-  const refLineElements = computedRefLines.map((rl, idx) => (
-    <ReferenceLine key={`ref-${idx}`} y={rl.value} stroke={rl.stroke || '#F59E0B'}
-      strokeDasharray={rl.strokeDasharray || '5 5'} strokeWidth={1.5}
-      label={{ value: rl.label || '', position: 'right', fill: '#9ca3af', fontSize: 11 }} />
-  ));
-
   const fmtTickFn = fmt.axis.tickFormat !== 'auto'
     ? (v) => formatTickValue(v, fmt.axis.tickFormat, fmt.axis.tickDecimals)
     : formatTick;
 
-  /* ── Render Charts ── */
-  const renderChart = () => {
+  /* ── ECharts option builder ── */
+  const echartsOption = useMemo(() => {
+    const labels = chartData.map((r) => r[labelCol]);
+    const axisLabelStyle = { color: '#94a3b8', fontSize: fmt.typography.axisFontSize };
+    const axisLineStyle = { lineStyle: { color: '#1e293b' } };
+    const splitLineStyle = showGrid && fmt.grid.show
+      ? { show: true, lineStyle: { color: fmt.grid.color, type: fmt.grid.style === 'dotted' ? 'dotted' : fmt.grid.style === 'dashed' ? 'dashed' : 'solid' } }
+      : { show: false };
+
+    const tooltipCfg = fmt.tooltip.show ? {
+      trigger: ['pie', 'donut', 'treemap', 'scatter'].includes(chartType) ? 'item' : 'axis',
+      backgroundColor: '#0f172a',
+      borderColor: '#334155',
+      textStyle: { color: '#e2e8f0', fontSize: 12 },
+      ...(fmt.tooltip.template ? {
+        formatter: (params) => {
+          const row = Array.isArray(params) ? params[0]?.data : params.data;
+          if (!row) return '';
+          let text = fmt.tooltip.template;
+          for (const key of Object.keys(row)) text = text.replaceAll(`{${key}}`, row[key] ?? '');
+          return text;
+        },
+      } : {}),
+    } : { show: false };
+
+    const legendCfg = (showLegend && fmt.legend.show && displayMeasures.length > 1) ? {
+      show: true,
+      textStyle: { color: fmt.legend.color || '#9ca3af', fontSize: fmt.legend.fontSize || 11 },
+      ...(fmt.legend.position === 'top' ? { top: 0 } : fmt.legend.position === 'left' ? { left: 0, orient: 'vertical' } : fmt.legend.position === 'right' ? { right: 0, orient: 'vertical' } : { bottom: 0 }),
+    } : { show: false };
+
+    const markLineData = computedRefLines.map((rl) => ({
+      yAxis: rl.value,
+      label: { formatter: rl.label || '', color: '#9ca3af', fontSize: 11 },
+      lineStyle: { color: rl.stroke || '#F59E0B', type: rl.strokeDasharray?.includes('5') ? 'dashed' : 'solid', width: 1.5 },
+    }));
+
+    const dataLabelCfg = fmt.dataLabels.show ? {
+      show: true,
+      position: fmt.dataLabels.position || 'top',
+      color: fmt.dataLabels.color || '#9ca3af',
+      fontSize: fmt.dataLabels.fontSize || 10,
+      formatter: (p) => formatTickValue(p.value, fmt.dataLabels.format, null),
+    } : { show: false };
+
+    const baseGrid = { left: 60, right: 20, top: 30, bottom: 40 };
+
     switch (chartType) {
       case "bar":
-        return (
-          <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            {gridElement}
-            <XAxis dataKey={labelCol} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn} interval={chartData.length > 12 ? 'preserveStartEnd' : 0}
-              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined}
-              angle={fmt.axis.xLabelRotation || 0} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn} width={55}
-              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
-            {tooltipElement}
-            {legendElement}
-            {refLineElements}
-            {displayMeasures.map((col, i) => {
-              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
-              const hasRules = fmt.colors.rules?.some((r) => r.measure === col);
-              return (
-                <Bar key={col} dataKey={col} fill={baseColor} radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out"
-                  onClick={(data) => onCrossFilterClick?.(labelCol, data?.[labelCol])}
-                  style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
-                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
-                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined}>
-                  {hasRules && chartData.map((row, idx) => (
-                    <Cell key={idx} fill={resolveColor(col, row[col], i, fmt.colors, dashboardPalette)} />
-                  ))}
-                </Bar>
-              );
-            })}
-          </BarChart>
-        );
+      case "stacked":
+        return {
+          backgroundColor: 'transparent',
+          tooltip: tooltipCfg,
+          legend: legendCfg,
+          grid: baseGrid,
+          xAxis: {
+            type: 'category',
+            data: labels,
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn, rotate: fmt.axis.xLabelRotation || 0, interval: chartData.length > 12 ? 'auto' : 0 },
+            axisLine: axisLineStyle,
+            name: fmt.axis.xLabel || undefined,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
+            axisLine: axisLineStyle,
+            splitLine: splitLineStyle,
+            name: fmt.axis.yLabel || undefined,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          series: displayMeasures.map((col, i) => {
+            const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+            const hasRules = fmt.colors.rules?.some((r) => r.measure === col);
+            return {
+              type: 'bar',
+              name: col,
+              stack: chartType === 'stacked' ? 'stack' : undefined,
+              data: hasRules
+                ? chartData.map((row) => ({ value: row[col], itemStyle: { color: resolveColor(col, row[col], i, fmt.colors, dashboardPalette) } }))
+                : chartData.map((row) => row[col]),
+              itemStyle: { color: baseColor, borderRadius: chartType === 'stacked' ? 0 : [6, 6, 0, 0] },
+              label: dataLabelCfg,
+              markLine: i === 0 && markLineData.length ? { data: markLineData, silent: true, symbol: 'none' } : undefined,
+              emphasis: { itemStyle: { opacity: 0.85 } },
+            };
+          }),
+          animationDuration: 800,
+          animationEasing: 'cubicOut',
+        };
 
       case "bar_h":
-        return (
-          <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
-            {gridElement}
-            <YAxis dataKey={labelCol} type="category" tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn} width={90}
-              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
-            <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn}
-              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined} />
-            {tooltipElement}
-            {legendElement}
-            {refLineElements}
-            {displayMeasures.map((col, i) => {
-              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
-              const hasRules = fmt.colors.rules?.some((r) => r.measure === col);
-              return (
-                <Bar key={col} dataKey={col} fill={baseColor} radius={[0, 6, 6, 0]} animationDuration={800}
-                  onClick={(data) => onCrossFilterClick?.(labelCol, data?.[labelCol])}
-                  style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
-                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
-                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined}>
-                  {hasRules && chartData.map((row, idx) => (
-                    <Cell key={idx} fill={resolveColor(col, row[col], i, fmt.colors, dashboardPalette)} />
-                  ))}
-                </Bar>
-              );
-            })}
-          </BarChart>
-        );
-
-      case "stacked":
-        return (
-          <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            {gridElement}
-            <XAxis dataKey={labelCol} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn} interval={chartData.length > 12 ? 'preserveStartEnd' : 0}
-              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined}
-              angle={fmt.axis.xLabelRotation || 0} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn} width={55}
-              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
-            {tooltipElement}
-            {legendElement}
-            {refLineElements}
-            {displayMeasures.map((col, i) => {
-              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
-              return (
-                <Bar key={col} dataKey={col} stackId="stack" fill={baseColor} radius={i === displayMeasures.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]} animationDuration={800}
-                  onClick={(data) => onCrossFilterClick?.(labelCol, data?.[labelCol])}
-                  style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
-                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
-                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined} />
-              );
-            })}
-          </BarChart>
-        );
+        return {
+          backgroundColor: 'transparent',
+          tooltip: tooltipCfg,
+          legend: legendCfg,
+          grid: { left: 100, right: 30, top: 20, bottom: 30 },
+          yAxis: {
+            type: 'category',
+            data: labels,
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
+            axisLine: axisLineStyle,
+            name: fmt.axis.yLabel || undefined,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          xAxis: {
+            type: 'value',
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
+            axisLine: axisLineStyle,
+            splitLine: splitLineStyle,
+            name: fmt.axis.xLabel || undefined,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          series: displayMeasures.map((col, i) => {
+            const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+            const hasRules = fmt.colors.rules?.some((r) => r.measure === col);
+            return {
+              type: 'bar',
+              name: col,
+              data: hasRules
+                ? chartData.map((row) => ({ value: row[col], itemStyle: { color: resolveColor(col, row[col], i, fmt.colors, dashboardPalette) } }))
+                : chartData.map((row) => row[col]),
+              itemStyle: { color: baseColor, borderRadius: [0, 6, 6, 0] },
+              label: dataLabelCfg,
+              markLine: i === 0 && markLineData.length ? { data: markLineData.map((ml) => ({ ...ml, xAxis: ml.yAxis, yAxis: undefined })), silent: true, symbol: 'none' } : undefined,
+            };
+          }),
+          animationDuration: 800,
+        };
 
       case "line":
-        return (
-          <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            {gridElement}
-            <XAxis dataKey={labelCol} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn}
-              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined}
-              angle={fmt.axis.xLabelRotation || 0} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn} width={55}
-              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
-            {tooltipElement}
-            {legendElement}
-            {refLineElements}
-            {displayMeasures.map((col, i) => {
-              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
-              return (
-                <Line
-                  key={col} type="monotone" dataKey={col}
-                  stroke={baseColor} strokeWidth={2.5}
-                  dot={{ r: 3, fill: baseColor, stroke: "#111827", strokeWidth: 2 }}
-                  activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }}
-                  animationDuration={1000}
-                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
-                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined}
-                />
-              );
-            })}
-          </LineChart>
-        );
+        return {
+          backgroundColor: 'transparent',
+          tooltip: tooltipCfg,
+          legend: legendCfg,
+          grid: baseGrid,
+          xAxis: {
+            type: 'category',
+            data: labels,
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn, rotate: fmt.axis.xLabelRotation || 0 },
+            axisLine: axisLineStyle,
+            name: fmt.axis.xLabel || undefined,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
+            axisLine: axisLineStyle,
+            splitLine: splitLineStyle,
+            name: fmt.axis.yLabel || undefined,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          series: displayMeasures.map((col, i) => {
+            const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+            return {
+              type: 'line',
+              name: col,
+              data: chartData.map((row) => row[col]),
+              lineStyle: { color: baseColor, width: 2.5 },
+              itemStyle: { color: baseColor, borderColor: '#111827', borderWidth: 2 },
+              symbolSize: 6,
+              smooth: true,
+              label: dataLabelCfg,
+              markLine: i === 0 && markLineData.length ? { data: markLineData, silent: true, symbol: 'none' } : undefined,
+              emphasis: { focus: 'series' },
+            };
+          }),
+          animationDuration: 1000,
+        };
 
       case "area":
-        return (
-          <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            <defs>
-              {displayMeasures.map((col, i) => {
-                const gradColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
-                return (
-                  <linearGradient key={col} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={gradColor} stopOpacity={0.35} />
-                    <stop offset="95%" stopColor={gradColor} stopOpacity={0.02} />
-                  </linearGradient>
-                );
-              })}
-            </defs>
-            {gridElement}
-            <XAxis dataKey={labelCol} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn}
-              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined}
-              angle={fmt.axis.xLabelRotation || 0} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn} width={55}
-              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
-            {tooltipElement}
-            {legendElement}
-            {refLineElements}
-            {displayMeasures.map((col, i) => {
-              const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
-              return (
-                <Area
-                  key={col} type="monotone" dataKey={col}
-                  stroke={baseColor} strokeWidth={2}
-                  fill={`url(#grad-${i})`}
-                  activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }}
-                  animationDuration={1000}
-                  label={fmt.dataLabels.show ? { position: fmt.dataLabels.position, fill: fmt.dataLabels.color || baseColor, fontSize: fmt.dataLabels.fontSize,
-                    formatter: (v) => formatTickValue(v, fmt.dataLabels.format, null) } : undefined}
-                />
-              );
-            })}
-          </AreaChart>
-        );
+        return {
+          backgroundColor: 'transparent',
+          tooltip: tooltipCfg,
+          legend: legendCfg,
+          grid: baseGrid,
+          xAxis: {
+            type: 'category',
+            data: labels,
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn, rotate: fmt.axis.xLabelRotation || 0 },
+            axisLine: axisLineStyle,
+            name: fmt.axis.xLabel || undefined,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
+            axisLine: axisLineStyle,
+            splitLine: splitLineStyle,
+            name: fmt.axis.yLabel || undefined,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          series: displayMeasures.map((col, i) => {
+            const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+            return {
+              type: 'line',
+              name: col,
+              data: chartData.map((row) => row[col]),
+              areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: baseColor + '59' }, { offset: 1, color: baseColor + '05' }] } },
+              lineStyle: { color: baseColor, width: 2 },
+              itemStyle: { color: baseColor },
+              symbolSize: 4,
+              smooth: true,
+              label: dataLabelCfg,
+              markLine: i === 0 && markLineData.length ? { data: markLineData, silent: true, symbol: 'none' } : undefined,
+            };
+          }),
+          animationDuration: 1000,
+        };
 
       case "pie":
-        return (
-          <PieChart>
-            <Pie
-              data={chartData} dataKey={currentMeasure} nameKey={labelCol}
-              cx="50%" cy="50%" outerRadius={110}
-              label={renderPieLabel} labelLine={{ stroke: "#4b5563", strokeWidth: 1 }}
-              paddingAngle={2} animationDuration={800}
-              onClick={(_, idx) => onCrossFilterClick?.(labelCol, chartData[idx]?.[labelCol])}
-              style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
-            >
-              {chartData.map((entry, i) => {
-                const origIdx = pieColorMap[String(entry[labelCol])] ?? i;
-                return <Cell key={i} fill={resolveColor(currentMeasure, null, origIdx, fmt.colors, dashboardPalette)} stroke="#111827" strokeWidth={2} />;
-              })}
-            </Pie>
-            {tooltipElement}
-            {legendElement}
-          </PieChart>
-        );
-
       case "donut":
-        return (
-          <PieChart>
-            <Pie
-              data={chartData} dataKey={currentMeasure} nameKey={labelCol}
-              cx="50%" cy="50%" outerRadius={110} innerRadius={55}
-              label={renderPieLabel} labelLine={{ stroke: "#4b5563", strokeWidth: 1 }}
-              paddingAngle={3} cornerRadius={4} animationDuration={800}
-              onClick={(_, idx) => onCrossFilterClick?.(labelCol, chartData[idx]?.[labelCol])}
-              style={{ cursor: onCrossFilterClick ? 'pointer' : 'default' }}
-            >
-              {chartData.map((entry, i) => {
-                const origIdx = pieColorMap[String(entry[labelCol])] ?? i;
-                return <Cell key={i} fill={resolveColor(currentMeasure, null, origIdx, fmt.colors, dashboardPalette)} stroke="#111827" strokeWidth={2} />;
-              })}
-            </Pie>
-            {tooltipElement}
-            {legendElement}
-          </PieChart>
-        );
+        return {
+          backgroundColor: 'transparent',
+          tooltip: { ...tooltipCfg, trigger: 'item' },
+          legend: legendCfg,
+          series: [{
+            type: 'pie',
+            radius: chartType === 'donut' ? ['40%', '70%'] : ['0%', '70%'],
+            center: ['50%', '50%'],
+            data: chartData.map((row, i) => {
+              const origIdx = pieColorMap[String(row[labelCol])] ?? i;
+              return {
+                name: String(row[labelCol]),
+                value: row[currentMeasure],
+                itemStyle: { color: resolveColor(currentMeasure, null, origIdx, fmt.colors, dashboardPalette), borderColor: '#111827', borderWidth: 2 },
+              };
+            }),
+            label: {
+              show: true,
+              color: '#9ca3af',
+              fontSize: 11,
+              formatter: (p) => p.percent < 4 ? '' : `${p.name?.length > 14 ? p.name.slice(0, 14) + '..' : p.name} ${p.percent.toFixed(0)}%`,
+            },
+            labelLine: { lineStyle: { color: '#4b5563' } },
+            padAngle: chartType === 'donut' ? 3 : 2,
+            itemStyle: chartType === 'donut' ? { borderRadius: 4 } : {},
+            emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.3)' } },
+          }],
+          animationDuration: 800,
+        };
 
-      case "radar": {
-        return (
-          <RadarChart cx="50%" cy="50%" outerRadius={100} data={chartData}>
-            {showGrid && fmt.grid.show && <PolarGrid stroke={fmt.grid.color} />}
-            <PolarAngleAxis dataKey={labelCol} tick={{ fill: "#9ca3af", fontSize: fmt.typography.axisFontSize }} />
-            <PolarRadiusAxis tick={{ fill: "#6b7280", fontSize: 10 }} axisLine={false} />
-            {displayMeasures.map((col, i) => {
+      case "radar":
+        return {
+          backgroundColor: 'transparent',
+          tooltip: { ...tooltipCfg, trigger: 'item' },
+          legend: legendCfg,
+          radar: {
+            indicator: labels.map((name) => {
+              const maxVal = Math.max(...displayMeasures.map((col) => Math.max(...chartData.map((r) => Number(r[col]) || 0))));
+              return { name, max: maxVal * 1.2 || 100 };
+            }),
+            axisName: { color: '#9ca3af', fontSize: fmt.typography.axisFontSize },
+            splitLine: { lineStyle: { color: fmt.grid.color } },
+            splitArea: { show: false },
+            axisLine: { lineStyle: { color: '#1e293b' } },
+          },
+          series: [{
+            type: 'radar',
+            data: displayMeasures.map((col, i) => {
               const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
-              return (
-                <Radar
-                  key={col} name={col} dataKey={col}
-                  stroke={baseColor} fill={baseColor} fillOpacity={0.15}
-                  strokeWidth={2} animationDuration={800}
-                />
-              );
-            })}
-            {tooltipElement}
-            {legendElement}
-          </RadarChart>
-        );
-      }
+              return {
+                name: col,
+                value: chartData.map((r) => r[col]),
+                lineStyle: { color: baseColor, width: 2 },
+                areaStyle: { color: baseColor, opacity: 0.15 },
+                itemStyle: { color: baseColor },
+              };
+            }),
+          }],
+          animationDuration: 800,
+        };
 
-      case "treemap": {
-        const treemapData = chartData
-          .map((r, i) => ({ name: String(r[labelCol] || `Item ${i + 1}`), value: r[currentMeasure] || 0 }))
-          .filter((d) => d.value > 0);
-        const treemapColors = treemapData.map((_, i) => resolveColor(labelCol, null, i, fmt.colors, dashboardPalette));
-        return (
-          <Treemap
-            data={treemapData} dataKey="value" nameKey="name"
-            aspectRatio={4 / 3} stroke="#111827"
-            content={<TreemapContent colors={treemapColors} />}
-            animationDuration={800}
-          />
-        );
-      }
+      case "treemap":
+        return {
+          backgroundColor: 'transparent',
+          tooltip: { ...tooltipCfg, trigger: 'item', formatter: (p) => `${p.name}: ${formatNumber(p.value)}` },
+          series: [{
+            type: 'treemap',
+            data: chartData
+              .map((r, i) => ({
+                name: String(r[labelCol] || `Item ${i + 1}`),
+                value: r[currentMeasure] || 0,
+                itemStyle: { color: resolveColor(labelCol, null, i, fmt.colors, dashboardPalette), borderColor: '#0B1120', borderWidth: 2 },
+              }))
+              .filter((d) => d.value > 0),
+            label: { show: true, color: '#fff', fontSize: 11, fontWeight: 600 },
+            breadcrumb: { show: false },
+            itemStyle: { borderRadius: 4, gapWidth: 2 },
+          }],
+          animationDuration: 800,
+        };
 
       case "scatter": {
         const xMeasure = displayMeasures[0];
         const yMeasure = displayMeasures[1] || displayMeasures[0];
-        return (
-          <ScatterChart margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            {gridElement}
-            <XAxis dataKey={xMeasure} type="number" name={xMeasure} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn}
-              label={fmt.axis.xLabel ? { value: fmt.axis.xLabel, position: 'insideBottom', offset: -2, fill: '#94a3b8', fontSize: 11 } : undefined} />
-            <YAxis dataKey={yMeasure} type="number" name={yMeasure} tick={{ fill: '#94a3b8', fontSize: fmt.typography.axisFontSize }} axisLine={{ stroke: '#1e293b' }} tickLine={{ stroke: '#1e293b' }}
-              tickFormatter={fmtTickFn} width={55}
-              label={fmt.axis.yLabel ? { value: fmt.axis.yLabel, angle: -90, position: 'insideLeft', offset: 10, fill: '#94a3b8', fontSize: 11 } : undefined} />
-            <ZAxis range={[40, 200]} />
-            {tooltipElement}
-            <Scatter data={chartData} fill={resolveColor(labelCol, null, 0, fmt.colors, dashboardPalette)} animationDuration={800}>
-              {chartData.map((_, i) => <Cell key={i} fill={resolveColor(labelCol, null, i, fmt.colors, dashboardPalette)} />)}
-            </Scatter>
-          </ScatterChart>
-        );
+        return {
+          backgroundColor: 'transparent',
+          tooltip: {
+            ...tooltipCfg,
+            trigger: 'item',
+            formatter: (p) => `${labelCol}: ${p.data[2] ?? ''}<br/>${xMeasure}: ${formatNumber(p.data[0])}<br/>${yMeasure}: ${formatNumber(p.data[1])}`,
+          },
+          legend: legendCfg,
+          grid: baseGrid,
+          xAxis: {
+            type: 'value',
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
+            axisLine: axisLineStyle,
+            splitLine: splitLineStyle,
+            name: fmt.axis.xLabel || xMeasure,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
+            axisLine: axisLineStyle,
+            splitLine: splitLineStyle,
+            name: fmt.axis.yLabel || yMeasure,
+            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+          },
+          series: [{
+            type: 'scatter',
+            data: chartData.map((r) => [Number(r[xMeasure]) || 0, Number(r[yMeasure]) || 0, r[labelCol]]),
+            symbolSize: Math.max(4, Math.min(12, 800 / Math.sqrt(chartData.length))),
+            itemStyle: { color: resolveColor(labelCol, null, 0, fmt.colors, dashboardPalette), opacity: 0.7 },
+            emphasis: { itemStyle: { opacity: 1, borderColor: '#fff', borderWidth: 1 } },
+          }],
+          animationDuration: 800,
+        };
       }
 
       default:
-        return null;
+        return { backgroundColor: 'transparent' };
     }
-  };
+  }, [chartType, chartData, labelCol, displayMeasures, currentMeasure, colors, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn]);
+
+  /* ── ECharts event handlers for cross-filter ── */
+  const onChartEvents = useMemo(() => {
+    if (!onCrossFilterClick) return {};
+    return {
+      click: (params) => {
+        // Radar: params.name is the series name, not the category label [ADV-FIX H6]
+        if (chartType === 'radar' && params.dataIndex != null && data[params.dataIndex]) {
+          onCrossFilterClick(labelCol, data[params.dataIndex][labelCol]);
+        } else if (params.name) {
+          onCrossFilterClick(labelCol, params.name);
+        } else if (params.data?.[2]) {
+          onCrossFilterClick(labelCol, params.data[2]);
+        }
+      },
+    };
+  }, [onCrossFilterClick, labelCol, chartType, data]);
 
   /* ── Compute summary stats for selected measures ── */
   const statsFor = isSingleMeasureChart ? [currentMeasure] : displayMeasures;
@@ -789,11 +774,25 @@ export default function ResultsChart({
     return `${rankedCharts[0]?.label || chartType} chart showing ${measureLabel} across ${data.length} items. Top entries: ${topItems}`;
   }, [data, labelCol, chartType, currentMeasure, displayMeasures, isSingleMeasureChart, rankedCharts]);
 
+  /* ── ECharts renderer (shared by embedded and full modes) ── */
+  const renderEChart = (height = '100%') => (
+    <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b', fontSize: 12 }}>Loading chart...</div>}>
+      <ReactECharts
+        ref={chartRef}
+        option={echartsOption}
+        style={{ width: '100%', height }}
+        opts={{ renderer: 'canvas' }}
+        notMerge={true}
+        onEvents={onChartEvents}
+      />
+    </Suspense>
+  );
+
   /* ── Embedded mode: compact chart only ── */
   if (embedded) {
     return (
       <div className="h-full flex flex-col">
-        <div ref={chartRef} className="flex-1 min-h-0" role="img" aria-label={chartSummary}>
+        <div className="flex-1 min-h-0" role="img" aria-label={chartSummary}>
           <AnimatePresence mode="wait">
             <motion.div
               key={chartType}
@@ -803,9 +802,7 @@ export default function ResultsChart({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25, ease: "easeInOut" }}
             >
-              <ResponsiveContainer width="100%" height="100%">
-                {renderChart()}
-              </ResponsiveContainer>
+              {renderEChart('100%')}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -895,7 +892,7 @@ export default function ResultsChart({
                 ].map((fmt) => (
                   <button
                     key={fmt.key}
-                    onClick={() => { exportChart(chartRef, fmt.key); setShowExportMenu(false); }}
+                    onClick={() => { const ok = exportChart(chartRef, fmt.key); if (!ok) setExportError('Chart not ready — try again'); setShowExportMenu(false); }}
                     className="w-full flex items-center justify-between px-3 py-2.5 text-xs text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors duration-200 cursor-pointer"
                   >
                     <span className="font-medium">{fmt.label}</span>
@@ -928,6 +925,12 @@ export default function ResultsChart({
                     <span className="text-slate-500">{fmt.desc}</span>
                   </button>
                 ))}
+              </div>
+            )}
+            {exportError && (
+              <div className="absolute right-0 top-full mt-1 px-3 py-1.5 rounded-lg text-xs bg-red-900/80 text-red-300 border border-red-800 z-50 whitespace-nowrap"
+                ref={el => { if (el) setTimeout(() => setExportError(null), 3000); }}>
+                {exportError}
               </div>
             )}
           </div>
@@ -976,7 +979,7 @@ export default function ResultsChart({
       )}
 
       {/* ── Chart Canvas ── */}
-      <div ref={chartRef} className={embedded ? "px-1 py-1" : "px-2 py-4"} role="img" aria-label={chartSummary}>
+      <div className={embedded ? "px-1 py-1" : "px-2 py-4"} role="img" aria-label={chartSummary}>
         <AnimatePresence mode="wait">
           <motion.div
             key={chartType}
@@ -986,9 +989,7 @@ export default function ResultsChart({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25, ease: "easeInOut" }}
           >
-            <ResponsiveContainer width="100%" height={embedded ? 150 : 340}>
-              {renderChart()}
-            </ResponsiveContainer>
+            {renderEChart(embedded ? 150 : 340)}
           </motion.div>
         </AnimatePresence>
       </div>

@@ -1,5 +1,5 @@
 """
-JWT Authentication for QueryCopilot.
+JWT Authentication for DataLens.
 Includes email/password auth + Google & GitHub OAuth.
 """
 
@@ -11,6 +11,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import json
+import logging
 import os
 from pathlib import Path
 import secrets
@@ -258,12 +259,26 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
+def create_admin_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Create an admin JWT signed with ADMIN_JWT_SECRET_KEY (or JWT_SECRET_KEY as fallback)."""
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode["exp"] = expire
+    secret = settings.ADMIN_JWT_SECRET_KEY or settings.JWT_SECRET_KEY
+    return jwt.encode(to_encode, secret, algorithm=settings.JWT_ALGORITHM)
+
+
+def get_admin_jwt_secret() -> str:
+    """Return the admin JWT secret (separate from user secret when configured)."""
+    return settings.ADMIN_JWT_SECRET_KEY or settings.JWT_SECRET_KEY
+
+
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     token = credentials.credentials
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         email: str = payload.get("sub")
-        if email is None:
+        if not email:
             raise HTTPException(status_code=401, detail="Invalid token")
         return {"email": email, "name": payload.get("name", "")}
     except JWTError:
@@ -357,33 +372,53 @@ def github_auth_url(redirect_uri: str) -> Tuple[str, str]:
 
 
 def _google_userinfo(code: str, redirect_uri: str) -> Optional[dict]:
+    logger = logging.getLogger("oauth.google")
     try:
+        logger.info(f"Exchanging code with redirect_uri={redirect_uri}")
         r = http_requests.post(GOOGLE_TOKEN_URL, data={
             "code": code, "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
             "redirect_uri": redirect_uri, "grant_type": "authorization_code",
         }, timeout=10)
-        r.raise_for_status()
-        token = r.json().get("access_token")
+        if not r.ok:
+            logger.error(f"Google token exchange failed: {r.status_code} {r.text[:500]}")
+            return None
+        token_data = r.json()
+        token = token_data.get("access_token")
+        if not token:
+            logger.error(f"No access_token in Google response: {token_data}")
+            return None
         info = http_requests.get(GOOGLE_USERINFO_URL, headers={"Authorization": f"Bearer {token}"}, timeout=10)
-        info.raise_for_status()
+        if not info.ok:
+            logger.error(f"Google userinfo failed: {info.status_code} {info.text[:500]}")
+            return None
         return info.json()
-    except Exception:
+    except Exception as exc:
+        logger.error(f"Google OAuth exception: {exc}")
         return None
 
 
 def _github_userinfo(code: str, redirect_uri: str) -> Optional[dict]:
+    logger = logging.getLogger("oauth.github")
     try:
+        logger.info(f"Exchanging code with redirect_uri={redirect_uri}")
         r = http_requests.post(GITHUB_TOKEN_URL, json={
             "client_id": settings.GITHUB_CLIENT_ID,
             "client_secret": settings.GITHUB_CLIENT_SECRET,
             "code": code, "redirect_uri": redirect_uri,
         }, headers={"Accept": "application/json"}, timeout=10)
-        r.raise_for_status()
+        if not r.ok:
+            logger.error(f"GitHub token exchange failed: {r.status_code} {r.text[:500]}")
+            return None
         token = r.json().get("access_token")
+        if not token:
+            logger.error(f"No access_token in GitHub response: {r.json()}")
+            return None
         hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
         user = http_requests.get(GITHUB_USER_URL, headers=hdrs, timeout=10)
-        user.raise_for_status()
+        if not user.ok:
+            logger.error(f"GitHub user fetch failed: {user.status_code} {user.text[:500]}")
+            return None
         data = user.json()
         if not data.get("email"):
             er = http_requests.get(GITHUB_EMAIL_URL, headers=hdrs, timeout=10)
@@ -392,7 +427,8 @@ def _github_userinfo(code: str, redirect_uri: str) -> Optional[dict]:
                 if primary:
                     data["email"] = primary["email"]
         return data
-    except Exception:
+    except Exception as exc:
+        logger.error(f"GitHub OAuth exception: {exc}")
         return None
 
 

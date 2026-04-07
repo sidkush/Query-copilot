@@ -8,6 +8,13 @@ export default function BookmarkManager({ dashboardId, currentState, onApply, on
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Escape key to close [ADV-FIX H4]
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
   useEffect(() => {
     if (!dashboardId) return;
     api.listBookmarks(dashboardId).then(res => setBookmarks(res?.bookmarks || [])).catch(() => {});
@@ -54,7 +61,7 @@ export default function BookmarkManager({ dashboardId, currentState, onApply, on
           {/* Header */}
           <div style={{ padding: '16px 20px', borderBottom: `1px solid ${TOKENS.border.default}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 16, fontWeight: 600, color: TOKENS.text.primary }}>Saved Views</span>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: TOKENS.text.muted, cursor: 'pointer', fontSize: 18 }}>x</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: TOKENS.text.muted, cursor: 'pointer', fontSize: 18 }}>×</button>
           </div>
 
           {/* Save new */}

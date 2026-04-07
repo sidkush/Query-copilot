@@ -1,10 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import { useStore } from "../store";
 import MotionButton from "../components/animation/MotionButton";
+import TiltCard from "../components/animation/TiltCard";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
+import { GPUTierProvider } from "../lib/gpuDetect";
+const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
+class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
 /* ─── Country list with dial codes + flag emojis ─────────── */
 const COUNTRIES = [
@@ -469,8 +473,14 @@ export default function Login() {
   /* ─── Render ──────────────────────────────────────────────── */
   return (
     <div className="min-h-screen bg-[#06060e] flex items-center justify-center px-4 relative overflow-hidden noise-overlay">
-      {/* Animated background orbs */}
-      <AnimatedBackground />
+      {/* 3D background with 2D fallback */}
+      <GPUTierProvider>
+        <_WebGLBound fallback={<AnimatedBackground />}>
+          <Suspense fallback={<AnimatedBackground />}>
+            <PageBackground3D mode="auth" />
+          </Suspense>
+        </_WebGLBound>
+      </GPUTierProvider>
 
       {/* Mesh gradient */}
       <div className="absolute inset-0 mesh-gradient pointer-events-none" />
@@ -491,9 +501,10 @@ export default function Login() {
           <h1 className="text-3xl font-extrabold text-white tracking-tight">
             Query<span className="text-indigo-400">Copilot</span>
           </h1>
-          <p className="text-gray-400 mt-2">Ask your data anything</p>
+          <p className="text-gray-400 mt-2">The agentic data intelligence platform</p>
         </div>
 
+        <TiltCard maxTilt={4}>
         <div className="glass-card rounded-2xl p-8">
           <h2 className="text-xl font-semibold text-white mb-2">
             {isRegister ? "Create Account" : "Sign In"}
@@ -952,6 +963,7 @@ export default function Login() {
             Instant login with a pre-made test account
           </p>
         </div>
+        </TiltCard>
       </div>
     </div>
   );

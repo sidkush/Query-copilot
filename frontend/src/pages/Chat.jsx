@@ -19,6 +19,7 @@ import SchemaExplorer from "../components/SchemaExplorer";
 import ERDiagram from "../components/ERDiagram";
 import UserDropdown from "../components/UserDropdown";
 import DatabaseSwitcher from "../components/DatabaseSwitcher";
+import behaviorEngine from "../lib/behaviorEngine";
 
 // ── Message timestamp formatting ──
 function formatMessageTime(ts) {
@@ -168,6 +169,18 @@ export default function Chat() {
   const [pendingTileData, setPendingTileData] = useState(null);
   const [addingTile, setAddingTile] = useState(false);
   const [newDashboardName, setNewDashboardName] = useState("");
+  // Dynamic AI-generated starter suggestions based on connected DB schema
+  const [starterSuggestions, setStarterSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const suggestionsConnRef = useRef(null);
+  // Predictive suggestions — 3 next-action predictions after every response
+  const [predictions, setPredictions] = useState([]);
+  const [predictionsLoading, setPredictionsLoading] = useState(false);
+  // Autocomplete suggestions
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState([]);
+  const [autocompleteVisible, setAutocompleteVisible] = useState(false);
+  const [autocompleteIndex, setAutocompleteIndex] = useState(-1);
+  const autocompleteTimer = useRef(null);
   // Toast notifications
   const [toasts, setToasts] = useState([]);
   const toastIdRef = useRef(0);
@@ -200,6 +213,8 @@ export default function Chat() {
   const navigate = useNavigate();
   const location = useLocation();
   const bottomRef = useRef(null);
+  const agentPersona = useStore((s) => s.agentPersona);
+  const agentPermissionMode = useStore((s) => s.agentPermissionMode);
 
   // Sync connections from the backend on mount — track live vs saved
   const setConnections = useStore((s) => s.setConnections);
@@ -303,6 +318,35 @@ export default function Chat() {
   const resolvedConnId = activeConnId
     || (connections.length > 0 ? connections[0].conn_id : null);
 
+  // Fetch dynamic starter suggestions when connection changes
+  useEffect(() => {
+    if (!resolvedConnId) {
+      // No connection — clear stale suggestions
+      setStarterSuggestions([]);
+      suggestionsConnRef.current = null;
+      return;
+    }
+    if (resolvedConnId === suggestionsConnRef.current) return;
+    suggestionsConnRef.current = resolvedConnId;
+    setStarterSuggestions([]); // Clear old suggestions before fetching new ones
+    setSuggestionsLoading(true);
+    api.getSuggestions(resolvedConnId)
+      .then((data) => {
+        // Only update if this is still the active connection
+        if (suggestionsConnRef.current !== resolvedConnId) return;
+        if (data.suggestions && data.suggestions.length > 0) {
+          setStarterSuggestions(data.suggestions.slice(0, 4));
+        }
+      })
+      .catch(() => {
+        // Clear ref so user can retry by switching away and back
+        if (suggestionsConnRef.current === resolvedConnId) {
+          suggestionsConnRef.current = null;
+        }
+      })
+      .finally(() => setSuggestionsLoading(false));
+  }, [resolvedConnId]);
+
   // Create chat on first message, then append messages incrementally
   const ensureChatId = useRef(activeChatId);
   useEffect(() => {
@@ -315,6 +359,7 @@ export default function Chat() {
 
     const question = input.trim();
     setInput("");
+    setPredictions([]); // Clear predictions on new message
     addMessage({ type: "user", content: question });
 
     // Detect dashboard creation requests
@@ -434,7 +479,7 @@ export default function Chat() {
           if (step.type === "result" && !step.final_answer && !step.sql) {
             resolve();
           }
-        });
+        }, { persona: agentPersona, permissionMode: agentPermissionMode });
 
         // Timeout fallback
         setTimeout(() => {
@@ -598,6 +643,67 @@ export default function Chat() {
     }
   };
 
+  // Fetch predictive suggestions after a query/agent response
+  const fetchPredictions = useCallback((question = "", sql = "") => {
+    setPredictions([]);
+    setPredictionsLoading(true);
+    api.getPredictions(resolvedConnId, question, sql)
+      .then((data) => {
+        if (data.predictions?.length) {
+          setPredictions(data.predictions.slice(0, 3));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPredictionsLoading(false));
+  }, [resolvedConnId]);
+
+  // Debounced autocomplete fetch (300ms)
+  const handleInputChange = useCallback((value) => {
+    setInput(value);
+    setAutocompleteIndex(-1);
+    if (autocompleteTimer.current) clearTimeout(autocompleteTimer.current);
+    if (!value.trim() || value.trim().length < 2) {
+      setAutocompleteSuggestions([]);
+      setAutocompleteVisible(false);
+      return;
+    }
+    autocompleteTimer.current = setTimeout(() => {
+      api.getAutocomplete(value.trim(), resolvedConnId)
+        .then((data) => {
+          if (data.suggestions?.length) {
+            setAutocompleteSuggestions(data.suggestions);
+            setAutocompleteVisible(true);
+          } else {
+            setAutocompleteVisible(false);
+          }
+        })
+        .catch(() => setAutocompleteVisible(false));
+    }, 300);
+  }, [resolvedConnId]);
+
+  const handleAutocompleteSelect = useCallback((text) => {
+    setInput(text);
+    setAutocompleteVisible(false);
+    setAutocompleteSuggestions([]);
+  }, []);
+
+  const handleAutocompleteKeyDown = useCallback((e) => {
+    if (!autocompleteVisible || !autocompleteSuggestions.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setAutocompleteIndex((prev) => Math.min(prev + 1, autocompleteSuggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setAutocompleteIndex((prev) => Math.max(prev - 1, -1));
+    } else if (e.key === "Tab" || (e.key === "Enter" && autocompleteIndex >= 0)) {
+      e.preventDefault();
+      const idx = autocompleteIndex >= 0 ? autocompleteIndex : 0;
+      handleAutocompleteSelect(autocompleteSuggestions[idx].text);
+    } else if (e.key === "Escape") {
+      setAutocompleteVisible(false);
+    }
+  }, [autocompleteVisible, autocompleteSuggestions, autocompleteIndex, handleAutocompleteSelect]);
+
   const handleApprove = async (sql, question, connId, originalSql = null) => {
     setExecuting(true);
     try {
@@ -623,6 +729,10 @@ export default function Chat() {
         };
         addMessage(resMsg);
         if (ensureChatId.current) api.appendMessage(ensureChatId.current, resMsg).catch((e) => console.error("appendMessage failed:", e));
+        // Track query for behavior engine
+        behaviorEngine.trackQuery(question, [], result.conn_id || "");
+        // Fetch predictive next-action suggestions
+        fetchPredictions(question, sql);
       }
     } catch (err) {
       const errMsg = { type: "error", content: err.message };
@@ -934,26 +1044,36 @@ export default function Chat() {
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 relative z-10 pb-32">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <h2 className="text-2xl font-bold text-white mb-2">Ask your data anything</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">Your AI agent is ready</h2>
               <p className="text-[#5C5F66] max-w-md">
-                Type a question in plain English. QueryCopilot will generate SQL,
-                show it for your review, and run it on approval.
+                Describe what you need in plain English. The agent will find the right tables, write validated SQL, and suggest the best visualization — autonomously.
               </p>
               <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full">
-                {[
-                  "How many orders were placed last month?",
-                  "What are the top 5 products by revenue?",
-                  "Show me daily signups for the past week",
-                  "Average order value by customer segment",
-                ].map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => { setInput(q); }}
-                    className="text-left text-sm text-[#8A8F98] bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/[0.1] rounded-2xl px-5 py-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
-                  >
-                    {q}
-                  </button>
-                ))}
+                {suggestionsLoading ? (
+                  <>
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="animate-pulse bg-white/[0.03] border border-white/[0.04] rounded-2xl px-5 py-4">
+                        <div className="h-3 bg-white/[0.06] rounded w-3/4 mb-2" />
+                        <div className="h-3 bg-white/[0.04] rounded w-1/2" />
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  (starterSuggestions.length > 0 ? starterSuggestions : [
+                    "Explore my database and show me the most interesting patterns you can find",
+                    "What are the key metrics I should be tracking? Build me a KPI summary",
+                    "Find anomalies or outliers in the recent data that I should know about",
+                    "Which areas are trending up vs down? Give me a growth analysis with charts",
+                  ]).map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => { setInput(q); }}
+                      className="text-left text-sm text-[#8A8F98] bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/[0.1] rounded-2xl px-5 py-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
+                    >
+                      {q}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -1120,6 +1240,62 @@ export default function Chat() {
             </motion.div>
           ))}
 
+          {/* Predictive next-action suggestions */}
+          <AnimatePresence>
+            {!loading && !executing && predictions.length > 0 && messages.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.3 }}
+                className="max-w-4xl mx-auto"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                  </svg>
+                  <span className="text-xs text-blue-400/80 font-medium">Predicted next steps</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {predictions.map((pred, idx) => (
+                    <motion.button
+                      key={idx}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 + idx * 0.1 }}
+                      onClick={() => { setInput(pred.question); setPredictions([]); behaviorEngine.trackPredictionFeedback(idx, true); }}
+                      className="text-left text-sm text-[#8A8F98] bg-blue-500/[0.04] hover:bg-blue-500/[0.1] border border-blue-400/[0.08] hover:border-blue-400/[0.2] rounded-xl px-4 py-3 transition-all duration-300 cursor-pointer group"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-blue-400/40 text-xs font-mono mt-0.5 group-hover:text-blue-400/70">{idx + 1}</span>
+                        <div>
+                          <p className="text-[#c4c7cc] group-hover:text-white transition-colors">{pred.question}</p>
+                          {pred.reasoning && (
+                            <p className="text-[10px] text-[#5C5F66] mt-1">{pred.reasoning}</p>
+                          )}
+                        </div>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {predictionsLoading && messages.length > 0 && (
+            <div className="max-w-4xl mx-auto flex items-center gap-2 text-xs text-blue-400/50">
+              <div className="flex gap-1">
+                {[0, 1, 2].map((d) => (
+                  <motion.div key={d} className="w-1 h-1 bg-blue-400/40 rounded-full"
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1, repeat: Infinity, delay: d * 0.2 }}
+                  />
+                ))}
+              </div>
+              Predicting next steps...
+            </div>
+          )}
+
           <AnimatePresence>
           {loading && (
             <motion.div
@@ -1201,18 +1377,52 @@ export default function Chat() {
             animate={{ scale: isInputFocused ? 1.02 : 1, y: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
           >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onFocus={() => setIsInputFocused(true)}
-              onBlur={() => setIsInputFocused(false)}
-              placeholder="Ask anything..."
-              aria-label="Ask a question about your data"
-              className="flex-1 bg-transparent px-5 py-2.5 text-[15px] text-white placeholder-[#8A8F98] focus:outline-none transition-all duration-200"
-              disabled={loading}
-              style={{ paddingLeft: '24px' }}
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={handleAutocompleteKeyDown}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => { setIsInputFocused(false); setTimeout(() => setAutocompleteVisible(false), 200); }}
+                placeholder="Ask anything..."
+                aria-label="Ask a question about your data"
+                className="w-full bg-transparent px-5 py-2.5 text-[15px] text-white placeholder-[#8A8F98] focus:outline-none transition-all duration-200"
+                disabled={loading}
+                style={{ paddingLeft: '24px' }}
+                autoComplete="off"
+              />
+              {/* Autocomplete dropdown */}
+              {autocompleteVisible && autocompleteSuggestions.length > 0 && (
+                <div
+                  className="absolute bottom-full left-0 right-0 mb-2 rounded-xl overflow-hidden"
+                  style={{
+                    background: 'rgba(18, 18, 22, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: '0 -8px 30px rgba(0,0,0,0.5)',
+                  }}
+                >
+                  {autocompleteSuggestions.map((s, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onMouseDown={() => handleAutocompleteSelect(s.text)}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2 ${
+                        idx === autocompleteIndex
+                          ? 'bg-white/10 text-white'
+                          : 'text-[#a0a4ab] hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <span className="text-[10px] opacity-40 uppercase tracking-wider w-12 shrink-0">
+                        {s.source === "history" ? "prev" : s.source === "schema" ? "table" : "idea"}
+                      </span>
+                      <span className="truncate">{s.text}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               disabled={loading || !input.trim()}

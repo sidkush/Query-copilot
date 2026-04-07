@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useState, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../api";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import MotionButton from "../components/animation/MotionButton";
+import TiltCard from "../components/animation/TiltCard";
+import { GPUTierProvider } from "../lib/gpuDetect";
+const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
+class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
 export default function AdminLogin() {
   const [username, setUsername] = useState("");
@@ -26,7 +30,13 @@ export default function AdminLogin() {
 
   return (
     <div className="min-h-screen bg-[#06060e] flex items-center justify-center px-4 relative noise-overlay">
-      <AnimatedBackground />
+      <GPUTierProvider>
+        <_WebGLBound fallback={<AnimatedBackground />}>
+          <Suspense fallback={<AnimatedBackground />}>
+            <PageBackground3D mode="auth" />
+          </Suspense>
+        </_WebGLBound>
+      </GPUTierProvider>
       <motion.div
         className="w-full max-w-sm relative z-10"
         initial={{ opacity: 0, y: 30 }}
@@ -45,9 +55,10 @@ export default function AdminLogin() {
             </svg>
           </motion.div>
           <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
-          <p className="text-sm text-gray-500 mt-1">QueryCopilot Administration</p>
+          <p className="text-sm text-gray-500 mt-1">Platform Administration</p>
         </div>
 
+        <TiltCard maxTilt={5}>
         <motion.form
           onSubmit={handleLogin}
           className="glass-card rounded-2xl p-6 space-y-4"
@@ -92,6 +103,7 @@ export default function AdminLogin() {
             {loading ? "Signing in..." : "Sign In"}
           </MotionButton>
         </motion.form>
+        </TiltCard>
 
         <p className="text-center text-xs text-gray-600 mt-6">
           <a href="/" className="hover:text-gray-400 transition">Back to main site</a>

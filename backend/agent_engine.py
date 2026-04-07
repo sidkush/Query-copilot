@@ -388,7 +388,7 @@ class AgentEngine:
     MAX_SQL_RETRIES = 3
 
     SYSTEM_PROMPT = (
-        "You are QueryCopilot, an AI data analyst agent. You help users explore "
+        "You are DataLens, an AI data analyst agent. You help users explore "
         "databases, answer questions using SQL, and manage their dashboards.\n\n"
         "WORKFLOW:\n"
         "1. Use find_relevant_tables to discover which tables might answer the question\n"
@@ -1355,7 +1355,7 @@ class AgentEngine:
                 '"x_axis": "column_name", "y_axis": "column_name", '
                 '"reason": "brief explanation"}'
             )
-            response = self.client.messages.create(
+            response = self.provider.complete(
                 model=self.primary_model,
                 max_tokens=300,
                 system=(
@@ -1365,7 +1365,7 @@ class AgentEngine:
                 ),
                 messages=[{"role": "user", "content": prompt}],
             )
-            text = response.content[0].text.strip()
+            text = response.text.strip()
             # Try to parse as JSON
             try:
                 chart = json.loads(text)
@@ -1407,7 +1407,7 @@ class AgentEngine:
                 f"{safe_preview}\n"
                 "</data>"
             )
-            response = self.client.messages.create(
+            response = self.provider.complete(
                 model=self.primary_model,
                 max_tokens=200,
                 system=(
@@ -1417,7 +1417,7 @@ class AgentEngine:
                 ),
                 messages=[{"role": "user", "content": prompt}],
             )
-            summary = response.content[0].text.strip()
+            summary = response.text.strip()
             return summary
         except Exception as e:
             _logger.warning("summarize_results failed: %s", e)

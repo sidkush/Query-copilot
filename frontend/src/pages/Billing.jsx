@@ -1,11 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import MotionButton from "../components/animation/MotionButton";
+import TiltCard from "../components/animation/TiltCard";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
+import { GPUTierProvider } from "../lib/gpuDetect";
+const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
+class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
 export default function Billing() {
   const navigate = useNavigate();
@@ -27,12 +31,12 @@ export default function Billing() {
       price: "$29",
       period: "/month",
       features: [
-        "Unlimited queries",
-        "All database connectors",
-        "CSV, Excel & PDF export",
-        "Auto-charts + Plotly",
-        "Slack bot integration",
-        "PII masking",
+        "Unlimited AI agent queries",
+        "All 18 database connectors",
+        "NL alerts + webhooks",
+        "PDF & Slack export",
+        "PII masking controls",
+        "Priority support",
       ],
     },
     {
@@ -42,8 +46,8 @@ export default function Billing() {
       features: [
         "Everything in Pro",
         "SSO & SAML",
-        "Dedicated support (4h SLA)",
-        "Custom connectors",
+        "Presentation engine (16:9)",
+        "Scheduled digests",
         "On-premise deployment",
         "Unlimited team seats",
       ],
@@ -53,11 +57,17 @@ export default function Billing() {
   return (
     <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
-      <AnimatedBackground className="fixed inset-0 pointer-events-none" />
+      <GPUTierProvider>
+        <_WebGLBound fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+          <Suspense fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+            <PageBackground3D mode="default" className="fixed inset-0" />
+          </Suspense>
+        </_WebGLBound>
+      </GPUTierProvider>
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
           <h1 className="text-xl font-bold text-white">Plans & Billing</h1>
-          <p className="text-xs text-gray-400">Choose the plan that fits your team</p>
+          <p className="text-xs text-gray-400">Scale your data intelligence</p>
         </div>
         <UserDropdown />
       </header>
@@ -82,7 +92,7 @@ export default function Billing() {
           <StaggerContainer className="space-y-8">
             {/* Current plan */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <h2 className="text-lg font-bold text-white">Current Plan</h2>
                   <motion.span
@@ -132,7 +142,7 @@ export default function Billing() {
                     ))}
                   </ul>
                 )}
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* Future plans */}
@@ -146,9 +156,8 @@ export default function Billing() {
                       initial={{ opacity: 0, y: 30, scale: 0.95 }}
                       animate={{ opacity: 0.6, y: 0, scale: 1 }}
                       transition={{ delay: 0.2 + idx * 0.15, type: "spring", stiffness: 200, damping: 20 }}
-                      whileHover={{ opacity: 0.85, y: -4, transition: { duration: 0.2 } }}
-                      className="relative glass-card rounded-2xl p-6"
                     >
+                      <TiltCard className="h-full"><div className="relative glass-card rounded-2xl p-6 h-full">
                       {/* Coming soon badge */}
                       <div className="absolute top-4 right-4 px-3 py-1 glass text-gray-400 text-xs font-semibold rounded-full">
                         Coming Soon
@@ -183,6 +192,7 @@ export default function Billing() {
                       >
                         {waitlistJoined[plan.name] ? "On Waitlist" : "Join Waitlist"}
                       </MotionButton>
+                      </div></TiltCard>
                     </motion.div>
                   ))}
                 </div>

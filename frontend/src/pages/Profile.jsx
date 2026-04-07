@@ -1,10 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, Component, lazy } from "react";
 import { AnimatePresence } from "framer-motion";
 import { api } from "../api";
+import behaviorEngine from "../lib/behaviorEngine";
 import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import MotionButton from "../components/animation/MotionButton";
+import TiltCard from "../components/animation/TiltCard";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
+import { GPUTierProvider } from "../lib/gpuDetect";
+const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
+class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
 const AVATAR_COLORS = [
   { id: "indigo", bg: "bg-indigo-600", ring: "ring-indigo-400" },
@@ -32,6 +37,8 @@ export default function Profile() {
   const [timezone, setTimezone] = useState("");
   const [avatarColor, setAvatarColor] = useState("indigo");
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [consentLevel, setConsentLevel] = useState(0); // 0=off, 1=personal, 2=collaborative
+  const [consentFeatureEnabled, setConsentFeatureEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -50,6 +57,13 @@ export default function Profile() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+    // Fetch behavior consent level
+    api.getBehaviorConsent()
+      .then((data) => {
+        setConsentLevel(data.consent_level || 0);
+        setConsentFeatureEnabled(data.feature_enabled || false);
+      })
+      .catch(() => {}); // Feature may be disabled
   }, []);
 
   const handleSave = async () => {
@@ -101,11 +115,17 @@ export default function Profile() {
   return (
     <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
-      <AnimatedBackground className="fixed inset-0 pointer-events-none" />
+      <GPUTierProvider>
+        <_WebGLBound fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+          <Suspense fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
+            <PageBackground3D mode="profile" className="fixed inset-0" />
+          </Suspense>
+        </_WebGLBound>
+      </GPUTierProvider>
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
           <h1 className="text-xl font-bold text-white">Profile</h1>
-          <p className="text-xs text-gray-400">Manage your personal information</p>
+          <p className="text-xs text-gray-400">Manage your analyst profile</p>
         </div>
         <UserDropdown />
       </header>
@@ -146,7 +166,7 @@ export default function Profile() {
 
             {/* Avatar + Color Picker */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <div className="flex items-center gap-6">
                   <motion.div
                     layout
@@ -170,12 +190,12 @@ export default function Profile() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* Personal Info */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6 space-y-5">
+              <TiltCard><div className="glass-card rounded-2xl p-6 space-y-5">
                 <h2 className="text-sm font-semibold text-white">Personal Information</h2>
 
                 <div>
@@ -227,12 +247,12 @@ export default function Profile() {
                     ))}
                   </select>
                 </div>
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* Auth & Meta */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6 space-y-4">
+              <TiltCard><div className="glass-card rounded-2xl p-6 space-y-4">
                 <h2 className="text-sm font-semibold text-white">Account Details</h2>
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">Authentication Method</label>
@@ -244,12 +264,12 @@ export default function Profile() {
                     <p className="text-sm text-gray-300">{new Date(profile.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
                   </div>
                 )}
-              </div>
+              </div></TiltCard>
             </StaggerItem>
 
             {/* Notifications */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <TiltCard><div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Notification Preferences</h2>
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
@@ -261,8 +281,62 @@ export default function Profile() {
                     <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600" />
                   </div>
                 </label>
-              </div>
+              </div></TiltCard>
             </StaggerItem>
+
+            {/* Behavior Intelligence Consent */}
+            {consentFeatureEnabled && (
+              <StaggerItem>
+                <TiltCard><div className="glass-card rounded-2xl p-6">
+                  <h2 className="text-sm font-semibold text-white mb-1">Predictive Intelligence</h2>
+                  <p className="text-xs text-gray-500 mb-4">Control how DataLens learns from your usage to improve suggestions. Raw interaction data never leaves your browser — only abstract patterns are stored.</p>
+
+                  <div className="space-y-3">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <p className="text-sm text-gray-200">Personal Predictions</p>
+                        <p className="text-xs text-gray-500">Learn from your query patterns to suggest better next steps</p>
+                      </div>
+                      <div className="relative">
+                        <input type="checkbox" checked={consentLevel >= 1}
+                          onChange={(e) => {
+                            const newLevel = e.target.checked ? 1 : 0;
+                            setConsentLevel(newLevel);
+                            api.updateBehaviorConsent(newLevel).then(() => {
+                              behaviorEngine.init(newLevel);
+                            }).catch(() => {});
+                          }}
+                          className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600" />
+                      </div>
+                    </label>
+
+                    <label className={`flex items-center justify-between ${consentLevel >= 1 ? "cursor-pointer" : "opacity-40 cursor-not-allowed"}`}>
+                      <div>
+                        <p className="text-sm text-gray-200">Collaborative Intelligence</p>
+                        <p className="text-xs text-gray-500">Contribute anonymous patterns to improve predictions for your team</p>
+                      </div>
+                      <div className="relative">
+                        <input type="checkbox" checked={consentLevel >= 2} disabled={consentLevel < 1}
+                          onChange={(e) => {
+                            const newLevel = e.target.checked ? 2 : 1;
+                            setConsentLevel(newLevel);
+                            api.updateBehaviorConsent(newLevel).then(() => {
+                              behaviorEngine.init(newLevel);
+                            }).catch(() => {});
+                          }}
+                          className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600" />
+                      </div>
+                    </label>
+                  </div>
+
+                  {consentLevel === 0 && (
+                    <p className="text-xs text-gray-600 mt-3 italic">No interaction data is captured while this is off.</p>
+                  )}
+                </div></TiltCard>
+              </StaggerItem>
+            )}
 
             {/* Save */}
             <AnimatePresence>

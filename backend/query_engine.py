@@ -554,27 +554,15 @@ Generate the dashboard JSON now."""
 
     def _call_claude_dashboard(self, system_prompt: str, user_prompt: str, model: str) -> str:
         """Call Claude with a higher token limit for dashboard generation."""
-        if _claude_breaker.is_open():
-            raise RuntimeError("AI service temporarily unavailable (circuit breaker open). Please retry in 30 seconds.")
-        try:
-            response = self.client.messages.create(
-                model=model,
-                max_tokens=16384,
-                system=[{
-                    "type": "text",
-                    "text": system_prompt,
-                    "cache_control": {"type": "ephemeral"}
-                }],
-                messages=[{"role": "user", "content": user_prompt}]
-            )
-            _claude_breaker.record_success()
-            text = response.content[0].text
-            if response.stop_reason == "max_tokens":
-                logger.warning(f"Dashboard response was TRUNCATED (hit max_tokens). Length: {len(text)} chars")
-            return text
-        except anthropic.APIError as e:
-            _claude_breaker.record_failure()
-            raise RuntimeError(f"AI service error: {str(e)}")
+        response = self.provider.complete(
+            model=model,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+            max_tokens=16384,
+        )
+        if response.stop_reason == "max_tokens":
+            logger.warning(f"Dashboard response was TRUNCATED (hit max_tokens). Length: {len(response.text)} chars")
+        return response.text
 
     @staticmethod
     def _repair_json(raw: str) -> str:
@@ -877,16 +865,17 @@ BIG DATA OPTIMIZATION RULES (this is a large-scale data warehouse — efficiency
             )
 
         try:
-            response = self.client.messages.create(
+            response = self.provider.complete(
                 model=self.primary_model,
-                max_tokens=200,
+                system="",
                 messages=[{"role": "user", "content": (
                     f'The user asked: "{question}"\n\n'
                     f"Query results:\n{data_preview}\n\n"
                     f"Write a 1-2 sentence natural language answer. Be specific with numbers."
-                )}]
+                )}],
+                max_tokens=200,
             )
-            return response.content[0].text.strip()
+            return response.text.strip()
         except Exception:
             return ""
 
@@ -949,9 +938,8 @@ BIG DATA OPTIMIZATION RULES (this is a large-scale data warehouse — efficiency
         """Quick self-critique: return {score: 0-100, caveats: [str]}."""
         import json as _json
         try:
-            response = self.client.messages.create(
+            response = self.provider.complete(
                 model=self.primary_model,
-                max_tokens=200,
                 system=(
                     "You are a SQL quality auditor. Given a question, generated SQL, and schema context, "
                     "rate the SQL quality 0-100 and list up to 3 brief caveats. "
@@ -961,8 +949,9 @@ BIG DATA OPTIMIZATION RULES (this is a large-scale data warehouse — efficiency
                     f"Question: {question}\n\nSQL: {sql}\n\nSchema:\n{schema_context[:2000]}\n\n"
                     "Rate this SQL. Return ONLY the JSON."
                 )}],
+                max_tokens=200,
             )
-            raw = response.content[0].text.strip()
+            raw = response.text.strip()
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0]
             result = _json.loads(raw)
@@ -1013,13 +1002,13 @@ BIG DATA OPTIMIZATION RULES (this is a large-scale data warehouse — efficiency
         )
 
         try:
-            response = self.client.messages.create(
+            response = self.provider.complete(
                 model=self.primary_model,
-                max_tokens=300,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
+                max_tokens=300,
             )
-            raw = response.content[0].text.strip()
+            raw = response.text.strip()
             # Strip markdown fences if present
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0]

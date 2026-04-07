@@ -253,6 +253,47 @@ class DatabaseConnector:
         except Exception:
             return None  # estimation is best-effort
 
+    def preview_query(self, sql: str, timeout: int = 5) -> Optional[dict]:
+        """Run EXPLAIN on a SQL query to preview estimated rows and columns.
+        Returns {estimated_rows, columns} or None on failure."""
+        if not self._engine:
+            return None
+        try:
+            import pandas as pd
+            # Try EXPLAIN to get row estimate
+            explain_sql = f"EXPLAIN {sql}"
+            estimated_rows = None
+            explain_text = ""
+
+            with self._engine.connect() as conn:
+                try:
+                    result = conn.execute(text(explain_sql))
+                    explain_rows = result.fetchall()
+                    explain_text = "\n".join(str(r) for r in explain_rows)
+                    # Parse row estimates from EXPLAIN output (varies by dialect)
+                    import re
+                    rows_match = re.search(r'rows[=:\s]+(\d+)', explain_text, re.IGNORECASE)
+                    if rows_match:
+                        estimated_rows = int(rows_match.group(1))
+                except Exception:
+                    pass  # EXPLAIN not supported for this dialect
+
+                # Get column names via LIMIT 0
+                try:
+                    limit_sql = f"SELECT * FROM ({sql}) _preview LIMIT 0"
+                    result = conn.execute(text(limit_sql))
+                    columns = list(result.keys())
+                except Exception:
+                    columns = []
+
+            return {
+                "estimated_rows": estimated_rows,
+                "columns": columns,
+                "column_count": len(columns),
+            }
+        except Exception:
+            return None
+
     def get_schema_info(self, schema: Optional[str] = None) -> Dict[str, Any]:
         if not self._engine:
             raise RuntimeError("Not connected. Call connect() first.")

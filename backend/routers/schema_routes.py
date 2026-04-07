@@ -5,7 +5,7 @@ from typing import Optional
 from auth import get_current_user
 from user_storage import save_er_positions, load_er_positions
 
-router = APIRouter(prefix="/api/schema", tags=["schema"])
+router = APIRouter(prefix="/api/v1/schema", tags=["schema"])
 
 
 def get_connection(conn_id: Optional[str] = None, email: str = ""):

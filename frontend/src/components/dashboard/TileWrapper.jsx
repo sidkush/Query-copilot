@@ -1,10 +1,12 @@
-import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense, memo } from 'react';
 import { TOKENS } from './tokens';
 import ResultsChart from '../ResultsChart';
 import KPICard from './KPICard';
 import { blendSources } from '../../lib/dataBlender';
 import { mergeFormatting } from '../../lib/formatUtils';
 import { api } from '../../api';
+import { downloadCSV, downloadJSON } from '../../lib/exportUtils';
+import { detectAnomalies, formatAnomalyBadge } from '../../lib/anomalyDetector';
 
 const CanvasChart = lazy(() => import('./CanvasChart'));
 
@@ -21,12 +23,17 @@ const CHART_TYPES = [
   { id: 'scatter',       label: 'Scatter',      icon: 'M3 3l7.07 14.14L12 3l4.95 11.05L19 3l-2 18H5L3 3z' },
 ];
 
-export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, onRefresh, customMetrics = [], onSelect, selectedTileId, crossFilter, onCrossFilterClick, dashboardId, themeConfig }) {
+function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, onRefresh, customMetrics = [], onSelect, selectedTileId, crossFilter, onCrossFilterClick, dashboardId, themeConfig }) {
   const [chartPickerOpen, setChartPickerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [showComments, setShowComments] = useState(false);
+  const [anomalyExplanation, setAnomalyExplanation] = useState(null);
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [explanation, setExplanation] = useState(null);
   const pickerRef = useRef(null);
+  const commentsRef = useRef(null);
   const commentCount = (tile?.annotations || []).length;
 
   const handleRefresh = useCallback(async () => {
@@ -58,6 +65,17 @@ export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeCh
     }
   }, [tile, dashboardId, onChangeChart]);
 
+  const handleExplain = useCallback(async () => {
+    if (explanation) { setExplanation(null); return; } // toggle off
+    if (!tile?.columns?.length || !tile?.rows?.length) return;
+    setExplainLoading(true);
+    try {
+      const res = await api.explainChart(tile.columns, tile.rows, tile.chartType, tile.question, tile.title);
+      setExplanation(res.explanation);
+    } catch { setExplanation('Could not generate explanation.'); }
+    finally { setExplainLoading(false); }
+  }, [tile, explanation]);
+
   // Close picker when clicking outside
   useEffect(() => {
     if (!chartPickerOpen) return;
@@ -69,6 +87,18 @@ export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeCh
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, [chartPickerOpen]);
+
+  // Close comments popover when clicking outside
+  useEffect(() => {
+    if (!showComments) return;
+    const handle = (e) => {
+      if (commentsRef.current && !commentsRef.current.contains(e.target)) {
+        setShowComments(false);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [showComments]);
 
   // Blend data sources if enabled
   const { chartColumns, chartRows } = useMemo(() => {
@@ -84,9 +114,45 @@ export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeCh
 
   const fmt = useMemo(() => mergeFormatting(tile?.visualConfig, null), [tile?.visualConfig]);
 
-  if (tile?.chartType === 'kpi') {
-    return <KPICard tile={tile} index={index} onEdit={onEdit} />;
-  }
+  // Trend indicator (local computation — no API call)
+  const trend = useMemo(() => {
+    if (!chartRows || chartRows.length < 3) return null;
+    const measure = tile?.selectedMeasure || tile?.activeMeasures?.[0];
+    if (!measure) return null;
+    const values = chartRows.map(r => { const v = r[measure]; return v != null ? Number(v) : NaN; }).filter(v => !isNaN(v));
+    if (values.length < 3) return null;
+    const n = values.length;
+    const mean = values.reduce((a, b) => a + b, 0) / n;
+    const xMean = (n - 1) / 2;
+    const num = values.reduce((s, v, i) => s + (i - xMean) * (v - mean), 0);
+    const den = values.reduce((s, _, i) => s + (i - xMean) ** 2, 0);
+    const slope = den ? num / den : 0;
+    const stdev = Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / n);
+    if (stdev === 0) return null;
+    const dir = slope > stdev * 0.1 ? 'up' : slope < -stdev * 0.1 ? 'down' : null;
+    return dir;
+  }, [chartRows, tile?.selectedMeasure, tile?.activeMeasures]);
+
+  // Anomaly detection
+  const anomaly = useMemo(() => {
+    const anomalies = detectAnomalies(chartColumns, chartRows);
+    return anomalies[0] || null;
+  }, [chartColumns, chartRows]);
+
+  useEffect(() => {
+    if (!anomaly) { setAnomalyExplanation(null); return; }
+    let cancelled = false;
+    api.explainAnomaly({
+      column: anomaly.column, value: anomaly.value,
+      mean: anomaly.mean, stddev: anomaly.stddev, direction: anomaly.direction,
+      tile_title: tile?.title || '', columns: chartColumns?.slice(0, 8) || [],
+      sample_rows: chartRows?.slice(-5) || [],
+    }).then(res => { if (!cancelled) setAnomalyExplanation(res.explanation); })
+      .catch(() => { if (!cancelled) setAnomalyExplanation(formatAnomalyBadge(anomaly)); });
+    return () => { cancelled = true; };
+  }, [anomaly, tile?.title, chartColumns, chartRows]);
+
+  const isKPI = tile?.chartType === 'kpi';
 
   return (
     <div className="relative overflow-visible group h-full flex flex-col"
@@ -119,6 +185,26 @@ export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeCh
             fontSize: `${fmt.typography.subtitleFontSize}px`,
             color: fmt.typography.subtitleColor,
           }}>{tile.subtitle}</span>}
+          {trend && (
+            <span style={{
+              fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
+              color: trend === 'up' ? '#22c55e' : '#ef4444',
+              background: trend === 'up' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+            }}>
+              {trend === 'up' ? '↑ Trending up' : '↓ Trending down'}
+            </span>
+          )}
+          {anomaly && (
+            <span title={anomalyExplanation || formatAnomalyBadge(anomaly)}
+              style={{
+                fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
+                color: anomaly.direction === 'high' ? '#f59e0b' : '#ef4444',
+                background: anomaly.direction === 'high' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+              {anomaly.direction === 'high' ? '▲' : '▼'} {anomalyExplanation || formatAnomalyBadge(anomaly)}
+            </span>
+          )}
           {aiSuggestion?.reasoning && (
             <span style={{ fontSize: 10, color: TOKENS.accentLight, marginTop: 2, display: 'block', fontStyle: 'italic' }}>
               AI: {aiSuggestion.reasoning}
@@ -127,17 +213,36 @@ export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeCh
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100" style={{ transition: `opacity ${TOKENS.transition}` }}>
           {commentCount > 0 && (
-            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full cursor-pointer"
-              style={{ color: TOKENS.text.muted, background: TOKENS.bg.surface }}>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-[11px] h-[11px]"><path fillRule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902 1.168.188 2.352.327 3.55.414.28.02.521.18.642.413l1.713 3.293a.75.75 0 001.33 0l1.713-3.293c.121-.233.362-.393.642-.413a41.1 41.1 0 003.55-.414c1.437-.232 2.43-1.49 2.43-2.902V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0010 2z" clipRule="evenodd"/></svg>
-              {commentCount}
-            </span>
+            <div className="relative" ref={commentsRef}>
+              <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); setShowComments(o => !o); setChartPickerOpen(false); }}
+                style={{ color: showComments ? TOKENS.accent : TOKENS.text.muted, background: showComments ? TOKENS.accentGlow : TOKENS.bg.surface }}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-[11px] h-[11px]"><path fillRule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902 1.168.188 2.352.327 3.55.414.28.02.521.18.642.413l1.713 3.293a.75.75 0 001.33 0l1.713-3.293c.121-.233.362-.393.642-.413a41.1 41.1 0 003.55-.414c1.437-.232 2.43-1.49 2.43-2.902V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0010 2z" clipRule="evenodd"/></svg>
+                {commentCount}
+              </span>
+              {showComments && (
+                <div className="absolute right-0 top-7 z-50 rounded-xl shadow-2xl p-3 w-64 max-h-60 overflow-y-auto"
+                  style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.hover}`, boxShadow: '0 16px 40px rgba(0,0,0,0.6)' }}>
+                  <div className="text-[11px] font-semibold mb-2" style={{ color: TOKENS.text.primary }}>{commentCount} annotation{commentCount !== 1 ? 's' : ''}</div>
+                  {(tile?.annotations || []).map((ann, i) => (
+                    <div key={ann.id || i} className="py-1.5 text-[11px]" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', color: TOKENS.text.secondary }}>
+                      <span className="font-semibold" style={{ color: TOKENS.text.primary }}>{ann.authorName || 'Unknown'}</span>
+                      <span className="ml-1.5" style={{ color: TOKENS.text.muted }}>{ann.created_at ? new Date(ann.created_at).toLocaleDateString() : ''}</span>
+                      <p className="mt-0.5">{ann.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           {[
             { title: refreshing ? 'Refreshing...' : 'Refresh',  icon: 'M4.755 10.059a7.5 7.5 0 0112.548-3.364l1.903 1.903H14.25a.75.75 0 000 1.5h6a.75.75 0 00.75-.75v-6a.75.75 0 00-1.5 0v2.553l-1.256-1.255a9 9 0 00-14.3 5.842.75.75 0 001.506-.429zM15.245 9.941a7.5 7.5 0 01-12.548 3.364L.794 11.402H5.75a.75.75 0 000-1.5h-6a.75.75 0 00-.75.75v6a.75.75 0 001.5 0v-2.553l1.256 1.255a9 9 0 0014.3-5.842.75.75 0 00-1.506.429z', onClick: handleRefresh },
             { title: aiLoading ? 'Thinking...' : 'AI Suggest', icon: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z', onClick: handleAISuggest },
+            { title: explainLoading ? 'Explaining...' : (explanation ? 'Hide Insight' : 'Explain'), icon: 'M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18', onClick: handleExplain },
             { title: 'Edit SQL', icon: 'M6.28 5.22a.75.75 0 010 1.06L2.56 10l3.72 3.72a.75.75 0 01-1.06 1.06L.97 10.53a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0zm7.44 0a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L17.44 10l-3.72-3.72a.75.75 0 010-1.06zM11.377 2.011a.75.75 0 01.612.867l-2.5 14.5a.75.75 0 01-1.478-.255l2.5-14.5a.75.75 0 01.866-.612z', onClick: onEditSQL },
             { title: 'Edit',     icon: 'M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z', onClick: () => onEdit?.(tile) },
+            { title: 'Download CSV', icon: 'M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3', onClick: () => downloadCSV(tile?.columns, tile?.rows, tile?.title) },
+            { title: 'Download JSON', icon: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z', onClick: () => downloadJSON(tile?.columns, tile?.rows, tile?.title) },
           ].map(({ title, icon, onClick }) => (
             <button key={title} onClick={onClick} title={title}
               className="w-7 h-7 flex items-center justify-center rounded-md cursor-pointer"
@@ -206,10 +311,57 @@ export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeCh
           </button>
         </div>
       </div>
+      {/* AI Explanation panel */}
+      {(explanation || explainLoading) && (
+        <div style={{
+          padding: '6px 14px', fontSize: 11, lineHeight: 1.5,
+          color: TOKENS.text.secondary,
+          background: 'rgba(37,99,235,0.06)',
+          borderBottom: `1px solid ${TOKENS.border.default}`,
+        }}>
+          {explainLoading ? (
+            <span style={{ color: TOKENS.text.muted, fontStyle: 'italic' }}>Generating insight...</span>
+          ) : (
+            <span>{explanation}</span>
+          )}
+        </div>
+      )}
+      {/* Parameter sliders */}
+      {tile?.parameters?.length > 0 && (
+        <div style={{ padding: '2px 12px 4px', display: 'flex', gap: 12, flexWrap: 'wrap', borderBottom: `1px solid ${TOKENS.border.default}` }}>
+          {tile.parameters.filter(p => p.name).map((p, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+              <span style={{ color: TOKENS.text.muted, fontWeight: 500 }}>{p.name}</span>
+              <input type="range"
+                min={p.min ?? 0} max={p.max ?? 100} step={p.step ?? 1}
+                defaultValue={p.value ?? ((p.min ?? 0) + (p.max ?? 100)) / 2}
+                onChange={e => {
+                  const val = Number(e.target.value);
+                  // Debounced refresh with parameter value
+                  if (tile._paramTimer) clearTimeout(tile._paramTimer);
+                  tile._paramTimer = setTimeout(() => {
+                    const params = {};
+                    tile.parameters.forEach((pp, j) => { params[pp.name] = j === i ? val : (pp.value ?? ((pp.min ?? 0) + (pp.max ?? 100)) / 2); });
+                    onRefresh?.(params);
+                  }, 300);
+                }}
+                style={{ width: 80, accentColor: TOKENS.accent }}
+              />
+              <span style={{ color: TOKENS.text.secondary, minWidth: 30, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                id={`param-${tile.id}-${i}`}>
+                {p.value ?? ((p.min ?? 0) + (p.max ?? 100)) / 2}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Chart body */}
-      <div className="flex-1 min-h-[80px] overflow-hidden"
+      <div className="flex-1 min-h-0 overflow-hidden"
         style={{ padding: `4px ${fmt.style.padding ?? 12}px ${fmt.style.padding ?? 8}px` }}>
-        {chartRows?.length > 0 ? (
+        {isKPI ? (
+          <KPICard tile={tile} index={index} onEdit={onEdit} />
+        ) : chartRows?.length > 0 ? (
           chartRows.length > 1000 && ['scatter', 'heatmap'].includes(tile?.chartType) ? (
             <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><span style={{ color: '#5C5F66', fontSize: 12 }}>Loading...</span></div>}>
               <CanvasChart
@@ -221,7 +373,7 @@ export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeCh
             </Suspense>
           ) : (
             <ResultsChart
-              key={`${tile.id}-${tile.chartType}-${tile.palette}-${tile.dataSources?.length || 0}-${JSON.stringify(tile.visualConfig?.colors?.measureColors || {})}-${themeConfig?.palette || ''}`}
+              key={`${tile.id}-${tile.chartType}-${tile.palette}-${tile.dataSources?.length || 0}-${JSON.stringify(tile.visualConfig?.colors?.measureColors || {})}-${themeConfig?.palette || ''}-${(tile.activeMeasures || []).join(',')}`}
               columns={chartColumns} rows={chartRows} embedded
               defaultChartType={tile.chartType} defaultPalette={tile.palette}
               defaultMeasure={tile.selectedMeasure} defaultMeasures={tile.activeMeasures}
@@ -231,6 +383,14 @@ export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeCh
               crossFilter={crossFilter}
               onCrossFilterClick={onCrossFilterClick} />
           )
+        ) : tile?.sql && tile?.columns?.length > 0 ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <svg className="w-5 h-5 mb-2" style={{ color: TOKENS.text.muted }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" />
+            </svg>
+            <span className="text-sm font-medium" style={{ color: TOKENS.text.muted }}>No matching data</span>
+            <span className="text-[11px] mt-1" style={{ color: TOKENS.text.muted, opacity: 0.6 }}>Try adjusting filters or date range</span>
+          </div>
         ) : tile?.sql ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="w-5 h-5 border-2 border-slate-600 border-t-indigo-400 rounded-full animate-spin mb-3" />
@@ -255,3 +415,19 @@ export default function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeCh
     </div>
   );
 }
+
+export default memo(TileWrapper, (prev, next) => {
+  return (
+    prev.tile?.id === next.tile?.id &&
+    prev.tile?.rows === next.tile?.rows &&
+    prev.tile?.columns === next.tile?.columns &&
+    prev.tile?.chartType === next.tile?.chartType &&
+    prev.tile?.palette === next.tile?.palette &&
+    prev.tile?.visualConfig === next.tile?.visualConfig &&
+    prev.tile?.title === next.tile?.title &&
+    prev.tile?.annotations === next.tile?.annotations &&
+    prev.selectedTileId === next.selectedTileId &&
+    prev.crossFilter === next.crossFilter &&
+    prev.themeConfig === next.themeConfig
+  );
+});

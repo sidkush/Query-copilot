@@ -4,7 +4,7 @@
 @import "tailwindcss";
 
 /* ══════════════════════════════════════════════════════════
-   QueryCopilot — Global Styles & Animations
+   DataLens — Global Styles & Animations
    Corporate Design System: Navy/Slate + Trust Blue
    Typography: Poppins (headings) + Open Sans (body)
    ══════════════════════════════════════════════════════════ */
@@ -481,17 +481,87 @@ html { scroll-behavior: smooth; }
   }
   .orb-float, .orb-float-slow, .orb-float-med,
   .text-shimmer, .cursor-blink::after,
-  .skeleton, .pulse-ring, .dot-live {
+  .skeleton, .pulse-ring, .dot-live,
+  .animated-border, .shine-sweep::after {
     animation: none !important;
   }
   /* Framer Motion respects useReducedMotion() automatically,
      but ensure CSS transitions are also suppressed */
-  .glass-card-elevated:hover {
-    transform: none;
+  .glass-card-elevated:hover,
+  .tilt-card {
+    transform: none !important;
   }
+  /* Hide 3D canvases entirely — 2D fallback will show instead */
+  .three-canvas-wrapper {
+    display: none !important;
+  }
+  /* Disable cursor glow and scroll progress animations */
+  .cursor-glow, .scroll-progress-bar {
+    display: none !important;
+  }
+}
+
+/* ── CTA button shine sweep ── */
+@keyframes shineSweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.shine-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.shine-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  animation: shineSweep 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Animated conic-gradient border ── */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes rotateBorder {
+  to { --border-angle: 360deg; }
+}
+.animated-border {
+  position: relative;
+  z-index: 0;
+}
+.animated-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from var(--border-angle), #6366f1, #a855f7, #3b82f6, #6366f1);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  animation: rotateBorder 3s linear infinite;
+  pointer-events: none;
 }
 
 /* ── Smooth transitions for glass-card zoom ── */
 .er-zoom-smooth {
   transition: transform 0.2s ease;
+}
+
+/* ── ScrollReveal (GSAP word-by-word reveal) ── */
+.scroll-reveal-container {
+  margin: 0;
+}
+.scroll-reveal-text {
+  line-height: 1.5;
+}
+.sr-word {
+  display: inline-block;
+  will-change: opacity, filter;
 }

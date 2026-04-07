@@ -62,7 +62,9 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
   const [subtitle, setSubtitle] = useState(tile.subtitle || '');
   const [chartType, setChartType] = useState(tile.chartType || 'bar');
   const [selectedMeasure, setSelectedMeasure] = useState(tile.selectedMeasure || '');
-  const [activeMeasures, setActiveMeasures] = useState(tile.activeMeasures || []);
+  const [activeMeasures, setActiveMeasures] = useState(
+    tile.activeMeasures?.length ? tile.activeMeasures : [...(tile.columns || [])]
+  );
   const [sql, setSql] = useState(tile.sql || '');
   const [palette, setPalette] = useState(tile.palette || 'default');
   const [dateStart, setDateStart] = useState(tile.filters?.dateStart || '');
@@ -75,6 +77,7 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
   const [dataSources, setDataSources] = useState(tile.dataSources || []);
   const [blendConfig, setBlendConfig] = useState(tile.blendConfig || { joinKey: '', enabled: false });
   const [blendOpen, setBlendOpen] = useState((tile.dataSources || []).length > 0);
+  const [parameters, setParameters] = useState(tile.parameters || []);
 
   const vc = tile.visualConfig || {};
   const [activeTab, setActiveTab] = useState('data');
@@ -96,6 +99,8 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
   // Legend
   const [legendShow, setLegendShow] = useState(vc.legend?.show ?? null);
   const [legendPosition, setLegendPosition] = useState(vc.legend?.position ?? null);
+  const [legendFontSize, setLegendFontSize] = useState(vc.legend?.fontSize ?? 12);
+  const [legendColor, setLegendColor] = useState(vc.legend?.color ?? null);
 
   // Grid
   const [gridShow, setGridShow] = useState(vc.grid?.show ?? null);
@@ -189,7 +194,7 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
       ...tile,
       title, subtitle, chartType, selectedMeasure, activeMeasures,
       sql, palette, filters: { dateStart, dateEnd, where: whereClause },
-      annotations, dataSources, blendConfig,
+      annotations, dataSources, blendConfig, parameters,
       visualConfig: {
         typography: mergeSection(existingVC.typography, {
           titleFontSize, titleFontWeight, titleColor,
@@ -201,7 +206,7 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
           showXLabel: true, showYLabel: true,
           tickDecimals: existingVC.axis?.tickDecimals ?? null,
         }),
-        legend: mergeSection(existingVC.legend, { show: legendShow, position: legendPosition }),
+        legend: mergeSection(existingVC.legend, { show: legendShow, position: legendPosition, fontSize: legendFontSize, color: legendColor }),
         grid: mergeSection(existingVC.grid, { show: gridShow, color: gridColor, style: gridStyle }),
         dataLabels: mergeSection(existingVC.dataLabels, {
           show: dataLabelsShow, format: dataLabelsFormat, position: dataLabelsPosition,
@@ -218,10 +223,10 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
       },
     };
     onSave(updated);
-  }, [tile, title, subtitle, chartType, selectedMeasure, activeMeasures, sql, palette, dateStart, dateEnd, whereClause, annotations, dataSources, blendConfig,
+  }, [tile, title, subtitle, chartType, selectedMeasure, activeMeasures, sql, palette, dateStart, dateEnd, whereClause, annotations, dataSources, blendConfig, parameters,
       titleFontSize, titleFontWeight, titleColor, titleAlign, subtitleFontSize, subtitleColor,
       axisXLabel, axisYLabel, tickFormat, xLabelRotation,
-      legendShow, legendPosition, gridShow, gridColor, gridStyle,
+      legendShow, legendPosition, legendFontSize, legendColor, gridShow, gridColor, gridStyle,
       dataLabelsShow, dataLabelsFormat, dataLabelsPosition,
       tooltipShow, tooltipTemplate, referenceLines,
       sortField, sortOrder, colorMode, colorPalette, measureColors, colorRules,
@@ -344,22 +349,27 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
                 <span style={{ fontSize: '13px', color: TOKENS.text.muted }}>No columns available</span>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {columns.map((col) => (
-                  <label key={col} style={{
+                {columns.map((col, idx) => (
+                  <div key={col} style={{
                     display: 'flex', alignItems: 'center', gap: 8,
-                    fontSize: '13px', color: TOKENS.text.primary, cursor: 'pointer',
+                    fontSize: '13px', color: TOKENS.text.primary,
                   }}>
                     <input
                       type="checkbox"
                       checked={activeMeasures.includes(col)}
                       onChange={() => toggleMeasure(col)}
-                      style={{ accentColor: TOKENS.accent }}
+                      style={{ accentColor: TOKENS.accent, cursor: 'pointer' }}
                     />
-                    {col}
+                    <ColorPickerButton
+                      size={20}
+                      color={measureColors[col] || CHART_PALETTES[colorPalette || palette || 'default'][idx % 8]}
+                      onChange={(c) => setMeasureColors((prev) => ({ ...prev, [col]: c }))}
+                    />
+                    <span style={{ cursor: 'pointer' }} onClick={() => toggleMeasure(col)}>{col}</span>
                     {metricNames.includes(col) && (
                       <span style={{ fontSize: 9, fontWeight: 700, color: '#818cf8', background: 'rgba(99,102,241,0.15)', padding: '1px 5px', borderRadius: 4, marginLeft: 2 }}>fx</span>
                     )}
-                  </label>
+                  </div>
                 ))}
               </div>
               {columns.length > 0 && (
@@ -399,6 +409,36 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
                 style={inputStyle}
                 placeholder='e.g. status = "active"'
               />
+            </div>
+
+            {/* 4b. What-If Parameters */}
+            <div style={sectionStyle}>
+              <label style={labelStyle}>What-If Parameters</label>
+              <p style={{ fontSize: 11, color: TOKENS.text.muted, marginBottom: 8 }}>
+                Add numeric sliders bound to SQL placeholders ($1, $2 or :param).
+              </p>
+              {parameters.map((p, idx) => (
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px 60px auto', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+                  <input value={p.name} onChange={e => {
+                    const next = [...parameters]; next[idx] = { ...next[idx], name: e.target.value }; setParameters(next);
+                  }} style={{ ...inputStyle, fontSize: 12 }} placeholder="param name" />
+                  <input type="number" value={p.min ?? 0} onChange={e => {
+                    const next = [...parameters]; next[idx] = { ...next[idx], min: Number(e.target.value) }; setParameters(next);
+                  }} style={{ ...inputStyle, fontSize: 12 }} placeholder="min" />
+                  <input type="number" value={p.max ?? 100} onChange={e => {
+                    const next = [...parameters]; next[idx] = { ...next[idx], max: Number(e.target.value) }; setParameters(next);
+                  }} style={{ ...inputStyle, fontSize: 12 }} placeholder="max" />
+                  <input type="number" value={p.step ?? 1} onChange={e => {
+                    const next = [...parameters]; next[idx] = { ...next[idx], step: Number(e.target.value) }; setParameters(next);
+                  }} style={{ ...inputStyle, fontSize: 12 }} placeholder="step" />
+                  <button onClick={() => setParameters(parameters.filter((_, i) => i !== idx))}
+                    style={{ background: 'none', border: 'none', color: TOKENS.danger, cursor: 'pointer', fontSize: 14 }}>×</button>
+                </div>
+              ))}
+              <button onClick={() => setParameters([...parameters, { name: '', min: 0, max: 100, step: 1, value: 50 }])}
+                style={{ fontSize: 11, color: TOKENS.accent, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                + Add parameter
+              </button>
             </div>
 
             {/* 5. SQL Editor */}
@@ -617,6 +657,7 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
                 </label>
               </div>
               {(legendShow ?? true) && (
+                <>
                 <div style={{ display: 'flex', gap: 4, marginTop: 10 }}>
                   {['top', 'bottom', 'left', 'right'].map((pos) => (
                     <button key={pos} onClick={() => setLegendPosition(pos)} style={{
@@ -628,6 +669,17 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
                     }}>{pos}</button>
                   ))}
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: '10px' }}>Font Size</label>
+                    <input type="number" min={8} max={20} value={legendFontSize} onChange={(e) => setLegendFontSize(Number(e.target.value))} style={{ ...inputStyle, width: 70 }} />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: '10px' }}>Color</label>
+                    <ColorPickerButton color={legendColor || TOKENS.text.secondary} onChange={setLegendColor} />
+                  </div>
+                </div>
+                </>
               )}
             </div>
 
