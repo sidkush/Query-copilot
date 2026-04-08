@@ -456,6 +456,20 @@ When BYOK ships, any existing user accounts (created before this feature) will n
 - **P4: Old test emails** in `.data/users.json` (`debugtest@querycopilot.com`, `regflow_test@querycopilot.com`) — test data, not user-facing, `.data/` is gitignored
 - **P4: Demo user email string match** — frontend checks `user.email === "demo@datalens.dev"` which could be spoofed by registering that email. Mitigated: demo login endpoint creates the user first, so registration would fail with "email taken"
 - **P4: Anthropic rate limit on validate_key()** — each validation costs ~1 token to the user's key. No server-side rate limit on the validate endpoint. Mitigated: Anthropic's own rate limiter protects against abuse
+- **P3: httpx connection pool cleanup** — AnthropicProvider creates new httpx client per request, never explicitly closed. GC handles cleanup. At scale (50+ concurrent), could exhaust file descriptors. Fix: cache providers per-user with TTL (deferred to scaling milestone)
+- **P4: onboardingComplete is client-side only** — stored in localStorage, not server-verified. User can bypass via devtools. Mitigated: all queries still require a valid API key server-side, so bypassing onboarding just shows a broken dashboard
+
+### Additional Findings Fixed (Rounds 2-4):
+
+| Priority | Finding | Source | Fix | Commit |
+|----------|---------|--------|-----|--------|
+| **P1** | Corrupted Fernet token → unhandled 500 | Analyst 5 (Sigil Wraith) | try/except InvalidToken in provider_registry + validate endpoint | `c611bc5` |
+| **P2** | Shared global circuit breaker → cross-user DoS | Analysts 4+7 (Overflow + Phantom Interval) | Per-API-key breakers keyed by sha256[:16] | `c611bc5` |
+| **P1** | SessionMemory.provider is None → crash on compaction | Analyst 6 (Architect Void) | Set memory.provider = provider in agent_routes before AgentEngine creation | `46de423` |
+| **P2** | Empty content_blocks → invalid assistant message cascade | Analyst 8 (Null Epoch) | Break out of agent loop on empty blocks | `46de423` |
+| **P2** | apiKeyStatus null on boot → ProtectedRoute gate disabled | Analysts 16+18 (Paradox + Meridian) | Proactive getApiKeyStatus() fetch in AppLayout on boot | `cae3ce8` |
+| **P2** | api.js sets partial {valid:false} → missing `configured` field | Analyst 18 (Meridian) | Merge with existing status object | `cae3ce8` |
+| **P2** | .env.example still says "QueryCopilot" | Analyst 20 (Regression Phantom) | Renamed to "DataLens" in 3 locations | `cae3ce8` |
 
 ### Invariants Verified Post-Fix:
 
