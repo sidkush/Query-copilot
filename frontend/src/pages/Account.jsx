@@ -75,8 +75,9 @@ function MaskedApiKey({ masked, isDemo }) {
   const [revealed, setRevealed] = useState(false);
   if (!masked && !isDemo) return <span className="text-gray-500">Not set</span>;
 
-  const displayMasked = isDemo ? "sk-ant-••••••••••••" : `${(masked?.slice(0, 7) || "sk-ant-")}••••••••`;
-  const displayFull = isDemo ? "(platform key — not user-visible)" : masked;
+  const initials = masked?.slice(0, 7) || "sk-ant-";
+  const displayMasked = `${initials}••••••••`;
+  const displayFull = masked || initials + "••••";
 
   return (
     <span className="flex items-center gap-2">

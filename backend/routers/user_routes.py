@@ -298,13 +298,16 @@ def get_api_key_status(user: dict = Depends(get_current_user)):
     from provider_registry import DEMO_USER_EMAIL
     email = user["email"]
 
-    # Demo user uses the platform key — report as configured/valid
+    # Demo user uses the platform key — show real masked key (first 7 + last 4)
     if email == DEMO_USER_EMAIL:
+        from config import settings
+        raw = settings.ANTHROPIC_API_KEY or ""
+        masked = f"{raw[:7]}...{raw[-4:]}" if len(raw) > 11 else "sk-ant-...****"
         return {
             "provider": "anthropic",
             "valid": True,
             "validated_at": None,
-            "masked_key": "platform-key (demo)",
+            "masked_key": masked,
             "configured": True,
         }
 
