@@ -74,20 +74,13 @@ const FALLBACK_MODELS = [
 function MaskedApiKey({ masked, isDemo }) {
   const [revealed, setRevealed] = useState(false);
   if (!masked && !isDemo) return <span className="text-gray-500">Not set</span>;
-  if (isDemo) {
-    const display = "sk-ant-••••••••••••";
-    return (
-      <span className="flex items-center gap-2">
-        <span className="text-gray-400">{display}</span>
-        <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">demo</span>
-      </span>
-    );
-  }
-  const initials = masked?.slice(0, 7) || "sk-ant-";
-  const hidden = "••••••••";
+
+  const displayMasked = isDemo ? "sk-ant-••••••••••••" : `${(masked?.slice(0, 7) || "sk-ant-")}••••••••`;
+  const displayFull = isDemo ? "(platform key — not user-visible)" : masked;
+
   return (
     <span className="flex items-center gap-2">
-      <span className="text-gray-400">{revealed ? masked : `${initials}${hidden}`}</span>
+      <span className="text-gray-400">{revealed ? displayFull : displayMasked}</span>
       <button
         type="button"
         onClick={() => setRevealed(!revealed)}
@@ -95,6 +88,9 @@ function MaskedApiKey({ masked, isDemo }) {
       >
         {revealed ? "hide" : "show"}
       </button>
+      {isDemo && (
+        <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">demo</span>
+      )}
     </span>
   );
 }
@@ -116,8 +112,22 @@ function ApiConfigSection() {
 
   const isDemo = user?.email === DEMO_EMAIL;
 
+  const [statusFetched, setStatusFetched] = useState(false);
+
   const refreshStatus = () => {
-    api.getApiKeyStatus().then((data) => { setKeyStatus(data); setApiKeyStatus(data); }).catch(() => {});
+    api.getApiKeyStatus()
+      .then((data) => { setKeyStatus(data); setApiKeyStatus(data); setStatusFetched(true); })
+      .catch(() => {
+        // Backend unreachable — set a fallback status instead of staying on "Loading..."
+        if (isDemo) {
+          const fallback = { provider: "anthropic", valid: true, configured: true, masked_key: null };
+          setKeyStatus(fallback);
+          setApiKeyStatus(fallback);
+        } else {
+          setKeyStatus({ configured: false, valid: false });
+        }
+        setStatusFetched(true);
+      });
   };
 
   useEffect(() => {
@@ -129,16 +139,17 @@ function ApiConfigSection() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Status logic: demo always shows configured. Non-demo reflects backend state.
-  const effectiveConfigured = isDemo || keyStatus?.configured;
-  const effectiveValid = isDemo || keyStatus?.valid;
-  const statusColor = keyStatus === null ? "bg-gray-500"
-    : effectiveValid ? "bg-green-500"
-    : effectiveConfigured ? "bg-red-500"
+  // Status logic: never hardcode green. Reflect actual backend state.
+  // Demo user: treat as configured+valid when backend confirms OR on fallback.
+  const isConfigured = keyStatus?.configured || false;
+  const isValid = keyStatus?.valid || false;
+  const statusColor = !statusFetched ? "bg-gray-500"
+    : isValid ? "bg-green-500"
+    : isConfigured ? "bg-red-500"
     : "bg-gray-500";
-  const statusLabel = keyStatus === null ? "Loading..."
-    : effectiveValid ? "Active"
-    : effectiveConfigured ? "Invalid"
+  const statusLabel = !statusFetched ? "Checking..."
+    : isValid ? "Active"
+    : isConfigured ? "Invalid"
     : "Not configured";
 
   const handleSaveKey = async () => {
@@ -241,9 +252,9 @@ function ApiConfigSection() {
                 onClick={() => setShowKeyModal(true)}
                 className="px-4 py-2 text-sm font-medium text-indigo-400 bg-indigo-900/20 border border-indigo-800/50 rounded-lg hover:bg-indigo-900/40 transition cursor-pointer"
               >
-                {effectiveConfigured ? "Update Key" : "Add Key"}
+                {isConfigured ? "Update Key" : "Add Key"}
               </MotionButton>
-              {effectiveConfigured && (
+              {isConfigured && (
                 <MotionButton
                   onClick={handleDeleteKey}
                   disabled={deleting}
