@@ -34,7 +34,10 @@ async function request(path, options = {}) {
     if (res.status === 422 && data.error === "api_key_invalid") {
       try {
         const store = await import("./store");
-        store.useStore.getState().setApiKeyStatus({ valid: false });
+        // Merge with existing status to preserve `configured` field
+        // (P2 fix: partial object was missing `configured`, breaking ProtectedRoute gate)
+        const current = store.useStore.getState().apiKeyStatus || {};
+        store.useStore.getState().setApiKeyStatus({ ...current, valid: false });
       } catch { /* store not available */ }
     }
     throw new Error(data.detail || "Request failed");

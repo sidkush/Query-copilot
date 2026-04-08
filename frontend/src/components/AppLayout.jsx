@@ -1,13 +1,25 @@
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store";
+import { api } from "../api";
 import AppSidebar from "./AppSidebar";
 
 export default function AppLayout({ children }) {
   const navigate = useNavigate();
   const apiKeyStatus = useStore((s) => s.apiKeyStatus);
+  const setApiKeyStatus = useStore((s) => s.setApiKeyStatus);
   const user = useStore((s) => s.user);
+  const token = useStore((s) => s.token);
+
+  // Proactive API key status fetch on boot — ensures ProtectedRoute gate
+  // has real data instead of null (P2 adversarial fix: Analysts 16+18)
+  useEffect(() => {
+    if (token && !apiKeyStatus) {
+      api.getApiKeyStatus().then(setApiKeyStatus).catch(() => {});
+    }
+  }, [token, apiKeyStatus, setApiKeyStatus]);
 
   const showBanner = apiKeyStatus?.valid === false && user?.email !== "demo@datalens.dev";
 
