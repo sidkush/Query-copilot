@@ -63,9 +63,45 @@ function DbBadge({ dbType }) {
 
 const DEMO_EMAIL = "demo@datalens.dev";
 
+const MODEL_TIERS = { fast: "Fast", balanced: "Balanced", powerful: "Most Capable" };
+const FALLBACK_MODELS = [
+  { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", tier: "fast" },
+  { id: "claude-sonnet-4-5-20250514", name: "Claude Sonnet 4.5", tier: "balanced" },
+  { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4", tier: "balanced" },
+  { id: "claude-opus-4-20250514", name: "Claude Opus 4", tier: "powerful" },
+];
+
+function MaskedApiKey({ masked, isDemo }) {
+  const [revealed, setRevealed] = useState(false);
+  if (!masked && !isDemo) return <span className="text-gray-500">Not set</span>;
+  if (isDemo) {
+    const display = "sk-ant-••••••••••••";
+    return (
+      <span className="flex items-center gap-2">
+        <span className="text-gray-400">{display}</span>
+        <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">demo</span>
+      </span>
+    );
+  }
+  const initials = masked?.slice(0, 7) || "sk-ant-";
+  const hidden = "••••••••";
+  return (
+    <span className="flex items-center gap-2">
+      <span className="text-gray-400">{revealed ? masked : `${initials}${hidden}`}</span>
+      <button
+        type="button"
+        onClick={() => setRevealed(!revealed)}
+        className="text-[10px] text-gray-500 hover:text-gray-300 transition cursor-pointer underline"
+      >
+        {revealed ? "hide" : "show"}
+      </button>
+    </span>
+  );
+}
+
 function ApiConfigSection() {
   const [keyStatus, setKeyStatus] = useState(null);
-  const [models, setModels] = useState([]);
+  const [models, setModels] = useState(FALLBACK_MODELS);
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [newKey, setNewKey] = useState("");
   const [keyValidating, setKeyValidating] = useState(false);
@@ -88,25 +124,22 @@ function ApiConfigSection() {
     refreshStatus();
     api.getAvailableModels().then((data) => {
       const list = data?.models || (Array.isArray(data) ? data : []);
-      setModels(list);
-    }).catch((err) => {
-      console.warn("Failed to fetch models:", err.message);
-      // Fallback: hardcode models if backend is unreachable
-      setModels([
-        { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", tier: "fast", cost: "$" },
-        { id: "claude-sonnet-4-5-20250514", name: "Claude Sonnet 4.5", tier: "balanced", cost: "$$" },
-        { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4", tier: "balanced", cost: "$$" },
-        { id: "claude-opus-4-20250514", name: "Claude Opus 4", tier: "powerful", cost: "$$$" },
-      ]);
-    });
+      if (list.length) setModels(list);
+    }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // For demo user, show configured status even though key is platform-level
-  const effectiveConfigured = isDemo ? true : keyStatus?.configured;
-  const effectiveValid = isDemo ? true : keyStatus?.valid;
-  const statusColor = effectiveValid ? "bg-green-500" : effectiveConfigured ? "bg-red-500" : "bg-gray-500";
-  const statusLabel = effectiveValid ? "Valid" : effectiveConfigured ? "Invalid" : "Not configured";
+  // Status logic: demo always shows configured. Non-demo reflects backend state.
+  const effectiveConfigured = isDemo || keyStatus?.configured;
+  const effectiveValid = isDemo || keyStatus?.valid;
+  const statusColor = keyStatus === null ? "bg-gray-500"
+    : effectiveValid ? "bg-green-500"
+    : effectiveConfigured ? "bg-red-500"
+    : "bg-gray-500";
+  const statusLabel = keyStatus === null ? "Loading..."
+    : effectiveValid ? "Active"
+    : effectiveConfigured ? "Invalid"
+    : "Not configured";
 
   const handleSaveKey = async () => {
     if (!newKey.trim()) return;
@@ -169,21 +202,15 @@ function ApiConfigSection() {
               </div>
             </div>
 
-            {/* Masked Key */}
+            {/* Masked Key — show initials + dots, click to reveal */}
             <div>
               <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">API Key</label>
-              <p className="text-sm text-gray-400 font-mono">
-                {isDemo ? (
-                  <span className="text-purple-400">Platform key (demo)</span>
-                ) : keyStatus?.masked_key ? (
-                  `sk-ant-...${keyStatus.masked_key.slice(-4)}`
-                ) : (
-                  "Not set"
-                )}
-              </p>
+              <div className="text-sm font-mono">
+                <MaskedApiKey masked={keyStatus?.masked_key} isDemo={isDemo} />
+              </div>
             </div>
 
-            {/* Preferred Model */}
+            {/* Preferred Model — no $ symbols, show tier instead */}
             <div>
               <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Preferred Model</label>
               <select
@@ -194,7 +221,7 @@ function ApiConfigSection() {
                 <option value="" className="bg-[#0e0e1a]">Default (Haiku 4.5)</option>
                 {models.map((m) => (
                   <option key={m.id} value={m.id} className="bg-[#0e0e1a]">
-                    {m.name} ({m.cost})
+                    {m.name} — {MODEL_TIERS[m.tier] || m.tier}
                   </option>
                 ))}
               </select>
