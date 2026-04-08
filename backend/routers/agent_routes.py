@@ -126,6 +126,9 @@ async def agent_run(req: AgentRunRequest, request: Request,
     # Create agent — respect user's auto_execute and permission preferences
     perm_mode = req.permission_mode if req.permission_mode in ("supervised", "autonomous") else "supervised"
     provider = get_provider_for_user(email)
+    # Ensure SessionMemory has provider for auto-compaction (P1 adversarial fix)
+    if memory.provider is None:
+        memory.provider = provider
     engine = AgentEngine(
         engine=entry.engine,
         email=email,

@@ -931,6 +931,12 @@ class AgentEngine:
                 has_tool_use = False
                 content_blocks = response.content_blocks
 
+                # Guard: empty content_blocks would create an invalid assistant
+                # message that crashes the next API call (P2 adversarial fix)
+                if not content_blocks:
+                    logger.warning("Provider returned empty content_blocks — treating as end_turn")
+                    break
+
                 # Build assistant_content as plain dicts for the messages list
                 assistant_content = []
                 for block in content_blocks:
