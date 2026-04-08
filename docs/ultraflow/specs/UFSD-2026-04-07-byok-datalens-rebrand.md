@@ -439,7 +439,7 @@ When BYOK ships, any existing user accounts (created before this feature) will n
 
 ## UFSD adversarial-testing 2026-04-07
 
-**Verdict: PASS** | Coverage: 7/7 clusters examined (independent analysis + 20 analysts dispatched)
+**Verdict: PASS** | Coverage: 7/7 clusters SOLID | All 20 analysts reported | 13 findings, all P1/P2 fixed
 
 ### Findings Fixed (5 issues, all resolved):
 
@@ -470,6 +470,7 @@ When BYOK ships, any existing user accounts (created before this feature) will n
 | **P2** | apiKeyStatus null on boot → ProtectedRoute gate disabled | Analysts 16+18 (Paradox + Meridian) | Proactive getApiKeyStatus() fetch in AppLayout on boot | `cae3ce8` |
 | **P2** | api.js sets partial {valid:false} → missing `configured` field | Analyst 18 (Meridian) | Merge with existing status object | `cae3ce8` |
 | **P2** | .env.example still says "QueryCopilot" | Analyst 20 (Regression Phantom) | Renamed to "DataLens" in 3 locations | `cae3ce8` |
+| **P1** | `validate_key()` return value not checked — rate limit saves valid=True | Analyst 14 (Voltgrieve) | Check `is_valid`, return 503 on transient failures | `37e6fcf` |
 
 ### Invariants Verified Post-Fix:
 
