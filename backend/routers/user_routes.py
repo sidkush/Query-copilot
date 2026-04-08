@@ -275,7 +275,11 @@ def save_api_key(body: SaveApiKeyBody, user: dict = Depends(get_current_user)):
     email = user["email"]
     try:
         provider = AnthropicProvider(api_key=body.api_key)
-        provider.validate_key()
+        is_valid = provider.validate_key()
+        if not is_valid:
+            # validate_key returns False on transient errors (rate limit, network)
+            # Don't save — ask user to retry
+            raise HTTPException(503, detail="Could not validate API key (network/rate limit). Please try again.")
     except InvalidKeyError as exc:
         raise HTTPException(422, detail=str(exc))
     encrypted = encrypt_password(body.api_key)
@@ -333,19 +337,22 @@ def validate_api_key(user: dict = Depends(get_current_user)):
         raise HTTPException(422, detail="Stored API key is corrupted. Please save a new key.")
     try:
         provider = AnthropicProvider(api_key=raw_key)
-        provider.validate_key()
+        is_valid = provider.validate_key()
+        if not is_valid:
+            # Transient error (rate limit, network) — don't change stored state
+            raise HTTPException(503, detail="Could not validate API key (network/rate limit). Please try again.")
     except InvalidKeyError as exc:
         save_api_key_to_profile(email, {
             "api_key_valid": False,
             "api_key_validated_at": datetime.now(timezone.utc).isoformat(),
         })
         raise HTTPException(422, detail=str(exc))
+    now = datetime.now(timezone.utc).isoformat()
     save_api_key_to_profile(email, {
         "api_key_valid": True,
-        "api_key_validated_at": datetime.now(timezone.utc).isoformat(),
+        "api_key_validated_at": now,
     })
-    return {"status": "ok", "valid": True,
-            "validated_at": datetime.now(timezone.utc).isoformat()}
+    return {"status": "ok", "valid": True, "validated_at": now}
 
 
 @router.put("/preferred-model")
