@@ -34,10 +34,13 @@ def get_provider_for_user(email: str) -> AnthropicProvider:
     an encrypted API key stored in their profile.
     """
     if email == DEMO_USER_EMAIL:
+        # Demo user can still change preferred model via Account settings
+        demo_profile = load_profile(email)
+        preferred = demo_profile.get("preferred_model", settings.PRIMARY_MODEL)
         return AnthropicProvider(
             api_key=settings.ANTHROPIC_API_KEY,
-            default_model=settings.PRIMARY_MODEL,
-            fallback_model=settings.FALLBACK_MODEL,
+            default_model=preferred,
+            fallback_model=get_fallback_model(preferred),
         )
 
     profile = load_profile(email)

@@ -295,14 +295,26 @@ def save_api_key(body: SaveApiKeyBody, user: dict = Depends(get_current_user)):
 @router.get("/api-key/status")
 def get_api_key_status(user: dict = Depends(get_current_user)):
     """Return current API key status (never exposes the real key)."""
+    from provider_registry import DEMO_USER_EMAIL
     email = user["email"]
+
+    # Demo user uses the platform key — report as configured/valid
+    if email == DEMO_USER_EMAIL:
+        return {
+            "provider": "anthropic",
+            "valid": True,
+            "validated_at": None,
+            "masked_key": "platform-key (demo)",
+            "configured": True,
+        }
+
     profile = load_profile(email)
     encrypted = profile.get("api_key_encrypted", "")
     return {
-        "provider": profile.get("api_key_provider"),
+        "provider": profile.get("api_key_provider", "anthropic" if encrypted else None),
         "valid": profile.get("api_key_valid"),
         "validated_at": profile.get("api_key_validated_at"),
-        "masked_key": "..." + encrypted[-8:] if encrypted else None,
+        "masked_key": "sk-ant-..." + encrypted[-4:] if encrypted else None,
         "configured": bool(encrypted),
     }
 
