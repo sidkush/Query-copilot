@@ -89,7 +89,16 @@ function ApiConfigSection() {
     api.getAvailableModels().then((data) => {
       const list = data?.models || (Array.isArray(data) ? data : []);
       setModels(list);
-    }).catch(() => {});
+    }).catch((err) => {
+      console.warn("Failed to fetch models:", err.message);
+      // Fallback: hardcode models if backend is unreachable
+      setModels([
+        { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", tier: "fast", cost: "$" },
+        { id: "claude-sonnet-4-5-20250514", name: "Claude Sonnet 4.5", tier: "balanced", cost: "$$" },
+        { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4", tier: "balanced", cost: "$$" },
+        { id: "claude-opus-4-20250514", name: "Claude Opus 4", tier: "powerful", cost: "$$$" },
+      ]);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -207,7 +216,7 @@ function ApiConfigSection() {
               >
                 {effectiveConfigured ? "Update Key" : "Add Key"}
               </MotionButton>
-              {effectiveConfigured && !isDemo && (
+              {effectiveConfigured && (
                 <MotionButton
                   onClick={handleDeleteKey}
                   disabled={deleting}
