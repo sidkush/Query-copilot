@@ -5,7 +5,7 @@ import behaviorEngine from "../lib/behaviorEngine";
 import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import MotionButton from "../components/animation/MotionButton";
-import TiltCard from "../components/animation/TiltCard";
+
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
@@ -166,7 +166,7 @@ export default function Profile() {
 
             {/* Avatar + Color Picker */}
             <StaggerItem>
-              <TiltCard><div className="glass-card rounded-2xl p-6">
+              <div className="glass-card rounded-2xl p-6">
                 <div className="flex items-center gap-6">
                   <motion.div
                     layout
@@ -190,12 +190,12 @@ export default function Profile() {
                     </div>
                   </div>
                 </div>
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* Personal Info */}
             <StaggerItem>
-              <TiltCard><div className="glass-card rounded-2xl p-6 space-y-5">
+              <div className="glass-card rounded-2xl p-6 space-y-5">
                 <h2 className="text-sm font-semibold text-white">Personal Information</h2>
 
                 <div>
@@ -247,12 +247,12 @@ export default function Profile() {
                     ))}
                   </select>
                 </div>
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* Auth & Meta */}
             <StaggerItem>
-              <TiltCard><div className="glass-card rounded-2xl p-6 space-y-4">
+              <div className="glass-card rounded-2xl p-6 space-y-4">
                 <h2 className="text-sm font-semibold text-white">Account Details</h2>
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">Authentication Method</label>
@@ -264,12 +264,12 @@ export default function Profile() {
                     <p className="text-sm text-gray-300">{new Date(profile.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
                   </div>
                 )}
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* Notifications */}
             <StaggerItem>
-              <TiltCard><div className="glass-card rounded-2xl p-6">
+              <div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Notification Preferences</h2>
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
@@ -281,13 +281,13 @@ export default function Profile() {
                     <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600" />
                   </div>
                 </label>
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* Behavior Intelligence Consent */}
             {consentFeatureEnabled && (
               <StaggerItem>
-                <TiltCard><div className="glass-card rounded-2xl p-6">
+                <div className="glass-card rounded-2xl p-6">
                   <h2 className="text-sm font-semibold text-white mb-1">Predictive Intelligence</h2>
                   <p className="text-xs text-gray-500 mb-4">Control how DataLens learns from your usage to improve suggestions. Raw interaction data never leaves your browser — only abstract patterns are stored.</p>
 
@@ -334,7 +334,7 @@ export default function Profile() {
                   {consentLevel === 0 && (
                     <p className="text-xs text-gray-600 mt-3 italic">No interaction data is captured while this is off.</p>
                   )}
-                </div></TiltCard>
+                </div>
               </StaggerItem>
             )}
 

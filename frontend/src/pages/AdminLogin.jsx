@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { adminApi } from "../api";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import MotionButton from "../components/animation/MotionButton";
-import TiltCard from "../components/animation/TiltCard";
+
 import { GPUTierProvider } from "../lib/gpuDetect";
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
 class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
@@ -58,7 +58,6 @@ export default function AdminLogin() {
           <p className="text-sm text-gray-500 mt-1">Platform Administration</p>
         </div>
 
-        <TiltCard maxTilt={5}>
         <motion.form
           onSubmit={handleLogin}
           className="glass-card rounded-2xl p-6 space-y-4"
@@ -103,7 +102,6 @@ export default function AdminLogin() {
             {loading ? "Signing in..." : "Sign In"}
           </MotionButton>
         </motion.form>
-        </TiltCard>
 
         <p className="text-center text-xs text-gray-600 mt-6">
           <a href="/" className="hover:text-gray-400 transition">Back to main site</a>

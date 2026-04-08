@@ -8,7 +8,7 @@ import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import AnimatedCounter from "../components/animation/AnimatedCounter";
 import MotionButton from "../components/animation/MotionButton";
-import TiltCard from "../components/animation/TiltCard";
+
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
@@ -61,6 +61,8 @@ function DbBadge({ dbType }) {
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${color}`}>{name}</span>;
 }
 
+const DEMO_EMAIL = "demo@datalens.dev";
+
 function ApiConfigSection() {
   const [keyStatus, setKeyStatus] = useState(null);
   const [models, setModels] = useState([]);
@@ -69,34 +71,64 @@ function ApiConfigSection() {
   const [keyValidating, setKeyValidating] = useState(false);
   const [keyError, setKeyError] = useState("");
   const [showKey, setShowKey] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const setApiKeyStatus = useStore((s) => s.setApiKeyStatus);
   const preferredModel = useStore((s) => s.preferredModel);
   const setPreferredModel = useStore((s) => s.setPreferredModel);
+  const user = useStore((s) => s.user);
   const keyModalRef = useRef(null);
 
-  useEffect(() => {
-    api.getApiKeyStatus().then((data) => { setKeyStatus(data); setApiKeyStatus(data); }).catch(() => {});
-    api.getAvailableModels().then((data) => setModels(Array.isArray(data) ? data : data?.models || [])).catch(() => {});
-  }, [setApiKeyStatus]);
+  const isDemo = user?.email === DEMO_EMAIL;
 
-  const statusColor = keyStatus?.valid ? "bg-green-500" : keyStatus?.configured ? "bg-red-500" : "bg-gray-500";
-  const statusLabel = keyStatus?.valid ? "Valid" : keyStatus?.configured ? "Invalid" : "Not configured";
+  const refreshStatus = () => {
+    api.getApiKeyStatus().then((data) => { setKeyStatus(data); setApiKeyStatus(data); }).catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshStatus();
+    api.getAvailableModels().then((data) => {
+      const list = data?.models || (Array.isArray(data) ? data : []);
+      setModels(list);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // For demo user, show configured status even though key is platform-level
+  const effectiveConfigured = isDemo ? true : keyStatus?.configured;
+  const effectiveValid = isDemo ? true : keyStatus?.valid;
+  const statusColor = effectiveValid ? "bg-green-500" : effectiveConfigured ? "bg-red-500" : "bg-gray-500";
+  const statusLabel = effectiveValid ? "Valid" : effectiveConfigured ? "Invalid" : "Not configured";
 
   const handleSaveKey = async () => {
     if (!newKey.trim()) return;
     setKeyValidating(true);
     setKeyError("");
     try {
-      const data = await api.saveApiKey(newKey.trim());
-      setKeyStatus(data);
-      setApiKeyStatus(data);
+      await api.saveApiKey(newKey.trim());
+      // Re-fetch full status after save (save returns {"status":"ok"}, not full status)
+      refreshStatus();
       setShowKeyModal(false);
       setNewKey("");
     } catch (err) {
-      setKeyError(err.message || "Failed to save API key");
+      const msg = err.message || "";
+      if (msg.includes("Cannot connect") || msg.includes("Server error") || msg.includes("Failed to fetch") || msg.includes("Not Found")) {
+        setKeyError("Cannot reach the server. Please ensure the backend is running on port 8002.");
+      } else {
+        setKeyError(msg || "Failed to save API key");
+      }
     } finally {
       setKeyValidating(false);
     }
+  };
+
+  const handleDeleteKey = async () => {
+    if (!window.confirm("Remove your API key? You won't be able to run queries until you add a new one.")) return;
+    setDeleting(true);
+    try {
+      await api.deleteApiKey();
+      refreshStatus();
+    } catch { /* ignore */ }
+    setDeleting(false);
   };
 
   const handleModelChange = async (e) => {
@@ -110,7 +142,7 @@ function ApiConfigSection() {
   return (
     <>
       <StaggerItem>
-        <TiltCard><div className="glass-card rounded-2xl p-6">
+        <div className="glass-card rounded-2xl p-6">
           <h2 className="text-sm font-semibold text-white mb-4">API Configuration</h2>
           <div className="space-y-4">
             {/* Status */}
@@ -132,7 +164,13 @@ function ApiConfigSection() {
             <div>
               <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">API Key</label>
               <p className="text-sm text-gray-400 font-mono">
-                {keyStatus?.masked_key ? `...${keyStatus.masked_key.slice(-8)}` : "Not set"}
+                {isDemo ? (
+                  <span className="text-purple-400">Platform key (demo)</span>
+                ) : keyStatus?.masked_key ? (
+                  `sk-ant-...${keyStatus.masked_key.slice(-4)}`
+                ) : (
+                  "Not set"
+                )}
               </p>
             </div>
 
@@ -144,10 +182,10 @@ function ApiConfigSection() {
                 onChange={handleModelChange}
                 className="w-full glass-input rounded-lg px-3 py-2 text-white text-sm bg-transparent"
               >
-                <option value="" className="bg-[#0e0e1a]">Default</option>
-                {(Array.isArray(models) ? models : []).map((m) => (
-                  <option key={m.id || m} value={m.id || m} className="bg-[#0e0e1a]">
-                    {m.name || m.id || m}{m.cost ? ` ($${m.cost})` : ""}
+                <option value="" className="bg-[#0e0e1a]">Default (Haiku 4.5)</option>
+                {models.map((m) => (
+                  <option key={m.id} value={m.id} className="bg-[#0e0e1a]">
+                    {m.name} ({m.cost})
                   </option>
                 ))}
               </select>
@@ -161,15 +199,26 @@ function ApiConfigSection() {
               </div>
             )}
 
-            {/* Update Key Button */}
-            <MotionButton
-              onClick={() => setShowKeyModal(true)}
-              className="px-4 py-2 text-sm font-medium text-indigo-400 bg-indigo-900/20 border border-indigo-800/50 rounded-lg hover:bg-indigo-900/40 transition cursor-pointer"
-            >
-              Update Key
-            </MotionButton>
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <MotionButton
+                onClick={() => setShowKeyModal(true)}
+                className="px-4 py-2 text-sm font-medium text-indigo-400 bg-indigo-900/20 border border-indigo-800/50 rounded-lg hover:bg-indigo-900/40 transition cursor-pointer"
+              >
+                {effectiveConfigured ? "Update Key" : "Add Key"}
+              </MotionButton>
+              {effectiveConfigured && !isDemo && (
+                <MotionButton
+                  onClick={handleDeleteKey}
+                  disabled={deleting}
+                  className="px-4 py-2 text-sm font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg hover:bg-red-900/40 transition cursor-pointer disabled:opacity-50"
+                >
+                  {deleting ? "Removing..." : "Remove Key"}
+                </MotionButton>
+              )}
+            </div>
           </div>
-        </div></TiltCard>
+        </div>
       </StaggerItem>
 
       {/* Update Key Modal */}
@@ -350,7 +399,7 @@ export default function Account() {
           <StaggerContainer className="space-y-6">
             {/* 1. Account Info */}
             <StaggerItem>
-              <TiltCard><div className="glass-card rounded-2xl p-6">
+              <div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Account Information</h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -370,12 +419,12 @@ export default function Account() {
                     <p className="text-sm text-gray-200">{authLabel(account?.oauth_provider)}</p>
                   </div>
                 </div>
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* 2. Active Connections */}
             <StaggerItem>
-              <TiltCard><div className="glass-card rounded-2xl p-6">
+              <div className="glass-card rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-semibold text-white">Active Connections</h2>
                   <span className="text-xs text-gray-500">{account?.active_connection_count || 0} live</span>
@@ -399,12 +448,12 @@ export default function Account() {
                 ) : (
                   <p className="text-sm text-gray-600">No active connections</p>
                 )}
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* 3. Query Statistics */}
             <StaggerItem>
-              <TiltCard><div className="glass-card rounded-2xl p-6">
+              <div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Query Statistics</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <StatCard value={qs.total_queries ?? 0} label="Total Queries" isNumber />
@@ -413,26 +462,26 @@ export default function Account() {
                   <StatCard value={qs.success_rate ? `${qs.success_rate}%` : "\u2014"} label="Success Rate" gradient="from-yellow-400 to-orange-400" />
                 </div>
                 {qs.last_query_at && <p className="text-xs text-gray-600 mt-3">Last query: {new Date(qs.last_query_at).toLocaleString()}</p>}
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* 4. Storage & Usage */}
             <StaggerItem>
-              <TiltCard><div className="glass-card rounded-2xl p-6">
+              <div className="glass-card rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Storage & Usage</h2>
                 <div className="grid grid-cols-3 gap-3">
                   <StatCard value={account?.saved_connections ?? 0} label="Saved Connections" isNumber />
                   <StatCard value={account?.chat_count ?? 0} label="Chat Sessions" gradient="from-purple-400 to-pink-400" isNumber />
                   <StatCard value={account?.trained_tables ?? 0} label="Trained Tables" gradient="from-emerald-400 to-teal-400" isNumber />
                 </div>
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* 5. Saved Databases */}
             <AnimatePresence>
               {account?.saved_connections_list?.length > 0 && (
                 <StaggerItem>
-                  <TiltCard><div className="glass-card rounded-2xl p-6">
+                  <div className="glass-card rounded-2xl p-6">
                     <h2 className="text-sm font-semibold text-white mb-3">Saved Databases</h2>
                     <div className="flex flex-wrap gap-2">
                       {account.saved_connections_list.map((s, i) => (
@@ -448,7 +497,7 @@ export default function Account() {
                         </motion.div>
                       ))}
                     </div>
-                  </div></TiltCard>
+                  </div>
                 </StaggerItem>
               )}
             </AnimatePresence>
@@ -458,7 +507,7 @@ export default function Account() {
 
             {/* 7. Danger Zone */}
             <StaggerItem>
-              <TiltCard><div className="glass-card border-red-900/30 rounded-2xl p-6">
+              <div className="glass-card border-red-900/30 rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-red-400 mb-2">Danger Zone</h2>
                 <p className="text-xs text-gray-500 mb-4">These actions cannot be undone.</p>
                 <AnimatePresence>
@@ -506,7 +555,7 @@ export default function Account() {
                     </MotionButton>
                   </div>
                 </div>
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* Delete Account Confirmation Modal */}

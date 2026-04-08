@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import { useStore } from "../store";
 import MotionButton from "../components/animation/MotionButton";
-import TiltCard from "../components/animation/TiltCard";
+
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
@@ -514,7 +514,6 @@ export default function Login() {
           <p className="text-gray-400 mt-2">The agentic data intelligence platform</p>
         </div>
 
-        <TiltCard maxTilt={4}>
         <div className="glass-card rounded-2xl p-8">
           <h2 className="text-xl font-semibold text-white mb-2">
             {isRegister ? "Create Account" : "Sign In"}
@@ -973,7 +972,6 @@ export default function Login() {
             Instant login with a pre-made test account
           </p>
         </div>
-        </TiltCard>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import { api } from "../api";
 import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import MotionButton from "../components/animation/MotionButton";
-import TiltCard from "../components/animation/TiltCard";
+
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
@@ -92,7 +92,7 @@ export default function Billing() {
           <StaggerContainer className="space-y-8">
             {/* Current plan */}
             <StaggerItem>
-              <TiltCard><div className="glass-card rounded-2xl p-6">
+              <div className="glass-card rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <h2 className="text-lg font-bold text-white">Current Plan</h2>
                   <motion.span
@@ -142,7 +142,7 @@ export default function Billing() {
                     ))}
                   </ul>
                 )}
-              </div></TiltCard>
+              </div>
             </StaggerItem>
 
             {/* Future plans */}
@@ -157,7 +157,7 @@ export default function Billing() {
                       animate={{ opacity: 0.6, y: 0, scale: 1 }}
                       transition={{ delay: 0.2 + idx * 0.15, type: "spring", stiffness: 200, damping: 20 }}
                     >
-                      <TiltCard className="h-full"><div className="relative glass-card rounded-2xl p-6 h-full">
+                      <div className="relative glass-card rounded-2xl p-6 h-full">
                       {/* Coming soon badge */}
                       <div className="absolute top-4 right-4 px-3 py-1 glass text-gray-400 text-xs font-semibold rounded-full">
                         Coming Soon
@@ -192,7 +192,7 @@ export default function Billing() {
                       >
                         {waitlistJoined[plan.name] ? "On Waitlist" : "Join Waitlist"}
                       </MotionButton>
-                      </div></TiltCard>
+                      </div>
                     </motion.div>
                   ))}
                 </div>
