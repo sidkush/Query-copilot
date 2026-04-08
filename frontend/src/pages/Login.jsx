@@ -508,8 +508,8 @@ export default function Login() {
 
       <div className="w-full max-w-md relative z-10 fade-scale-in">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">
-            Query<span className="text-indigo-400">Copilot</span>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight font-poppins">
+            Data<span style={{ color: '#A855F7' }}>Lens</span>
           </h1>
           <p className="text-gray-400 mt-2">The agentic data intelligence platform</p>
         </div>

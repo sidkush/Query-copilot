@@ -994,7 +994,7 @@ export default function Chat() {
               </svg>
             </button>
 
-            <h1 className="text-lg font-semibold text-white tracking-tight">Query<span className="text-indigo-400">Copilot</span></h1>
+            <h1 className="text-lg font-semibold text-white tracking-tight font-poppins">Data<span style={{ color: '#A855F7' }}>Lens</span></h1>
 
             <DatabaseSwitcher
               connections={connections}

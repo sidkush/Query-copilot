@@ -448,7 +448,7 @@ function LandingInner() {
       {/* ── Navbar (Glassmorphism) ── */}
       <nav className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "glass-navbar shadow-lg" : "bg-transparent border-b border-transparent"}`}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="text-xl font-extrabold tracking-tight">Query<span className="text-indigo-400">Copilot</span></span>
+          <span className="text-xl font-extrabold tracking-tight font-poppins">Data<span style={{ color: '#A855F7' }}>Lens</span></span>
           <div className="hidden md:flex items-center gap-8">
             <button onClick={() => scrollTo("features")} className="text-sm text-gray-400 hover:text-white transition-colors duration-200 cursor-pointer">Features</button>
             <button onClick={() => scrollTo("how")} className="text-sm text-gray-400 hover:text-white transition-colors duration-200 cursor-pointer">How It Works</button>
@@ -821,7 +821,7 @@ function LandingInner() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
             <div className="col-span-2">
-              <span className="text-xl font-extrabold">Query<span className="text-indigo-400">Copilot</span></span>
+              <span className="text-xl font-extrabold font-poppins">Data<span style={{ color: '#A855F7' }}>Lens</span></span>
               <p className="text-sm text-gray-500 mt-3 max-w-xs leading-relaxed">The agentic data intelligence platform &mdash; one AI, every database, zero-trust security.</p>
             </div>
             <div>
