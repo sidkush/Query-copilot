@@ -10,7 +10,7 @@ const STATUS_VALIDATING = "validating";
 const STATUS_SUCCESS = "success";
 const STATUS_ERROR = "error";
 
-export default function OnboardingApiKey({ onNext, isDemo = false }) {
+export default function OnboardingApiKey({ onNext, onSkip, isDemo = false }) {
   const [key, setKey] = useState(isDemo ? "demo-key-active" : "");
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState(STATUS_IDLE);
@@ -34,14 +34,24 @@ export default function OnboardingApiKey({ onNext, isDemo = false }) {
     setErrorMsg("");
 
     try {
-      const result = await api.saveApiKey(key.trim());
-      setApiKeyStatus(result);
+      await api.saveApiKey(key.trim());
+      // Fetch full status to populate the store correctly
+      try {
+        const fullStatus = await api.getApiKeyStatus();
+        setApiKeyStatus(fullStatus);
+      } catch {
+        setApiKeyStatus({ configured: true, valid: true, provider: "anthropic" });
+      }
       setStatus(STATUS_SUCCESS);
-      // Delay then advance
       setTimeout(() => onNext(), 1000);
     } catch (err) {
       setStatus(STATUS_ERROR);
-      setErrorMsg(err.message || "Invalid API key. Please try again.");
+      const msg = err.message || "";
+      if (msg.includes("Cannot connect") || msg.includes("Server error") || msg.includes("Not Found") || msg.includes("Failed to fetch")) {
+        setErrorMsg("Cannot reach the server. Please ensure the backend is running on port 8002.");
+      } else {
+        setErrorMsg(msg || "Invalid API key. Please try again.");
+      }
     }
   };
 
@@ -137,6 +147,22 @@ export default function OnboardingApiKey({ onNext, isDemo = false }) {
             </motion.p>
           )}
         </AnimatePresence>
+
+        {/* Skip for now — user can set up API key later from Account settings */}
+        {!isDemo && onSkip && (
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={onSkip}
+              className="text-xs text-gray-500 hover:text-gray-400 transition underline underline-offset-2 cursor-pointer"
+            >
+              Skip for now
+            </button>
+            <p className="text-[10px] text-gray-600 mt-1">
+              You can add your API key later in Account settings
+            </p>
+          </div>
+        )}
       </motion.div>
     </div>
   );

@@ -97,7 +97,7 @@ export default function Onboarding() {
       case 2:
         return <OnboardingTour onNext={goNext} />;
       case 3:
-        return <OnboardingApiKey onNext={goNext} isDemo={false} />;
+        return <OnboardingApiKey onNext={goNext} onSkip={handleFinish} isDemo={false} />;
       case 4:
         return <OnboardingConnect onNext={goNext} />;
       case 5:
