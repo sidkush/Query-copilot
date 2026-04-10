@@ -231,6 +231,17 @@ const COMBO_TYPES = [
 function MeasureSelector({ measures, selected, onSelect, colors, mode = "single", seriesTypes = {}, onSeriesTypeChange = null }) {
   if (measures.length <= 1 && !onSeriesTypeChange) return null;
   const [openPicker, setOpenPicker] = useState(null);
+  const pickerContainerRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!openPicker) return;
+    const handler = (e) => {
+      if (pickerContainerRef.current && !pickerContainerRef.current.contains(e.target)) setOpenPicker(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openPicker]);
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -239,7 +250,7 @@ function MeasureSelector({ measures, selected, onSelect, colors, mode = "single"
         const isActive = mode === "single" ? selected === m : selected.includes(m);
         const currentType = seriesTypes[m];
         return (
-          <div key={m} className="relative flex items-center">
+          <div key={m} className="relative flex items-center" ref={openPicker === m ? pickerContainerRef : undefined}>
             <button
               onClick={() => onSelect(m)}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] transition-all duration-200 cursor-pointer ${
@@ -420,10 +431,7 @@ export default function ResultsChart({
 
   // Sync seriesTypes when formatting changes (e.g. after TileEditor save)
   useEffect(() => {
-    const incoming = formatting?.seriesTypes;
-    if (incoming && Object.keys(incoming).length > 0) {
-      setMeasureSeriesTypes(incoming);
-    }
+    setMeasureSeriesTypes(formatting?.seriesTypes || {});
   }, [formatting?.seriesTypes]);
 
   const handleSeriesTypeChange = useCallback((measure, type) => {
@@ -438,7 +446,9 @@ export default function ResultsChart({
   }, []);
 
   // Derived values — computed unconditionally so hooks below always run
-  const chartType = activeType || rankedCharts[0]?.key || "bar";
+  // Normalize aliases: stacked_bar → stacked (TileEditor/TileWrapper use stacked_bar)
+  const rawType = activeType || rankedCharts[0]?.key || "bar";
+  const chartType = rawType === "stacked_bar" ? "stacked" : rawType;
   const colors = PALETTES[palette] || PALETTES.default;
   const isSingleMeasureChart = ["pie", "donut", "treemap"].includes(chartType);
   const isMultiMeasureChart = ["bar", "bar_h", "stacked", "line", "area", "radar"].includes(chartType);
@@ -668,7 +678,7 @@ export default function ResultsChart({
             return {
               type: isBar ? 'bar' : 'line',
               name: col,
-              yAxisIndex: (hasMixedTypes && isBar) ? 1 : 0,
+              yAxisIndex: (hasMixedTypes && !isBar) ? 1 : 0,
               data: chartData.map((row) => row[col]),
               ...(isBar ? {
                 itemStyle: { color: baseColor, borderRadius: [6, 6, 0, 0] },

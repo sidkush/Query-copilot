@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+let _themeTimer = null;
+
 export const useStore = create((set, get) => ({
   user: JSON.parse(localStorage.getItem("user") || "null"),
   token: localStorage.getItem("token") || null,
@@ -29,10 +31,11 @@ export const useStore = create((set, get) => ({
     const resolved = preference === "system"
       ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
       : preference;
-    // Smooth transition class
+    // Smooth transition class (clear previous timer to prevent stacking)
+    clearTimeout(_themeTimer);
     document.documentElement.classList.add("theme-transitioning");
     document.documentElement.classList.toggle("light", resolved === "light");
-    setTimeout(() => document.documentElement.classList.remove("theme-transitioning"), 350);
+    _themeTimer = setTimeout(() => document.documentElement.classList.remove("theme-transitioning"), 350);
     set({ theme: preference, resolvedTheme: resolved });
   },
 

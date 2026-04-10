@@ -263,9 +263,7 @@ async def add_tile_shortcut(dashboard_id: str, body: AddTile, user=Depends(get_c
     Used by the Chat page's 'Add to Dashboard' flow which doesn't know
     about the tab/section hierarchy.
     """
-    from user_storage import _load_dashboards
-    dashboards = _load_dashboards(user["email"])
-    target = next((d for d in dashboards if d["id"] == dashboard_id), None)
+    target = load_dashboard(user["email"], dashboard_id)
     if not target:
         raise HTTPException(404, "Dashboard not found")
     tabs = target.get("tabs", [])

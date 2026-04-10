@@ -220,7 +220,7 @@ function ChatBubble({ align = 'left', color, timestamp, compact = false, childre
       alignItems: isUser ? 'flex-end' : 'flex-start',
       width: '100%',
     }}>
-      <div className="backdrop-blur-md" style={{
+      <div style={{
         maxWidth: compact ? '85%' : '92%',
         padding: compact ? '4px 10px' : '8px 12px',
         borderRadius: '12px',
@@ -457,11 +457,12 @@ function AgentStepFeedInner() {
       {steps.map((step, i) => {
         if (["phase_start", "phase_complete", "checklist_update", "verification"].includes(step.type)) return null;
 
-        // Dedup: skip result steps that duplicate a live_correction or cached_result with the same content
+        // Dedup: skip result steps that duplicate a recent live_correction or cached_result
+        // Only check the last 5 steps to avoid suppressing legitimately repeated answers across turns
         if (step.type === "result" && step.content) {
-          const isDuplicate = steps.some((prev, j) =>
-            j < i &&
-            (prev.type === "live_correction" || prev.type === "cached_result" || prev.type === "result") &&
+          const recentStart = Math.max(0, i - 5);
+          const isDuplicate = steps.slice(recentStart, i).some((prev) =>
+            (prev.type === "live_correction" || prev.type === "cached_result") &&
             prev.content === step.content
           );
           if (isDuplicate) return null;

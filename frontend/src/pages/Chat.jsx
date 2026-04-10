@@ -1361,7 +1361,7 @@ export default function Chat() {
                       <div className="flex items-start gap-3">
                         <span className="text-blue-400/40 text-xs font-mono mt-0.5 group-hover:text-blue-400/70">{idx + 1}</span>
                         <div>
-                          <p className="text-[var(--text-primary)] group-hover:text-white transition-colors">{pred.question}</p>
+                          <p className="transition-colors" style={{ color: 'var(--text-primary)' }}>{pred.question}</p>
                           {pred.reasoning && (
                             <p className="text-[10px] text-[var(--text-muted)] mt-1">{pred.reasoning}</p>
                           )}
@@ -1500,11 +1500,11 @@ export default function Chat() {
                       key={idx}
                       type="button"
                       onMouseDown={() => handleAutocompleteSelect(s.text)}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2 ${
-                        idx === autocompleteIndex
-                          ? 'bg-white/10 text-white'
-                          : 'text-[#a0a4ab] hover:bg-white/5 hover:text-white'
-                      }`}
+                      className="w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2"
+                      style={idx === autocompleteIndex
+                        ? { background: 'var(--overlay-light)', color: 'var(--text-primary)' }
+                        : { color: 'var(--text-secondary)' }
+                      }
                     >
                       <span className="text-[10px] opacity-40 uppercase tracking-wider w-12 shrink-0">
                         {s.source === "history" ? "prev" : s.source === "schema" ? "table" : "idea"}
