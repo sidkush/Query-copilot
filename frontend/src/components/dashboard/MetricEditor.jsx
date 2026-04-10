@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS } from './tokens';
 import { sandboxComputeMetric } from '../../lib/formulaSandbox';
+import FormulaInput from './FormulaInput';
 
 const inputStyle = {
   width: '100%',
@@ -30,13 +31,20 @@ function generateId() {
   return 'm_' + Math.random().toString(36).slice(2, 10);
 }
 
-export default function MetricEditor({ metrics = [], sampleRows = [], onSave, onClose }) {
+export default function MetricEditor({ metrics = [], sampleRows = [], onSave, onClose, schemaColumns = [], fieldClassifications = {} }) {
   const [items, setItems] = useState(metrics.map(m => ({ ...m })));
   const [editingIdx, setEditingIdx] = useState(null);
   const [name, setName] = useState('');
   const [formula, setFormula] = useState('');
   const [description, setDescription] = useState('');
   const [testResult, setTestResult] = useState(null);
+  const [testResults, setTestResults] = useState(() => {
+    // Pre-existing metrics (loaded from saved state) are considered already validated
+    const initial = {};
+    metrics.forEach(m => { initial[m.id] = { passed: true, value: null, error: null }; });
+    return initial;
+  });
+  // Shape: { metricId: { passed: boolean, value: number|null, error: string|null } }
 
   const resetForm = useCallback(() => {
     setName(''); setFormula(''); setDescription('');
@@ -49,20 +57,45 @@ export default function MetricEditor({ metrics = [], sampleRows = [], onSave, on
     const result = await sandboxComputeMetric(formula, sampleRows);
     if (result.requiresBackend) {
       setTestResult({ value: null, error: null, message: 'LOD expression detected — will be computed server-side' });
+      // LOD expressions count as passed — they will be computed server-side
+      if (editingIdx !== null) {
+        const metricId = items[editingIdx].id;
+        setTestResults(prev => ({ ...prev, [metricId]: { passed: true, value: null, error: null } }));
+      }
+    } else if (result.error) {
+      setTestResult(result);
+      if (editingIdx !== null) {
+        const metricId = items[editingIdx].id;
+        setTestResults(prev => ({ ...prev, [metricId]: { passed: false, value: null, error: result.error || 'Test failed' } }));
+      }
     } else {
       setTestResult(result);
+      if (editingIdx !== null) {
+        const metricId = items[editingIdx].id;
+        setTestResults(prev => ({ ...prev, [metricId]: { passed: true, value: result.value, error: null } }));
+      }
     }
-  }, [formula, sampleRows]);
+  }, [formula, sampleRows, editingIdx, items]);
 
   const handleAdd = useCallback(() => {
     if (!name.trim() || !formula.trim()) return;
     if (editingIdx !== null) {
       setItems(prev => prev.map((m, i) => i === editingIdx ? { ...m, name: name.trim(), formula: formula.trim(), description: description.trim() } : m));
     } else {
-      setItems(prev => [...prev, { id: generateId(), name: name.trim(), formula: formula.trim(), description: description.trim() }]);
+      const newId = generateId();
+      setItems(prev => [...prev, { id: newId, name: name.trim(), formula: formula.trim(), description: description.trim() }]);
+      // Carry over the current inline test result into per-metric tracking
+      if (testResult && !testResult.error && !testResult.message) {
+        setTestResults(prev => ({ ...prev, [newId]: { passed: true, value: testResult.value, error: null } }));
+      } else if (testResult && testResult.message && !testResult.error) {
+        // LOD / backend-deferred — treat as passed
+        setTestResults(prev => ({ ...prev, [newId]: { passed: true, value: null, error: null } }));
+      } else if (testResult && testResult.error) {
+        setTestResults(prev => ({ ...prev, [newId]: { passed: false, value: null, error: testResult.error } }));
+      }
     }
     resetForm();
-  }, [name, formula, description, editingIdx, resetForm]);
+  }, [name, formula, description, editingIdx, resetForm, testResult]);
 
   const handleEdit = useCallback((idx) => {
     const m = items[idx];
@@ -71,14 +104,21 @@ export default function MetricEditor({ metrics = [], sampleRows = [], onSave, on
   }, [items]);
 
   const handleRemove = useCallback((idx) => {
+    const metricId = items[idx]?.id;
     setItems(prev => prev.filter((_, i) => i !== idx));
+    if (metricId) {
+      setTestResults(prev => { const next = {...prev}; delete next[metricId]; return next; });
+    }
     if (editingIdx === idx) resetForm();
-  }, [editingIdx, resetForm]);
+  }, [items, editingIdx, resetForm]);
+
+  const allTested = items.length === 0 || items.every(m => testResults[m.id]?.passed);
 
   const handleSave = useCallback(() => {
+    if (!allTested) return;
     onSave(items);
     onClose();
-  }, [items, onSave, onClose]);
+  }, [items, onSave, onClose, allTested]);
 
   return (
     <AnimatePresence>
@@ -87,7 +127,7 @@ export default function MetricEditor({ metrics = [], sampleRows = [], onSave, on
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         <motion.div
           key="metric-modal"
@@ -101,12 +141,17 @@ export default function MetricEditor({ metrics = [], sampleRows = [], onSave, on
           }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${TOKENS.border.default}`, flexShrink: 0 }}>
-            <span style={{ fontSize: 16, fontWeight: 600, color: TOKENS.text.primary }}>Custom Metrics</span>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleSave} style={{ padding: '6px 16px', borderRadius: TOKENS.radius.sm, background: TOKENS.accent, color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Save</button>
-              <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: TOKENS.radius.sm, background: TOKENS.bg.surface, color: TOKENS.text.secondary, border: `1px solid ${TOKENS.border.default}`, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+          <div style={{ display: 'flex', flexDirection: 'column', padding: '16px 20px', borderBottom: `1px solid ${TOKENS.border.default}`, flexShrink: 0, gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 16, fontWeight: 600, color: TOKENS.text.primary }}>Custom Metrics</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={handleSave} disabled={!allTested} title={!allTested ? 'Test all metrics before saving' : ''} style={{ padding: '6px 16px', borderRadius: TOKENS.radius.sm, background: allTested ? TOKENS.accent : TOKENS.bg.surface, color: allTested ? '#fff' : TOKENS.text.muted, border: allTested ? 'none' : `1px solid ${TOKENS.border.default}`, fontSize: 13, fontWeight: 600, cursor: allTested ? 'pointer' : 'not-allowed', opacity: allTested ? 1 : 0.6 }}>Save</button>
+                <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: TOKENS.radius.sm, background: TOKENS.bg.surface, color: TOKENS.text.secondary, border: `1px solid ${TOKENS.border.default}`, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+              </div>
             </div>
+            {!allTested && items.length > 0 && (
+              <span style={{ fontSize: 11, color: TOKENS.text.muted, textAlign: 'right' }}>Test all metrics to enable save</span>
+            )}
           </div>
 
           {/* Content */}
@@ -127,6 +172,12 @@ export default function MetricEditor({ metrics = [], sampleRows = [], onSave, on
                         <div style={{ fontSize: 13, fontWeight: 500, color: TOKENS.text.primary }}>{m.name}</div>
                         <div style={{ fontSize: 11, color: TOKENS.text.muted, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.formula}</div>
                       </div>
+                      {testResults[m.id]?.passed === true && (
+                        <span style={{ color: TOKENS.success, fontSize: 14, flexShrink: 0, lineHeight: 1 }} title="Test passed">&#10003;</span>
+                      )}
+                      {testResults[m.id]?.passed === false && (
+                        <span style={{ color: TOKENS.danger, fontSize: 14, flexShrink: 0, lineHeight: 1 }} title={testResults[m.id]?.error || 'Test failed'}>&#10007;</span>
+                      )}
                       <button onClick={() => handleEdit(idx)} style={{ background: 'none', border: 'none', color: TOKENS.text.secondary, cursor: 'pointer', fontSize: 12 }}>Edit</button>
                       <button onClick={() => handleRemove(idx)} style={{ background: 'none', border: 'none', color: TOKENS.danger, cursor: 'pointer', fontSize: 12 }}>Delete</button>
                     </div>
@@ -145,10 +196,22 @@ export default function MetricEditor({ metrics = [], sampleRows = [], onSave, on
                 </div>
                 <div>
                   <label style={{ ...labelStyle, fontSize: 10 }}>Formula</label>
-                  <textarea
-                    value={formula} onChange={e => { setFormula(e.target.value); setTestResult(null); }}
-                    rows={2}
-                    style={{ ...inputStyle, fontFamily: '"JetBrains Mono", monospace', fontSize: 13, resize: 'vertical', lineHeight: 1.5 }}
+                  <FormulaInput
+                    value={formula}
+                    onChange={(val) => {
+                      setFormula(val);
+                      setTestResult(null);
+                      // Reset per-metric test result when formula changes during edit
+                      if (editingIdx !== null) {
+                        const metricId = items[editingIdx]?.id;
+                        if (metricId) {
+                          setTestResults(prev => { const next = {...prev}; delete next[metricId]; return next; });
+                        }
+                      }
+                    }}
+                    schemaColumns={schemaColumns}
+                    fieldClassifications={fieldClassifications}
+                    sampleColumns={sampleRows.length > 0 ? Object.keys(sampleRows[0]) : []}
                     placeholder="e.g. SUM(revenue) / COUNT(DISTINCT customer_id)"
                   />
                   <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>

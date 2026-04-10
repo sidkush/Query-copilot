@@ -18,7 +18,7 @@ const STATUS_CONNECTING = "connecting";
 const STATUS_SUCCESS = "success";
 const STATUS_ERROR = "error";
 
-export default function OnboardingConnect({ onNext }) {
+export default function OnboardingConnect({ onNext, onSkip }) {
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({ host: "", port: "", database: "", user: "", password: "" });
   const [status, setStatus] = useState(STATUS_IDLE);
@@ -69,7 +69,8 @@ export default function OnboardingConnect({ onNext }) {
         <motion.h2
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-xl font-bold text-white text-center mb-2"
+          className="text-xl font-bold text-center mb-2"
+          style={{ color: 'var(--text-primary)' }}
         >
           Connect your database
         </motion.h2>
@@ -77,7 +78,8 @@ export default function OnboardingConnect({ onNext }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="text-sm text-gray-400 text-center mb-8"
+          className="text-sm text-center mb-8"
+          style={{ color: 'var(--text-secondary)' }}
         >
           Choose a database to start querying with natural language.
         </motion.p>
@@ -111,27 +113,30 @@ export default function OnboardingConnect({ onNext }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               onSubmit={handleConnect}
-              className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 space-y-3"
+              className="backdrop-blur-sm border rounded-xl p-6 space-y-3"
+              style={{ background: 'var(--overlay-subtle)', borderColor: 'var(--border-default)' }}
             >
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Host</label>
+                  <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Host</label>
                   <input
                     type="text"
                     value={form.host}
                     onChange={(e) => handleChange("host", e.target.value)}
                     placeholder="localhost"
-                    className="w-full glass-input rounded-lg px-3 py-2 text-white text-sm input-glow"
+                    className="w-full glass-input rounded-lg px-3 py-2 text-sm input-glow"
+                    style={{ color: 'var(--text-primary)' }}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Port</label>
+                  <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Port</label>
                   <input
                     type="text"
                     value={form.port}
                     onChange={(e) => handleChange("port", e.target.value)}
                     placeholder="5432"
-                    className="w-full glass-input rounded-lg px-3 py-2 text-white text-sm input-glow"
+                    className="w-full glass-input rounded-lg px-3 py-2 text-sm input-glow"
+                    style={{ color: 'var(--text-primary)' }}
                   />
                 </div>
               </div>
@@ -147,23 +152,25 @@ export default function OnboardingConnect({ onNext }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">User</label>
+                  <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>User</label>
                   <input
                     type="text"
                     value={form.user}
                     onChange={(e) => handleChange("user", e.target.value)}
                     placeholder="username"
-                    className="w-full glass-input rounded-lg px-3 py-2 text-white text-sm input-glow"
+                    className="w-full glass-input rounded-lg px-3 py-2 text-sm input-glow"
+                    style={{ color: 'var(--text-primary)' }}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Password</label>
+                  <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Password</label>
                   <input
                     type="password"
                     value={form.password}
                     onChange={(e) => handleChange("password", e.target.value)}
                     placeholder="password"
-                    className="w-full glass-input rounded-lg px-3 py-2 text-white text-sm input-glow"
+                    className="w-full glass-input rounded-lg px-3 py-2 text-sm input-glow"
+                    style={{ color: 'var(--text-primary)' }}
                   />
                 </div>
               </div>
@@ -206,9 +213,9 @@ export default function OnboardingConnect({ onNext }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <p className="text-white font-semibold">Connected!</p>
+              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Connected!</p>
               {tableCount > 0 && (
-                <p className="text-sm text-gray-400 mt-1">Found {tableCount} tables</p>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Found {tableCount} tables</p>
               )}
             </motion.div>
           )}
@@ -223,7 +230,7 @@ export default function OnboardingConnect({ onNext }) {
             className="text-center mt-6"
           >
             <button
-              onClick={onNext}
+              onClick={onSkip || onNext}
               className="text-sm text-gray-500 hover:text-gray-300 underline underline-offset-2 transition cursor-pointer"
             >
               Skip for now

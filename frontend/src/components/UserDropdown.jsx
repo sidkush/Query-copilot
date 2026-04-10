@@ -83,7 +83,10 @@ export default function UserDropdown() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition cursor-pointer"
+        className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition cursor-pointer"
+        style={{ '--hover-bg': 'var(--overlay-subtle)' }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--overlay-subtle)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`User menu for ${displayName}`}
@@ -91,11 +94,12 @@ export default function UserDropdown() {
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" aria-hidden="true">
           {initials}
         </div>
-        <span className="text-sm text-gray-300 font-medium hidden sm:inline max-w-[120px] truncate">
+        <span className="text-sm font-medium hidden sm:inline max-w-[120px] truncate" style={{ color: 'var(--text-secondary)' }}>
           {displayName}
         </span>
         <svg
-          className={`w-3.5 h-3.5 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+          style={{ color: 'var(--text-muted)' }}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -111,9 +115,9 @@ export default function UserDropdown() {
           className="absolute right-0 top-full mt-2 w-64 glass-card rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden"
         >
           {/* User info */}
-          <div className="px-4 py-3 border-b border-white/5">
-            <p className="text-sm font-semibold text-white truncate">{displayName}</p>
-            <p className="text-xs text-gray-400 truncate">{email}</p>
+          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-default)' }}>
+            <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{displayName}</p>
+            <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{email}</p>
           </div>
 
           {/* Menu items */}
@@ -123,9 +127,12 @@ export default function UserDropdown() {
                 key={item.label}
                 role="menuitem"
                 onClick={() => go(item.path)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition cursor-pointer focus:bg-white/5 focus:text-white focus:outline-none"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition cursor-pointer focus:outline-none"
+                style={{ color: 'var(--text-secondary)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--overlay-subtle)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
               >
-                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   {item.icon}
                 </svg>
                 {item.label}
@@ -134,7 +141,7 @@ export default function UserDropdown() {
           </div>
 
           {/* Divider + Sign out */}
-          <div className="border-t border-white/5">
+          <div className="border-t" style={{ borderColor: 'var(--border-default)' }}>
             <button
               role="menuitem"
               onClick={handleSignOut}

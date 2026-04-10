@@ -33,29 +33,32 @@ export default function Billing() {
       features: [
         "Unlimited AI agent queries",
         "All 18 database connectors",
-        "NL alerts + webhooks",
-        "PDF & Slack export",
-        "PII masking controls",
+        "Unlimited dashboards + global filters",
+        "DuckDB Turbo Mode (<100ms)",
+        "NL alerts + Slack/Teams webhooks",
+        "CSV, JSON, PDF, PNG export",
+        "Scheduled email digests",
         "Priority support",
       ],
     },
     {
-      name: "Enterprise",
-      price: "Custom",
-      period: "",
+      name: "Team",
+      price: "$79",
+      period: "/seat/month",
       features: [
         "Everything in Pro",
-        "SSO & SAML",
-        "Presentation engine (16:9)",
-        "Scheduled digests",
-        "On-premise deployment",
         "Unlimited team seats",
+        "SSO / SAML authentication",
+        "Shared dashboards & query memory",
+        "16:9 presentation engine",
+        "White-label dashboards",
+        "Dedicated account manager",
       ],
     },
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
+    <div className="flex-1 overflow-y-auto relative" style={{ background: 'var(--bg-page)' }}>
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
       <GPUTierProvider>
         <_WebGLBound fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
@@ -66,15 +69,15 @@ export default function Billing() {
       </GPUTierProvider>
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
-          <h1 className="text-xl font-bold text-white">Plans & Billing</h1>
-          <p className="text-xs text-gray-400">Scale your data intelligence</p>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Plans & Billing</h1>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Scale your data intelligence</p>
         </div>
         <UserDropdown />
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-8 relative z-10">
         {loading ? (
-          <div className="flex items-center gap-3 text-gray-500 text-sm">
+          <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
             <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
             Loading billing...
           </div>
@@ -94,7 +97,7 @@ export default function Billing() {
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <h2 className="text-lg font-bold text-white">Current Plan</h2>
+                  <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Current Plan</h2>
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -108,10 +111,10 @@ export default function Billing() {
                 {billing?.daily_limit != null && (
                   <div className="mb-4">
                     <div className="flex items-center justify-between text-sm mb-1.5">
-                      <span className="text-gray-400">Today&apos;s Usage</span>
-                      <span className="text-gray-300 font-medium">{billing.queries_today ?? 0} / {billing.daily_limit} queries</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>Today&apos;s Usage</span>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{billing.queries_today ?? 0} / {billing.daily_limit} queries</span>
                     </div>
-                    <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
+                    <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--overlay-medium)' }}>
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min(100, ((billing.queries_today ?? 0) / billing.daily_limit) * 100)}%` }}
@@ -132,7 +135,8 @@ export default function Billing() {
                         initial={{ opacity: 0, x: -12 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.3 + i * 0.05 }}
-                        className="flex items-center gap-2 text-sm text-gray-300"
+                        className="flex items-center gap-2 text-sm"
+                        style={{ color: 'var(--text-secondary)' }}
                       >
                         <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -148,7 +152,7 @@ export default function Billing() {
             {/* Future plans */}
             <StaggerItem>
               <div>
-                <h2 className="text-lg font-bold text-white mb-4">Upgrade Options</h2>
+                <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Upgrade Options</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {futurePlans.map((plan, idx) => (
                     <motion.div
@@ -159,20 +163,20 @@ export default function Billing() {
                     >
                       <div className="relative glass-card rounded-2xl p-6 h-full">
                       {/* Coming soon badge */}
-                      <div className="absolute top-4 right-4 px-3 py-1 glass text-gray-400 text-xs font-semibold rounded-full">
+                      <div className="absolute top-4 right-4 px-3 py-1 glass text-xs font-semibold rounded-full" style={{ color: 'var(--text-secondary)' }}>
                         Coming Soon
                       </div>
 
-                      <h3 className="text-xl font-bold text-white mb-1">{plan.name}</h3>
+                      <h3 className="text-xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{plan.name}</h3>
                       <div className="mb-4">
-                        <span className="text-3xl font-extrabold text-white">{plan.price}</span>
-                        {plan.period && <span className="text-sm text-gray-500">{plan.period}</span>}
+                        <span className="text-3xl font-extrabold" style={{ color: 'var(--text-primary)' }}>{plan.price}</span>
+                        {plan.period && <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{plan.period}</span>}
                       </div>
 
                       <ul className="space-y-2 mb-6">
                         {plan.features.map((f, i) => (
-                          <li key={i} className="flex items-center gap-2 text-sm text-gray-400">
-                            <svg className="w-4 h-4 text-gray-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <li key={i} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                            <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                             {f}

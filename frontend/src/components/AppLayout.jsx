@@ -13,18 +13,17 @@ export default function AppLayout({ children }) {
   const user = useStore((s) => s.user);
   const token = useStore((s) => s.token);
 
-  // Proactive API key status fetch on boot — ensures ProtectedRoute gate
-  // has real data instead of null (P2 adversarial fix: Analysts 16+18)
+  // Proactive API key status fetch on boot — populates store for banner display
   useEffect(() => {
     if (token && !apiKeyStatus) {
       api.getApiKeyStatus().then(setApiKeyStatus).catch(() => {});
     }
   }, [token, apiKeyStatus, setApiKeyStatus]);
 
-  const showBanner = apiKeyStatus?.valid === false && user?.email !== "demo@datalens.dev";
+  const showBanner = apiKeyStatus?.valid === false && user?.email !== "demo@askdb.dev";
 
   return (
-    <div className="flex h-screen bg-[#06060e]">
+    <div className="flex h-screen" style={{ background: 'var(--bg-page)' }}>
       {/* Skip to main content - accessibility */}
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:text-sm focus:font-medium">
         Skip to main content

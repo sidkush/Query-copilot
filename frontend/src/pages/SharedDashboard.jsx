@@ -162,7 +162,7 @@ export default function SharedDashboard() {
       {/* Footer */}
       <div style={{ maxWidth: 1400, margin: '48px auto 0', textAlign: 'center' }}>
         <span style={{ color: TOKENS.text.muted, fontSize: 12 }}>
-          Powered by DataLens
+          Powered by AskDB
         </span>
       </div>
     </div>

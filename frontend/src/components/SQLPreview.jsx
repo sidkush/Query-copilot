@@ -98,9 +98,9 @@ export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, 
   const displaySQL = formatted && !editing ? formatSQL(sqlCode) : sqlCode;
 
   return (
-    <div className="bg-slate-900/60 rounded-xl border border-slate-800 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/80 border-b border-slate-800">
-        <span className="text-sm font-semibold text-slate-300">Generated SQL</span>
+    <div className="rounded-2xl overflow-hidden backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.12)]" style={{ background: 'var(--glass-bg-card)', border: '1px solid var(--glass-border)' }}>
+      <div className="flex items-center justify-between px-4 py-2.5" style={{ background: 'var(--bg-base)', borderBottom: '1px solid var(--border-default)' }}>
+        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Generated SQL</span>
         <div className="flex items-center gap-2">
           {copied && (
             <span className="text-xs text-emerald-400 font-medium animate-pulse">Copied!</span>
@@ -111,21 +111,23 @@ export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, 
             className={`flex items-center justify-center px-2.5 h-8 rounded-lg text-xs font-medium backdrop-blur-sm border transition-colors duration-200 cursor-pointer ${
               formatted
                 ? "text-blue-400 bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20"
-                : "text-slate-400 hover:text-slate-200 bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]"
+                : ""
             }`}
+            style={!formatted ? { color: 'var(--text-secondary)', background: 'var(--overlay-faint)', borderColor: 'var(--overlay-light)' } : undefined}
           >
             {formatted ? "Raw" : "Format"}
           </button>
           <button
             onClick={handleCopySQL}
             aria-label="Copy SQL to clipboard"
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-slate-200 bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] hover:bg-white/[0.06] transition-colors duration-200 cursor-pointer"
+            className="flex items-center justify-center w-8 h-8 rounded-lg backdrop-blur-sm transition-colors duration-200 cursor-pointer"
+            style={{ color: 'var(--text-secondary)', background: 'var(--overlay-faint)', border: '1px solid var(--overlay-light)' }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
             </svg>
           </button>
-          <span className="text-xs text-slate-500">Review before executing</span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Review before executing</span>
           {preview && (
             <span className="text-xs text-cyan-400 font-medium ml-1">
               {preview.estimated_rows != null ? `~${preview.estimated_rows.toLocaleString()} rows` : ''}
@@ -139,7 +141,8 @@ export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, 
         <textarea
           value={editedSQL}
           onChange={(e) => setEditedSQL(e.target.value)}
-          className="w-full bg-slate-950 text-emerald-400 font-mono text-sm p-4 min-h-[120px] focus:outline-none resize-y border-none"
+          className="w-full font-mono text-sm p-4 min-h-[120px] focus:outline-none resize-y border-none"
+          style={{ background: 'var(--code-bg)', color: 'var(--code-text)' }}
           spellCheck={false}
         />
       ) : (
@@ -153,7 +156,7 @@ export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, 
         </SyntaxHighlighter>
       )}
 
-      <div className="flex items-center gap-2.5 px-4 py-3 bg-slate-900/50 border-t border-slate-800">
+      <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: 'var(--bg-surface)', borderTop: '1px solid var(--border-default)' }}>
         <button
           onClick={() => onApprove(editing ? editedSQL : sqlCode, sqlCode)}
           disabled={loading}
@@ -168,14 +171,16 @@ export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, 
         <button
           onClick={() => { setEditing(!editing); setEditedSQL(sqlCode); }}
           aria-label={editing ? "Cancel editing SQL" : "Edit SQL"}
-          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm rounded-lg transition-colors duration-200 cursor-pointer"
+          className="px-4 py-2 text-sm rounded-lg transition-colors duration-200 cursor-pointer"
+          style={{ background: 'var(--bg-hover)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
         >
           {editing ? "Cancel Edit" : "Edit SQL"}
         </button>
         <button
           onClick={onReject}
           aria-label="Reject generated SQL"
-          className="px-4 py-2 text-slate-500 hover:text-red-400 text-sm rounded-lg transition-colors duration-200 cursor-pointer"
+          className="px-4 py-2 hover:text-red-400 text-sm rounded-lg transition-colors duration-200 cursor-pointer"
+          style={{ color: 'var(--text-muted)' }}
         >
           Reject
         </button>

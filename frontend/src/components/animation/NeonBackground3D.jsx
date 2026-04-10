@@ -2,6 +2,7 @@ import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float } from '@react-three/drei';
 import * as THREE from 'three';
+import { useStore } from '../../store';
 
 // Neon Tron Materials
 const neonCyanMaterial = new THREE.MeshBasicMaterial({
@@ -175,9 +176,12 @@ const Scene = () => {
 };
 
 export default function NeonBackground3D({ className = "" }) {
+  const resolvedTheme = useStore(s => s.resolvedTheme);
+  const isLight = resolvedTheme === 'light';
+
   return (
-    <div className={`absolute inset-0 pointer-events-none ${className}`} aria-hidden="true" style={{ zIndex: 0 }}>
-      <div className="absolute inset-0 bg-[#020208]" /> {/* Deep dark base */}
+    <div className={`absolute inset-0 pointer-events-none ${className}`} aria-hidden="true" style={{ zIndex: 0, opacity: isLight ? 0.3 : 1 }}>
+      <div className={`absolute inset-0 ${isLight ? 'bg-slate-50' : 'bg-[#020208]'}`} />
       <Canvas
         camera={{ position: [0, 2, 20], fov: 45 }}
         dpr={[1, 1.5]}

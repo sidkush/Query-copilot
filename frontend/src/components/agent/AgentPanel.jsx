@@ -105,6 +105,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
 
   const [showHistory, setShowHistory] = useState(false);
   const [historyList, setHistoryList] = useState([]);
+  const [inputFocused, setInputFocused] = useState(false);
 
   // Initialize dock from saved/default on mount + load history + abort SSE on unmount
   useEffect(() => {
@@ -138,10 +139,13 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
     prevLoadingRef.current = agentLoading;
   }, [agentLoading, agentSteps.length, saveAgentHistory]);
 
-  // Refresh history list when panel toggles to history view
+  // Refresh history list when panel toggles to history view (now async — server-side)
   useEffect(() => {
     if (showHistory) {
-      setHistoryList(getAgentHistoryList());
+      (async () => {
+        const list = await getAgentHistoryList();
+        setHistoryList(list);
+      })();
     }
   }, [showHistory, getAgentHistoryList]);
 
@@ -301,15 +305,62 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         addAgentStep(step);
         useStore.getState().clearAgentWaiting();
         setAgentLoading(false);
-      } else if (step.final_answer || step.sql || step.type === "result") {
+      } else if (step.final_answer || step.type === "result") {
+        // ONLY treat as final result when explicitly marked — NOT for any step with sql field.
+        // Tool calls with sql (create_dashboard_tile, etc.) must flow to the else branch
+        // so HIDDEN_TOOLS in AgentStepFeed can filter them properly.
         addAgentStep({ type: "result", content: step.final_answer || step.content, sql: step.sql });
         setAgentLoading(false);
+        // Reload dashboard after agent finishes (covers all tile modifications)
+        const dashId = useStore.getState().activeDashboardId;
+        if (dashId) api.getDashboard(dashId).then(fresh => {
+          if (fresh) window.dispatchEvent(new CustomEvent('dashboard-reload', { detail: { dashboard: fresh } }));
+        }).catch(() => {});
       } else {
         addAgentStep(step);
       }
     }, { persona: agentPersona, permissionMode: agentPermissionMode });
     streamRef.current = stream;
   }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, clearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode]);
+
+  // ── Quick action — same as handleSubmit but accepts text directly ──
+  const handleQuickAction = useCallback((text) => {
+    if (!text || agentLoading || agentWaiting) return;
+    // Save current conversation before starting new one
+    if (agentSteps.length > 0) saveAgentHistory();
+    clearAgent();
+    setAgentLoading(true);
+    setShowHistory(false);
+    setInput("");
+
+    addAgentStep({ type: "user_query", content: text });
+
+    if (streamRef.current?.close) streamRef.current.close();
+
+    const chatIdForRun = null;
+
+    const stream = api.agentRun(text, connId, chatIdForRun, (step) => {
+      if (step.chat_id) setAgentChatId(step.chat_id);
+
+      if (step.type === "ask_user") {
+        setAgentWaiting(step.content, step.tool_input || step.options);
+      } else if (step.type === "error") {
+        addAgentStep(step);
+        useStore.getState().clearAgentWaiting();
+        setAgentLoading(false);
+      } else if (step.final_answer || step.type === "result") {
+        addAgentStep({ type: "result", content: step.final_answer || step.content, sql: step.sql });
+        setAgentLoading(false);
+        const dashId = useStore.getState().activeDashboardId;
+        if (dashId) api.getDashboard(dashId).then(fresh => {
+          if (fresh) window.dispatchEvent(new CustomEvent('dashboard-reload', { detail: { dashboard: fresh } }));
+        }).catch(() => {});
+      } else {
+        addAgentStep(step);
+      }
+    }, { persona: agentPersona, permissionMode: agentPermissionMode });
+    streamRef.current = stream;
+  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, clearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode]);
 
   // Close handler — save history + abort stream + clear waiting + toggle panel off
   const handleClose = useCallback(() => {
@@ -431,17 +482,17 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       <div
         onMouseDown={onDragStart}
         style={{
-          display: "flex", alignItems: "center", gap: "8px",
-          padding: "8px 12px", background: TOKENS.bg.surface,
+          display: "flex", alignItems: "center", gap: "6px",
+          padding: "6px 10px", background: TOKENS.bg.surface,
           borderBottom: `1px solid ${TOKENS.border.default}`,
           cursor: dock === "float" ? "grab" : "default",
           userSelect: "none", flexShrink: 0,
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={TOKENS.accent} strokeWidth="2">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={TOKENS.accent} strokeWidth="2">
           <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
         </svg>
-        <span style={{ fontSize: "13px", fontWeight: 600, color: TOKENS.text.primary }}>
+        <span style={{ fontSize: "12px", fontWeight: 600, color: TOKENS.text.primary }}>
           Agent
         </span>
 
@@ -449,22 +500,22 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         <span style={{ flex: 1 }} />
 
         {/* Primary controls — always visible */}
-        <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "3px", flexShrink: 0 }}>
           {/* History toggle */}
           <button
             onClick={() => setShowHistory(!showHistory)}
             title={showHistory ? "Back to chat" : "Chat history"}
             aria-pressed={showHistory}
             style={{
-              width: 26, height: 26, borderRadius: "4px",
+              width: 24, height: 24, borderRadius: "4px",
               border: showHistory ? `1px solid ${TOKENS.accent}` : `1px solid ${TOKENS.border.default}`,
               background: showHistory ? TOKENS.accentGlow : "transparent",
               color: showHistory ? TOKENS.accent : TOKENS.text.muted,
-              fontSize: "11px", cursor: "pointer", display: "flex",
+              fontSize: "10px", cursor: "pointer", display: "flex",
               alignItems: "center", justifyContent: "center",
             }}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </button>
@@ -476,17 +527,17 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
             title="Analyst persona"
             aria-label="Analyst persona"
             style={{
-              height: 26, borderRadius: "4px", fontSize: "10px", maxWidth: "70px",
+              height: 24, borderRadius: "4px", fontSize: "9px", maxWidth: "62px",
               border: `1px solid ${agentPersona ? TOKENS.accent : TOKENS.border.default}`,
               background: agentPersona ? TOKENS.accentGlow : "transparent",
               color: agentPersona ? TOKENS.accent : TOKENS.text.muted,
               cursor: "pointer", padding: "0 2px", outline: "none",
             }}
           >
-            <option value="" style={{ background: "#1a1a1e" }}>Mode</option>
-            <option value="explorer" style={{ background: "#1a1a1e" }}>Explorer</option>
-            <option value="auditor" style={{ background: "#1a1a1e" }}>Auditor</option>
-            <option value="storyteller" style={{ background: "#1a1a1e" }}>Storyteller</option>
+            <option value="" style={{ background: "var(--bg-elevated)" }}>Mode</option>
+            <option value="explorer" style={{ background: "var(--bg-elevated)" }}>Explorer</option>
+            <option value="auditor" style={{ background: "var(--bg-elevated)" }}>Auditor</option>
+            <option value="storyteller" style={{ background: "var(--bg-elevated)" }}>Storyteller</option>
           </select>
 
           {/* Permission mode toggle */}
@@ -495,17 +546,17 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
             title={agentPermissionMode === "supervised" ? "Supervised mode — asks before dashboard changes" : "Autonomous mode — creates freely, still asks before modify/delete"}
             aria-label={`Permission: ${agentPermissionMode}`}
             style={{
-              height: 26, borderRadius: "4px", fontSize: "10px", padding: "0 5px",
+              height: 24, borderRadius: "4px", fontSize: "9px", padding: "0 4px",
               border: `1px solid ${agentPermissionMode === "autonomous" ? "#f59e0b" : TOKENS.border.default}`,
               background: agentPermissionMode === "autonomous" ? "rgba(245,158,11,0.1)" : "transparent",
               color: agentPermissionMode === "autonomous" ? "#f59e0b" : TOKENS.text.muted,
-              cursor: "pointer", display: "flex", alignItems: "center", gap: "3px",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: "2px",
             }}
           >
             {agentPermissionMode === "supervised" ? (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
             ) : (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 019.9-1" /></svg>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 019.9-1" /></svg>
             )}
             {agentPermissionMode === "supervised" ? "Safe" : "Auto"}
           </button>
@@ -521,10 +572,10 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
             title="New conversation"
             aria-label="New conversation"
             style={{
-              width: 26, height: 26, borderRadius: "4px",
+              width: 24, height: 24, borderRadius: "4px",
               border: `1px solid ${TOKENS.border.default}`,
               background: "transparent", color: TOKENS.text.muted,
-              fontSize: "14px", cursor: "pointer", display: "flex",
+              fontSize: "13px", cursor: "pointer", display: "flex",
               alignItems: "center", justifyContent: "center",
             }}
           >
@@ -533,7 +584,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         </div>
 
         {/* Secondary controls — dock, minimize, close */}
-        <div style={{ display: "flex", alignItems: "center", gap: "3px", flexShrink: 0, marginLeft: "4px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0, marginLeft: "3px" }}>
           {/* Dock buttons */}
           {DOCK_POSITIONS.map((d) => (
             <button
@@ -543,11 +594,11 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
               aria-pressed={dock === d}
               aria-label={`Dock ${d}`}
               style={{
-                width: 22, height: 22, borderRadius: "4px",
+                width: 20, height: 20, borderRadius: "3px",
                 border: dock === d ? `1px solid ${TOKENS.accent}` : `1px solid ${TOKENS.border.default}`,
                 background: dock === d ? TOKENS.accentGlow : "transparent",
                 color: dock === d ? TOKENS.accent : TOKENS.text.muted,
-                fontSize: "9px", cursor: "pointer", display: "flex",
+                fontSize: "8px", cursor: "pointer", display: "flex",
                 alignItems: "center", justifyContent: "center",
               }}
             >
@@ -562,14 +613,41 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
               aria-expanded={!minimized}
               aria-label={minimized ? "Expand panel" : "Minimize panel"}
               style={{
-                width: 22, height: 22, borderRadius: "4px",
+                width: 20, height: 20, borderRadius: "3px",
                 border: `1px solid ${TOKENS.border.default}`,
                 background: "transparent", color: TOKENS.text.muted,
-                fontSize: "14px", cursor: "pointer", display: "flex",
+                fontSize: "13px", cursor: "pointer", display: "flex",
                 alignItems: "center", justifyContent: "center",
               }}
             >
               {minimized ? "+" : "\u2013"}
+            </button>
+          )}
+
+          {/* Cancel */}
+          {agentLoading && agentChatId && (
+            <button
+              onClick={async () => {
+                try {
+                  await api.agentCancel(agentChatId);
+                } catch (e) { /* ignore - best effort */ }
+                if (streamRef.current?.close) streamRef.current.close();
+                setAgentLoading(false);
+                useStore.getState().clearAgentWaiting();
+              }}
+              style={{
+                background: '#ef4444',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                padding: '4px 12px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginRight: 8,
+              }}
+            >
+              Cancel
             </button>
           )}
 
@@ -578,10 +656,10 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
             onClick={handleClose}
             aria-label="Close agent panel"
             style={{
-              width: 22, height: 22, borderRadius: "4px",
+              width: 20, height: 20, borderRadius: "3px",
               border: `1px solid ${TOKENS.border.default}`,
               background: "transparent", color: TOKENS.text.muted,
-              fontSize: "14px", cursor: "pointer", display: "flex",
+              fontSize: "13px", cursor: "pointer", display: "flex",
               alignItems: "center", justifyContent: "center",
             }}
           >
@@ -616,8 +694,8 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
                     background: item.chatId === agentChatId ? TOKENS.accentGlow : TOKENS.bg.surface,
                     cursor: "pointer",
                   }}
-                  onClick={() => {
-                    loadAgentHistory(item.chatId);
+                  onClick={async () => {
+                    await loadAgentHistory(item.chatId);
                     setShowHistory(false);
                   }}
                 >
@@ -630,13 +708,56 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
                     </div>
                     <div style={{ fontSize: "10px", color: TOKENS.text.muted, marginTop: "2px" }}>
                       {item.stepCount} steps · {item.updatedAt > 0 ? new Date(item.updatedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "Unknown"}
+                      {item.hasPending && (
+                        <span style={{ color: "#f59e0b", marginLeft: "6px" }}>
+                          (has pending tasks)
+                        </span>
+                      )}
                     </div>
                   </div>
+                  {/* Continue button for sessions with pending tasks */}
+                  {item.hasPending && (
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await loadAgentHistory(item.chatId);
+                        setShowHistory(false);
+                        // Trigger continue via SSE
+                        if (streamRef.current?.close) streamRef.current.close();
+                        setAgentLoading(true);
+                        addAgentStep({ type: "thinking", content: "Resuming previous task..." });
+                        const { api } = await import("../../api");
+                        const stream = api.agentContinue(item.chatId, connId, (step) => {
+                          if (step.chat_id) setAgentChatId(step.chat_id);
+                          if (step.type === "error") {
+                            addAgentStep(step);
+                            useStore.getState().clearAgentWaiting();
+                            setAgentLoading(false);
+                          } else if (step.final_answer || step.sql || step.type === "result") {
+                            addAgentStep({ type: "result", content: step.final_answer || step.content, sql: step.sql });
+                            setAgentLoading(false);
+                          } else {
+                            addAgentStep(step);
+                          }
+                        }, { persona: agentPersona, permissionMode: agentPermissionMode });
+                        streamRef.current = stream;
+                      }}
+                      title="Continue this task"
+                      aria-label="Continue task"
+                      style={{
+                        padding: "3px 8px", borderRadius: "3px", fontSize: "10px",
+                        border: `1px solid #f59e0b`, background: "rgba(245,158,11,0.1)",
+                        color: "#f59e0b", cursor: "pointer", flexShrink: 0, fontWeight: 600,
+                      }}
+                    >
+                      Continue
+                    </button>
+                  )}
                   <button
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
                       if (!confirm("Delete this conversation?")) return;
-                      deleteAgentHistory(item.chatId);
+                      await deleteAgentHistory(item.chatId);
                       setHistoryList((prev) => prev.filter((h) => h.chatId !== item.chatId));
                       if (item.chatId === agentChatId) {
                         clearAgent();
@@ -662,63 +783,82 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
             <AgentStepFeed />
           )}
 
-          {/* Footer input */}
-          <form
-            onSubmit={handleSubmit}
-            style={{
-              display: "flex", gap: "8px", padding: "10px 12px",
+          {/* Quick-action buttons after agent completes a result */}
+          {!agentLoading && !agentWaiting && agentSteps.length > 0 &&
+           agentSteps[agentSteps.length - 1]?.type === 'result' && !showHistory && (
+            <div style={{
+              display: 'flex', gap: 6, padding: '6px 12px',
               borderTop: `1px solid ${TOKENS.border.default}`,
-              background: TOKENS.bg.surface, flexShrink: 0,
-            }}
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={agentWaiting ? "Respond to the agent's question above..." : "Ask the agent..."}
-              disabled={agentLoading || !!agentWaiting}
-              style={{
-                flex: 1, padding: "7px 10px", fontSize: "12px",
-                borderRadius: TOKENS.radius.sm,
-                border: `1px solid ${TOKENS.border.default}`,
-                background: TOKENS.bg.base, color: TOKENS.text.primary,
-                outline: "none",
-              }}
-            />
-            <button
-              type="submit"
-              disabled={agentLoading || !!agentWaiting || !input.trim()}
-              style={{
-                padding: "7px 14px", fontSize: "12px", fontWeight: 500,
-                borderRadius: TOKENS.radius.sm,
-                background: TOKENS.accent, color: "#fff",
-                border: "none", cursor: agentLoading ? "wait" : "pointer",
-                opacity: agentLoading || !input.trim() ? 0.5 : 1,
-              }}
-            >
-              {agentLoading ? "..." : "Send"}
-            </button>
-            {agentLoading && (
-              <button
-                type="button"
-                onClick={() => {
+              flexWrap: 'wrap',
+            }}>
+              {['Continue', 'Tell me more', 'Add to dashboard'].map(label => (
+                <button key={label} onClick={() => handleQuickAction(label)}
+                  style={{
+                    fontSize: 11, padding: '4px 12px', borderRadius: '20px',
+                    border: `1px solid ${TOKENS.border.default}`,
+                    background: 'transparent', color: TOKENS.text.secondary,
+                    cursor: 'pointer', transition: TOKENS.transition,
+                  }}
+                  onMouseEnter={e => { e.target.style.borderColor = TOKENS.accent; e.target.style.color = TOKENS.accentLight; }}
+                  onMouseLeave={e => { e.target.style.borderColor = TOKENS.border.default; e.target.style.color = TOKENS.text.secondary; }}
+                >{label}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Footer input */}
+          <form onSubmit={handleSubmit} style={{ padding: '8px 12px', borderTop: `1px solid ${TOKENS.border.default}`, flexShrink: 0 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '4px 4px 4px 14px',
+              borderRadius: '24px',
+              background: TOKENS.bg.base,
+              border: `1px solid ${inputFocused ? TOKENS.accent : TOKENS.border.default}`,
+              transition: TOKENS.transition,
+            }}>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                placeholder={agentWaiting ? "Respond to the agent..." : "Ask the agent..."}
+                disabled={agentLoading || !!agentWaiting}
+                style={{
+                  flex: 1, border: 'none', outline: 'none',
+                  background: 'transparent', color: TOKENS.text.primary,
+                  fontSize: '13px', padding: '6px 0',
+                }}
+              />
+              {agentLoading ? (
+                <button type="button" onClick={() => {
                   if (streamRef.current?.close) streamRef.current.close();
                   setAgentLoading(false);
                   useStore.getState().clearAgentWaiting();
-                }}
-                title="Cancel agent run"
-                aria-label="Cancel"
-                style={{
-                  padding: "7px 10px", fontSize: "12px",
-                  borderRadius: TOKENS.radius.sm,
-                  background: "transparent", color: TOKENS.text.muted,
-                  border: `1px solid ${TOKENS.border.default}`,
-                  cursor: "pointer",
-                }}
-              >
-                Stop
-              </button>
-            )}
+                }} title="Stop agent" aria-label="Stop" style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: TOKENS.danger || '#ef4444', border: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', flexShrink: 0,
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                </button>
+              ) : (
+                <button type="submit" disabled={!input.trim() || !!agentWaiting} style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: input.trim() && !agentWaiting ? TOKENS.accent : TOKENS.bg.surface,
+                  border: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: input.trim() && !agentWaiting ? 'pointer' : 'default',
+                  flexShrink: 0, transition: TOKENS.transition,
+                  opacity: input.trim() && !agentWaiting ? 1 : 0.4,
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                </button>
+              )}
+            </div>
           </form>
 
           {/* Resize handle (float only) */}

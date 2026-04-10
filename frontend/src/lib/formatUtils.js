@@ -9,9 +9,9 @@ export const FORMATTING_DEFAULTS = {
   typography: {
     titleFontSize: 13,
     titleFontWeight: 600,
-    titleColor: '#EDEDEF',
+    titleColor: 'var(--text-primary)',
     subtitleFontSize: 11,
-    subtitleColor: '#8A8F98',
+    subtitleColor: 'var(--text-secondary)',
     titleAlign: 'left',
     axisFontSize: 11,
   },
@@ -28,11 +28,11 @@ export const FORMATTING_DEFAULTS = {
     show: true,
     position: 'bottom',
     fontSize: 11,
-    color: '#9ca3af',
+    color: 'var(--text-muted)',
   },
   grid: {
     show: true,
-    color: '#162032',
+    color: 'var(--chart-grid)',
     style: 'dashed',
     vertical: false,
   },
@@ -51,13 +51,17 @@ export const FORMATTING_DEFAULTS = {
   sort: {
     field: null,
     order: 'desc',
+    customOrder: [],
+    limit: null,
   },
   colors: {
     mode: 'inherit',
     palette: null,
     measureColors: {},
+    categoryColors: {},
     rules: [],
   },
+  seriesTypes: {},  // Per-measure chart type: { "revenue": "line", "count": "bar" }
   style: {
     background: null,
     borderColor: null,
@@ -183,6 +187,8 @@ export function mergeFormatting(visualConfig, themeConfig) {
     sort: {
       field: ev('sort.field'),
       order: ev('sort.order'),
+      customOrder: pickArray(vc.sort?.customOrder, tc.sort?.customOrder, []),
+      limit: ev('sort.limit'),
     },
     colors: {
       mode: ev('colors.mode'),
@@ -192,12 +198,18 @@ export function mergeFormatting(visualConfig, themeConfig) {
         tc.colors?.measureColors,
         {},
       ),
+      categoryColors: pickObject(
+        vc.colors?.categoryColors,
+        tc.colors?.categoryColors,
+        {},
+      ),
       rules: pickArray(
         vc.colors?.rules,
         tc.colors?.rules,
         [],
       ),
     },
+    seriesTypes: pickObject(vc.seriesTypes, tc.seriesTypes, {}),
     style: {
       background: ev('style.background'),
       borderColor: ev('style.borderColor'),
@@ -257,6 +269,22 @@ export function resolveColor(measure, dataValue, measureIndex, colorsConfig, das
   // 5. Fallback to default palette
   const fallback = CHART_PALETTES.default;
   return fallback[measureIndex % fallback.length];
+}
+
+/**
+ * Resolve color for a category value (e.g., "casual", "electric_bike").
+ * Checks categoryColors first, then falls back to palette by index.
+ */
+export function resolveCategoryColor(categoryValue, categoryIndex, colorsConfig, dashboardPalette) {
+  const cfg = colorsConfig || {};
+  if (cfg.categoryColors && cfg.categoryColors[String(categoryValue)]) {
+    return cfg.categoryColors[String(categoryValue)];
+  }
+  // Fall back to palette by index
+  const pal = (cfg.palette && CHART_PALETTES[cfg.palette])
+    || (dashboardPalette && CHART_PALETTES[dashboardPalette])
+    || CHART_PALETTES.default;
+  return pal[categoryIndex % pal.length];
 }
 
 /**

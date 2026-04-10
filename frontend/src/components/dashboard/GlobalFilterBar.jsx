@@ -70,8 +70,33 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
   const [allColumns, setAllColumns] = useState([]);
   const [colSearch, setColSearch] = useState('');
   const [loadingCols, setLoadingCols] = useState(false);
-  const [newFilter, setNewFilter] = useState({ column: '', operator: '=', value: '' });
+  const [newFilter, setNewFilter] = useState({ column: '', operator: '=', value: '', tileIds: [] });
+  const [editingFilterIdx, setEditingFilterIdx] = useState(null); // index of filter being edited, or null for new
   const pickerRef = useRef(null);
+
+  // Sync local state when globalFilters prop changes (e.g., dashboard load, bookmark restore)
+  useEffect(() => {
+    setDateColumn(globalFilters?.dateColumn || '');
+    setRange(globalFilters?.range || 'all_time');
+    setDateStart(globalFilters?.dateStart || '');
+    setDateEnd(globalFilters?.dateEnd || '');
+    setFields(globalFilters?.fields || []);
+    setDirty(false);
+  }, [globalFilters]);
+
+  // All tiles in dashboard for scope selection
+  const allTiles = (() => {
+    if (!dashboard?.tabs) return [];
+    const tiles = [];
+    for (const tab of dashboard.tabs) {
+      for (const sec of tab.sections || []) {
+        for (const tile of sec.tiles || []) {
+          tiles.push({ id: tile.id, title: tile.title || tile.id });
+        }
+      }
+    }
+    return tiles;
+  })();
 
   // Auto-detect date columns from dashboard tiles
   const detectedDateCols = dashboard ? detectDateColumns(dashboard) : [];
@@ -108,39 +133,49 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
     const handle = (e) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target)) {
         setShowFieldPicker(false);
+        setEditingFilterIdx(null);
       }
     };
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, [showFieldPicker]);
 
-  // Cleanup applyTimer on unmount
-  useEffect(() => () => { if (applyTimer.current) clearTimeout(applyTimer.current); }, []);
-
   const filteredCols = allColumns.filter(c => c.toLowerCase().includes(colSearch.toLowerCase()));
 
-  const applyTimer = useRef(null);
-
-  const debouncedApply = (newState) => {
-    if (applyTimer.current) clearTimeout(applyTimer.current);
-    applyTimer.current = setTimeout(() => {
-      onChange(newState);
-    }, 500);
-  };
+  // Track whether local state has unapplied changes
+  const [dirty, setDirty] = useState(false);
 
   const addField = () => {
     if (!newFilter.column || !newFilter.value) return;
-    const updatedFields = [...fields, { ...newFilter }];
-    setFields(updatedFields);
-    setNewFilter({ column: '', operator: '=', value: '' });
+    const filter = { column: newFilter.column, operator: newFilter.operator, value: newFilter.value };
+    if (newFilter.tileIds.length > 0 && newFilter.tileIds.length < allTiles.length) {
+      filter.tileIds = newFilter.tileIds;
+    }
+    if (editingFilterIdx !== null) {
+      // Update existing filter
+      setFields(prev => prev.map((f, i) => i === editingFilterIdx ? filter : f));
+    } else {
+      // Add new filter
+      setFields(prev => [...prev, filter]);
+    }
+    setNewFilter({ column: '', operator: '=', value: '', tileIds: [] });
+    setEditingFilterIdx(null);
     setShowFieldPicker(false);
-    debouncedApply({ dateColumn, range, dateStart, dateEnd, fields: updatedFields });
+    setDirty(true);
   };
 
   const removeField = (idx) => {
     const updatedFields = fields.filter((_, i) => i !== idx);
     setFields(updatedFields);
-    debouncedApply({ dateColumn, range, dateStart, dateEnd, fields: updatedFields });
+    // Apply immediately — removing a filter should take effect right away,
+    // not require a separate "Apply Filters" click.
+    onChange({ dateColumn, range, dateStart, dateEnd, fields: updatedFields });
+    setDirty(false);
+  };
+
+  const applyFilters = () => {
+    onChange({ dateColumn, range, dateStart, dateEnd, fields });
+    setDirty(false);
   };
 
   const hasActiveFilters = dateColumn || fields.length > 0;
@@ -172,7 +207,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
             <select
               style={{ ...inputStyle, width: 150, paddingRight: 28, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
               value={dateColumn}
-              onChange={e => { const v = e.target.value; setDateColumn(v); debouncedApply({ dateColumn: v, range, dateStart, dateEnd, fields }); }}
+              onChange={e => { setDateColumn(e.target.value); setDirty(true); }}
             >
               <option value="">Select date column…</option>
               {detectedDateCols.map(c => <option key={c} value={c}>{c}</option>)}
@@ -182,7 +217,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
               style={{ ...inputStyle, width: 130 }}
               placeholder="Date column…"
               value={dateColumn}
-              onChange={e => { const v = e.target.value; setDateColumn(v); debouncedApply({ dateColumn: v, range, dateStart, dateEnd, fields }); }}
+              onChange={e => { setDateColumn(e.target.value); setDirty(true); }}
               onFocus={e => { e.target.style.borderColor = TOKENS.accent; }}
               onBlur={e => { e.target.style.borderColor = TOKENS.border.default; }}
               list="date-col-list"
@@ -206,7 +241,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
           <select
             style={{ ...inputStyle, paddingRight: 28, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
             value={range}
-            onChange={e => { const v = e.target.value; setRange(v); debouncedApply({ dateColumn, range: v, dateStart, dateEnd, fields }); }}
+            onChange={e => { setRange(e.target.value); setDirty(true); }}
           >
             {RANGES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
           </select>
@@ -220,28 +255,41 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
         {range === 'custom' && (
           <>
             <input type="date" style={{ ...inputStyle, colorScheme: 'dark' }}
-              value={dateStart} onChange={e => { const v = e.target.value; setDateStart(v); debouncedApply({ dateColumn, range, dateStart: v, dateEnd, fields }); }} />
+              value={dateStart} onChange={e => { setDateStart(e.target.value); setDirty(true); }} />
             <span style={{ color: TOKENS.text.muted, fontSize: 12 }}>to</span>
             <input type="date" style={{ ...inputStyle, colorScheme: 'dark' }}
-              value={dateEnd} onChange={e => { const v = e.target.value; setDateEnd(v); debouncedApply({ dateColumn, range, dateStart, dateEnd: v, fields }); }} />
+              value={dateEnd} onChange={e => { setDateEnd(e.target.value); setDirty(true); }} />
           </>
         )}
 
-        {/* Active field filter chips */}
+        {/* Active field filter chips — click to edit */}
         {fields.map((f, i) => (
-          <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs flex-shrink-0"
-            style={{ background: TOKENS.accentGlow, border: `1px solid ${TOKENS.accent}30`, color: TOKENS.text.primary }}>
+          <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs flex-shrink-0 cursor-pointer"
+            style={{ background: TOKENS.accentGlow, border: `1px solid ${TOKENS.accent}30`, color: TOKENS.text.primary }}
+            onClick={() => {
+              // Load filter back into edit state
+              setNewFilter({ column: f.column, operator: f.operator, value: f.value, tileIds: f.tileIds || [] });
+              setColSearch(f.column);
+              setEditingFilterIdx(i);
+              setShowFieldPicker(true);
+            }}>
             <span style={{ color: TOKENS.accentLight }}>{f.column}</span>
             <span style={{ color: TOKENS.text.muted }}>{f.operator}</span>
             <span>{f.value}</span>
-            <button onClick={() => removeField(i)} style={{ color: TOKENS.text.muted, marginLeft: 2, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            {f.tileIds && f.tileIds.length > 0 && (
+              <span style={{ color: TOKENS.text.muted, fontSize: 10, marginLeft: 2 }}
+                title={f.tileIds.map(tid => allTiles.find(t => t.id === tid)?.title || tid).join(', ')}>
+                ({f.tileIds.length} tiles)
+              </span>
+            )}
+            <button onClick={(e) => { e.stopPropagation(); removeField(i); }} style={{ color: TOKENS.text.muted, marginLeft: 2, cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
         ))}
 
         {/* Add filter button + popover */}
         <div className="relative flex-shrink-0" ref={pickerRef}>
           <button
-            onClick={() => setShowFieldPicker(o => !o)}
+            onClick={() => { setShowFieldPicker(o => !o); setEditingFilterIdx(null); setNewFilter({ column: '', operator: '=', value: '', tileIds: [] }); setColSearch(''); }}
             className="flex items-center gap-1.5 px-3 py-1 rounded-lg cursor-pointer text-xs"
             style={{
               background: showFieldPicker ? TOKENS.accentGlow : TOKENS.bg.elevated,
@@ -264,7 +312,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                 boxShadow: '0 16px 40px rgba(0,0,0,0.6)',
               }}>
               <p className="text-[11px] font-semibold uppercase tracking-wider mb-2"
-                style={{ color: TOKENS.text.muted }}>Add Field Filter</p>
+                style={{ color: TOKENS.text.muted }}>{editingFilterIdx !== null ? 'Edit Filter' : 'Add Field Filter'}</p>
 
               {/* Column search */}
               <input
@@ -315,6 +363,42 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                 />
               </div>
 
+              {/* Tile scope selector */}
+              {allTiles.length > 1 && (
+                <div style={{ marginBottom: 8 }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1"
+                    style={{ color: TOKENS.text.muted }}>Apply to tiles</p>
+                  <div style={{ maxHeight: 100, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {allTiles.map(t => (
+                      <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: TOKENS.text.secondary, cursor: 'pointer' }}>
+                        <input type="checkbox"
+                          checked={newFilter.tileIds.length === 0 || newFilter.tileIds.includes(t.id)}
+                          onChange={(e) => {
+                            setNewFilter(f => {
+                              if (f.tileIds.length === 0) {
+                                // "All" → uncheck one = select all others
+                                return { ...f, tileIds: allTiles.filter(x => x.id !== t.id).map(x => x.id) };
+                              }
+                              if (e.target.checked) {
+                                const next = [...f.tileIds, t.id];
+                                // If all selected, reset to empty (= all)
+                                return { ...f, tileIds: next.length >= allTiles.length ? [] : next };
+                              }
+                              return { ...f, tileIds: f.tileIds.filter(id => id !== t.id) };
+                            });
+                          }}
+                          style={{ accentColor: TOKENS.accent, width: 12, height: 12 }}
+                        />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: 9, color: TOKENS.text.muted }}>
+                    {newFilter.tileIds.length === 0 ? 'All tiles' : `${newFilter.tileIds.length} of ${allTiles.length} tiles`}
+                  </span>
+                </div>
+              )}
+
               <button
                 onClick={addField}
                 disabled={!newFilter.column || !newFilter.value}
@@ -330,19 +414,39 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                   cursor: (!newFilter.column || !newFilter.value) ? 'not-allowed' : 'pointer',
                   transition: `all ${TOKENS.transition}`,
                 }}>
-                Add Filter
+                {editingFilterIdx !== null ? 'Update Filter' : 'Add Filter'}
               </button>
             </div>
           )}
         </div>
 
-        {/* Filters auto-apply on change — no Apply button needed */}
         <div className="flex-1" />
+
+        {/* Apply button — visible when filters have unapplied changes */}
+        {dirty && (
+          <button
+            onClick={applyFilters}
+            style={{
+              background: TOKENS.accent,
+              color: '#fff',
+              border: 'none',
+              borderRadius: TOKENS.radius.md,
+              padding: '5px 16px',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              flexShrink: 0,
+              transition: `all ${TOKENS.transition}`,
+            }}>
+            Apply Filters
+          </button>
+        )}
 
         {hasActiveFilters && (
           <button
             onClick={() => {
               setDateColumn(''); setRange('all_time'); setDateStart(''); setDateEnd(''); setFields([]);
+              setDirty(false);
               onChange({ dateColumn: '', range: 'all_time', dateStart: '', dateEnd: '', fields: [] });
             }}
             style={{

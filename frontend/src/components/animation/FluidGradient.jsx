@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { useStore } from '../../store';
 
 export default function FluidGradient() {
   const canvasRef = useRef(null);
+  const resolvedTheme = useStore(s => s.resolvedTheme);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -9,6 +11,7 @@ export default function FluidGradient() {
     const ctx = canvas.getContext('2d');
     let animationFrameId;
     let time = 0;
+    const isLight = resolvedTheme === 'light';
 
     const resize = () => {
       canvas.width = window.innerWidth;
@@ -23,7 +26,7 @@ export default function FluidGradient() {
       const w = canvas.width;
       const h = canvas.height;
 
-      ctx.fillStyle = '#000000';
+      ctx.fillStyle = isLight ? '#F8F9FB' : '#000000';
       ctx.fillRect(0, 0, w, h);
 
       // Create a large, subtle moving orb
@@ -32,9 +35,9 @@ export default function FluidGradient() {
       const radius = Math.max(w, h) * 0.8;
 
       const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.04)');
-      gradient.addColorStop(0.5, 'rgba(37, 99, 235, 0.015)');
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      gradient.addColorStop(0, isLight ? 'rgba(99, 102, 241, 0.03)' : 'rgba(255, 255, 255, 0.04)');
+      gradient.addColorStop(0.5, isLight ? 'rgba(37, 99, 235, 0.01)' : 'rgba(37, 99, 235, 0.015)');
+      gradient.addColorStop(1, isLight ? 'rgba(248, 249, 251, 0)' : 'rgba(0, 0, 0, 0)');
 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, w, h);
@@ -43,8 +46,8 @@ export default function FluidGradient() {
       const cx2 = w * 0.3 + Math.cos(time * 1.2) * w * 0.3;
       const cy2 = h * 0.9 + Math.sin(time * 0.5) * h * 0.2;
       const gradient2 = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, radius * 0.9);
-      gradient2.addColorStop(0, 'rgba(125, 211, 252, 0.02)');
-      gradient2.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      gradient2.addColorStop(0, isLight ? 'rgba(99, 102, 241, 0.02)' : 'rgba(125, 211, 252, 0.02)');
+      gradient2.addColorStop(1, isLight ? 'rgba(248, 249, 251, 0)' : 'rgba(0, 0, 0, 0)');
 
       ctx.fillStyle = gradient2;
       ctx.fillRect(0, 0, w, h);
@@ -58,7 +61,7 @@ export default function FluidGradient() {
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, [resolvedTheme]);
 
   return (
     <canvas

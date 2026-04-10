@@ -6,14 +6,16 @@ import AnimatedCounter from "../components/animation/AnimatedCounter";
 import MotionButton from "../components/animation/MotionButton";
 import { adminApi } from "../api";
 
-const ALL_PLANS = ["free", "weekly", "monthly", "yearly", "pro", "enterprise"];
+const ALL_PLANS = ["free", "pro", "team"];
 
 const PLAN_COLORS = {
   free: "bg-gray-500/20 text-gray-400 border-gray-600",
+  pro: "bg-indigo-500/20 text-indigo-400 border-indigo-600",
+  team: "bg-cyan-500/20 text-cyan-400 border-cyan-600",
+  // Legacy plans (display-only for existing users)
   weekly: "bg-sky-500/20 text-sky-400 border-sky-600",
   monthly: "bg-blue-500/20 text-blue-400 border-blue-600",
   yearly: "bg-teal-500/20 text-teal-400 border-teal-600",
-  pro: "bg-indigo-500/20 text-indigo-400 border-indigo-600",
   enterprise: "bg-amber-500/20 text-amber-400 border-amber-600",
 };
 
@@ -333,7 +335,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#06060e] text-white relative">
+    <div className="min-h-screen relative" style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}>
       <div className="fixed inset-0 mesh-gradient opacity-20 pointer-events-none" />
       {/* Admin Header */}
       <header className="glass-navbar sticky top-0 z-20">
@@ -345,7 +347,7 @@ export default function AdminDashboard() {
               </svg>
             </div>
             <div>
-              <h1 className="text-lg font-bold">DataLens Admin</h1>
+              <h1 className="text-lg font-bold">AskDB Admin</h1>
               <p className="text-xs text-gray-500">Logged in as {adminUser?.username || "admin"}</p>
             </div>
           </div>

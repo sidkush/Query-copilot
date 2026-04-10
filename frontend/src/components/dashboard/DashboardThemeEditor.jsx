@@ -80,7 +80,7 @@ export default function DashboardThemeEditor({ themeConfig = {}, onSave, onClose
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.60)',
+        background: 'var(--modal-overlay)',
         zIndex: 50,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}

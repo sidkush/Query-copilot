@@ -1,27 +1,32 @@
+/**
+ * Design tokens — single source of truth for dashboard styling.
+ * Values resolve to CSS custom properties defined in index.css,
+ * automatically adapting to light/dark theme.
+ */
 export const TOKENS = {
   bg: {
-    deep: '#050506',
-    base: '#0a0a0c',
-    elevated: '#111114',
-    surface: '#161619',
-    hover: '#1c1c20',
+    deep: 'var(--bg-page)',
+    base: 'var(--bg-base)',
+    elevated: 'var(--bg-elevated)',
+    surface: 'var(--bg-surface)',
+    hover: 'var(--bg-hover)',
   },
   border: {
-    default: 'rgba(255,255,255,0.06)',
-    hover: 'rgba(255,255,255,0.12)',
+    default: 'var(--border-default)',
+    hover: 'var(--border-hover)',
   },
   text: {
-    primary: '#EDEDEF',
-    secondary: '#8A8F98',
-    muted: '#5C5F66',
+    primary: 'var(--text-primary)',
+    secondary: 'var(--text-secondary)',
+    muted: 'var(--text-muted)',
   },
-  accent: '#2563EB',
-  accentLight: '#3B82F6',
-  accentGlow: 'rgba(37,99,235,0.15)',
+  accent: 'var(--accent)',
+  accentLight: 'var(--accent-light)',
+  accentGlow: 'var(--accent-glow)',
   brandPurple: '#A855F7',
-  success: '#22C55E',
-  warning: '#F59E0B',
-  danger: '#EF4444',
+  success: 'var(--status-success)',
+  warning: 'var(--status-warning)',
+  danger: 'var(--status-danger)',
   radius: { sm: '6px', md: '10px', lg: '14px', xl: '18px' },
   transition: '200ms cubic-bezier(0.16,1,0.3,1)',
 };

@@ -29,7 +29,7 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-[#06060e] flex items-center justify-center px-4 relative noise-overlay">
+    <div className="min-h-screen flex items-center justify-center px-4 relative noise-overlay" style={{ background: 'var(--bg-page)' }}>
       <GPUTierProvider>
         <_WebGLBound fallback={<AnimatedBackground />}>
           <Suspense fallback={<AnimatedBackground />}>

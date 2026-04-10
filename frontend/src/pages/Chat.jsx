@@ -12,6 +12,7 @@ class WebGLErrorBoundary extends Component {
   render() { return this.state.hasError ? this.props.fallback : this.props.children; }
 }
 const Background3D = lazy(() => import("../components/animation/Background3D"));
+import ReactMarkdown from "react-markdown";
 import SQLPreview from "../components/SQLPreview";
 import ResultsTable from "../components/ResultsTable";
 import ResultsChart from "../components/ResultsChart";
@@ -95,13 +96,15 @@ function relativeTime(dateStr) {
 
 
 
-function DashboardChips({ question, onGenerate }) {
+function DashboardChips({ question, onGenerate, schemaFocusOptions }) {
   const [focus, setFocus] = useState('');
   const [timeRange, setTimeRange] = useState('');
   const [audience, setAudience] = useState('');
   const [phase, setPhase] = useState('focus');
 
-  const focusOptions = ['Sales', 'Customers', 'Orders', 'Revenue', 'Products', 'Operations'];
+  const focusOptions = schemaFocusOptions && schemaFocusOptions.length > 0
+    ? schemaFocusOptions
+    : ['General Overview'];
   const timeOptions = ['Last 7 days', 'Last 30 days', 'This quarter', 'This year', 'All time'];
   const audienceOptions = ['Executive summary', 'Operational detail', 'Technical deep-dive'];
 
@@ -122,19 +125,19 @@ function DashboardChips({ question, onGenerate }) {
   const label = phase === 'focus' ? 'What area should this focus on?' : phase === 'time' ? 'What time range?' : "Who's the audience?";
 
   return (
-    <div className="bg-[#111114]/70 border border-white/[0.06] rounded-xl p-4">
+    <div className="border rounded-xl p-4" style={{ background: 'color-mix(in srgb, var(--bg-elevated) 70%, transparent)', borderColor: 'var(--border-default)' }}>
       <div className="flex items-center gap-2 mb-3">
         <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
         </svg>
-        <span className="text-sm font-medium text-white">{label}</span>
+        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{label}</span>
         {focus && <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">{focus}</span>}
         {timeRange && <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">{timeRange}</span>}
       </div>
       <div className="flex flex-wrap gap-2">
         {chips.map(chip => (
           <button key={chip} onClick={() => handleChip(chip)}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-white/[0.08] text-[#8A8F98] hover:border-blue-500/40 hover:text-blue-300 hover:bg-blue-500/10 transition-all duration-200 cursor-pointer">
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border text-[var(--text-secondary)] hover:border-blue-500/40 hover:text-blue-300 hover:bg-blue-500/10 transition-all duration-200 cursor-pointer" style={{ borderColor: 'var(--border-default)' }}>
             {chip}
           </button>
         ))}
@@ -206,6 +209,7 @@ export default function Chat() {
   const removeConnection = useStore((s) => s.removeConnection);
   const activeConnId = useStore((s) => s.activeConnId);
   const setActiveConnId = useStore((s) => s.setActiveConnId);
+  const turboStatus = useStore((s) => s.turboStatus);
   const chats = useStore((s) => s.chats);
   const setChats = useStore((s) => s.setChats);
   const activeChatId = useStore((s) => s.activeChatId);
@@ -317,6 +321,15 @@ export default function Chat() {
   // Resolve what conn_id to send to the API
   const resolvedConnId = activeConnId
     || (connections.length > 0 ? connections[0].conn_id : null);
+
+  // Fetch turbo status for active connection
+  const setTurboStatus = useStore((s) => s.setTurboStatus);
+  useEffect(() => {
+    if (!resolvedConnId) return;
+    api.getTurboStatus(resolvedConnId)
+      .then((status) => setTurboStatus(resolvedConnId, status))
+      .catch(() => {}); // turbo not available — ignore
+  }, [resolvedConnId, setTurboStatus]);
 
   // Fetch dynamic starter suggestions when connection changes
   useEffect(() => {
@@ -455,24 +468,18 @@ export default function Chat() {
               if (chatId) api.appendMessage(chatId, sqlMsg).catch(() => {});
             }
             if (step.final_answer) {
-              const ansMsg = { type: "assistant", content: step.final_answer };
+              const ansMsg = {
+                type: "assistant",
+                content: step.final_answer,
+                rowCount: step.rows?.length || 0,
+                chartSuggestion: step.chart_suggestion || null,
+              };
               addMessage(ansMsg);
               if (chatId) api.appendMessage(chatId, ansMsg).catch(() => {});
             }
-            if (step.columns && step.rows && step.rows.length > 0) {
-              const resMsg = {
-                type: "result",
-                question,
-                sql: step.sql,
-                columns: step.columns,
-                data: step.rows,
-                rowCount: step.rows.length,
-                summary: step.final_answer || "",
-                chartSuggestion: step.chart_suggestion,
-              };
-              addMessage(resMsg);
-              if (chatId) api.appendMessage(chatId, resMsg).catch(() => {});
-            }
+            // Note: No pre-execution "result" message here — chart + table
+            // only render after the user clicks Execute on the SQL preview.
+            // The handleApprove flow (line ~717) creates the real result message.
             resolve();
           }
 
@@ -520,8 +527,26 @@ export default function Chat() {
   };
 
   // ── Auto-dashboard generation ──
+  const [dashboardFocusOptions, setDashboardFocusOptions] = useState([]);
+
   const handleDashboardRequest = async (question) => {
-    // Phase 1: Show guided question chips
+    // Derive focus options from actual schema tables
+    let focusOpts = [];
+    if (resolvedConnId) {
+      try {
+        const profile = await api.getSchemaProfile(resolvedConnId);
+        if (profile?.tables?.length) {
+          focusOpts = profile.tables
+            .slice(0, 6)
+            .map(t => t.name
+              .replace(/[_-]/g, ' ')
+              .replace(/\b\w/g, c => c.toUpperCase())
+            );
+        }
+      } catch { /* schema unavailable — will fallback to General Overview */ }
+    }
+    setDashboardFocusOptions(focusOpts);
+
     const chipMsg = {
       type: "dashboard_chips",
       question,
@@ -546,8 +571,16 @@ export default function Chat() {
       }
 
       // Extract a dashboard name from the question
-      const m = question.match(/(?:create|build|make|generate|design)\s+(?:a\s+|me\s+a\s+)?(?:professional\s+)?(.+?)\s+dashboard/i);
-      const dashName = m ? m[1].trim().replace(/^(a|an|the|my)\s+/i, "") + " Dashboard" : "Analytics Dashboard";
+      // Priority 1: explicit "Name the dashboard '...'" or 'Name it "..."'
+      const nameMatch = question.match(/name\s+(?:the\s+dashboard|it|this)\s+[""'']([^""'']+)[""'']/i);
+      let dashName;
+      if (nameMatch) {
+        dashName = nameMatch[1].trim();
+      } else {
+        // Priority 2: infer from "create a <X> dashboard" pattern
+        const m = question.match(/(?:create|build|make|generate|design)\s+(?:a\s+|me\s+a\s+)?(?:professional\s+)?(.+?)\s+dashboard/i);
+        dashName = m ? m[1].trim().replace(/^(a|an|the|my)\s+/i, "") + " Dashboard" : "Analytics Dashboard";
+      }
 
       addMessage({ type: "system", content: `Saving dashboard "${dashName}"...` });
 
@@ -859,7 +892,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-1 h-full bg-black text-slate-200 font-sans selection:bg-indigo-500/30">
+    <div className="flex flex-1 h-full font-sans selection:bg-indigo-500/30" style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}>
       {/* Chat history sidebar */}
       <AnimatePresence>
       {showSidebar && (
@@ -868,11 +901,11 @@ export default function Chat() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: -288, opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="w-72 bg-[#0a0a0c] border-r border-white/[0.06] flex-shrink-0 flex flex-col overflow-hidden relative z-30 shadow-2xl">
-          <div className="p-3 border-b border-white/[0.06] space-y-2 flex-shrink-0">
+          className="w-72 flex-shrink-0 flex flex-col overflow-hidden relative z-30 shadow-2xl" style={{ background: 'var(--bg-base)', borderRight: '1px solid var(--border-default)' }}>
+          <div className="p-3 space-y-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-default)' }}>
             <button
               onClick={handleNewChat}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 text-white text-sm font-medium rounded-lg transition-all duration-300 cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 cursor-pointer" style={{ background: 'var(--overlay-subtle)', color: 'var(--text-primary)' }}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -880,7 +913,7 @@ export default function Chat() {
               New Chat
             </button>
             <div className="relative">
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#5C5F66] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
               </svg>
               <input
@@ -888,13 +921,13 @@ export default function Chat() {
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
                 placeholder="Search chats..."
-                className="w-full rounded-lg bg-white/5 pl-8 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all duration-200"
+                className="w-full rounded-lg pl-8 pr-3 py-2 text-xs placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all duration-200" style={{ background: 'var(--overlay-subtle)', color: 'var(--text-primary)' }}
               />
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {chats.length === 0 && (
-              <p className="text-xs text-[#5C5F66] text-center mt-4">No chat history yet</p>
+              <p className="text-xs text-[var(--text-muted)] text-center mt-4">No chat history yet</p>
             )}
             {chats.filter((chat) => {
               if (!historySearch.trim()) return true;
@@ -902,7 +935,7 @@ export default function Chat() {
               const title = (chat.title || "Untitled").toLowerCase();
               return title.includes(term);
             }).length === 0 && chats.length > 0 && historySearch.trim() && (
-              <p className="text-xs text-[#5C5F66] text-center mt-4">No matching chats</p>
+              <p className="text-xs text-[var(--text-muted)] text-center mt-4">No matching chats</p>
             )}
             {chats.filter((chat) => {
               if (!historySearch.trim()) return true;
@@ -920,7 +953,7 @@ export default function Chat() {
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   className={`relative flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
                     isActive
-                      ? "bg-white/10 border border-white/5"
+                      ? "bg-white/10 border border-[var(--border-default)]"
                       : "hover:bg-white/5 border border-transparent"
                   }`}
                   onClick={() => handleLoadChat(chat.chat_id)}
@@ -931,8 +964,8 @@ export default function Chat() {
                     <span className="text-sm flex-shrink-0">{DB_ICONS[chat.db_type]}</span>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-slate-300 truncate">{chat.title || "Untitled"}</p>
-                    <p className="text-[10px] text-[#5C5F66]">{relativeTime(chat.updated_at)}</p>
+                    <p className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{chat.title || "Untitled"}</p>
+                    <p className="text-[10px] text-[var(--text-muted)]">{relativeTime(chat.updated_at)}</p>
                   </div>
                   {isHovered && (
                     <button
@@ -940,7 +973,7 @@ export default function Chat() {
                         e.stopPropagation();
                         handleDeleteChat(chat.chat_id);
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10 text-[#5C5F66] hover:text-red-400 transition cursor-pointer"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10 text-[var(--text-muted)] hover:text-red-400 transition cursor-pointer"
                       aria-label="Delete chat"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -964,7 +997,7 @@ export default function Chat() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: -288, opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="w-72 bg-[#0a0a0c] border-r border-white/[0.06] flex-shrink-0"
+          className="w-72 flex-shrink-0" style={{ background: 'var(--bg-base)', borderRight: '1px solid var(--border-default)' }}
         >
           <SchemaExplorer />
         </motion.div>
@@ -989,18 +1022,26 @@ export default function Chat() {
               title="Toggle chat history"
               aria-label="Toggle chat history"
             >
-              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M4 12h16M4 17h10" />
               </svg>
             </button>
 
-            <h1 className="text-lg font-semibold text-white tracking-tight font-poppins">Data<span style={{ color: '#A855F7' }}>Lens</span></h1>
+            <h1 className="text-lg font-semibold tracking-tight font-poppins" style={{ color: 'var(--text-primary)' }}>Ask<span style={{ color: '#A855F7' }}>DB</span></h1>
 
             <DatabaseSwitcher
               connections={connections}
               activeConnId={activeConnId || connections[0]?.conn_id || null}
               onSwitch={setActiveConnId}
+              liveConnIds={liveConnIds}
             />
+            {/* Turbo Mode badge — shows when active connection has turbo enabled */}
+            {resolvedConnId && turboStatus[resolvedConnId]?.enabled && !turboStatus[resolvedConnId]?.syncing && (
+              <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-900/30 text-cyan-400 border border-cyan-700/40" title="DuckDB Turbo Mode active — queries may use local replica for <100ms speed">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
+                TURBO
+              </span>
+            )}
           </div>
           
           <div className="flex items-center gap-3">
@@ -1009,7 +1050,7 @@ export default function Chat() {
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition cursor-pointer ${
                 showER
                   ? "bg-blue-600 text-white"
-                  : "bg-slate-800 text-[#8A8F98] hover:text-white hover:bg-white/[0.07]"
+                  : "text-[var(--text-secondary)] hover:bg-white/[0.07]"
               }`}
               title="Toggle ER Diagram"
               aria-label="Toggle ER Diagram"
@@ -1023,7 +1064,7 @@ export default function Chat() {
             </button>
             <button
               onClick={() => { clearMessages(); setActiveChatId(null); }}
-              className="text-xs text-[#5C5F66] hover:text-[#8A8F98] transition cursor-pointer"
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition cursor-pointer"
             >
               Clear chat
             </button>
@@ -1044,17 +1085,17 @@ export default function Chat() {
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 relative z-10 pb-32">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <h2 className="text-2xl font-bold text-white mb-2">Your AI agent is ready</h2>
-              <p className="text-[#5C5F66] max-w-md">
+              <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Your AI agent is ready</h2>
+              <p className="max-w-md" style={{ color: 'var(--text-muted)' }}>
                 Describe what you need in plain English. The agent will find the right tables, write validated SQL, and suggest the best visualization — autonomously.
               </p>
               <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full">
                 {suggestionsLoading ? (
                   <>
                     {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="animate-pulse bg-white/[0.03] border border-white/[0.04] rounded-2xl px-5 py-4">
-                        <div className="h-3 bg-white/[0.06] rounded w-3/4 mb-2" />
-                        <div className="h-3 bg-white/[0.04] rounded w-1/2" />
+                      <div key={i} className="animate-pulse border rounded-2xl px-5 py-4" style={{ background: 'var(--overlay-faint)', borderColor: 'var(--border-default)' }}>
+                        <div className="h-3 rounded w-3/4 mb-2" style={{ background: 'var(--overlay-subtle)' }} />
+                        <div className="h-3 rounded w-1/2" style={{ background: 'var(--overlay-faint)' }} />
                       </div>
                     ))}
                   </>
@@ -1068,7 +1109,7 @@ export default function Chat() {
                     <button
                       key={q}
                       onClick={() => { setInput(q); }}
-                      className="text-left text-sm text-[#8A8F98] bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/[0.1] rounded-2xl px-5 py-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
+                      className="text-left text-sm text-[var(--text-secondary)] hover:bg-white/[0.06] border hover:border-white/[0.1] rounded-2xl px-5 py-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md" style={{ background: 'var(--overlay-faint)', borderColor: 'var(--border-default)' }}
                     >
                       {q}
                     </button>
@@ -1088,10 +1129,10 @@ export default function Chat() {
             >
               {msg.type === "user" && (
                 <div className="flex flex-col items-end">
-                  <div className="bg-white/[0.06] backdrop-blur-md border border-white/[0.08] shadow-[0_4px_24px_rgba(0,0,0,0.4)] text-slate-100 rounded-2xl rounded-tr-sm px-5 py-3 max-w-xl text-[15px] font-medium leading-relaxed">
+                  <div className="backdrop-blur-md border shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl rounded-tr-sm px-5 py-3 max-w-xl text-[15px] font-medium leading-relaxed" style={{ background: 'var(--overlay-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}>
                     {msg.content}
                   </div>
-                  {msg.timestamp && <span className="text-[10px] text-[#5C5F66] mt-1 mr-1">{formatMessageTime(msg.timestamp)}</span>}
+                  {msg.timestamp && <span className="text-[10px] text-[var(--text-muted)] mt-1 mr-1">{formatMessageTime(msg.timestamp)}</span>}
                 </div>
               )}
 
@@ -1102,7 +1143,7 @@ export default function Chat() {
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                   className="space-y-2"
                 >
-                  <div className="text-xs text-[#5C5F66]">
+                  <div className="text-xs text-[var(--text-muted)]">
                     {msg.dbLabel && <span className="text-blue-400 font-medium">[{msg.dbLabel}] </span>}
                     Generated with {msg.model} in {Math.round(msg.latency)}ms
                   </div>
@@ -1113,7 +1154,49 @@ export default function Chat() {
                     loading={executing}
                     onCopySQL={() => showToast("Copied to clipboard!")}
                   />
-                  {msg.timestamp && <span className="text-[10px] text-[#5C5F66]">{formatMessageTime(msg.timestamp)}</span>}
+                  {msg.timestamp && <span className="text-[10px] text-[var(--text-muted)]">{formatMessageTime(msg.timestamp)}</span>}
+                </motion.div>
+              )}
+
+              {msg.type === "assistant" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                >
+                  <div className="backdrop-blur-md border rounded-2xl rounded-tl-sm px-5 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.15)]" style={{ background: 'var(--glass-bg-card)', borderColor: 'var(--glass-border)' }}>
+                    <ReactMarkdown
+                      components={{
+                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3" style={{ color: 'var(--text-primary)' }}>{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-sm font-semibold mb-1.5 mt-2" style={{ color: 'var(--text-primary)' }}>{children}</h3>,
+                        p: ({ children }) => <p className="text-[15px] leading-relaxed mb-2 last:mb-0 font-medium" style={{ color: 'var(--text-primary)' }}>{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc list-outside ml-5 mb-2 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal list-outside ml-5 mb-2 space-y-1">{children}</ol>,
+                        li: ({ children }) => <li className="text-[14px] leading-relaxed font-medium" style={{ color: 'var(--text-primary)' }}>{children}</li>,
+                        strong: ({ children }) => <strong className="font-bold" style={{ color: 'var(--text-primary)' }}>{children}</strong>,
+                        em: ({ children }) => <em className="italic" style={{ color: 'var(--text-secondary)' }}>{children}</em>,
+                        code: ({ children }) => <code className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: 'var(--code-bg)', color: 'var(--code-text)' }}>{children}</code>,
+                        blockquote: ({ children }) => <blockquote className="border-l-2 border-blue-500/40 pl-3 my-2 italic" style={{ color: 'var(--text-secondary)' }}>{children}</blockquote>,
+                        table: ({ children }) => <div className="overflow-x-auto my-2"><table className="text-xs border-collapse w-full">{children}</table></div>,
+                        th: ({ children }) => <th className="text-left px-2 py-1 font-medium" style={{ borderBottom: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>{children}</th>,
+                        td: ({ children }) => <td className="px-2 py-1" style={{ borderBottom: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>{children}</td>,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                    {msg.rowCount > 0 && (
+                      <div className="mt-3 pt-3 flex items-center gap-2" style={{ borderTop: '1px solid var(--border-default)' }}>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          Query will return ~{msg.rowCount} rows — approve the SQL above to see results
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {msg.timestamp && <span className="text-[10px] text-[var(--text-muted)] mt-1 block">{formatMessageTime(msg.timestamp)}</span>}
                 </motion.div>
               )}
 
@@ -1125,15 +1208,24 @@ export default function Chat() {
                   className="space-y-3"
                 >
                   {msg.summary && (
-                    <div className="bg-transparent border-l-2 border-white/20 pl-4 py-1">
-                      {msg.dbLabel && <p className="text-xs text-slate-400 font-medium mb-1">[{msg.dbLabel}]</p>}
-                      <p className="text-slate-200 text-[15px] leading-relaxed">{msg.summary}</p>
-                      <p className="text-[11px] text-[#5C5F66] mt-2">
+                    <div className="backdrop-blur-md border rounded-2xl rounded-tl-sm px-5 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.15)]" style={{ background: 'var(--glass-bg-card)', borderColor: 'var(--glass-border)' }}>
+                      {msg.dbLabel && <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>[{msg.dbLabel}]</p>}
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="text-[15px] leading-relaxed mb-1 last:mb-0 font-medium" style={{ color: 'var(--text-primary)' }}>{children}</p>,
+                          strong: ({ children }) => <strong className="font-bold" style={{ color: 'var(--text-primary)' }}>{children}</strong>,
+                          ul: ({ children }) => <ul className="list-disc list-outside ml-4 mb-1 space-y-0.5">{children}</ul>,
+                          li: ({ children }) => <li className="text-[14px] font-medium" style={{ color: 'var(--text-primary)' }}>{children}</li>,
+                        }}
+                      >
+                        {msg.summary}
+                      </ReactMarkdown>
+                      <p className="text-[11px] text-[var(--text-muted)] mt-2">
                         {msg.rowCount} rows in {Math.round(msg.latency)}ms
                       </p>
                     </div>
                   )}
-                  {msg.rows.length > 0 && (
+                  {msg.rows?.length > 0 && (
                     <>
                       <ResultsChart
                         columns={msg.columns}
@@ -1146,34 +1238,34 @@ export default function Chat() {
                     </>
                   )}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#5C5F66]">Was this correct?</span>
+                    <span className="text-xs text-[var(--text-muted)]">Was this correct?</span>
                     <button
                       onClick={() => handleFeedback(msg.question, msg.sql, true)}
-                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-emerald-900/30 text-[#8A8F98] hover:text-green-400 transition-all duration-200 cursor-pointer"
+                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-emerald-900/30 text-[var(--text-secondary)] hover:text-green-400 transition-all duration-200 cursor-pointer"
                       aria-label="Query result was correct"
                     >
                       Yes
                     </button>
                     <button
                       onClick={() => handleFeedback(msg.question, msg.sql, false)}
-                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-red-900/30 text-[#8A8F98] hover:text-red-400 transition-all duration-200 cursor-pointer"
+                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-red-900/30 text-[var(--text-secondary)] hover:text-red-400 transition-all duration-200 cursor-pointer"
                       aria-label="Query result was incorrect"
                     >
                       No
                     </button>
                   </div>
-                  {msg.timestamp && <span className="text-[10px] text-[#5C5F66]">{formatMessageTime(msg.timestamp)}</span>}
+                  {msg.timestamp && <span className="text-[10px] text-[var(--text-muted)]">{formatMessageTime(msg.timestamp)}</span>}
                   {/* Daily usage remaining */}
                   {msg.dailyUsage && !msg.dailyUsage.unlimited && (
                     <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${msg.dailyUsage.remaining <= 2 ? "bg-red-900/20 border border-red-800/50" : msg.dailyUsage.remaining <= 5 ? "bg-amber-900/20 border border-amber-800/50" : "bg-slate-800/50 border border-white/[0.08]/50"}`}>
                       <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
                       </svg>
-                      <span className={msg.dailyUsage.remaining <= 2 ? "text-red-400" : msg.dailyUsage.remaining <= 5 ? "text-amber-400" : "text-[#8A8F98]"}>
+                      <span className={msg.dailyUsage.remaining <= 2 ? "text-red-400" : msg.dailyUsage.remaining <= 5 ? "text-amber-400" : "text-[var(--text-secondary)]"}>
                         {msg.dailyUsage.remaining === 0
                           ? `Daily limit reached (${msg.dailyUsage.daily_limit}/${msg.dailyUsage.daily_limit}). Upgrade for more.`
                           : `${msg.dailyUsage.remaining} of ${msg.dailyUsage.daily_limit} queries remaining today`}
-                        <span className="text-[#5C5F66] ml-1">({msg.dailyUsage.plan} plan)</span>
+                        <span className="text-[var(--text-muted)] ml-1">({msg.dailyUsage.plan} plan)</span>
                       </span>
                     </div>
                   )}
@@ -1181,13 +1273,13 @@ export default function Chat() {
               )}
 
               {msg.type === "dashboard_chips" && (
-                <DashboardChips question={msg.question} onGenerate={handleDashboardChipSelect} />
+                <DashboardChips question={msg.question} onGenerate={handleDashboardChipSelect} schemaFocusOptions={dashboardFocusOptions} />
               )}
 
 
 
               {msg.type === "agent_steps" && (
-                <div className="bg-[#111114]/70 border border-white/[0.06] rounded-xl p-3 space-y-1.5">
+                <div className="border rounded-xl p-3 space-y-1.5" style={{ background: 'color-mix(in srgb, var(--bg-elevated) 70%, transparent)', borderColor: 'var(--border-default)' }}>
                   <div className="flex items-center gap-2 text-xs text-blue-400 font-medium mb-1">
                     <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1196,7 +1288,7 @@ export default function Chat() {
                   </div>
                   {(msg.steps || []).map((step, si) => (
                     <div key={si} className="text-xs text-[#6B6F76] pl-4 flex items-center gap-1.5">
-                      {step.type === "thinking" && <span className="italic text-[#5C5F66]">Analyzing...</span>}
+                      {step.type === "thinking" && <span className="italic text-[var(--text-muted)]">Analyzing...</span>}
                       {step.type === "tool_call" && (
                         <span>
                           <span className="text-blue-400/70">{step.tool_name}</span>
@@ -1227,12 +1319,12 @@ export default function Chat() {
               {msg.type === "error" && (
                 <div className="bg-red-900/20 border border-red-800/50 rounded-xl px-4 py-3 text-red-400 text-sm" role="alert">
                   {msg.content}
-                  {msg.timestamp && <div className="text-[10px] text-[#5C5F66] mt-1">{formatMessageTime(msg.timestamp)}</div>}
+                  {msg.timestamp && <div className="text-[10px] text-[var(--text-muted)] mt-1">{formatMessageTime(msg.timestamp)}</div>}
                 </div>
               )}
 
               {msg.type === "system" && (
-                <div className="text-center text-xs text-[#5C5F66]">
+                <div className="text-center text-xs text-[var(--text-muted)]">
                   {msg.content || msg.text}
                   {msg.timestamp && <span className="ml-2 text-[10px] text-slate-700">{formatMessageTime(msg.timestamp)}</span>}
                 </div>
@@ -1264,14 +1356,14 @@ export default function Chat() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.4 + idx * 0.1 }}
                       onClick={() => { setInput(pred.question); setPredictions([]); behaviorEngine.trackPredictionFeedback(idx, true); }}
-                      className="text-left text-sm text-[#8A8F98] bg-blue-500/[0.04] hover:bg-blue-500/[0.1] border border-blue-400/[0.08] hover:border-blue-400/[0.2] rounded-xl px-4 py-3 transition-all duration-300 cursor-pointer group"
+                      className="text-left text-sm text-[var(--text-secondary)] bg-blue-500/[0.04] hover:bg-blue-500/[0.1] border border-blue-400/[0.08] hover:border-blue-400/[0.2] rounded-xl px-4 py-3 transition-all duration-300 cursor-pointer group"
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-blue-400/40 text-xs font-mono mt-0.5 group-hover:text-blue-400/70">{idx + 1}</span>
                         <div>
-                          <p className="text-[#c4c7cc] group-hover:text-white transition-colors">{pred.question}</p>
+                          <p className="text-[var(--text-primary)] group-hover:text-white transition-colors">{pred.question}</p>
                           {pred.reasoning && (
-                            <p className="text-[10px] text-[#5C5F66] mt-1">{pred.reasoning}</p>
+                            <p className="text-[10px] text-[var(--text-muted)] mt-1">{pred.reasoning}</p>
                           )}
                         </div>
                       </div>
@@ -1308,12 +1400,12 @@ export default function Chat() {
             >
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-full bg-white/5 border border-white/[0.08] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-lg">
-                  <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                   </svg>
                 </div>
                 <div className="bg-transparent pl-4 py-1 flex items-center max-w-md">
-                  <div className="flex items-center gap-3 text-[#8A8F98] text-[15px]">
+                  <div className="flex items-center gap-3 text-[var(--text-secondary)] text-[15px]">
                     <div className="flex gap-1.5">
                       {[0, 1, 2].map((dot) => (
                         <motion.div
@@ -1341,7 +1433,7 @@ export default function Chat() {
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
               className="max-w-4xl mx-auto"
             >
-              <div className="flex items-center gap-3 text-[#8A8F98] text-sm glass-card border-blue-500/20 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-3 text-[var(--text-secondary)] text-sm glass-card border-blue-500/20 rounded-xl px-4 py-3">
                 <div className="flex gap-1">
                   {[0, 1, 2].map((dot) => (
                     <motion.div
@@ -1387,7 +1479,7 @@ export default function Chat() {
                 onBlur={() => { setIsInputFocused(false); setTimeout(() => setAutocompleteVisible(false), 200); }}
                 placeholder="Ask anything..."
                 aria-label="Ask a question about your data"
-                className="w-full bg-transparent px-5 py-2.5 text-[15px] text-white placeholder-[#8A8F98] focus:outline-none transition-all duration-200"
+                className="w-full bg-transparent px-5 py-2.5 text-[15px] focus:outline-none transition-all duration-200" style={{ color: 'var(--text-primary)' }}
                 disabled={loading}
                 style={{ paddingLeft: '24px' }}
                 autoComplete="off"
@@ -1455,8 +1547,8 @@ export default function Chat() {
             className="flex-shrink-0 glass flex flex-col"
             style={{ width: erPanelWidth }}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
+              <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <span className="w-2 h-2 bg-blue-500 rounded-full" />
                 ER Diagram
               </h3>
@@ -1465,7 +1557,7 @@ export default function Chat() {
                 className="p-1 rounded hover:bg-slate-800 transition cursor-pointer"
                 aria-label="Close ER Diagram"
               >
-                <svg className="w-4 h-4 text-[#5C5F66]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1475,7 +1567,7 @@ export default function Chat() {
                 <ERDiagram tables={erTables} compact savedPositions={erSavedPositions} onPositionsChange={handleERPositionsChange} />
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <div className="flex items-center gap-2 text-[#5C5F66] text-sm">
+                  <div className="flex items-center gap-2 text-[var(--text-muted)] text-sm">
                     <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                     Loading schema...
                   </div>
@@ -1492,8 +1584,8 @@ export default function Chat() {
       {showDashboardPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setShowDashboardPicker(false); setPendingTileData(null); }}>
           <div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-2xl fade-scale-in" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-white mb-1">Add to Dashboard</h3>
-            <p className="text-xs text-[#5C5F66] mb-4">Choose a dashboard or create a new one</p>
+            <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Add to Dashboard</h3>
+            <p className="text-xs text-[var(--text-muted)] mb-4">Choose a dashboard or create a new one</p>
 
             {/* Existing dashboards */}
             {dashboards.length > 0 && (
@@ -1506,10 +1598,10 @@ export default function Chat() {
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg glass hover:bg-white/[0.07] hover:border-blue-500/20 text-left transition-all duration-200 cursor-pointer disabled:opacity-50"
                   >
                     <div>
-                      <p className="text-sm text-white font-medium">{d.name}</p>
-                      <p className="text-xs text-[#5C5F66]">{d.tile_count || 0} tile{d.tile_count !== 1 ? "s" : ""}</p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{d.name}</p>
+                      <p className="text-xs text-[var(--text-muted)]">{d.tile_count || 0} tile{d.tile_count !== 1 ? "s" : ""}</p>
                     </div>
-                    <svg className="w-4 h-4 text-[#5C5F66]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                   </button>
@@ -1518,14 +1610,14 @@ export default function Chat() {
             )}
 
             {/* Create new */}
-            <div className="border-t border-white/[0.06] pt-3">
-              <p className="text-xs text-[#8A8F98] mb-2">Or create new dashboard</p>
+            <div className="pt-3" style={{ borderTop: '1px solid var(--border-default)' }}>
+              <p className="text-xs text-[var(--text-secondary)] mb-2">Or create new dashboard</p>
               <div className="flex gap-2">
                 <input
                   value={newDashboardName}
                   onChange={(e) => setNewDashboardName(e.target.value)}
                   placeholder="e.g., Marketing Dashboard"
-                  className="flex-1 glass-input rounded-lg px-3 py-2 text-sm text-white focus:outline-none input-glow"
+                  className="flex-1 glass-input rounded-lg px-3 py-2 text-sm focus:outline-none input-glow" style={{ color: 'var(--text-primary)' }}
                   onKeyDown={(e) => e.key === "Enter" && handleCreateAndAdd()}
                 />
                 <button
@@ -1540,7 +1632,7 @@ export default function Chat() {
 
             <button
               onClick={() => { setShowDashboardPicker(false); setPendingTileData(null); }}
-              className="mt-3 w-full text-center text-xs text-[#5C5F66] hover:text-[#8A8F98] transition cursor-pointer"
+              className="mt-3 w-full text-center text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition cursor-pointer"
             >
               Cancel
             </button>

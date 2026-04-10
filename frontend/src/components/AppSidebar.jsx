@@ -1,8 +1,25 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../store";
+
+/* Theme icons */
+const SunIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+const MoonIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+  </svg>
+);
+const SystemIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+  </svg>
+);
 
 /* Accessible tooltip that works with keyboard focus + hover */
 function Tooltip({ text, children }) {
@@ -20,7 +37,8 @@ function Tooltip({ text, children }) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-gray-900 border border-white/10 text-white text-xs rounded-lg whitespace-nowrap z-50 pointer-events-none shadow-lg"
+            className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs rounded-lg whitespace-nowrap z-50 pointer-events-none shadow-lg"
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
           >
             {text}
           </motion.div>
@@ -95,13 +113,20 @@ export default function AppSidebar() {
     ? user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
     : "U";
 
+  const theme = useStore((s) => s.theme);
+  const setTheme = useStore((s) => s.setTheme);
+  const cycleTheme = useCallback(() => {
+    const next = { light: "dark", dark: "system", system: "light" };
+    setTheme(next[theme] || "light");
+  }, [theme, setTheme]);
+
   return (
-    <div className="w-14 bg-[#06060e] border-r border-white/5 flex-shrink-0 flex flex-col items-center py-3 gap-1 relative">
+    <div className="w-14 flex-shrink-0 flex flex-col items-center py-3 gap-1 relative" style={{ background: 'var(--bg-page)', borderRight: '1px solid var(--border-default)' }}>
       {/* Subtle gradient glow at top */}
       <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-indigo-500/5 to-transparent pointer-events-none" />
 
       {/* Logo */}
-      <Tooltip text="DataLens Home">
+      <Tooltip text="AskDB Home">
         {(tooltipProps) => (
           <motion.button
             onClick={() => navigate("/chat")}
@@ -119,7 +144,7 @@ export default function AppSidebar() {
               scale: { type: "spring", stiffness: 400, damping: 17 },
             }}
             className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center mb-4 hover:from-indigo-500 hover:to-violet-500 transition-colors duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 relative z-10"
-            aria-label="DataLens Home"
+            aria-label="AskDB Home"
             {...tooltipProps}
           >
             <span className="text-white font-bold text-sm" aria-hidden="true">Q</span>
@@ -139,11 +164,8 @@ export default function AppSidebar() {
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer relative z-10 ${
-                    isActive
-                      ? "text-white"
-                      : "text-gray-500 hover:text-white hover:bg-white/5"
-                  }`}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer relative z-10"
+                  style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}
                   aria-label={item.label}
                   aria-current={isActive ? "page" : undefined}
                   {...tooltipProps}
@@ -152,7 +174,7 @@ export default function AppSidebar() {
                   {isActive && (
                     <motion.div
                       layoutId="sidebar-indicator"
-                      className="absolute inset-0 rounded-xl bg-white/[0.08] border border-white/[0.06]"
+                      className="absolute inset-0 rounded-xl" style={{ background: 'var(--overlay-light)', border: '1px solid var(--border-default)' }}
                       transition={{ type: "spring", stiffness: 350, damping: 30 }}
                     />
                   )}
@@ -179,11 +201,8 @@ export default function AppSidebar() {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer relative z-10 ${
-              agentPanelOpen
-                ? "text-white"
-                : "text-gray-500 hover:text-white hover:bg-white/5"
-            }`}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer relative z-10"
+            style={{ color: agentPanelOpen ? 'var(--text-primary)' : 'var(--text-muted)' }}
             aria-label={agentPanelOpen ? "Hide Agent" : "Show Agent"}
             {...tooltipProps}
           >
@@ -193,7 +212,7 @@ export default function AppSidebar() {
             {agentPanelOpen && (
               <motion.div
                 layoutId="sidebar-agent-indicator"
-                className="absolute inset-0 rounded-xl bg-white/[0.08] border border-white/[0.06]"
+                className="absolute inset-0 rounded-xl" style={{ background: 'var(--overlay-light)', border: '1px solid var(--border-default)' }}
                 transition={{ type: "spring", stiffness: 350, damping: 30 }}
               />
             )}
@@ -203,6 +222,24 @@ export default function AppSidebar() {
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Theme toggle */}
+      <Tooltip text={theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System"}>
+        {(tooltipProps) => (
+          <motion.button
+            onClick={cycleTheme}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer relative z-10 mb-1"
+            style={{ color: 'var(--text-muted)' }}
+            aria-label={`Theme: ${theme}`}
+            {...tooltipProps}
+          >
+            {theme === "light" ? <SunIcon /> : theme === "dark" ? <MoonIcon /> : <SystemIcon />}
+          </motion.button>
+        )}
+      </Tooltip>
 
       {/* User avatar */}
       <Tooltip text={`Profile: ${user?.name || "User"}`}>

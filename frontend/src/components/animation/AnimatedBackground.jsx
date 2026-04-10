@@ -1,15 +1,26 @@
 import { useEffect, useRef } from "react";
 import { useReducedMotion } from "framer-motion";
+import { useStore } from "../../store";
 
-const ORBS = [
+const DARK_ORBS = [
   { x: "15%", y: "20%", size: 400, color: "rgba(99,102,241,0.12)", speed: 0.6 },
   { x: "70%", y: "30%", size: 350, color: "rgba(139,92,246,0.10)", speed: 0.8 },
   { x: "40%", y: "70%", size: 300, color: "rgba(59,130,246,0.08)", speed: 0.5 },
   { x: "85%", y: "75%", size: 250, color: "rgba(168,85,247,0.09)", speed: 0.7 },
 ];
 
+const LIGHT_ORBS = [
+  { x: "15%", y: "20%", size: 400, color: "rgba(99,102,241,0.10)", speed: 0.6 },
+  { x: "70%", y: "30%", size: 350, color: "rgba(139,92,246,0.08)", speed: 0.8 },
+  { x: "40%", y: "70%", size: 300, color: "rgba(59,130,246,0.07)", speed: 0.5 },
+  { x: "85%", y: "75%", size: 250, color: "rgba(168,85,247,0.08)", speed: 0.7 },
+];
+
 export default function AnimatedBackground({ className = "" }) {
   const prefersReduced = useReducedMotion();
+  const resolvedTheme = useStore(s => s.resolvedTheme);
+  const isLight = resolvedTheme === 'light';
+  const ORBS = isLight ? LIGHT_ORBS : DARK_ORBS;
   const containerRef = useRef(null);
   const orbRefs = useRef([]);
   const animRef = useRef(null);
@@ -34,7 +45,7 @@ export default function AnimatedBackground({ className = "" }) {
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [prefersReduced]);
+  }, [prefersReduced, ORBS]);
 
   return (
     <div

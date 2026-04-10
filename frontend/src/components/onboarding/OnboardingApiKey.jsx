@@ -60,11 +60,12 @@ export default function OnboardingApiKey({ onNext, onSkip, isDemo = false }) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 max-w-md w-full"
+        className="backdrop-blur-sm border rounded-2xl p-8 max-w-md w-full"
+        style={{ background: 'var(--overlay-subtle)', borderColor: 'var(--border-default)' }}
       >
-        <h2 className="text-xl font-bold text-white mb-2">Bring Your Own Key</h2>
-        <p className="text-sm text-gray-400 mb-6">
-          DataLens uses Claude AI to understand your questions and generate SQL.
+        <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Bring Your Own Key</h2>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+          AskDB uses Claude AI to understand your questions and generate SQL.
           Enter your Anthropic API key to get started.
         </p>
 
@@ -82,7 +83,8 @@ export default function OnboardingApiKey({ onNext, onSkip, isDemo = false }) {
               onChange={(e) => { setKey(e.target.value); setStatus(STATUS_IDLE); setErrorMsg(""); }}
               disabled={isDemo}
               placeholder="sk-ant-..."
-              className="w-full glass-input rounded-lg px-4 py-3 pr-12 text-white text-sm input-glow disabled:opacity-60"
+              className="w-full glass-input rounded-lg px-4 py-3 pr-12 text-sm input-glow disabled:opacity-60"
+              style={{ color: 'var(--text-primary)' }}
               autoComplete="off"
             />
             <button
@@ -158,7 +160,7 @@ export default function OnboardingApiKey({ onNext, onSkip, isDemo = false }) {
             >
               Skip for now
             </button>
-            <p className="text-[10px] text-gray-600 mt-1">
+            <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
               You can add your API key later in Account settings
             </p>
           </div>

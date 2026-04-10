@@ -228,7 +228,7 @@ export default function PresentationEngine({ dashboard, themeConfig, onExit }) {
   if (totalSlides === 0) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center"
-        style={{ background: themeConfig?.background?.dashboard || '#06060e' }}>
+        style={{ background: themeConfig?.background?.dashboard || 'var(--bg-page)' }}>
         <div className="text-center">
           <p style={{ color: TOKENS.text.muted, fontSize: 16, marginBottom: 12 }}>No tiles to present</p>
           <button onClick={onExit} className="px-4 py-2 rounded-lg text-sm cursor-pointer"
@@ -246,7 +246,7 @@ export default function PresentationEngine({ dashboard, themeConfig, onExit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: themeConfig?.background?.dashboard || '#06060e' }}>
+      style={{ background: themeConfig?.background?.dashboard || 'var(--bg-page)' }}>
 
       {/* Slide content */}
       <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
@@ -290,7 +290,7 @@ export default function PresentationEngine({ dashboard, themeConfig, onExit }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'rgba(0,0,0,0.5)',
+        background: 'var(--modal-overlay)',
         backdropFilter: 'blur(8px)',
       }}>
         {/* Left: dashboard name + slide counter */}

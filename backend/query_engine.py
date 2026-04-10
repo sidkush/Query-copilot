@@ -367,7 +367,8 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
                     f"Consider adding filters to narrow the result set."
                 )
 
-            df = self.db.execute_query(clean_sql)
+            exec_sql = self.validator.apply_limit(clean_sql)
+            df = self.db.execute_query(exec_sql)
             masked_df = mask_dataframe(df)
             summary = self._generate_summary(question, masked_df) if question and not masked_df.empty else ""
             if size_warning:
@@ -416,7 +417,7 @@ Return a JSON object with this structure:
               "subtitle": "Optional subtitle",
               "question": "Natural language question this tile answers",
               "sql": "SELECT ...",
-              "chartType": "bar|line|area|pie|donut|table|kpi|stacked_bar|horizontal_bar|radar|scatter|treemap"
+              "chartType": "bar|line|area|pie|donut|table|kpi|stacked_bar|bar_h|radar|scatter|treemap"
             }
           ]
         }
@@ -431,7 +432,7 @@ Guidelines:
 - First section of first tab should be KPI cards (chartType: "kpi") — 3-4 single-value metrics
 - Use chartType "kpi" for single aggregate values (COUNT, SUM, AVG)
 - Use "line" or "area" for time-series data
-- Use "bar" or "horizontal_bar" for category comparisons
+- Use "bar" or "bar_h" for category comparisons
 - Use "pie" or "donut" for proportions (max 5-6 categories)
 - Use "table" for detailed breakdowns
 - Use "stacked_bar" for multi-measure comparisons
@@ -764,6 +765,8 @@ Generate the dashboard JSON now."""
             f"Generate a SQL query for the above question. "
             f"Target dialect: {self.db.db_type.value}. "
             f"Today's date: {datetime.now().strftime('%Y-%m-%d')}. "
+            f"CRITICAL: Never use percent-sign format strings (%F, %T, etc.) in SQL — they get double-escaped by the driver. "
+            f"For BigQuery timestamps: use DATE(col), EXTRACT(), TIMESTAMP_TRUNC() instead of PARSE_TIMESTAMP with format strings. "
             f"Return ONLY the raw SQL, no explanations."
         )
         return "\n".join(parts)
@@ -990,7 +993,7 @@ BIG DATA OPTIMIZATION RULES (this is a large-scale data warehouse — efficiency
             "return a JSON object with ONLY the fields that should change. "
             "Allowed fields: chartType, title, subtitle, palette, activeMeasures, selectedMeasure, visualConfig. "
             "NEVER include: sql, columns, rows, id, annotations, question. "
-            "Valid chartType values: bar, line, area, pie, donut, table, kpi, stacked_bar, horizontal_bar, scatter. "
+            "Valid chartType values: bar, line, area, pie, donut, table, kpi, stacked_bar, bar_h, scatter. "
             "Valid palette values: default, ocean, sunset, forest, mono, colorblind. "
             "Return ONLY the JSON patch. No markdown, no explanation."
         )

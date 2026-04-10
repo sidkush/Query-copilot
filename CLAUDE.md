@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**QueryCopilot** — a natural language-to-SQL analytics SaaS. Users connect their own database, ask questions in plain English, and receive generated SQL (shown for review before execution), results, auto-generated charts, and a natural-language summary. Includes an agentic multi-step query mode, NL-defined alerts, scheduled email digests, and a dashboard presentation engine.
+**AskDB** (formerly QueryCopilot) — a natural language-to-SQL analytics SaaS. Users connect their own database, ask questions in plain English, and receive generated SQL (shown for review before execution), results, auto-generated charts, and a natural-language summary. Includes an agentic multi-step query mode, NL-defined alerts, scheduled email digests, and a dashboard presentation engine.
 
 ## Setup & Running
 
@@ -23,11 +23,28 @@ npm run lint
 
 # Build frontend for production
 npm run build
+
+# Preview production build locally
+npm run preview
 ```
 
 There are no automated tests. `test_registration.py`, `regression_test.py`, `test_agent_engine.py`, `test_phase*.py`, and `test_waterfall.py` are manual scripts, not pytest suites.
 
-**Docker:** `docker-compose.yml` exists but maps backend to port 8000 (not 8002). For local dev without Docker, always use port 8002 to match the Vite proxy target.
+**Docker:**
+```bash
+docker-compose up --build    # backend on :8000, frontend on :5173
+```
+Note: Docker maps backend to port 8000, not 8002. For local dev without Docker, always use port 8002 to match the Vite proxy target in `vite.config.js`.
+
+**Manual test scripts** (not pytest — run individually):
+```bash
+cd backend
+python test_registration.py       # auth flow smoke test
+python test_waterfall.py          # waterfall routing tiers
+python test_agent_engine.py       # agent tool-use loop
+python test_phase1.py             # incremental feature tests (1-4)
+python regression_test.py         # broad regression checks
+```
 
 ## Architecture
 
@@ -47,10 +64,16 @@ Two independently running services: FastAPI backend on port 8002, React frontend
 
 **Agent system (`agent_engine.py`):**
 - `AgentEngine` — multi-step tool-use loop using Anthropic's native tool-use API with SSE streaming
-- 6 tools: `find_relevant_tables` (ChromaDB vector search), `inspect_schema` (live DDL + samples), `run_sql` (validated execution), `suggest_chart`, `ask_user` (interactive pauses), `summarize_results`
+- 6 core tools + 5 dashboard tools: `find_relevant_tables` (ChromaDB vector search), `inspect_schema` (live DDL + samples), `run_sql` (validated execution), `suggest_chart`, `ask_user` (interactive pauses), `summarize_results`, `list_dashboards`, `get_dashboard_tiles`, `create_dashboard_tile`, `update_dashboard_tile`, `delete_dashboard_tile`
 - `SessionMemory` with auto-compaction at ~8K tokens
-- Guardrails: max 6 tool calls, 30s timeout, max 3 SQL retries, Haiku primary + Sonnet fallback
-- Endpoints: `/api/v1/agent/run` (SSE stream), `/api/v1/agent/respond` (user response to `ask_user`)
+- **Dynamic tool budget**: heuristic initial (dashboard=20, complex=15, simple=8) with auto-extension in increments of 10, safety cap at 100. Extensions logged to audit trail.
+- **Lightweight planning**: Complex/dashboard queries trigger a Sonnet planning call that generates a task list. Plan emitted as `AgentStep(type="plan")` shown as checklist in UI. Auto-executes without user gate.
+- **Structured progress tracker**: `_progress` dict tracks `{goal, completed, pending, total_tool_calls}`. Updated after each tool call. Used by `/continue` endpoint for session resume.
+- **Dialect-aware SQL hints**: BigQuery, Snowflake, MySQL, MSSQL, PostgreSQL hints injected into system prompt based on `connection_entry.db_type`.
+- **Sliding context compaction**: Every 6 tool calls, old tool_result content is summarized to 1-line summaries. Keeps context under ~15K tokens for long dashboard builds.
+- Guardrails: dynamic budget (up to 100 tool calls), 120s per-segment timeout, 900s absolute timeout, max 3 SQL retries, Haiku primary + Sonnet fallback
+- **Session persistence** (`agent_session_store.py`): SQLite at `.data/agent_sessions.db` (WAL mode). Sessions auto-saved on SSE completion and on disconnect. 50 sessions per user cap with auto-purge.
+- Endpoints: `/api/v1/agent/run` (SSE stream), `/api/v1/agent/respond` (user response to `ask_user`), `/api/v1/agent/continue` (resume interrupted session), `/api/v1/agent/sessions` (list), `/api/v1/agent/sessions/{chat_id}` (load/delete)
 
 **Connection model:** `app.state.connections[email][conn_id]` → `ConnectionEntry` (models.py) holding a `DatabaseConnector` + `QueryEngine`. Connections are lazy (no DB connection on startup), gracefully disconnected on shutdown.
 
@@ -84,7 +107,7 @@ Two independently running services: FastAPI backend on port 8002, React frontend
 **PII masking** (`pii_masking.py`) — column-name pattern matching + regex value scanning. Must always run via `mask_dataframe()` before any data is returned to users or the LLM.
 
 **18 supported database engines** (defined as `DBType` enum in `config.py`):
-PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*, Redshift, Databricks\*, ClickHouse, DuckDB, Trino, Oracle, SAP HANA\*, IBM Db2\*, Supabase. (\* = driver commented out in `requirements.txt`; install manually.)
+PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*, Redshift, Databricks\*, ClickHouse, DuckDB, Trino, Oracle, SAP HANA\*, IBM Db2\*, Supabase. (\* = driver commented out in `requirements.txt`; install manually.) Note: Supabase is a virtual type — connects via the PostgreSQL driver.
 
 **Data persistence (file-based, no application database):**
 - `.data/users.json` — user accounts (bcrypt hashed passwords), thread-locked
@@ -93,6 +116,13 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 - `.data/user_data/{sha256_prefix}/` — per-user: `connections.json` (Fernet-encrypted passwords), `chat_history/`, `query_stats.json`, `er_positions/`, `dashboards.json`, `profile.json`
 - `.chroma/querycopilot/` — ChromaDB vector store. Deleting it loses all trained context; re-seed only by reconnecting.
 - Atomic file writes (write-then-rename) are used intentionally for crash safety; preserve this pattern.
+- `.data/` and `.chroma/` are gitignored — all runtime state lives there. Never commit these directories.
+
+**BYOK (Bring Your Own Key) provider system:**
+- `model_provider.py` — `ModelProvider` ABC that all LLM adapters implement. Defines `ProviderResponse`, `ContentBlock`, `ProviderToolResponse` data classes.
+- `anthropic_provider.py` — Anthropic SDK adapter (the ONLY file that should `import anthropic`). Supports prompt caching, native tool-use, token streaming, circuit breaker (3 failures → 30s cooldown).
+- `provider_registry.py` — resolves the correct provider + API key per user. Demo user (`demo@askdb.dev`) gets the platform key; all others must supply their own. Model catalog in `ANTHROPIC_MODELS` dict.
+- User API keys stored Fernet-encrypted in per-user profile via `user_storage.py`. Key validation and status tracked through `user_routes.py` endpoints.
 
 **Config:** `config.py` — Pydantic `BaseSettings` singleton (`settings`). All config from `backend/.env`. `.env` path resolved relative to `config.py`, not the working directory. Model defaults: `claude-haiku-4-5-20251001` (primary), `claude-sonnet-4-5-20250514` (fallback). Note `.env.example` lists `claude-sonnet-4-6` as fallback — reconcile if updating models.
 
@@ -104,11 +134,13 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 
 **API layer:** `api.js` — injects JWT `Authorization` header. 401 responses redirect to `/login`. Admin API uses separate `admin_token` in localStorage.
 
-**Routing:** `App.jsx` — React Router v7 with `ProtectedRoute` HOC and `AnimatePresence` page transitions. Route map:
-- Public: `/` (Landing), `/login`, `/auth/callback`, `/admin/login`, `/admin`
-- Protected (no sidebar): `/tutorial`
+**Routing:** `App.jsx` — React Router v7 with `ProtectedRoute` HOC and `AnimatePresence` page transitions. `ProtectedRoute` gates on `apiKeyStatus` — BYOK users without a valid key are redirected to set one up. Route map:
+- Public: `/` (Landing), `/login`, `/auth/callback`, `/admin/login`, `/admin`, `/shared/:id` (SharedDashboard)
+- Protected (no sidebar): `/tutorial`, `/onboarding`
 - Protected (with `AppLayout` sidebar): `/dashboard`, `/schema`, `/chat`, `/profile`, `/account`, `/billing`, `/analytics`
 - `/dashboard` → `Dashboard.jsx` (view-only, query result tiles); `/analytics` → `DashboardBuilder.jsx` (full drag-resize builder with TileEditor)
+
+**Top-level shared components** (`src/components/`): `AppLayout.jsx` (sidebar + main content wrapper), `AppSidebar.jsx`, `DatabaseSwitcher.jsx` (connection picker), `ERDiagram.jsx` (schema visualization), `ResultsChart.jsx` + `ResultsTable.jsx` (query result rendering), `SQLPreview.jsx`, `SchemaExplorer.jsx`, `StatSummaryCard.jsx`, `AskDBLogo.jsx`, `UserDropdown.jsx`.
 
 **Agent UI** (`src/components/agent/`):
 - `AgentPanel.jsx` — draggable/resizable dockable panel (float/right/bottom/left positions)
@@ -124,9 +156,13 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 - `PresentationEngine.jsx` — importance-scored tile bin-packing into 16:9 slides with animated transitions (KPI > chart > table > SQL-only scoring).
 - `AlertManager.jsx` — NL alert creation/testing/listing UI with webhook config.
 
-**Dashboard lib utilities** (`src/lib/`): `dataBlender.js` — client-side left-join across multiple query result sets; `metricEvaluator.js` — KPI threshold/conditional logic; `visibilityRules.js` — tile show/hide rule engine; `formatUtils.js` — number/date formatting helpers.
+**Onboarding flow** (`src/components/onboarding/`, `src/pages/Onboarding.jsx`): Multi-step wizard — Welcome → Tour → API Key setup → DB Connect → First Query. Guides new users through BYOK key entry and first connection. Has a Skip button for users who want to explore first.
 
-**Charts:** Both ECharts (`echarts-for-react`) and Recharts (`recharts`) are used — check which library an existing component uses before adding a new chart.
+**SharedDashboard** (`src/pages/SharedDashboard.jsx`): Public read-only dashboard view at `/shared/:id`. No auth required. Uses `TOKENS` and `CHART_PALETTES` from `tokens.js`.
+
+**Dashboard lib utilities** (`src/lib/`): `dataBlender.js` — client-side left-join across multiple query result sets; `metricEvaluator.js` — KPI threshold/conditional logic; `visibilityRules.js` — tile show/hide rule engine; `formatUtils.js` — number/date formatting helpers; `anomalyDetector.js` — client-side anomaly detection; `formulaSandbox.js` + `formulaWorker.js` — sandboxed formula evaluation (Web Worker); `exportUtils.js` — dashboard export helpers; `gpuDetect.jsx` — `GPUTierProvider` context for conditional 3D rendering; `behaviorEngine.js` — client-side behavior tracking utilities.
+
+**Charts:** ECharts only (`echarts-for-react`). Used in `ResultsChart.jsx` and `CanvasChart.jsx`. Do not introduce a second chart library.
 
 **Styling:** Tailwind CSS 4.2 + custom glassmorphism classes in `index.css`. Dark theme (`#06060e` bg). Fonts: Poppins (headings) + Open Sans (body). Animations: Framer Motion + GSAP. Three.js for 3D landing backgrounds.
 
@@ -178,17 +214,35 @@ User question
 
 **API** (`api.js`): `enableTurbo()`, `disableTurbo()`, `getTurboStatus()`, `refreshTurbo()`, `getSchemaProfile()`, `refreshSchema()`.
 
+### Dual-Response System (Progressive Dual-Response Data Acceleration)
+
+When a waterfall tier (memory/turbo) answers a query, the system can simultaneously stream a cached answer and fire a live query to verify freshness. Controlled by 4 config flags:
+- `DUAL_RESPONSE_ENABLED` (default True) — master toggle
+- `DUAL_RESPONSE_STALENESS_TTL_SECONDS` (default 300) — cache age threshold; older than this = stale
+- `DUAL_RESPONSE_ALWAYS_CORRECT` (default True) — always fire live correction even when cache is fresh
+- `WRITE_TIME_MASKING` (default False) — PII mask at DuckDB write time instead of read time
+- `BEHAVIOR_WARMING_ENABLED` (default False) — pre-warm cache based on predicted query patterns
+
+### Feature Flags (`config.py`)
+
+20+ feature flags control predictive intelligence. Enabled by default: `FEATURE_PREDICTIONS` (suggestions), `FEATURE_ADAPTIVE_COMPLEXITY` (skill detection), `FEATURE_INTENT_DISAMBIGUATION`, `FEATURE_ANALYST_TONE`, `FEATURE_TIME_PATTERNS`, `FEATURE_AGENT_DASHBOARD` (agent tile control), `FEATURE_PERMISSION_SYSTEM` (supervised/autonomous). Disabled by default: session tracking, consent flow, autocomplete, personas, insight chains, collaborative predictions, style matching, data prep, workflow templates, skill gaps, anomaly alerts, auto-switch, smart preload. Check `config.py` for the full list — flags are grouped with numbered comments referencing their design doc origins.
+
+### Reference Documents (`/docs`)
+
+`PROJECT_JOURNAL.md` — full engineering history (architecture decisions, blockers, resolutions). `DASHBOARD_DEEP_DIVE.md` — detailed dashboard subsystem design. `docs/` — session journals, design brainstorms, and audit reports. These are read-only reference material, not configuration.
+
 ## Key Constraints
 
 - **Read-only enforcement** — driver, SQL validator, and connector layers. Never weaken any.
 - **PII masking** — `mask_dataframe()` must run before any data reaches users or the LLM.
 - **Two-step query flow** — `/generate` then `/execute`. Don't collapse.
-- **Agent guardrails** — max 6 tool calls, 30s timeout, max 3 SQL retries. Agent's `run_sql` tool uses the same validator + read-only enforcement as the main pipeline.
+- **Agent guardrails** — dynamic tool budget (heuristic 8/15/20, auto-extends to 100), phase-aware timeouts (planning 30s, schema 60s, SQL gen 30s, DB exec 300s, verify 30s), 600s per-segment soft cap, 1800s session hard cap, max 3 SQL retries, per-user concurrency cap (2 active sessions). Smart verification pass on complex queries (JOINs, aggregations, 3+ tool calls) with HIGH/MEDIUM/LOW confidence scoring. Claude Code-style progress checklist with phase badges and ETA. First-class cancel button wired to backend cancel endpoint. Agent's `run_sql` tool uses the same validator + read-only enforcement as the main pipeline. Sessions persisted to SQLite (`.data/agent_sessions.db`).
 - **Daily query limits** enforced in `query_routes.py`. Plans: free=10, weekly=50, monthly=200, yearly=500, pro=1000, enterprise=unlimited.
 - **`JWT_SECRET_KEY`** — also derives the Fernet key for saved DB passwords. Changing it invalidates all saved connection configs.
 - **Vite proxy** → `http://localhost:8002`. Backend must run on port 8002 during development. `vite.config.js` has manual chunk splitting for echarts, framer-motion, three.js, and export libs (html2canvas/jspdf) — keep this when adding large dependencies.
 - **Admin auth** is a separate JWT flow (`admin_token` in localStorage), not the same as user auth.
 - **User deletion** is soft-delete — archived in `deleted_users.json`.
+- **Config safety rails** — `MAX_ROWS` capped at 50,000 even if `.env` sets higher. Mandatory blocked keywords (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `GRANT`, `REVOKE`, `MERGE`) are force-appended if missing from `BLOCKED_KEYWORDS`. JWT default key causes `CRITICAL` log and hard exit in production/staging (`ASKDB_ENV` or `QUERYCOPILOT_ENV`).
 - **CORS** configured for `localhost:5173`, `localhost:3000`, and `FRONTEND_URL`. Update for production.
 - **OAuth redirect URI** defaults to `http://localhost:5173/auth/callback` (configurable via `OAUTH_REDIRECT_URI`).
 - **OTP-first registration** — email (and optionally phone) must be OTP-verified before `create_user()` is called. The `pending_verifications.json` file tracks this state; do not skip verification in the registration flow.
@@ -201,6 +255,9 @@ User question
 - **Query memory stores anonymized SQL intents** — `anonymize_sql()` strips all literals. Sensitive column names (`ssn`, `salary`, etc.) are masked to `[MASKED]` in both `sql_intent` and `columns` metadata before ChromaDB storage (P1 fix 2026-04-06). Never store raw query results or column values in ChromaDB.
 - **`query_twin()` validates SQL** through `sql_validator.SQLValidator` before execution and caps results at 10K rows (P1 fix 2026-04-06). This prevents filesystem-reading DuckDB functions and OOM from unbounded fetchall.
 - **`cleanup_stale()` on QueryMemory** is defined but not auto-scheduled — call it periodically or on disconnect to prevent unbounded ChromaDB growth.
+- **Share tokens** — dashboard sharing uses time-limited tokens (`SHARE_TOKEN_EXPIRE_HOURS`, default 7 days). Expired/revoked tokens auto-pruned on startup via `prune_expired_share_tokens()`.
+- **SQL Allowlist mode** — `SQL_ALLOWLIST_MODE` (default False) + `SQL_ALLOWED_TABLES` restricts queries to an explicit table list. Off by default; enable for tightly scoped deployments.
+- **Thread pool** — explicit `ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS)` set in lifespan startup (default 32, bounded 4–256). Replaces the default 8–12 thread pool to prevent agent concurrency bottlenecks.
 
 ## Deferred Security Hardening (Prompt When Ready)
 

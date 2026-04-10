@@ -35,7 +35,7 @@ export default function ColorPickerButton({ color, onChange, size = 28 }) {
           background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.hover}`,
           borderRadius: 12, padding: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
         }} onClick={(e) => e.stopPropagation()}>
-          <HexColorPicker color={color || '#2563EB'} onChange={onChange} />
+          <HexColorPicker color={color || '#2563EB'} onChange={onChange} style={{ width: 240, height: 200 }} />
           <input
             type="text"
             value={color || ''}

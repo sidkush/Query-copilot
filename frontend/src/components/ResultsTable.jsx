@@ -112,13 +112,13 @@ export default function ResultsTable({ columns, rows }) {
   // Empty state
   if (rows.length === 0) {
     return (
-      <div className="bg-slate-900/60 rounded-xl border border-slate-800 overflow-hidden">
+      <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
         <div className="flex flex-col items-center justify-center py-12 px-6 text-center" role="alert">
-          <svg className="w-10 h-10 text-slate-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg className="w-10 h-10 mb-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125" />
           </svg>
-          <p className="text-sm font-medium text-slate-400">No results found</p>
-          <p className="text-xs text-slate-600 mt-1">Try refining your query or adjusting filters</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No results found</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Try refining your query or adjusting filters</p>
         </div>
       </div>
     );
@@ -135,10 +135,10 @@ export default function ResultsTable({ columns, rows }) {
   }
 
   return (
-    <div className="bg-slate-900/60 rounded-xl border border-slate-800 overflow-hidden" role="region" aria-label={`Query results: ${rows.length} row${rows.length !== 1 ? "s" : ""}, ${columns.length} column${columns.length !== 1 ? "s" : ""}`}>
+    <div className="rounded-2xl overflow-hidden backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.12)]" style={{ background: 'var(--glass-bg-card)', border: '1px solid var(--glass-border)' }} role="region" aria-label={`Query results: ${rows.length} row${rows.length !== 1 ? "s" : ""}, ${columns.length} column${columns.length !== 1 ? "s" : ""}`}>
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/80 border-b border-slate-800">
-        <span className="inline-flex items-center gap-2 text-sm text-slate-300">
+      <div className="flex items-center justify-between px-4 py-2.5" style={{ background: 'var(--bg-base)', borderBottom: '1px solid var(--border-default)' }}>
+        <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--text-primary)' }}>
           <span className="px-2 py-0.5 rounded-md bg-blue-600/10 text-blue-400 text-xs font-semibold tabular-nums">{rows.length}</span>
           row{rows.length !== 1 ? "s" : ""} returned
         </span>
@@ -146,7 +146,8 @@ export default function ResultsTable({ columns, rows }) {
           {/* Copy to clipboard */}
           <button
             onClick={handleCopyToClipboard}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors duration-200 cursor-pointer px-3 py-1.5 rounded-lg bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] hover:bg-white/[0.06]"
+            className="flex items-center gap-1.5 text-xs transition-colors duration-200 cursor-pointer px-3 py-1.5 rounded-lg backdrop-blur-sm"
+            style={{ color: 'var(--text-secondary)', background: 'var(--overlay-faint)', border: '1px solid var(--overlay-light)' }}
             aria-label="Copy visible table data to clipboard"
           >
             {copied ? (
@@ -170,7 +171,8 @@ export default function ResultsTable({ columns, rows }) {
           <div className="relative" ref={exportRef}>
             <button
               onClick={() => setShowExport(!showExport)}
-              className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors duration-200 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-slate-800/60"
+              className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors duration-200 cursor-pointer px-3 py-1.5 rounded-lg"
+              style={{ '--tw-bg-opacity': 1 }}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
@@ -179,14 +181,17 @@ export default function ResultsTable({ columns, rows }) {
               <svg className={`w-3 h-3 transition-transform duration-200 ${showExport ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
             {showExport && (
-              <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden min-w-[140px]">
+              <div className="absolute right-0 top-full mt-1 rounded-xl shadow-2xl z-50 overflow-hidden min-w-[140px]" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)' }}>
                 {EXPORT_FORMATS.map((fmt) => (
                   <button
                     key={fmt.key}
                     onClick={() => handleExport(fmt.key)}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors duration-200 cursor-pointer"
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs transition-colors duration-200 cursor-pointer"
+                    style={{ color: 'var(--text-primary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
-                    <span className="text-slate-500 font-mono w-8 text-right">{fmt.ext}</span>
+                    <span className="font-mono w-8 text-right" style={{ color: 'var(--text-muted)' }}>{fmt.ext}</span>
                     <span>{fmt.label}</span>
                   </button>
                 ))}
@@ -200,7 +205,7 @@ export default function ResultsTable({ columns, rows }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left" role="table" aria-label="Query results">
           <thead>
-            <tr className="border-b border-slate-800 bg-slate-900/60">
+            <tr style={{ borderBottom: '1px solid var(--border-default)' }}>
               {columns.map((col) => {
                 const isSorted = sortCol === col;
                 const ariaSortValue = isSorted ? (sortAsc ? "ascending" : "descending") : "none";
@@ -210,9 +215,10 @@ export default function ResultsTable({ columns, rows }) {
                     role="columnheader"
                     onClick={() => handleSort(col)}
                     aria-sort={ariaSortValue}
-                    className={`sticky top-0 z-10 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider cursor-pointer transition-colors duration-200 whitespace-nowrap select-none bg-slate-900/95 backdrop-blur-sm ${
-                      isSorted ? "text-blue-400 border-b-2 border-blue-500" : "text-slate-500 hover:text-slate-300"
+                    className={`sticky top-0 z-10 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider cursor-pointer transition-colors duration-200 whitespace-nowrap select-none backdrop-blur-sm ${
+                      isSorted ? "text-blue-400 border-b-2 border-blue-500" : ""
                     }`}
+                    style={{ background: 'var(--bg-base)', color: isSorted ? undefined : 'var(--text-muted)' }}
                   >
                     <button
                       className="flex items-center gap-1 bg-transparent border-none p-0 font-semibold uppercase tracking-wider text-inherit cursor-pointer"
@@ -223,7 +229,7 @@ export default function ResultsTable({ columns, rows }) {
                       {isSorted ? (
                         <span className="text-blue-400">{sortAsc ? "\u2191" : "\u2193"}</span>
                       ) : (
-                        <svg className="w-3 h-3 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className="w-3 h-3" style={{ color: 'var(--border-default)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
                         </svg>
                       )}
@@ -235,15 +241,18 @@ export default function ResultsTable({ columns, rows }) {
           </thead>
           <tbody>
             {paged.map((row, i) => (
-              <tr key={i} className={`border-b border-slate-800/60 transition-colors duration-150 hover:bg-blue-500/[0.04] ${
-                i % 2 === 1 ? "bg-slate-800/20" : ""
-              }`}>
+              <tr key={i} className="transition-colors duration-150"
+                style={{ borderBottom: '1px solid var(--overlay-subtle)', background: i % 2 === 1 ? 'var(--overlay-faint)' : undefined }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--overlay-subtle)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 1 ? 'var(--overlay-faint)' : 'transparent'; }}
+              >
                 {columns.map((col) => (
                   <td
                     key={col}
-                    className={`px-4 py-2.5 text-slate-300 whitespace-nowrap max-w-[300px] truncate ${
+                    className={`px-4 py-2.5 whitespace-nowrap max-w-[300px] truncate ${
                       isNumericValue(row[col]) ? "tabular-nums text-right font-mono text-[13px]" : ""
                     }`}
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     {String(row[col] ?? "")}
                   </td>
@@ -255,19 +264,20 @@ export default function ResultsTable({ columns, rows }) {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/60 border-t border-slate-800">
+      <div className="flex items-center justify-between px-4 py-2.5" style={{ background: 'var(--bg-elevated)', borderTop: '1px solid var(--border-default)' }}>
         {/* Rows per page selector */}
         <div className="flex items-center gap-2">
-          <label htmlFor="rows-per-page" className="text-[11px] text-slate-500 font-medium whitespace-nowrap">Rows per page</label>
+          <label htmlFor="rows-per-page" className="text-[11px] font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Rows per page</label>
           <select
             id="rows-per-page"
             value={perPage}
             onChange={(e) => handlePerPageChange(Number(e.target.value))}
-            className="text-xs text-slate-300 bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-lg px-2 py-1.5 cursor-pointer focus:outline-none focus:border-blue-500/40 transition-colors duration-200 appearance-none"
+            className="text-xs rounded-lg px-2 py-1.5 cursor-pointer focus:outline-none focus:border-blue-500/40 transition-colors duration-200 appearance-none"
+            style={{ color: 'var(--text-primary)', background: 'var(--overlay-faint)', border: '1px solid var(--overlay-light)' }}
             aria-label="Rows per page"
           >
             {ROWS_PER_PAGE_OPTIONS.map((opt) => (
-              <option key={opt} value={opt} className="bg-slate-900 text-slate-300">{opt}</option>
+              <option key={opt} value={opt} style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>{opt}</option>
             ))}
           </select>
         </div>
@@ -278,7 +288,8 @@ export default function ResultsTable({ columns, rows }) {
             <button
               onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page === 0}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors duration-200 cursor-pointer"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-30 transition-colors duration-200 cursor-pointer"
+              style={{ color: 'var(--text-secondary)' }}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -293,8 +304,9 @@ export default function ResultsTable({ columns, rows }) {
                   className={`min-w-[32px] h-8 text-xs font-medium rounded-lg transition-colors duration-200 cursor-pointer ${
                     p === page
                       ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
-                      : "text-slate-500 hover:text-white hover:bg-slate-800"
+                      : ""
                   }`}
+                  style={p !== page ? { color: 'var(--text-muted)' } : undefined}
                 >
                   {p + 1}
                 </button>
@@ -303,7 +315,8 @@ export default function ResultsTable({ columns, rows }) {
             <button
               onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors duration-200 cursor-pointer"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-30 transition-colors duration-200 cursor-pointer"
+              style={{ color: 'var(--text-secondary)' }}
             >
               Next
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

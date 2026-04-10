@@ -22,6 +22,7 @@ import GlobalFilterBar from "../components/dashboard/GlobalFilterBar";
 import FloatingToolbar from "../components/dashboard/FloatingToolbar";
 import CrossFilterBadge from "../components/dashboard/CrossFilterBadge";
 import { evaluateVisibilityRule } from "../lib/visibilityRules";
+import { classifyColumns } from "../lib/fieldClassification";
 
 // Lazy-loaded modals — only fetched when opened
 const TileEditor = lazy(() => import("../components/dashboard/TileEditor"));
@@ -73,6 +74,7 @@ export default function DashboardBuilder() {
   const getPrefetchData = useStore(s => s.getPrefetchData);
   const clearPrefetchCache = useStore(s => s.clearPrefetchCache);
   const applyGlobalFilters = useStore(s => s.applyGlobalFilters);
+  const resetGlobalFilters = useStore(s => s.resetGlobalFilters);
   const dashboardGlobalFilters = useStore(s => s.dashboardGlobalFilters);
   const tileEditVersion = useStore(s => s.tileEditVersion);
   const bumpTileEditVersion = useStore(s => s.bumpTileEditVersion);
@@ -111,6 +113,8 @@ export default function DashboardBuilder() {
   const [filterError, setFilterError] = useState(null);
   const [drillDown, setDrillDown] = useState(null); // { loading, data, error, dimension, value, sql }
   const [drillSuggestions, setDrillSuggestions] = useState([]); // [{ question, dimension }]
+  const [schemaColumns, setSchemaColumns] = useState([]);
+  const [defaultClassifications, setDefaultClassifications] = useState({});
   const [searchParams] = useSearchParams();
 
   const saveTimer = useRef(null);
@@ -144,6 +148,13 @@ export default function DashboardBuilder() {
         if (list.length > 0) {
           const targetId = activeDashboardId || list[0].id;
           const full = await api.getDashboard(targetId);
+          // Reset filters on session start — prevent stale filtered data from prior sessions
+          const emptyFilters = { dateColumn: '', range: 'all_time', dateStart: '', dateEnd: '', fields: [] };
+          applyGlobalFilters(emptyFilters);
+          if (full.globalFilters?.fields?.length > 0 || (full.globalFilters?.range && full.globalFilters.range !== 'all_time')) {
+            api.updateDashboard(targetId, { globalFilters: emptyFilters }).catch(() => {});
+            full.globalFilters = emptyFilters;
+          }
           setActiveDashboard(full);
           setActiveDashboardId(full.id);
           if (full.tabs?.length > 0) setActiveTabId(full.tabs[0].id);
@@ -156,41 +167,68 @@ export default function DashboardBuilder() {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Reset filters when leaving the Analytics page
+  useEffect(() => {
+    return () => resetGlobalFilters();
+  }, [resetGlobalFilters]);
+
+  // ── Reload dashboard when agent creates/updates/deletes tiles ──
+  useEffect(() => {
+    const handler = (e) => {
+      const fresh = e.detail?.dashboard;
+      if (fresh && fresh.id === dashboardRef.current?.id) {
+        setActiveDashboard(fresh);
+      }
+    };
+    window.addEventListener('dashboard-reload', handler);
+    return () => window.removeEventListener('dashboard-reload', handler);
+  }, []);
+
   // ── Fetch dashboard templates when connected ──
   useEffect(() => {
     if (!activeConnId) return;
     api.getDashboardTemplates(activeConnId).then(r => setTemplates(r.templates || [])).catch(() => {});
   }, [activeConnId]);
 
-  // ── Auto-refresh tiles that have SQL but no data ──
+  // ── Fetch schema columns once for active connection (shared by TileEditor & MetricEditor) ──
+  useEffect(() => {
+    if (!activeConnId) return;
+    let cancelled = false;
+    api.getTables(activeConnId).then(res => {
+      if (cancelled) return;
+      const cols = [];
+      const seen = new Set();
+      for (const table of (res?.tables || [])) {
+        for (const col of (table.columns || [])) {
+          const name = typeof col === 'string' ? col : col.name || col.column_name || '';
+          if (name && !seen.has(name)) {
+            seen.add(name);
+            cols.push({ name, table: table.name, type: typeof col === 'object' ? (col.type || col.data_type || '') : '' });
+          }
+        }
+        if (cols.length >= 200) break;
+      }
+      setSchemaColumns(cols);
+      setDefaultClassifications(classifyColumns(cols, [], {}));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeConnId]);
+
+  // ── Auto-refresh all tiles with SQL on dashboard load ──
+  // This ensures stale filtered data from prior sessions is replaced with fresh unfiltered results.
+  const dashRefreshedRef = useRef(null);
   useEffect(() => {
     if (!activeDashboard?.tabs) return;
+    // Only auto-refresh once per dashboard ID
+    if (dashRefreshedRef.current === activeDashboard.id) return;
+    dashRefreshedRef.current = activeDashboard.id;
+
     const stale = [];
     for (const tab of activeDashboard.tabs) {
       for (const sec of tab.sections || []) {
         for (const tile of sec.tiles || []) {
-          if (tile.sql && (!tile.rows || tile.rows.length === 0)) {
-            const cached = getPrefetchData(activeDashboard.id, tile.id);
-            if (cached) {
-              // Apply cached data immediately instead of refreshing
-              setActiveDashboard(prev => {
-                if (!prev) return prev;
-                return {
-                  ...prev,
-                  tabs: prev.tabs.map(tab => ({
-                    ...tab,
-                    sections: (tab.sections || []).map(sec => ({
-                      ...sec,
-                      tiles: (sec.tiles || []).map(t =>
-                        t.id === tile.id ? { ...t, ...cached } : t
-                      ),
-                    })),
-                  })),
-                };
-              });
-            } else {
-              stale.push(tile.id);
-            }
+          if (tile.sql) {
+            stale.push(tile.id);
           }
         }
       }
@@ -226,6 +264,58 @@ export default function DashboardBuilder() {
     })();
     return () => { cancelled = true; };
   }, [activeDashboard?.id, getPrefetchData]); // only re-run when dashboard changes, not on every tile update
+
+  // ── Auto-refresh tiles that have SQL but no data (e.g., agent-created tiles) ──
+  // This catches tiles added AFTER the initial dashboard load, which miss the one-shot refresh above.
+  const refreshingTilesRef = useRef(new Set());
+  useEffect(() => {
+    if (!activeDashboard?.tabs || !activeConnId) return;
+    const dataless = [];
+    for (const tab of activeDashboard.tabs) {
+      for (const sec of tab.sections || []) {
+        for (const tile of sec.tiles || []) {
+          if (tile.sql && (!tile.columns || tile.columns.length === 0) && (!tile.rows || tile.rows.length === 0)) {
+            if (!refreshingTilesRef.current.has(tile.id)) {
+              dataless.push(tile.id);
+            }
+          }
+        }
+      }
+    }
+    if (dataless.length === 0) return;
+    let cancelled = false;
+    // Mark as in-flight to prevent duplicate refresh
+    dataless.forEach(id => refreshingTilesRef.current.add(id));
+    (async () => {
+      for (const tileId of dataless) {
+        if (cancelled) break;
+        try {
+          const res = await api.refreshTile(activeDashboard.id, tileId, activeConnId, null);
+          if (cancelled) break;
+          setActiveDashboard(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              tabs: prev.tabs.map(tab => ({
+                ...tab,
+                sections: (tab.sections || []).map(sec => ({
+                  ...sec,
+                  tiles: (sec.tiles || []).map(t =>
+                    t.id === tileId ? { ...t, ...res, columns: res.columns || t.columns, rows: res.rows || t.rows } : t
+                  ),
+                })),
+              })),
+            };
+          });
+        } catch (err) {
+          console.error(`Auto-refresh dataless tile ${tileId} failed:`, err);
+        } finally {
+          refreshingTilesRef.current.delete(tileId);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  });
 
   // ── Background prefetch: refresh inactive tab tiles ──
   useEffect(() => {
@@ -294,7 +384,7 @@ export default function DashboardBuilder() {
             description: dashboard.description,
             tabs: dashboard.tabs,
             annotations: dashboard.annotations,
-            globalFilters: dashboard.globalFilters,
+            // globalFilters excluded — filters are session-only, not persisted across sessions
           });
         } catch (err) {
           console.error("Auto-save failed:", err);
@@ -342,12 +432,17 @@ export default function DashboardBuilder() {
         const full = await api.getDashboard(id);
         // Ignore stale response if user clicked another dashboard [ADV-FIX M2]
         if (version !== dashSelectVersion.current) return;
+        // Reset filters when switching dashboards — start with clean slate
+        const emptyFilters = { dateColumn: '', range: 'all_time', dateStart: '', dateEnd: '', fields: [] };
+        applyGlobalFilters(emptyFilters);
+        if (full.globalFilters?.fields?.length > 0 || (full.globalFilters?.range && full.globalFilters.range !== 'all_time')) {
+          api.updateDashboard(full.id, { globalFilters: emptyFilters }).catch(() => {});
+          full.globalFilters = emptyFilters;
+        }
         setActiveDashboard(full);
         setActiveDashboardId(full.id);
         if (full.tabs?.length > 0) setActiveTabId(full.tabs[0].id);
         else setActiveTabId(null);
-        // Restore persisted global filters into Zustand store
-        if (full.globalFilters) applyGlobalFilters(full.globalFilters);
       } catch (err) {
         console.error("Failed to load dashboard:", err);
       }
@@ -672,12 +767,6 @@ export default function DashboardBuilder() {
     [openTileEditor]
   );
 
-  const handleTileEditSQL = useCallback(
-    (tile) => {
-      openTileEditor({ ...tile, editMode: "sql" });
-    },
-    [openTileEditor]
-  );
 
   const handleTileChartChange = useCallback(
     async (tileId, chartType) => {
@@ -787,6 +876,34 @@ export default function DashboardBuilder() {
     []
   );
 
+  const handleTileMove = useCallback(
+    async (tileId, targetTabId, targetSectionId) => {
+      const dash = dashboardRef.current;
+      if (!dash) return;
+      try {
+        const result = await api.moveTile(dash.id, tileId, targetTabId, targetSectionId);
+        if (result) setActiveDashboard(result);
+      } catch (err) {
+        console.error("Move tile failed:", err);
+      }
+    },
+    []
+  );
+
+  const handleTileCopy = useCallback(
+    async (tileId, targetTabId, targetSectionId) => {
+      const dash = dashboardRef.current;
+      if (!dash) return;
+      try {
+        const result = await api.copyTile(dash.id, tileId, targetTabId, targetSectionId);
+        if (result) setActiveDashboard(result);
+      } catch (err) {
+        console.error("Copy tile failed:", err);
+      }
+    },
+    []
+  );
+
   const globalFiltersRef = useRef(globalFilters);
   globalFiltersRef.current = globalFilters;
 
@@ -807,47 +924,69 @@ export default function DashboardBuilder() {
   const refreshAllTiles = useCallback((filtersOverride) => {
     const dash = dashboardRef.current;
     const tabId = activeTabIdRef.current;
-    if (!dash || !tabId || !activeConnId) return;
+    if (!dash || !tabId) return;
 
     const currentTab = dash.tabs.find(t => t.id === tabId);
     if (!currentTab) return;
 
     const tiles = [];
     currentTab.sections.forEach(s => s.tiles.forEach(t => tiles.push({ id: t.id, title: t.title || t.id })));
+    if (tiles.length === 0) return;
 
     (async () => {
       const tileIds = tiles.map(t => t.id);
       const tileLookup = Object.fromEntries(tiles.map(t => [t.id, t.title]));
       const failedNames = [];
+      let batchResults = null;
 
       try {
-        // Use batch endpoint for concurrent server-side execution
         const batchResult = await api.batchRefreshTiles(
-          dash.id, tileIds, activeConnId, filtersOverride || globalFiltersRef.current
+          dash.id, tileIds, activeConnId || null, filtersOverride || globalFiltersRef.current
         );
+        batchResults = batchResult.results || {};
         if (batchResult.errors) {
           Object.keys(batchResult.errors).forEach(tid => failedNames.push(tileLookup[tid] || tid));
         }
       } catch {
-        // Fallback to individual refresh if batch endpoint fails
+        // Fallback to individual refresh
         const BATCH_SIZE = 5;
         for (let i = 0; i < tiles.length; i += BATCH_SIZE) {
           const batch = tiles.slice(i, i + BATCH_SIZE);
-          const results = await Promise.allSettled(
-            batch.map(tile => api.refreshTile(dash.id, tile.id, activeConnId, filtersOverride || globalFiltersRef.current))
+          await Promise.allSettled(
+            batch.map(tile => api.refreshTile(dash.id, tile.id, activeConnId || null, filtersOverride || globalFiltersRef.current))
           );
-          results.forEach((r, j) => {
-            if (r.status === 'rejected') failedNames.push(batch[j].title);
-          });
         }
       }
 
-      // ONE getDashboard call after all tiles refreshed
-      try {
-        const fresh = await api.getDashboard(dash.id);
-        if (fresh) setActiveDashboard(fresh);
-      } catch (e) {
-        console.error("[filter] failed to fetch fresh dashboard:", e);
+      // Apply results directly to local state (preserves runtime data)
+      if (batchResults && Object.keys(batchResults).length > 0) {
+        setActiveDashboard(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            tabs: prev.tabs.map(tab => ({
+              ...tab,
+              sections: (tab.sections || []).map(sec => ({
+                ...sec,
+                tiles: (sec.tiles || []).map(tile => {
+                  const result = batchResults[tile.id];
+                  if (result && result.columns) {
+                    return { ...tile, columns: result.columns, rows: result.rows || [] };
+                  }
+                  return tile;
+                }),
+              })),
+            })),
+          };
+        });
+      } else {
+        // Fallback: re-fetch dashboard
+        try {
+          const fresh = await api.getDashboard(dash.id);
+          if (fresh) setActiveDashboard(fresh);
+        } catch (e) {
+          console.error("[filter] failed to fetch fresh dashboard:", e);
+        }
       }
 
       if (failedNames.length > 0) {
@@ -956,11 +1095,27 @@ export default function DashboardBuilder() {
       if (!dash) return;
       try {
         await api.updateTile(dash.id, updatedTile.id, updatedTile);
-        // Always re-fetch full dashboard to guarantee fresh state
-        const fresh = await api.getDashboard(dash.id);
-        if (fresh) setActiveDashboard(fresh);
+        // Optimistically merge the updated tile into local state.
+        // Re-fetching from backend would lose runtime rows/columns data
+        // (not persisted on disk), causing charts to go blank until refresh.
+        setActiveDashboard(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            tabs: prev.tabs.map(tab => ({
+              ...tab,
+              sections: (tab.sections || []).map(sec => ({
+                ...sec,
+                tiles: (sec.tiles || []).map(tile =>
+                  tile.id === updatedTile.id
+                    ? { ...tile, ...updatedTile, rows: tile.rows, columns: tile.columns }
+                    : tile
+                ),
+              })),
+            })),
+          };
+        });
         setEditingTile(null);
-        // Bump tileEditVersion to trigger reactive refresh of all tiles
         bumpTileEditVersion();
       } catch (err) {
         console.error("Failed to save tile:", err);
@@ -1009,9 +1164,14 @@ export default function DashboardBuilder() {
       const tabExists = dash?.tabs?.some(t => t.id === state.activeTabId);
       if (tabExists) setActiveTabId(state.activeTabId);
     }
-    if (state.globalFilters) applyGlobalFilters(state.globalFilters);
+    if (state.globalFilters) {
+      applyGlobalFilters(state.globalFilters);
+      // Refresh tiles with the restored filters so dashboard data updates
+      clearPrefetchCache(dashboardRef.current?.id);
+      refreshAllTiles(state.globalFilters);
+    }
     if (state.crossFilter !== undefined) setCrossFilter(state.crossFilter);
-  }, [applyGlobalFilters]);
+  }, [applyGlobalFilters, clearPrefetchCache, refreshAllTiles]);
 
   // ── Apply bookmark from URL search params ──
   useEffect(() => {
@@ -1459,7 +1619,7 @@ export default function DashboardBuilder() {
               style={{
                 background: "transparent",
                 border: "none",
-                color: "#94a3b8",
+                color: TOKENS.text.secondary,
                 cursor: "pointer",
                 fontSize: 18,
                 padding: "6px",
@@ -1469,8 +1629,8 @@ export default function DashboardBuilder() {
                 justifyContent: "center",
                 transition: "color 0.15s",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = TOKENS.text.primary; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = TOKENS.text.secondary; }}
               title="Expand sidebar"
             >
               »
@@ -1495,7 +1655,7 @@ export default function DashboardBuilder() {
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "#94a3b8",
+                    color: TOKENS.text.secondary,
                     cursor: "pointer",
                     fontSize: 16,
                     padding: "2px 4px",
@@ -1504,8 +1664,8 @@ export default function DashboardBuilder() {
                     alignItems: "center",
                     transition: "color 0.15s",
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = TOKENS.text.primary; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = TOKENS.text.secondary; }}
                   title="Collapse sidebar"
                 >
                   «
@@ -1749,7 +1909,7 @@ export default function DashboardBuilder() {
             {/* Filter error banner */}
             {filterError && (
               <div style={{
-                background: '#3b1a1a', border: '1px solid #ef4444',
+                background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444',
                 borderRadius: 8, padding: '8px 16px', margin: '0 24px',
                 color: '#fca5a5', fontSize: 13, display: 'flex',
                 alignItems: 'center', gap: 8,
@@ -1813,10 +1973,12 @@ export default function DashboardBuilder() {
                           connId={activeConnId}
                           onLayoutChange={handleLayoutChange}
                           onTileEdit={handleTileEdit}
-                          onTileEditSQL={handleTileEditSQL}
                           onTileChartChange={handleTileChartChange}
                           onTileRemove={handleTileRemove}
+                          onTileMove={handleTileMove}
+                          onTileCopy={handleTileCopy}
                           onTileRefresh={handleTileRefresh}
+                          allTabs={activeDashboard?.tabs || []}
                           onAddTile={handleAddTile}
                           onEditSection={handleEditSection}
                           onDeleteSection={handleDeleteSection}
@@ -1870,7 +2032,7 @@ export default function DashboardBuilder() {
                 const hiddenCount = sections.length - sections.filter(s => evaluateVisibilityRule(s.visibilityRule, globalFilters, crossFilter)).length;
                 if (hiddenCount === 0) return null;
                 return (
-                  <p style={{ textAlign: 'center', fontSize: 11, color: '#5C5F66', padding: '8px 0' }}>
+                  <p style={{ textAlign: 'center', fontSize: 11, color: TOKENS.text.muted, padding: '8px 0' }}>
                     {hiddenCount} section{hiddenCount > 1 ? 's' : ''} hidden by visibility rules
                   </p>
                 );
@@ -2009,11 +2171,14 @@ export default function DashboardBuilder() {
             key="tile-editor"
             tile={editingTile}
             dashboardId={activeDashboard?.id}
+            connId={activeConnId}
             onSave={handleTileSave}
             onClose={() => setEditingTile(null)}
             onRefresh={handleTileRefresh}
             onDelete={handleTileDelete}
             customMetrics={activeDashboard?.customMetrics || []}
+            schemaColumns={schemaColumns}
+            defaultClassifications={defaultClassifications}
           />
         )}
       </AnimatePresence>
@@ -2030,6 +2195,8 @@ export default function DashboardBuilder() {
           })()}
           onSave={handleMetricsUpdate}
           onClose={() => setActiveModal(null)}
+          schemaColumns={schemaColumns}
+          fieldClassifications={defaultClassifications}
         />
       )}
 
@@ -2047,6 +2214,7 @@ export default function DashboardBuilder() {
           currentState={getCurrentBookmarkState()}
           onApply={applyBookmarkState}
           onClose={() => setActiveModal(null)}
+          tabNames={Object.fromEntries((activeDashboard?.tabs || []).map(t => [t.id, t.name || t.id]))}
         />
       )}
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, Suspense, Component, lazy } from "react";
-import { AnimatePresence } from "framer-motion";
+// eslint-disable-next-line no-unused-vars
+import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import behaviorEngine from "../lib/behaviorEngine";
 import UserDropdown from "../components/UserDropdown";
@@ -113,7 +114,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
+    <div className="flex-1 overflow-y-auto relative" style={{ background: 'var(--bg-page)' }}>
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
       <GPUTierProvider>
         <_WebGLBound fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
@@ -124,15 +125,15 @@ export default function Profile() {
       </GPUTierProvider>
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
-          <h1 className="text-xl font-bold text-white">Profile</h1>
-          <p className="text-xs text-gray-400">Manage your analyst profile</p>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Profile</h1>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Manage your analyst profile</p>
         </div>
         <UserDropdown />
       </header>
 
       <div className="max-w-xl mx-auto px-4 py-8 relative z-10">
         {loading ? (
-          <div className="flex items-center gap-3 text-gray-500 text-sm">
+          <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
             <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
             Loading profile...
           </div>
@@ -176,7 +177,7 @@ export default function Profile() {
                     {initials}
                   </motion.div>
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">Avatar Color</label>
+                    <label className="block text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Avatar Color</label>
                     <div className="flex gap-2">
                       {AVATAR_COLORS.map((c) => (
                         <motion.button
@@ -184,7 +185,7 @@ export default function Profile() {
                           onClick={() => setAvatarColor(c.id)}
                           whileHover={{ scale: 1.15 }}
                           whileTap={{ scale: 0.9 }}
-                          className={`w-7 h-7 rounded-full ${c.bg} cursor-pointer transition-all ${avatarColor === c.id ? `ring-2 ${c.ring} ring-offset-2 ring-offset-[#06060e] scale-110` : "opacity-70"}`}
+                          className={`w-7 h-7 rounded-full ${c.bg} cursor-pointer transition-all ${avatarColor === c.id ? `ring-2 ${c.ring} ring-offset-2 ring-offset-[var(--bg-page)] scale-110` : "opacity-70"}`}
                         />
                       ))}
                     </div>
@@ -196,27 +197,27 @@ export default function Profile() {
             {/* Personal Info */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6 space-y-5">
-                <h2 className="text-sm font-semibold text-white">Personal Information</h2>
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Personal Information</h2>
 
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Display Name</label>
+                  <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Display Name</label>
                   <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full glass-input rounded-lg px-4 py-2.5 text-white placeholder-gray-600 input-glow transition" placeholder="Your display name" />
+                    className="w-full glass-input rounded-lg px-4 py-2.5 placeholder-gray-600 input-glow transition" style={{ color: 'var(--text-primary)' }} placeholder="Your display name" />
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1.5">
+                  <label className="block text-sm mb-1 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
                     Email
-                    <svg className="w-3 h-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    <svg className="w-3 h-3" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                   </label>
                   <input type="email" value={profile?.email || ""} readOnly aria-label="Email (read-only)"
                     className="w-full glass-input rounded-lg px-4 py-2.5 text-gray-500 cursor-not-allowed opacity-60" />
-                  <p className="text-xs text-gray-600 mt-1">Contact support to change your email</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Contact support to change your email</p>
                 </div>
 
                 {(profile?.phone || profile?.country_code) && (
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">Phone</label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Phone</label>
                     <input type="text" value={`${profile.country_code || ""} ${profile.phone || ""}`.trim() || "Not provided"} readOnly
                       className="w-full glass-input rounded-lg px-4 py-2.5 text-gray-500 cursor-not-allowed opacity-60" />
                   </div>
@@ -224,21 +225,21 @@ export default function Profile() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">Company</label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Company</label>
                     <input type="text" value={company} onChange={(e) => setCompany(e.target.value)}
-                      className="w-full glass-input rounded-lg px-4 py-2.5 text-white placeholder-gray-600 input-glow transition" placeholder="Your company" />
+                      className="w-full glass-input rounded-lg px-4 py-2.5 placeholder-gray-600 input-glow transition" style={{ color: 'var(--text-primary)' }} placeholder="Your company" />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">Role</label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Role</label>
                     <input type="text" value={role} onChange={(e) => setRole(e.target.value)}
-                      className="w-full glass-input rounded-lg px-4 py-2.5 text-white placeholder-gray-600 input-glow transition" placeholder="e.g. Data Analyst" />
+                      className="w-full glass-input rounded-lg px-4 py-2.5 placeholder-gray-600 input-glow transition" style={{ color: 'var(--text-primary)' }} placeholder="e.g. Data Analyst" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Timezone</label>
+                  <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Timezone</label>
                   <select value={timezone} onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full glass-input rounded-lg px-4 py-2.5 text-white input-glow transition cursor-pointer" aria-label="Timezone">
+                    className="w-full glass-input rounded-lg px-4 py-2.5 input-glow transition cursor-pointer" style={{ color: 'var(--text-primary)' }} aria-label="Timezone">
                     <option value="UTC">UTC</option>
                     {Object.entries(TIMEZONE_GROUPS).map(([group, tzs]) => (
                       <optgroup key={group} label={group}>
@@ -253,15 +254,15 @@ export default function Profile() {
             {/* Auth & Meta */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6 space-y-4">
-                <h2 className="text-sm font-semibold text-white">Account Details</h2>
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Account Details</h2>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">Authentication Method</label>
+                  <label className="block text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Authentication Method</label>
                   {authBadge(profile?.oauth_provider || "email")}
                 </div>
                 {profile?.created_at && (
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">Member Since</label>
-                    <p className="text-sm text-gray-300">{new Date(profile.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Member Since</label>
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{new Date(profile.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
                   </div>
                 )}
               </div>
@@ -270,15 +271,15 @@ export default function Profile() {
             {/* Notifications */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6">
-                <h2 className="text-sm font-semibold text-white mb-4">Notification Preferences</h2>
+                <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Notification Preferences</h2>
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
-                    <p className="text-sm text-gray-200">Email Notifications</p>
-                    <p className="text-xs text-gray-500">Receive query results and alerts via email</p>
+                    <p className="text-sm" style={{ color: 'var(--text-primary)' }}>Email Notifications</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Receive query results and alerts via email</p>
                   </div>
                   <div className="relative">
                     <input type="checkbox" checked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600" />
+                    <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600" style={{ background: 'var(--bg-hover)' }} />
                   </div>
                 </label>
               </div>
@@ -288,14 +289,14 @@ export default function Profile() {
             {consentFeatureEnabled && (
               <StaggerItem>
                 <div className="glass-card rounded-2xl p-6">
-                  <h2 className="text-sm font-semibold text-white mb-1">Predictive Intelligence</h2>
-                  <p className="text-xs text-gray-500 mb-4">Control how DataLens learns from your usage to improve suggestions. Raw interaction data never leaves your browser — only abstract patterns are stored.</p>
+                  <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Predictive Intelligence</h2>
+                  <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Control how AskDB learns from your usage to improve suggestions. Raw interaction data never leaves your browser — only abstract patterns are stored.</p>
 
                   <div className="space-y-3">
                     <label className="flex items-center justify-between cursor-pointer">
                       <div>
-                        <p className="text-sm text-gray-200">Personal Predictions</p>
-                        <p className="text-xs text-gray-500">Learn from your query patterns to suggest better next steps</p>
+                        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>Personal Predictions</p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Learn from your query patterns to suggest better next steps</p>
                       </div>
                       <div className="relative">
                         <input type="checkbox" checked={consentLevel >= 1}
@@ -307,14 +308,14 @@ export default function Profile() {
                             }).catch(() => {});
                           }}
                           className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600" />
+                        <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600" style={{ background: 'var(--bg-hover)' }} />
                       </div>
                     </label>
 
                     <label className={`flex items-center justify-between ${consentLevel >= 1 ? "cursor-pointer" : "opacity-40 cursor-not-allowed"}`}>
                       <div>
-                        <p className="text-sm text-gray-200">Collaborative Intelligence</p>
-                        <p className="text-xs text-gray-500">Contribute anonymous patterns to improve predictions for your team</p>
+                        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>Collaborative Intelligence</p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Contribute anonymous patterns to improve predictions for your team</p>
                       </div>
                       <div className="relative">
                         <input type="checkbox" checked={consentLevel >= 2} disabled={consentLevel < 1}
@@ -326,13 +327,13 @@ export default function Profile() {
                             }).catch(() => {});
                           }}
                           className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600" />
+                        <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600" style={{ background: 'var(--bg-hover)' }} />
                       </div>
                     </label>
                   </div>
 
                   {consentLevel === 0 && (
-                    <p className="text-xs text-gray-600 mt-3 italic">No interaction data is captured while this is off.</p>
+                    <p className="text-xs mt-3 italic" style={{ color: 'var(--text-muted)' }}>No interaction data is captured while this is off.</p>
                   )}
                 </div>
               </StaggerItem>

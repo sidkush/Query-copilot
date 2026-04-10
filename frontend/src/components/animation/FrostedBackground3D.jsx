@@ -2,6 +2,7 @@ import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, Float, OrthographicCamera } from '@react-three/drei';
 import * as THREE from 'three';
+import { useStore } from '../../store';
 
 const glassMaterial = new THREE.MeshPhysicalMaterial({
   color: '#e2e8f0',
@@ -163,10 +164,13 @@ const Scene = () => {
 };
 
 export default function FrostedBackground3D({ className = "" }) {
+  const resolvedTheme = useStore(s => s.resolvedTheme);
+  const isLight = resolvedTheme === 'light';
+
   return (
     <div className={`absolute inset-0 pointer-events-none ${className}`} aria-hidden="true" style={{ zIndex: 0 }}>
-      {/* We add a subtle dark gradient behind the 3D canvas so the glass shows up well */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black via-slate-950 to-[#050510]" />
+      {/* Gradient behind the 3D canvas — adapts to theme */}
+      <div className={`absolute inset-0 ${isLight ? 'bg-gradient-to-br from-slate-100 via-slate-50 to-white' : 'bg-gradient-to-br from-black via-slate-950 to-[#050510]'}`} />
       <Canvas
         camera={{ position: [0, 0, 15], fov: 45 }}
         dpr={[1, 2]}

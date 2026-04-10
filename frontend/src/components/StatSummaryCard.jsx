@@ -60,7 +60,7 @@ export default function StatSummaryCard({
       <div className="relative z-10">
         {/* Header row */}
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
             {title}
           </span>
           {icon && <span className={`${iconColor}`}>{icon}</span>}
@@ -73,7 +73,8 @@ export default function StatSummaryCard({
             prefix={prefix}
             suffix={suffix}
             decimals={decimals}
-            className="text-2xl font-bold text-white tabular-nums"
+            className="text-2xl font-bold tabular-nums"
+            style={{ color: 'var(--text-primary)' }}
           />
           {trend !== undefined && (
             <span

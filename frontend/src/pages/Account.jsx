@@ -50,7 +50,7 @@ function StatCard({ value, label, gradient = "from-indigo-400 to-violet-400", is
       <p className={`text-2xl font-extrabold bg-gradient-to-r ${gradient} bg-clip-text text-transparent`}>
         {isNumber ? <AnimatedCounter value={value} className={`bg-gradient-to-r ${gradient} bg-clip-text text-transparent`} /> : value}
       </p>
-      <p className="text-xs text-gray-500 mt-1">{label}</p>
+      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
     </motion.div>
   );
 }
@@ -61,7 +61,7 @@ function DbBadge({ dbType }) {
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${color}`}>{name}</span>;
 }
 
-const DEMO_EMAIL = "demo@datalens.dev";
+const DEMO_EMAIL = "demo@askdb.dev";
 
 const MODEL_TIERS = { fast: "Fast", balanced: "Balanced", powerful: "Most Capable" };
 const FALLBACK_MODELS = [
@@ -73,7 +73,7 @@ const FALLBACK_MODELS = [
 
 function MaskedApiKey({ masked, isDemo }) {
   const [revealed, setRevealed] = useState(false);
-  if (!masked && !isDemo) return <span className="text-gray-500">Not set</span>;
+  if (!masked && !isDemo) return <span style={{ color: 'var(--text-muted)' }}>Not set</span>;
 
   const initials = masked?.slice(0, 7) || "sk-ant-";
   const displayMasked = `${initials}••••••••`;
@@ -81,11 +81,11 @@ function MaskedApiKey({ masked, isDemo }) {
 
   return (
     <span className="flex items-center gap-2">
-      <span className="text-gray-400">{revealed ? displayFull : displayMasked}</span>
+      <span style={{ color: 'var(--text-secondary)' }}>{revealed ? displayFull : displayMasked}</span>
       <button
         type="button"
         onClick={() => setRevealed(!revealed)}
-        className="text-[10px] text-gray-500 hover:text-gray-300 transition cursor-pointer underline"
+        className="text-[10px] transition cursor-pointer underline" style={{ color: 'var(--text-muted)' }}
       >
         {revealed ? "hide" : "show"}
       </button>
@@ -197,26 +197,26 @@ function ApiConfigSection() {
     <>
       <StaggerItem>
         <div className="glass-card rounded-2xl p-6">
-          <h2 className="text-sm font-semibold text-white mb-4">API Configuration</h2>
+          <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>API Configuration</h2>
           <div className="space-y-4">
             {/* Status */}
             <div className="flex items-center justify-between">
               <div>
-                <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Status</label>
+                <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Status</label>
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${statusColor}`} />
-                  <span className="text-sm text-gray-200">{statusLabel}</span>
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{statusLabel}</span>
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Provider</label>
-                <span className="text-sm text-gray-200">Anthropic</span>
+                <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Provider</label>
+                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Anthropic</span>
               </div>
             </div>
 
             {/* Masked Key — show initials + dots, click to reveal */}
             <div>
-              <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">API Key</label>
+              <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>API Key</label>
               <div className="text-sm font-mono">
                 <MaskedApiKey masked={keyStatus?.masked_key} isDemo={isDemo} />
               </div>
@@ -224,15 +224,15 @@ function ApiConfigSection() {
 
             {/* Preferred Model — no $ symbols, show tier instead */}
             <div>
-              <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Preferred Model</label>
+              <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Preferred Model</label>
               <select
                 value={preferredModel || ""}
                 onChange={handleModelChange}
-                className="w-full glass-input rounded-lg px-3 py-2 text-white text-sm bg-transparent"
+                className="w-full glass-input rounded-lg px-3 py-2 text-sm bg-transparent" style={{ color: 'var(--text-primary)' }}
               >
-                <option value="" className="bg-[#0e0e1a]">Default (Haiku 4.5)</option>
+                <option value="" style={{ background: 'var(--bg-base)' }}>Default (Haiku 4.5)</option>
                 {models.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-[#0e0e1a]">
+                  <option key={m.id} value={m.id} style={{ background: 'var(--bg-base)' }}>
                     {m.name} — {MODEL_TIERS[m.tier] || m.tier}
                   </option>
                 ))}
@@ -242,8 +242,8 @@ function ApiConfigSection() {
             {/* Last Validated */}
             {keyStatus?.validated_at && (
               <div>
-                <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Last Validated</label>
-                <p className="text-sm text-gray-400">{new Date(keyStatus.validated_at).toLocaleString()}</p>
+                <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Last Validated</label>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{new Date(keyStatus.validated_at).toLocaleString()}</p>
               </div>
             )}
 
@@ -288,8 +288,8 @@ function ApiConfigSection() {
               className="glass-card rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-white mb-2">Update API Key</h3>
-              <p className="text-sm text-gray-400 mb-4">Enter your Anthropic API key. It will be validated and encrypted before saving.</p>
+              <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Update API Key</h3>
+              <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Enter your Anthropic API key. It will be validated and encrypted before saving.</p>
 
               <div className="relative mb-3">
                 <input
@@ -298,13 +298,13 @@ function ApiConfigSection() {
                   onChange={(e) => setNewKey(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !keyValidating) handleSaveKey(); }}
                   placeholder="sk-ant-..."
-                  className="w-full glass-input rounded-lg px-4 py-2.5 text-white pr-10 input-glow"
+                  className="w-full glass-input rounded-lg px-4 py-2.5 pr-10 input-glow" style={{ color: 'var(--text-primary)' }}
                   autoFocus
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey(!showKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}
                 >
                   {showKey ? (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -411,7 +411,7 @@ export default function Account() {
   const qs = account?.query_stats || {};
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
+    <div className="flex-1 overflow-y-auto relative" style={{ background: 'var(--bg-page)' }}>
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
       <GPUTierProvider>
         <_WebGLBound fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>
@@ -422,15 +422,15 @@ export default function Account() {
       </GPUTierProvider>
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
-          <h1 className="text-xl font-bold text-white">Account</h1>
-          <p className="text-xs text-gray-400">Your data ecosystem at a glance</p>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Account</h1>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Your data ecosystem at a glance</p>
         </div>
         <UserDropdown />
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 relative z-10">
         {loading ? (
-          <div className="flex items-center gap-3 text-gray-500 text-sm">
+          <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
             <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
             Loading account...
           </div>
@@ -448,23 +448,23 @@ export default function Account() {
             {/* 1. Account Info */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6">
-                <h2 className="text-sm font-semibold text-white mb-4">Account Information</h2>
+                <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Account Information</h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Email</label>
-                    <p className="text-sm text-gray-200">{account?.email}</p>
+                    <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Email</label>
+                    <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{account?.email}</p>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Plan</label>
+                    <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Plan</label>
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-400 border border-indigo-700/40 capitalize">{account?.plan || "free"}</span>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Member Since</label>
-                    <p className="text-sm text-gray-200">{account?.created_at ? new Date(account.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A"}</p>
+                    <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Member Since</label>
+                    <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{account?.created_at ? new Date(account.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A"}</p>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Authentication</label>
-                    <p className="text-sm text-gray-200">{authLabel(account?.oauth_provider)}</p>
+                    <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Authentication</label>
+                    <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{authLabel(account?.oauth_provider)}</p>
                   </div>
                 </div>
               </div>
@@ -474,8 +474,8 @@ export default function Account() {
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-white">Active Connections</h2>
-                  <span className="text-xs text-gray-500">{account?.active_connection_count || 0} live</span>
+                  <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Active Connections</h2>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{account?.active_connection_count || 0} live</span>
                 </div>
                 {account?.active_connections?.length > 0 ? (
                   <div className="space-y-2">
@@ -488,13 +488,13 @@ export default function Account() {
                         className="flex items-center gap-3 glass rounded-lg px-3 py-2"
                       >
                         <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" /></span>
-                        <span className="text-sm text-gray-200">{c.database_name}</span>
+                        <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{c.database_name}</span>
                         <DbBadge dbType={c.db_type} />
                       </motion.div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-600">No active connections</p>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No active connections</p>
                 )}
               </div>
             </StaggerItem>
@@ -502,21 +502,21 @@ export default function Account() {
             {/* 3. Query Statistics */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6">
-                <h2 className="text-sm font-semibold text-white mb-4">Query Statistics</h2>
+                <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Query Statistics</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <StatCard value={qs.total_queries ?? 0} label="Total Queries" isNumber />
                   <StatCard value={qs.queries_this_month ?? 0} label="This Month" gradient="from-green-400 to-emerald-400" isNumber />
                   <StatCard value={qs.avg_latency_ms ? `${(qs.avg_latency_ms / 1000).toFixed(1)}s` : "\u2014"} label="Avg Response" gradient="from-cyan-400 to-blue-400" />
                   <StatCard value={qs.success_rate ? `${qs.success_rate}%` : "\u2014"} label="Success Rate" gradient="from-yellow-400 to-orange-400" />
                 </div>
-                {qs.last_query_at && <p className="text-xs text-gray-600 mt-3">Last query: {new Date(qs.last_query_at).toLocaleString()}</p>}
+                {qs.last_query_at && <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>Last query: {new Date(qs.last_query_at).toLocaleString()}</p>}
               </div>
             </StaggerItem>
 
             {/* 4. Storage & Usage */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6">
-                <h2 className="text-sm font-semibold text-white mb-4">Storage & Usage</h2>
+                <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Storage & Usage</h2>
                 <div className="grid grid-cols-3 gap-3">
                   <StatCard value={account?.saved_connections ?? 0} label="Saved Connections" isNumber />
                   <StatCard value={account?.chat_count ?? 0} label="Chat Sessions" gradient="from-purple-400 to-pink-400" isNumber />
@@ -530,7 +530,7 @@ export default function Account() {
               {account?.saved_connections_list?.length > 0 && (
                 <StaggerItem>
                   <div className="glass-card rounded-2xl p-6">
-                    <h2 className="text-sm font-semibold text-white mb-3">Saved Databases</h2>
+                    <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Saved Databases</h2>
                     <div className="flex flex-wrap gap-2">
                       {account.saved_connections_list.map((s, i) => (
                         <motion.div
@@ -540,7 +540,7 @@ export default function Account() {
                           transition={{ delay: i * 0.04 }}
                           className="flex items-center gap-2 glass rounded-lg px-3 py-1.5"
                         >
-                          <span className="text-sm text-gray-300">{s.label}</span>
+                          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
                           <DbBadge dbType={s.db_type} />
                         </motion.div>
                       ))}
@@ -557,7 +557,7 @@ export default function Account() {
             <StaggerItem>
               <div className="glass-card border-red-900/30 rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-red-400 mb-2">Danger Zone</h2>
-                <p className="text-xs text-gray-500 mb-4">These actions cannot be undone.</p>
+                <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>These actions cannot be undone.</p>
                 <AnimatePresence>
                   {actionMsg && (
                     <motion.div
@@ -575,7 +575,7 @@ export default function Account() {
                   <div className="flex items-center justify-between glass rounded-lg px-4 py-3">
                     <div>
                       <p className="text-sm font-medium text-yellow-400">Clear Chat History</p>
-                      <p className="text-xs text-gray-500">Remove {account?.chat_count ?? 0} chat session{(account?.chat_count ?? 0) !== 1 ? "s" : ""} and all saved queries</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Remove {account?.chat_count ?? 0} chat session{(account?.chat_count ?? 0) !== 1 ? "s" : ""} and all saved queries</p>
                     </div>
                     <MotionButton onClick={handleClearHistory} disabled={clearing || (account?.chat_count ?? 0) === 0}
                       className="px-4 py-2 text-sm font-medium text-yellow-400 bg-yellow-900/20 border border-yellow-800/50 rounded-lg hover:bg-yellow-900/40 transition cursor-pointer disabled:opacity-50 flex-shrink-0">
@@ -585,7 +585,7 @@ export default function Account() {
                   <div className="flex items-center justify-between glass rounded-lg px-4 py-3">
                     <div>
                       <p className="text-sm font-medium text-orange-400">Reset All Connections</p>
-                      <p className="text-xs text-gray-500">Disconnect {account?.active_connection_count ?? 0} active and remove {account?.saved_connections ?? 0} saved connection{(account?.saved_connections ?? 0) !== 1 ? "s" : ""}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Disconnect {account?.active_connection_count ?? 0} active and remove {account?.saved_connections ?? 0} saved connection{(account?.saved_connections ?? 0) !== 1 ? "s" : ""}</p>
                     </div>
                     <MotionButton onClick={handleResetConnections} disabled={resetting}
                       className="px-4 py-2 text-sm font-medium text-orange-400 bg-orange-900/20 border border-orange-800/50 rounded-lg hover:bg-orange-900/40 transition cursor-pointer disabled:opacity-50 flex-shrink-0">
@@ -595,7 +595,7 @@ export default function Account() {
                   <div className="flex items-center justify-between glass rounded-lg px-4 py-3">
                     <div>
                       <p className="text-sm font-medium text-red-400">Delete Account</p>
-                      <p className="text-xs text-gray-500">Permanently revoke access. Your data is retained for records.</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Permanently revoke access. Your data is retained for records.</p>
                     </div>
                     <MotionButton onClick={() => setShowDeleteModal(true)} disabled={deleting}
                       className="px-4 py-2 text-sm font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg hover:bg-red-900/40 transition cursor-pointer disabled:opacity-50 flex-shrink-0">
@@ -635,8 +635,8 @@ export default function Account() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                       </svg>
                     </div>
-                    <h3 id="delete-modal-title" className="text-lg font-bold text-white text-center mb-2">Delete Your Account?</h3>
-                    <p className="text-sm text-gray-400 text-center mb-4">
+                    <h3 id="delete-modal-title" className="text-lg font-bold text-center mb-2" style={{ color: 'var(--text-primary)' }}>Delete Your Account?</h3>
+                    <p className="text-sm text-center mb-4" style={{ color: 'var(--text-secondary)' }}>
                       This will permanently revoke your access. You&apos;ll need to register again. Type your email to confirm.
                     </p>
                     <input
@@ -644,7 +644,7 @@ export default function Account() {
                       value={deleteConfirmEmail}
                       onChange={(e) => setDeleteConfirmEmail(e.target.value)}
                       placeholder={account?.email || "your@email.com"}
-                      className="w-full glass-input rounded-lg px-4 py-2.5 text-white mb-4 input-glow"
+                      className="w-full glass-input rounded-lg px-4 py-2.5 mb-4 input-glow" style={{ color: 'var(--text-primary)' }}
                       aria-label="Confirm email to delete account"
                     />
                     <div className="flex gap-3">

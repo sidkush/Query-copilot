@@ -4,10 +4,178 @@
 @import "tailwindcss";
 
 /* ══════════════════════════════════════════════════════════
-   DataLens — Global Styles & Animations
+   AskDB — Global Styles & Animations
    Corporate Design System: Navy/Slate + Trust Blue
    Typography: Poppins (headings) + Open Sans (body)
+   Theme: Dark default, Light via .light class on <html>
    ══════════════════════════════════════════════════════════ */
+
+/* ── Theme variables (dark default) ── */
+:root {
+  /* Backgrounds */
+  --bg-page: #06060e;
+  --bg-base: #0a0a0c;
+  --bg-elevated: #111114;
+  --bg-surface: #161619;
+  --bg-hover: #1c1c20;
+
+  /* Text */
+  --text-primary: #EDEDEF;
+  --text-secondary: #8A8F98;
+  --text-muted: #5C5F66;
+  --text-inverted: #111827;
+
+  /* Borders */
+  --border-default: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.12);
+  --border-subtle: rgba(255, 255, 255, 0.03);
+
+  /* Accent (constant across themes) */
+  --accent: #2563EB;
+  --accent-light: #3B82F6;
+  --accent-glow: rgba(37, 99, 235, 0.15);
+
+  /* Status */
+  --status-success: #22C55E;
+  --status-warning: #F59E0B;
+  --status-danger: #EF4444;
+
+  /* Glass */
+  --glass-bg: rgba(10, 10, 12, 0.75);
+  --glass-bg-light: rgba(17, 17, 20, 0.5);
+  --glass-bg-card: rgba(17, 17, 20, 0.78);
+  --glass-bg-card-hover: rgba(28, 28, 32, 0.85);
+  --glass-bg-card-elevated: rgba(17, 17, 20, 0.88);
+  --glass-bg-card-elevated-hover: rgba(28, 28, 32, 0.92);
+  --glass-bg-input: rgba(17, 17, 20, 0.7);
+  --glass-bg-input-focus: rgba(17, 17, 20, 0.85);
+  --glass-bg-navbar: rgba(5, 5, 6, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-border-hover: rgba(37, 99, 235, 0.2);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --glass-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 20px rgba(37, 99, 235, 0.05);
+  --glass-elevated-shadow: 0 8px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(37, 99, 235, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --glass-elevated-shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 40px rgba(37, 99, 235, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --glass-navbar-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+
+  /* Misc */
+  --skeleton-from: rgb(31 41 55 / 0.5);
+  --skeleton-mid: rgb(55 65 81 / 0.5);
+  --scrollbar-thumb: rgba(30, 41, 59, 0.6);
+  --tooltip-bg: rgba(15, 23, 42, 0.95);
+  --tooltip-border: rgba(30, 41, 59, 0.8);
+  --tooltip-text: #e2e8f0;
+  --scroll-btn-bg: rgba(17, 24, 39, 0.85);
+  --scroll-btn-border: rgba(30, 41, 59, 0.6);
+  --scroll-btn-color: #94a3b8;
+  --modal-overlay: rgba(0, 0, 0, 0.6);
+  --sidebar-active-bg: rgba(37, 99, 235, 0.12);
+  --card-hover-shadow: 0 8px 30px rgb(37 99 235 / 0.08);
+
+  /* Chart / code */
+  --chart-axis: #94a3b8;
+  --chart-grid: #1e293b;
+  --chart-tooltip-bg: #0f172a;
+  --chart-tooltip-border: #334155;
+  --chart-tooltip-text: #e2e8f0;
+  --chart-export-bg: #111827;
+  --code-bg: rgba(15, 23, 42, 0.6);
+  --code-text: #34d399;
+
+  /* Overlay tints (for bg-white/[0.03] type patterns) */
+  --overlay-faint: rgba(255, 255, 255, 0.03);
+  --overlay-subtle: rgba(255, 255, 255, 0.05);
+  --overlay-light: rgba(255, 255, 255, 0.08);
+  --overlay-medium: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Light theme overrides ── */
+:root.light {
+  --bg-page: #F8F9FB;
+  --bg-base: #F1F3F6;
+  --bg-elevated: #FFFFFF;
+  --bg-surface: #F0F2F4;
+  --bg-hover: #E5E7EB;
+
+  --text-primary: #111827;
+  --text-secondary: #5B6170;
+  --text-muted: #9099A4;
+  --text-inverted: #EDEDEF;
+
+  --border-default: rgba(0, 0, 0, 0.08);
+  --border-hover: rgba(0, 0, 0, 0.15);
+  --border-subtle: rgba(0, 0, 0, 0.04);
+
+  --accent-glow: rgba(37, 99, 235, 0.08);
+
+  --status-success: #16A34A;
+  --status-warning: #D97706;
+  --status-danger: #DC2626;
+
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-light: rgba(255, 255, 255, 0.5);
+  --glass-bg-card: rgba(255, 255, 255, 0.82);
+  --glass-bg-card-hover: rgba(255, 255, 255, 0.92);
+  --glass-bg-card-elevated: rgba(255, 255, 255, 0.90);
+  --glass-bg-card-elevated-hover: rgba(255, 255, 255, 0.96);
+  --glass-bg-input: rgba(255, 255, 255, 0.75);
+  --glass-bg-input-focus: rgba(255, 255, 255, 0.92);
+  --glass-bg-navbar: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-border-hover: rgba(37, 99, 235, 0.15);
+  --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --glass-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --glass-elevated-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 8px 32px rgba(0, 0, 0, 0.06);
+  --glass-elevated-shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --glass-navbar-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+
+  --skeleton-from: rgb(229 231 235 / 0.5);
+  --skeleton-mid: rgb(209 213 219 / 0.5);
+  --scrollbar-thumb: rgba(156, 163, 175, 0.4);
+  --tooltip-bg: rgba(255, 255, 255, 0.95);
+  --tooltip-border: rgba(0, 0, 0, 0.1);
+  --tooltip-text: #1f2937;
+  --scroll-btn-bg: rgba(255, 255, 255, 0.9);
+  --scroll-btn-border: rgba(0, 0, 0, 0.1);
+  --scroll-btn-color: #6b7280;
+  --modal-overlay: rgba(0, 0, 0, 0.3);
+  --sidebar-active-bg: rgba(37, 99, 235, 0.08);
+  --card-hover-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+
+  --chart-axis: #6b7280;
+  --chart-grid: #e5e7eb;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #d1d5db;
+  --chart-tooltip-text: #1f2937;
+  --chart-export-bg: #ffffff;
+  --code-bg: #F1F5F9;
+  --code-text: #059669;
+
+  --overlay-faint: rgba(0, 0, 0, 0.02);
+  --overlay-subtle: rgba(0, 0, 0, 0.03);
+  --overlay-light: rgba(0, 0, 0, 0.04);
+  --overlay-medium: rgba(0, 0, 0, 0.06);
+}
+
+/* ── Tailwind theme integration ── */
+@theme {
+  --color-page: var(--bg-page);
+  --color-base: var(--bg-base);
+  --color-elevated: var(--bg-elevated);
+  --color-surface: var(--bg-surface);
+  --color-th-hover: var(--bg-hover);
+
+  --color-t-primary: var(--text-primary);
+  --color-t-secondary: var(--text-secondary);
+  --color-t-muted: var(--text-muted);
+  --color-t-inverted: var(--text-inverted);
+
+  --color-b-default: var(--border-default);
+  --color-b-hover: var(--border-hover);
+
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+}
 
 /* ── Corporate typography ── */
 h1, h2, h3, h4, h5, h6,
@@ -19,70 +187,64 @@ body, input, textarea, select, button,
   font-family: 'Open Sans', system-ui, sans-serif;
 }
 
-/* ── Glassmorphism utility classes (toned down for corporate) ── */
+/* ── Glassmorphism utility classes (theme-aware) ── */
 .glass {
-  background: rgba(10, 10, 12, 0.75);
+  background: var(--glass-bg);
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
 }
 .glass-light {
-  background: rgba(17, 17, 20, 0.5);
+  background: var(--glass-bg-light);
   backdrop-filter: blur(12px) saturate(1.3);
   -webkit-backdrop-filter: blur(12px) saturate(1.3);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
 }
 .glass-card {
-  background: rgba(17, 17, 20, 0.78);
+  background: var(--glass-bg-card);
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .glass-card:hover {
-  background: rgba(28, 28, 32, 0.85);
-  border-color: rgba(37, 99, 235, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 20px rgba(37, 99, 235, 0.05);
+  background: var(--glass-bg-card-hover);
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--glass-shadow-hover);
 }
 .glass-card-elevated {
-  background: rgba(17, 17, 20, 0.88);
+  background: var(--glass-bg-card-elevated);
   backdrop-filter: blur(24px) saturate(1.5);
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.45),
-    0 0 30px rgba(37, 99, 235, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-elevated-shadow);
   transition: all 300ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .glass-card-elevated:hover {
-  background: rgba(28, 28, 32, 0.92);
-  border-color: rgba(37, 99, 235, 0.25);
-  box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.5),
-    0 0 40px rgba(37, 99, 235, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: var(--glass-bg-card-elevated-hover);
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--glass-elevated-shadow-hover);
   transform: translateY(-2px);
 }
 .glass-input {
-  background: rgba(17, 17, 20, 0.7);
+  background: var(--glass-bg-input);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
   transition: all 200ms ease-out;
 }
 .glass-input:focus {
   border-color: rgba(37, 99, 235, 0.5);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1), 0 0 16px rgba(37, 99, 235, 0.05);
-  background: rgba(17, 17, 20, 0.85);
+  background: var(--glass-bg-input-focus);
 }
 .glass-navbar {
-  background: rgba(5, 5, 6, 0.92);
+  background: var(--glass-bg-navbar);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-navbar-shadow);
 }
 
 /* ── Reveal animations (triggered by IntersectionObserver) ── */
@@ -208,7 +370,7 @@ html { scroll-behavior: smooth; }
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, rgb(31 41 55 / 0.5) 25%, rgb(55 65 81 / 0.5) 50%, rgb(31 41 55 / 0.5) 75%);
+  background: linear-gradient(90deg, var(--skeleton-from) 25%, var(--skeleton-mid) 50%, var(--skeleton-from) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
   border-radius: 0.5rem;
@@ -235,7 +397,7 @@ html { scroll-behavior: smooth; }
 }
 .card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgb(37 99 235 / 0.08);
+  box-shadow: var(--card-hover-shadow);
 }
 
 /* ── Glow button ── */
@@ -319,7 +481,7 @@ html { scroll-behavior: smooth; }
 .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
 .stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
 
-/* ── Smooth tooltip ── */
+/* ── Smooth tooltip (theme-aware) ── */
 .tooltip-hover {
   position: relative;
 }
@@ -329,10 +491,10 @@ html { scroll-behavior: smooth; }
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--tooltip-bg);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(30, 41, 59, 0.8);
-  color: #e2e8f0;
+  border: 1px solid var(--tooltip-border);
+  color: var(--tooltip-text);
   font-size: 0.75rem;
   padding: 0.35rem 0.75rem;
   border-radius: 0.5rem;
@@ -354,8 +516,8 @@ html { scroll-behavior: smooth; }
 
 /* ── Sidebar glow on active (CSS fallback — prefer Framer Motion layoutId) ── */
 .sidebar-active {
-  background: rgba(37, 99, 235, 0.12);
-  box-shadow: inset 3px 0 0 #2563EB, 0 0 12px rgba(37, 99, 235, 0.06);
+  background: var(--sidebar-active-bg);
+  box-shadow: inset 3px 0 0 var(--accent), 0 0 12px rgba(37, 99, 235, 0.06);
 }
 
 /* ── Mesh gradient background ── */
@@ -377,7 +539,7 @@ html { scroll-behavior: smooth; }
   z-index: 0;
 }
 
-/* ── Scrollbar styling ── */
+/* ── Scrollbar styling (theme-aware) ── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -386,7 +548,7 @@ html { scroll-behavior: smooth; }
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(30, 41, 59, 0.6);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -412,7 +574,7 @@ html { scroll-behavior: smooth; }
 .icon-sm svg { stroke-width: 1.5; }
 .icon-md svg { stroke-width: 2; }
 
-/* ── Scroll-to-top button ── */
+/* ── Scroll-to-top button (theme-aware) ── */
 .scroll-top-btn {
   position: fixed;
   bottom: 2rem;
@@ -424,10 +586,10 @@ html { scroll-behavior: smooth; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(17, 24, 39, 0.85);
+  background: var(--scroll-btn-bg);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(30, 41, 59, 0.6);
-  color: #94a3b8;
+  border: 1px solid var(--scroll-btn-border);
+  color: var(--scroll-btn-color);
   cursor: pointer;
   opacity: 0;
   transform: translateY(10px);
@@ -442,7 +604,7 @@ html { scroll-behavior: smooth; }
 .scroll-top-btn:hover {
   background: rgba(37, 99, 235, 0.2);
   border-color: rgba(37, 99, 235, 0.4);
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 /* ── Toast slide-in animation ── */
@@ -455,7 +617,7 @@ html { scroll-behavior: smooth; }
   to   { opacity: 0; }
 }
 
-/* ── Focus trap overlay for modals ── */
+/* ── Focus trap overlay for modals (theme-aware) ── */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -463,7 +625,7 @@ html { scroll-behavior: smooth; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--modal-overlay);
   backdrop-filter: blur(4px);
 }
 
@@ -564,4 +726,12 @@ html { scroll-behavior: smooth; }
 .sr-word {
   display: inline-block;
   will-change: opacity, filter;
+}
+
+/* ── Theme transition (smooth color changes) ── */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: background-color 300ms ease, color 200ms ease, border-color 200ms ease, box-shadow 300ms ease !important;
 }

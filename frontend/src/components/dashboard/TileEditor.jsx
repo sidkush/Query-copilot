@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS, CHART_PALETTES } from './tokens';
 import { api } from '../../api';
@@ -7,6 +7,7 @@ import ColorPickerButton from './ColorPickerButton';
 import ReferenceLineEditor from './ReferenceLineEditor';
 import ConditionalRuleBuilder from './ConditionalRuleBuilder';
 import { FORMATTING_DEFAULTS } from '../../lib/formatUtils';
+import { classifyColumns } from '../../lib/fieldClassification';
 
 /* ── Chart type definitions with mini SVG icons ── */
 const CHART_TYPES = [
@@ -18,7 +19,7 @@ const CHART_TYPES = [
   { key: 'table',          label: 'Table',          icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="2"/><line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="2"/><line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" strokeWidth="1.5"/></svg> },
   { key: 'kpi',            label: 'KPI',            icon: <svg viewBox="0 0 24 24" width="20" height="20"><text x="12" y="16" textAnchor="middle" fontSize="12" fontWeight="bold" fill="currentColor">#</text></svg> },
   { key: 'stacked_bar',    label: 'Stacked',        icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="12" width="4" height="8" rx="1" fill="currentColor" opacity=".5"/><rect x="3" y="6" width="4" height="6" rx="1" fill="currentColor"/><rect x="10" y="8" width="4" height="12" rx="1" fill="currentColor" opacity=".5"/><rect x="10" y="3" width="4" height="5" rx="1" fill="currentColor"/><rect x="17" y="10" width="4" height="10" rx="1" fill="currentColor" opacity=".5"/><rect x="17" y="5" width="4" height="5" rx="1" fill="currentColor"/></svg> },
-  { key: 'horizontal_bar', label: 'H-Bar',          icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="14" height="4" rx="1" fill="currentColor"/><rect x="3" y="10" width="10" height="4" rx="1" fill="currentColor" opacity=".7"/><rect x="3" y="17" width="16" height="4" rx="1" fill="currentColor" opacity=".5"/></svg> },
+  { key: 'bar_h', label: 'H-Bar',          icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="14" height="4" rx="1" fill="currentColor"/><rect x="3" y="10" width="10" height="4" rx="1" fill="currentColor" opacity=".7"/><rect x="3" y="17" width="16" height="4" rx="1" fill="currentColor" opacity=".5"/></svg> },
   { key: 'radar',          label: 'Radar',          icon: <svg viewBox="0 0 24 24" width="20" height="20"><polygon points="12,3 20,9 18,18 6,18 4,9" fill="currentColor" opacity=".2" stroke="currentColor" strokeWidth="1.5"/><polygon points="12,7 17,11 15,16 9,16 7,11" fill="currentColor" opacity=".4"/></svg> },
   { key: 'scatter',        label: 'Scatter',        icon: <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="6" cy="16" r="2" fill="currentColor"/><circle cx="10" cy="10" r="2" fill="currentColor" opacity=".7"/><circle cx="16" cy="14" r="2" fill="currentColor" opacity=".5"/><circle cx="18" cy="6" r="2" fill="currentColor"/></svg> },
   { key: 'treemap',        label: 'Treemap',        icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="10" height="10" rx="1" fill="currentColor"/><rect x="15" y="3" width="6" height="10" rx="1" fill="currentColor" opacity=".6"/><rect x="3" y="15" width="6" height="6" rx="1" fill="currentColor" opacity=".4"/><rect x="11" y="15" width="10" height="6" rx="1" fill="currentColor" opacity=".7"/></svg> },
@@ -56,7 +57,7 @@ const sectionStyle = {
 };
 
 /* ── Component ── */
-export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefresh, onDelete, customMetrics = [] }) {
+export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefresh, onDelete, customMetrics = [], connId = null }) {
   // Local editing state
   const [title, setTitle] = useState(tile.title || '');
   const [subtitle, setSubtitle] = useState(tile.subtitle || '');
@@ -65,6 +66,7 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
   const [activeMeasures, setActiveMeasures] = useState(
     tile.activeMeasures?.length ? tile.activeMeasures : [...(tile.columns || [])]
   );
+  const [seriesTypes, setSeriesTypes] = useState(tile.visualConfig?.seriesTypes || {});
   const [sql, setSql] = useState(tile.sql || '');
   const [palette, setPalette] = useState(tile.palette || 'default');
   const [dateStart, setDateStart] = useState(tile.filters?.dateStart || '');
@@ -78,6 +80,43 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
   const [blendConfig, setBlendConfig] = useState(tile.blendConfig || { joinKey: '', enabled: false });
   const [blendOpen, setBlendOpen] = useState((tile.dataSources || []).length > 0);
   const [parameters, setParameters] = useState(tile.parameters || []);
+
+  // Schema columns + field classification
+  const [schemaColumns, setSchemaColumns] = useState([]);
+  const [schemaLoading, setSchemaLoading] = useState(false);
+  const [schemaSearch, setSchemaSearch] = useState('');
+  const [loadingColumns, setLoadingColumns] = useState(new Set());
+  const [fieldClassifications, setFieldClassifications] = useState(() =>
+    classifyColumns(tile.columns || [], tile.rows || [], tile.fieldClassifications || {})
+  );
+
+  // Fetch schema columns on mount
+  useEffect(() => {
+    if (!connId) return;
+    let cancelled = false;
+    setSchemaLoading(true);
+    api.getTables(connId).then(res => {
+      if (cancelled) return;
+      const cols = [];
+      const seen = new Set();
+      for (const table of (res?.tables || [])) {
+        for (const col of (table.columns || [])) {
+          const name = typeof col === 'string' ? col : col.name || col.column_name || '';
+          if (name && !seen.has(name)) {
+            seen.add(name);
+            cols.push({ name, table: table.name, type: typeof col === 'object' ? (col.type || col.data_type || '') : '' });
+          }
+        }
+        if (cols.length >= 200) break; // FM-1: cap at 200 columns
+      }
+      setSchemaColumns(cols);
+      // Re-classify with schema type info
+      const schemaNames = cols.map(c => c.name);
+      const allCols = [...new Set([...(tile.columns || []), ...schemaNames])];
+      setFieldClassifications(prev => classifyColumns(allCols, tile.rows || [], { ...prev, ...(tile.fieldClassifications || {}) }));
+    }).catch(() => {}).finally(() => { if (!cancelled) setSchemaLoading(false); });
+    return () => { cancelled = true; };
+  }, [connId]);
 
   const vc = tile.visualConfig || {};
   const [activeTab, setActiveTab] = useState('data');
@@ -122,11 +161,25 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
   // Sort
   const [sortField, setSortField] = useState(vc.sort?.field ?? null);
   const [sortOrder, setSortOrder] = useState(vc.sort?.order ?? 'desc');
+  const [customOrder, setCustomOrder] = useState(vc.sort?.customOrder ?? []);
+  const [sortLimit, setSortLimit] = useState(vc.sort?.limit ?? null);
 
   // Colors
   const [colorMode, setColorMode] = useState(vc.colors?.mode ?? 'inherit');
   const [colorPalette, setColorPalette] = useState(vc.colors?.palette ?? null);
-  const [measureColors, setMeasureColors] = useState(vc.colors?.measureColors ?? {});
+  // Pre-populate measureColors for every column so the color picker display
+  // always matches what the chart will render (avoids palette index mismatch
+  // between TileEditor's all-column index vs chart's numeric-only index).
+  const [measureColors, setMeasureColors] = useState(() => {
+    const existing = vc.colors?.measureColors ?? {};
+    const pal = CHART_PALETTES[vc.colors?.palette || tile.palette || 'default'] || CHART_PALETTES.default;
+    const seeded = { ...existing };
+    (tile.columns || []).forEach((col, idx) => {
+      if (!seeded[col]) seeded[col] = pal[idx % pal.length];
+    });
+    return seeded;
+  });
+  const [categoryColors, setCategoryColors] = useState(vc.colors?.categoryColors ?? {});
   const [colorRules, setColorRules] = useState(vc.colors?.rules ?? []);
 
   // Tile style
@@ -139,7 +192,35 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
 
   const baseColumns = tile.columns || [];
   const metricNames = (customMetrics || []).map(m => m.name).filter(n => n && !baseColumns.includes(n));
-  const columns = [...baseColumns, ...metricNames];
+  const schemaNames = schemaColumns.map(c => c.name).filter(n => !baseColumns.includes(n) && !metricNames.includes(n));
+  const allColumns = [...baseColumns, ...metricNames, ...schemaNames];
+  const columns = allColumns; // backward compat alias
+
+  // Split by classification
+  const dimensionCols = allColumns.filter(c => fieldClassifications[c] === 'dimension' && !metricNames.includes(c));
+  const measureCols = allColumns.filter(c => fieldClassifications[c] === 'measure' || metricNames.includes(c));
+
+  // Filtered by search
+  const filteredDimensions = schemaSearch
+    ? dimensionCols.filter(c => c.toLowerCase().includes(schemaSearch.toLowerCase()))
+    : dimensionCols;
+  const filteredMeasures = schemaSearch
+    ? measureCols.filter(c => c.toLowerCase().includes(schemaSearch.toLowerCase()))
+    : measureCols;
+
+  // Derive unique category values from the label column (first column) for per-value color control
+  const categoryValues = (() => {
+    if (!tile.rows?.length || !baseColumns.length) return [];
+    const labelCol = baseColumns[0];
+    const seen = new Set();
+    const values = [];
+    for (const row of tile.rows) {
+      const v = Array.isArray(row) ? row[0] : row[labelCol];
+      const s = String(v ?? '');
+      if (s && !seen.has(s)) { seen.add(s); values.push(s); }
+    }
+    return values.slice(0, 50); // cap for sanity
+  })();
 
   /* ── Handlers ── */
   const toggleMeasure = useCallback((col) => {
@@ -147,6 +228,60 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
       prev.includes(col) ? prev.filter((c) => c !== col) : [...prev, col]
     );
   }, []);
+
+  const toggleClassification = useCallback((col) => {
+    setFieldClassifications(prev => ({
+      ...prev,
+      [col]: prev[col] === 'measure' ? 'dimension' : 'measure',
+    }));
+  }, []);
+
+  const handleSchemaColumnAdd = useCallback(async (colName) => {
+    // If column is already in tile data, just toggle it normally
+    if (baseColumns.includes(colName)) {
+      toggleMeasure(colName);
+      return;
+    }
+
+    // Column not in current data — need SQL regen
+    if (!connId || !sql) {
+      // No connection or SQL — just add to active measures visually
+      toggleMeasure(colName);
+      return;
+    }
+
+    setLoadingColumns(prev => new Set(prev).add(colName));
+    try {
+      const result = await api.generateColumnSQL(connId, sql, [colName]);
+      if (result.error === 'complex_sql') {
+        // Show prompt to use agent
+        setQueryError('Complex SQL — use the Agent Panel to add columns to this query.');
+        return;
+      }
+      if (result.error) {
+        setQueryError(result.message || 'Failed to generate SQL');
+        return;
+      }
+      // Update SQL and persist tile with new SQL
+      setSql(result.sql);
+      try {
+        await api.updateTile(dashboardId, tile.id, { sql: result.sql });
+        const refreshResult = await api.refreshTile(dashboardId, tile.id, connId);
+        if (refreshResult?.columns) {
+          tile.columns = refreshResult.columns;
+          tile.rows = refreshResult.rows || [];
+        }
+        toggleMeasure(colName);
+        setQueryError('');
+      } catch (refreshErr) {
+        setQueryError('Query ran but failed: ' + (refreshErr.message || '').slice(0, 100));
+      }
+    } catch (err) {
+      setQueryError('Failed to add column: ' + (err.message || '').slice(0, 100));
+    } finally {
+      setLoadingColumns(prev => { const s = new Set(prev); s.delete(colName); return s; });
+    }
+  }, [connId, sql, dashboardId, tile, baseColumns, toggleMeasure]);
 
   const handleRunQuery = useCallback(async () => {
     setQueryRunning(true);
@@ -193,6 +328,7 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
     const updated = {
       ...tile,
       title, subtitle, chartType, selectedMeasure, activeMeasures,
+      fieldClassifications,
       sql, palette, filters: { dateStart, dateEnd, where: whereClause },
       annotations, dataSources, blendConfig, parameters,
       visualConfig: {
@@ -213,8 +349,9 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
         }),
         tooltip: { show: tooltipShow, template: tooltipTemplate },
         referenceLines,
-        sort: { field: sortField, order: sortOrder },
-        colors: { mode: colorMode, palette: colorPalette, measureColors, rules: colorRules },
+        sort: { field: sortField, order: sortOrder, customOrder, limit: sortLimit },
+        colors: { mode: colorMode, palette: colorPalette, measureColors, categoryColors, rules: colorRules },
+        seriesTypes: Object.keys(seriesTypes).length > 0 ? seriesTypes : undefined,
         style: mergeSection(existingVC.style, {
           background: tileBg, borderColor: tileBorderColor,
           borderWidth: tileBorderWidth, radius: tileRadius,
@@ -223,14 +360,14 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
       },
     };
     onSave(updated);
-  }, [tile, title, subtitle, chartType, selectedMeasure, activeMeasures, sql, palette, dateStart, dateEnd, whereClause, annotations, dataSources, blendConfig, parameters,
+  }, [tile, title, subtitle, chartType, selectedMeasure, activeMeasures, fieldClassifications, sql, palette, dateStart, dateEnd, whereClause, annotations, dataSources, blendConfig, parameters,
       titleFontSize, titleFontWeight, titleColor, titleAlign, subtitleFontSize, subtitleColor,
       axisXLabel, axisYLabel, tickFormat, xLabelRotation,
       legendShow, legendPosition, legendFontSize, legendColor, gridShow, gridColor, gridStyle,
       dataLabelsShow, dataLabelsFormat, dataLabelsPosition,
       tooltipShow, tooltipTemplate, referenceLines,
-      sortField, sortOrder, colorMode, colorPalette, measureColors, colorRules,
-      tileBg, tileBorderColor, tileBorderWidth, tileRadius, tilePadding, tileShadow, mergeSection, onSave]);
+      sortField, sortOrder, customOrder, sortLimit, colorMode, colorPalette, measureColors, categoryColors, colorRules,
+      tileBg, tileBorderColor, tileBorderWidth, tileRadius, tilePadding, tileShadow, seriesTypes, mergeSection, onSave]);
 
   return (
     <AnimatePresence>
@@ -244,7 +381,7 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
         onClick={onClose}
         style={{
           position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.60)',
+          background: 'var(--modal-overlay)',
           zIndex: 50,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
@@ -342,52 +479,142 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
               </div>
             </div>
 
-            {/* 3. Measures */}
+            {/* 3. Dimensions & Measures */}
             <div style={sectionStyle}>
-              <label style={labelStyle}>Measures</label>
-              {columns.length === 0 && (
-                <span style={{ fontSize: '13px', color: TOKENS.text.muted }}>No columns available</span>
+              {/* Search filter for large schemas */}
+              {allColumns.length > 10 && (
+                <div style={{ marginBottom: 10 }}>
+                  <input
+                    value={schemaSearch}
+                    onChange={(e) => setSchemaSearch(e.target.value)}
+                    placeholder="Search fields..."
+                    style={{ ...inputStyle, fontSize: '12px', padding: '6px 10px' }}
+                  />
+                </div>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {columns.map((col, idx) => (
-                  <div key={col} style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    fontSize: '13px', color: TOKENS.text.primary,
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={activeMeasures.includes(col)}
-                      onChange={() => toggleMeasure(col)}
-                      style={{ accentColor: TOKENS.accent, cursor: 'pointer' }}
-                    />
-                    <ColorPickerButton
-                      size={20}
-                      color={measureColors[col] || CHART_PALETTES[colorPalette || palette || 'default'][idx % 8]}
-                      onChange={(c) => setMeasureColors((prev) => ({ ...prev, [col]: c }))}
-                    />
-                    <span style={{ cursor: 'pointer' }} onClick={() => toggleMeasure(col)}>{col}</span>
-                    {metricNames.includes(col) && (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: '#818cf8', background: 'rgba(99,102,241,0.15)', padding: '1px 5px', borderRadius: 4, marginLeft: 2 }}>fx</span>
+              {schemaLoading && (
+                <div style={{ fontSize: 11, color: TOKENS.text.muted, marginBottom: 8 }}>Loading schema columns...</div>
+              )}
+
+              {/* Dimensions */}
+              <label style={labelStyle}>Dimensions</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
+                {filteredDimensions.length === 0 && (
+                  <span style={{ fontSize: 12, color: TOKENS.text.muted }}>No dimensions{schemaSearch ? ' matching filter' : ''}</span>
+                )}
+                {filteredDimensions.map((col) => (
+                  <div key={col} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '12px', color: TOKENS.text.primary }}>
+                    {loadingColumns.has(col) ? (
+                      <span style={{ fontSize: 10, color: TOKENS.text.muted, width: 16, textAlign: 'center' }}>...</span>
+                    ) : (
+                      <input type="checkbox" checked={activeMeasures.includes(col)} onChange={() => handleSchemaColumnAdd(col)}
+                        style={{ accentColor: TOKENS.accent, cursor: 'pointer' }} />
+                    )}
+                    <button onClick={() => toggleClassification(col)} title="Toggle dimension/measure"
+                      style={{
+                        fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, cursor: 'pointer',
+                        border: `1px solid ${TOKENS.border.default}`, background: 'rgba(59,130,246,0.1)',
+                        color: '#60a5fa',
+                      }}>D</button>
+                    <span style={{ cursor: 'pointer', opacity: loadingColumns.has(col) ? 0.5 : 1 }} onClick={() => !loadingColumns.has(col) && handleSchemaColumnAdd(col)}>{col}</span>
+                    {!baseColumns.includes(col) && !metricNames.includes(col) && (
+                      <span style={{ fontSize: 9, color: TOKENS.text.muted, fontStyle: 'italic' }}>schema</span>
                     )}
                   </div>
                 ))}
               </div>
-              {columns.length > 0 && (
+
+              {/* Measures */}
+              <label style={labelStyle}>Measures</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {filteredMeasures.length === 0 && (
+                  <span style={{ fontSize: 12, color: TOKENS.text.muted }}>No measures{schemaSearch ? ' matching filter' : ''}</span>
+                )}
+                {filteredMeasures.map((col, idx) => (
+                  <div key={col} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '12px', color: TOKENS.text.primary }}>
+                    {loadingColumns.has(col) ? (
+                      <span style={{ fontSize: 10, color: TOKENS.text.muted, width: 16, textAlign: 'center' }}>...</span>
+                    ) : (
+                      <input type="checkbox" checked={activeMeasures.includes(col)} onChange={() => handleSchemaColumnAdd(col)}
+                        style={{ accentColor: TOKENS.accent, cursor: 'pointer' }} />
+                    )}
+                    <ColorPickerButton size={18}
+                      color={measureColors[col] || CHART_PALETTES[colorPalette || palette || 'default'][idx % 8]}
+                      onChange={(c) => setMeasureColors((prev) => ({ ...prev, [col]: c }))} />
+                    {/* Per-measure chart type */}
+                    <select
+                      value={seriesTypes[col] || ''}
+                      onChange={(e) => setSeriesTypes((prev) => ({ ...prev, [col]: e.target.value || undefined }))}
+                      title="Chart type for this measure"
+                      style={{
+                        fontSize: 9, fontWeight: 700, padding: '1px 4px', borderRadius: 4, cursor: 'pointer',
+                        border: `1px solid ${TOKENS.border.default}`, background: TOKENS.bg.surface,
+                        color: seriesTypes[col] ? TOKENS.accent : TOKENS.text.muted,
+                        outline: 'none', width: 42,
+                      }}
+                    >
+                      <option value="">Auto</option>
+                      <option value="bar">Bar</option>
+                      <option value="line">Line</option>
+                      <option value="area">Area</option>
+                    </select>
+                    {!metricNames.includes(col) ? (
+                      <button onClick={() => toggleClassification(col)} title="Toggle dimension/measure"
+                        style={{
+                          fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, cursor: 'pointer',
+                          border: `1px solid ${TOKENS.border.default}`, background: 'rgba(34,197,94,0.1)',
+                          color: '#4ade80',
+                        }}>M</button>
+                    ) : (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#818cf8', background: 'rgba(99,102,241,0.15)', padding: '1px 5px', borderRadius: 4 }}>fx</span>
+                    )}
+                    <span style={{ cursor: 'pointer', opacity: loadingColumns.has(col) ? 0.5 : 1 }} onClick={() => !loadingColumns.has(col) && handleSchemaColumnAdd(col)}>{col}</span>
+                    {!baseColumns.includes(col) && !metricNames.includes(col) && (
+                      <span style={{ fontSize: 9, color: TOKENS.text.muted, fontStyle: 'italic' }}>schema</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Primary Measure — only shows measures */}
+              {measureCols.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <label style={labelStyle}>Primary Measure</label>
-                  <select
-                    value={selectedMeasure}
-                    onChange={(e) => setSelectedMeasure(e.target.value)}
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                  >
+                  <select value={selectedMeasure} onChange={(e) => setSelectedMeasure(e.target.value)}
+                    style={{ ...inputStyle, cursor: 'pointer' }}>
                     <option value="">-- select --</option>
-                    {columns.map((col) => (
+                    {measureCols.map((col) => (
                       <option key={col} value={col}>{col}</option>
                     ))}
                   </select>
                 </div>
               )}
             </div>
+
+            {/* 3b. Category Colors — per-value color control */}
+            {categoryValues.length > 0 && (
+              <div style={sectionStyle}>
+                <label style={labelStyle}>Category Colors</label>
+                <div style={{ fontSize: 11, color: TOKENS.text.muted, marginBottom: 8 }}>
+                  Color each {baseColumns[0] || 'category'} value individually
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {categoryValues.map((val, vi) => {
+                    const pal = CHART_PALETTES[colorPalette || palette || 'default'] || CHART_PALETTES.default;
+                    return (
+                      <div key={val} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: TOKENS.text.primary }}>
+                        <ColorPickerButton
+                          size={20}
+                          color={categoryColors[val] || pal[vi % pal.length]}
+                          onChange={(c) => setCategoryColors((prev) => ({ ...prev, [val]: c }))}
+                        />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{val}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* 4. Filters */}
             <div style={sectionStyle}>
@@ -769,12 +996,12 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
               <ReferenceLineEditor lines={referenceLines} onChange={setReferenceLines} />
             </div>
 
-            {/* Sort */}
+            {/* Sort & Order */}
             <div style={sectionStyle}>
-              <label style={labelStyle}>Sort</label>
+              <label style={labelStyle}>Sort & Order</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
-                  <label style={{ ...labelStyle, fontSize: '10px' }}>Field</label>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Sort By</label>
                   <select value={sortField ?? ''} onChange={(e) => setSortField(e.target.value || null)} style={{ ...inputStyle, cursor: 'pointer' }}>
                     <option value="">None</option>
                     {columns.map((col) => (
@@ -785,9 +1012,14 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
                 <div>
                   <label style={{ ...labelStyle, fontSize: '10px' }}>Order</label>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    {['asc', 'desc'].map((o) => (
-                      <button key={o} onClick={() => setSortOrder(o)} style={{
-                        padding: '5px 14px', fontSize: 11, borderRadius: TOKENS.radius.sm, cursor: 'pointer',
+                    {['asc', 'desc', 'custom'].map((o) => (
+                      <button key={o} onClick={() => {
+                        setSortOrder(o);
+                        if (o === 'custom' && customOrder.length === 0 && categoryValues.length > 0) {
+                          setCustomOrder([...categoryValues]);
+                        }
+                      }} style={{
+                        padding: '5px 10px', fontSize: 11, borderRadius: TOKENS.radius.sm, cursor: 'pointer',
                         background: sortOrder === o ? TOKENS.accentGlow : TOKENS.bg.surface,
                         border: sortOrder === o ? `1px solid ${TOKENS.accent}` : `1px solid ${TOKENS.border.default}`,
                         color: sortOrder === o ? TOKENS.accentLight : TOKENS.text.secondary,
@@ -797,6 +1029,70 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
                   </div>
                 </div>
               </div>
+
+              {/* Top N Limit */}
+              <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <label style={{ ...labelStyle, fontSize: '10px', marginBottom: 0, whiteSpace: 'nowrap' }}>Show Top</label>
+                <input
+                  type="number" min={1} max={1000}
+                  value={sortLimit ?? ''}
+                  onChange={(e) => setSortLimit(e.target.value ? Number(e.target.value) : null)}
+                  placeholder="All"
+                  style={{ ...inputStyle, width: 70 }}
+                />
+                {sortLimit && (
+                  <button onClick={() => setSortLimit(null)} style={{
+                    padding: '3px 8px', fontSize: 10, borderRadius: TOKENS.radius.sm, cursor: 'pointer',
+                    background: TOKENS.bg.surface, border: `1px solid ${TOKENS.border.default}`,
+                    color: TOKENS.text.secondary, transition: TOKENS.transition,
+                  }}>Clear</button>
+                )}
+              </div>
+
+              {/* Custom Manual Order */}
+              {sortOrder === 'custom' && categoryValues.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <label style={{ ...labelStyle, fontSize: '10px' }}>Drag Order</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {(customOrder.length > 0 ? customOrder : categoryValues).map((val, idx, arr) => (
+                      <div key={val} style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '4px 8px', borderRadius: 6,
+                        background: TOKENS.bg.surface, border: `1px solid ${TOKENS.border.default}`,
+                        fontSize: 12, color: TOKENS.text.primary,
+                      }}>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val}</span>
+                        <button
+                          disabled={idx === 0}
+                          onClick={() => {
+                            const next = [...arr];
+                            [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                            setCustomOrder(next);
+                          }}
+                          style={{
+                            background: 'none', border: 'none', cursor: idx === 0 ? 'default' : 'pointer',
+                            color: idx === 0 ? TOKENS.text.muted : TOKENS.text.secondary, fontSize: 14, padding: '0 2px',
+                            opacity: idx === 0 ? 0.3 : 1,
+                          }}
+                        >▲</button>
+                        <button
+                          disabled={idx === arr.length - 1}
+                          onClick={() => {
+                            const next = [...arr];
+                            [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                            setCustomOrder(next);
+                          }}
+                          style={{
+                            background: 'none', border: 'none', cursor: idx === arr.length - 1 ? 'default' : 'pointer',
+                            color: idx === arr.length - 1 ? TOKENS.text.muted : TOKENS.text.secondary, fontSize: 14, padding: '0 2px',
+                            opacity: idx === arr.length - 1 ? 0.3 : 1,
+                          }}
+                        >▼</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             </>)}

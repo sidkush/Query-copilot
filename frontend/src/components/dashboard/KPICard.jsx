@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TOKENS, KPI_ACCENTS } from './tokens';
 
-export default function KPICard({ tile, index = 0, onEdit }) {
+export default function KPICard({ tile, index = 0, onEdit, formatting }) {
   const rows = tile?.rows || [];
   const columns = tile?.columns || [];
   
@@ -60,12 +60,19 @@ export default function KPICard({ tile, index = 0, onEdit }) {
 
   const accentColor = KPI_ACCENTS[index % KPI_ACCENTS.length];
 
+  // Read visual formatting for KPI value styling
+  // Value color: check measureColors for the value column, then fallback to default
+  const vc = formatting || tile?.visualConfig || {};
+  const valueColName = columns[valIdx] || '';
+  const valueColor = vc.colors?.measureColors?.[valueColName] || TOKENS.text.primary;
+  const valueFontSize = vc.typography?.titleFontSize || 32;
+
   return (
     <div className="relative overflow-hidden p-[18px_20px] flex flex-col h-full">
-      
+
       {/* Top accent line */}
       <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: accentColor }} />
-      
+
       {/* Label */}
       <div className="flex items-center justify-between mb-2 mt-1">
         <span className="text-sm font-semibold" style={{ color: TOKENS.text.muted }}>{label}</span>
@@ -75,7 +82,7 @@ export default function KPICard({ tile, index = 0, onEdit }) {
       <div className="flex items-end justify-between flex-1">
         <div>
           {/* Main KPI Value */}
-          <div className="text-[32px] font-bold tracking-tight mb-2" style={{ color: TOKENS.text.primary, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
+          <div className="font-bold tracking-tight mb-2" style={{ color: valueColor, fontSize: valueFontSize, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
             {tile?.subtitle?.startsWith('$') || String(currentVal).startsWith('$') ? '$' : ''}{formatValue(currentVal).replace('$', '')}
           </div>
 

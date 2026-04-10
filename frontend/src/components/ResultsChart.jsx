@@ -1,7 +1,8 @@
 import { useState, useRef, useMemo, useCallback, useEffect, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { mergeFormatting, resolveColor, formatTickValue } from '../lib/formatUtils';
+import { mergeFormatting, resolveColor, resolveCategoryColor, formatTickValue } from '../lib/formatUtils';
 import { injectMetricColumns } from '../lib/metricEvaluator';
+import { useStore } from "../store";
 
 const ReactECharts = lazy(() => import('echarts-for-react'));
 
@@ -207,10 +208,11 @@ function exportChart(echartsRef, format = "png") {
     console.warn("Chart not ready for export — try again in a moment.");
     return false;
   }
+  const exportBg = getComputedStyle(document.documentElement).getPropertyValue('--chart-export-bg').trim() || '#111827';
   const url = instance.getDataURL({
     type: format === "jpg" ? "jpeg" : "png",
     pixelRatio: 2,
-    backgroundColor: "#111827",
+    backgroundColor: exportBg,
   });
   const link = document.createElement("a");
   link.download = `chart.${format}`;
@@ -220,26 +222,67 @@ function exportChart(echartsRef, format = "png") {
 }
 
 /* ── Measure Selector ── */
-function MeasureSelector({ measures, selected, onSelect, colors, mode = "single" }) {
-  if (measures.length <= 1) return null;
+const COMBO_TYPES = [
+  { key: 'bar', label: 'Bar', icon: '▮' },
+  { key: 'line', label: 'Line', icon: '〰' },
+  { key: 'area', label: 'Area', icon: '▧' },
+];
+
+function MeasureSelector({ measures, selected, onSelect, colors, mode = "single", seriesTypes = {}, onSeriesTypeChange = null }) {
+  if (measures.length <= 1 && !onSeriesTypeChange) return null;
+  const [openPicker, setOpenPicker] = useState(null);
+
   return (
     <div className="flex items-center gap-1 flex-wrap">
-      <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mr-1">Measure</span>
+      <span className="text-[10px] font-semibold uppercase tracking-wider mr-1" style={{ color: 'var(--text-muted)' }}>Measure</span>
       {measures.map((m, i) => {
         const isActive = mode === "single" ? selected === m : selected.includes(m);
+        const currentType = seriesTypes[m];
         return (
-          <button
-            key={m}
-            onClick={() => onSelect(m)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-md transition-all duration-200 cursor-pointer ${
-              isActive
-                ? "bg-slate-800 text-white border border-slate-600"
-                : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 border border-transparent"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors[i % colors.length], opacity: isActive ? 1 : 0.4 }} />
-            {m}
-          </button>
+          <div key={m} className="relative flex items-center">
+            <button
+              onClick={() => onSelect(m)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] transition-all duration-200 cursor-pointer ${
+                isActive ? "border" : "border border-transparent"
+              } ${onSeriesTypeChange && isActive ? "rounded-l-md" : "rounded-md"}`}
+              style={isActive ? { background: 'var(--bg-hover)', color: 'var(--text-primary)', borderColor: 'var(--border-default)' } : { color: 'var(--text-muted)' }}
+            >
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors[i % colors.length], opacity: isActive ? 1 : 0.4 }} />
+              {m}
+            </button>
+            {/* Per-measure type picker — only for multi-measure active items */}
+            {onSeriesTypeChange && isActive && mode === "multi" && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setOpenPicker(openPicker === m ? null : m); }}
+                  className="h-full px-1.5 py-1.5 text-[9px] font-bold border border-l-0 rounded-r-md cursor-pointer transition-colors"
+                  style={{ background: 'var(--bg-surface)', color: currentType ? 'var(--accent)' : 'var(--text-muted)', borderColor: 'var(--border-default)' }}
+                  title={`Chart type: ${currentType || 'default'}`}
+                >
+                  {currentType === 'line' ? '〰' : currentType === 'area' ? '▧' : '▮'}
+                </button>
+                {openPicker === m && (
+                  <div className="absolute top-full left-0 mt-1 z-50 flex gap-0.5 p-1 rounded-lg shadow-lg" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
+                    {COMBO_TYPES.map((ct) => (
+                      <button
+                        key={ct.key}
+                        onClick={(e) => { e.stopPropagation(); onSeriesTypeChange(m, ct.key); setOpenPicker(null); }}
+                        className="px-2 py-1 text-[10px] font-semibold rounded-md cursor-pointer transition-all"
+                        style={{
+                          background: (seriesTypes[m] || 'bar') === ct.key ? 'var(--accent-glow)' : 'transparent',
+                          color: (seriesTypes[m] || 'bar') === ct.key ? 'var(--accent)' : 'var(--text-muted)',
+                          border: (seriesTypes[m] || 'bar') === ct.key ? '1px solid var(--accent)' : '1px solid transparent',
+                        }}
+                        title={ct.label}
+                      >
+                        {ct.icon} {ct.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         );
       })}
     </div>
@@ -266,6 +309,13 @@ export default function ResultsChart({
   onCrossFilterClick = null,       // (field, value) => void — emit cross-filter click
 }) {
   const chartRef = useRef(null);
+  const resolvedTheme = useStore((s) => s.resolvedTheme);
+
+  // Theme-aware chart colors (ECharts needs raw hex, not CSS vars)
+  const chartColors = useMemo(() => resolvedTheme === 'light'
+    ? { axis: '#6b7280', grid: '#e5e7eb', tooltipBg: '#ffffff', tooltipBorder: '#d1d5db', tooltipText: '#1f2937', pieBorder: '#ffffff', nameText: '#6b7280', labelText: '#6b7280', treemapBorder: '#f8fafc', axisLine: '#d1d5db', legendText: '#6b7280', splitAreaLine: '#e5e7eb' }
+    : { axis: '#94a3b8', grid: '#1e293b', tooltipBg: '#0f172a', tooltipBorder: '#334155', tooltipText: '#e2e8f0', pieBorder: '#111827', nameText: '#94a3b8', labelText: '#9ca3af', treemapBorder: '#0B1120', axisLine: '#1e293b', legendText: '#9ca3af', splitAreaLine: '#1e293b' },
+  [resolvedTheme]);
 
   // Coerce data
   const coercedRows = useMemo(() => coerceNumericRows(columns, rows), [columns, rows]);
@@ -285,16 +335,36 @@ export default function ResultsChart({
   // Merge formatting config with defaults
   const fmt = useMemo(() => mergeFormatting(formatting, null), [formatting]);
 
-  // Sort data if configured
+  // Sort data if configured (supports field sort, custom manual order, and top-N limit)
   const sortedData = useMemo(() => {
-    if (!fmt.sort.field) return data;
-    return [...data].sort((a, b) => {
-      const aV = a[fmt.sort.field], bV = b[fmt.sort.field];
-      if (aV == null) return 1;
-      if (bV == null) return -1;
-      return fmt.sort.order === 'asc' ? (aV > bV ? 1 : -1) : (aV < bV ? 1 : -1);
-    });
-  }, [data, fmt.sort]);
+    let result = data;
+
+    if (fmt.sort.order === 'custom' && fmt.sort.customOrder?.length > 0) {
+      // Custom manual order — sort by explicit category value sequence
+      const orderMap = {};
+      fmt.sort.customOrder.forEach((val, idx) => { orderMap[String(val)] = idx; });
+      result = [...result].sort((a, b) => {
+        const aIdx = orderMap[String(a[labelCol])] ?? 9999;
+        const bIdx = orderMap[String(b[labelCol])] ?? 9999;
+        return aIdx - bIdx;
+      });
+    } else if (fmt.sort.field) {
+      // Standard field sort (asc/desc)
+      result = [...result].sort((a, b) => {
+        const aV = a[fmt.sort.field], bV = b[fmt.sort.field];
+        if (aV == null) return 1;
+        if (bV == null) return -1;
+        return fmt.sort.order === 'asc' ? (aV > bV ? 1 : -1) : (aV < bV ? 1 : -1);
+      });
+    }
+
+    // Top N limit
+    if (fmt.sort.limit && fmt.sort.limit > 0) {
+      result = result.slice(0, fmt.sort.limit);
+    }
+
+    return result;
+  }, [data, fmt.sort, labelCol]);
 
   // Cross-filter: filter data when an external cross-filter is active
   // Only filter if this tile's data actually contains the cross-filter field
@@ -336,6 +406,7 @@ export default function ResultsChart({
     defaultMeasures?.length ? defaultMeasures : numericCols
   );
   const [palette, setPalette] = useState(defaultPalette);
+  const [measureSeriesTypes, setMeasureSeriesTypes] = useState(formatting?.seriesTypes || {});
   const [showGrid, setShowGrid] = useState(true);
   const [showLegend, setShowLegend] = useState(!embedded);
   const [showSettings, setShowSettings] = useState(false);
@@ -347,6 +418,17 @@ export default function ResultsChart({
     if (defaultMeasures?.length) setActiveMeasures(defaultMeasures);
   }, [defaultMeasures]);
 
+  // Sync seriesTypes when formatting changes (e.g. after TileEditor save)
+  useEffect(() => {
+    const incoming = formatting?.seriesTypes;
+    if (incoming && Object.keys(incoming).length > 0) {
+      setMeasureSeriesTypes(incoming);
+    }
+  }, [formatting?.seriesTypes]);
+
+  const handleSeriesTypeChange = useCallback((measure, type) => {
+    setMeasureSeriesTypes((prev) => ({ ...prev, [measure]: type }));
+  }, []);
   const handleSingleSelect = useCallback((m) => setSelectedMeasure(m), []);
   const handleMultiToggle = useCallback((m) => {
     setActiveMeasures((prev) => {
@@ -355,33 +437,21 @@ export default function ResultsChart({
     });
   }, []);
 
-  if (augColumns.length < 2 || data.length === 0 || numericCols.length === 0 || rankedCharts.length === 0) {
-    if (embedded) {
-      let msg = "Cannot render chart";
-      if (data.length === 0) msg = "0 data rows";
-      else if (augColumns.length < 2) msg = "Required: ≥ 2 columns";
-      else if (numericCols.length === 0) msg = "Required: ≥ 1 numeric metric";
-
-      return (
-        <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
-           <svg className="w-8 h-8 text-slate-700 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-           </svg>
-           <span className="text-slate-400 text-xs font-medium">{msg}</span>
-        </div>
-      );
-    }
-    return null;
-  }
-
+  // Derived values — computed unconditionally so hooks below always run
   const chartType = activeType || rankedCharts[0]?.key || "bar";
   const colors = PALETTES[palette] || PALETTES.default;
-
   const isSingleMeasureChart = ["pie", "donut", "treemap"].includes(chartType);
   const isMultiMeasureChart = ["bar", "bar_h", "stacked", "line", "area", "radar"].includes(chartType);
-  const currentMeasure = numericCols.includes(selectedMeasure) ? selectedMeasure : numericCols[0];
+  const currentMeasure = numericCols.includes(selectedMeasure) ? selectedMeasure : (numericCols[0] || "");
   const currentMeasures = activeMeasures.filter((m) => numericCols.includes(m));
   const displayMeasures = currentMeasures.length > 0 ? currentMeasures : numericCols;
+
+  // Check if we have mixed chart types (combo chart) — for dual Y-axis
+  const hasMixedTypes = useMemo(() => {
+    if (!isMultiMeasureChart || Object.keys(measureSeriesTypes).length === 0) return false;
+    const types = new Set(displayMeasures.map((m) => measureSeriesTypes[m] || chartType));
+    return types.size > 1;
+  }, [isMultiMeasureChart, measureSeriesTypes, displayMeasures, chartType]);
 
   // Reference lines — compute special values (avg, median, min, max)
   const computedRefLines = useMemo(() => {
@@ -412,17 +482,17 @@ export default function ResultsChart({
   /* ── ECharts option builder ── */
   const echartsOption = useMemo(() => {
     const labels = chartData.map((r) => r[labelCol]);
-    const axisLabelStyle = { color: '#94a3b8', fontSize: fmt.typography.axisFontSize };
-    const axisLineStyle = { lineStyle: { color: '#1e293b' } };
+    const axisLabelStyle = { color: chartColors.axis, fontSize: fmt.typography.axisFontSize };
+    const axisLineStyle = { lineStyle: { color: chartColors.axisLine } };
     const splitLineStyle = showGrid && fmt.grid.show
       ? { show: true, lineStyle: { color: fmt.grid.color, type: fmt.grid.style === 'dotted' ? 'dotted' : fmt.grid.style === 'dashed' ? 'dashed' : 'solid' } }
       : { show: false };
 
     const tooltipCfg = fmt.tooltip.show ? {
       trigger: ['pie', 'donut', 'treemap', 'scatter'].includes(chartType) ? 'item' : 'axis',
-      backgroundColor: '#0f172a',
-      borderColor: '#334155',
-      textStyle: { color: '#e2e8f0', fontSize: 12 },
+      backgroundColor: chartColors.tooltipBg,
+      borderColor: chartColors.tooltipBorder,
+      textStyle: { color: chartColors.tooltipText, fontSize: 12 },
       ...(fmt.tooltip.template ? {
         formatter: (params) => {
           const row = Array.isArray(params) ? params[0]?.data : params.data;
@@ -436,20 +506,20 @@ export default function ResultsChart({
 
     const legendCfg = (showLegend && fmt.legend.show && displayMeasures.length > 1) ? {
       show: true,
-      textStyle: { color: fmt.legend.color || '#9ca3af', fontSize: fmt.legend.fontSize || 11 },
+      textStyle: { color: fmt.legend.color || chartColors.legendText, fontSize: fmt.legend.fontSize || 11 },
       ...(fmt.legend.position === 'top' ? { top: 0 } : fmt.legend.position === 'left' ? { left: 0, orient: 'vertical' } : fmt.legend.position === 'right' ? { right: 0, orient: 'vertical' } : { bottom: 0 }),
     } : { show: false };
 
     const markLineData = computedRefLines.map((rl) => ({
       yAxis: rl.value,
-      label: { formatter: rl.label || '', color: '#9ca3af', fontSize: 11 },
+      label: { formatter: rl.label || '', color: chartColors.labelText, fontSize: 11 },
       lineStyle: { color: rl.stroke || '#F59E0B', type: rl.strokeDasharray?.includes('5') ? 'dashed' : 'solid', width: 1.5 },
     }));
 
     const dataLabelCfg = fmt.dataLabels.show ? {
       show: true,
       position: fmt.dataLabels.position || 'top',
-      color: fmt.dataLabels.color || '#9ca3af',
+      color: fmt.dataLabels.color || chartColors.labelText,
       fontSize: fmt.dataLabels.fontSize || 10,
       formatter: (p) => formatTickValue(p.value, fmt.dataLabels.format, null),
     } : { show: false };
@@ -458,49 +528,72 @@ export default function ResultsChart({
 
     switch (chartType) {
       case "bar":
-      case "stacked":
+      case "stacked": {
+        // Dual Y-axis when mixing bar + line/area types
+        const yAxes = hasMixedTypes ? [
+          { type: 'value', axisLabel: { ...axisLabelStyle, formatter: fmtTickFn }, axisLine: axisLineStyle, splitLine: splitLineStyle, name: fmt.axis.yLabel || undefined, nameTextStyle: { color: chartColors.nameText, fontSize: 11 } },
+          { type: 'value', axisLabel: { ...axisLabelStyle, formatter: fmtTickFn }, axisLine: { ...axisLineStyle, show: true }, splitLine: { show: false }, nameTextStyle: { color: chartColors.nameText, fontSize: 11 } },
+        ] : {
+          type: 'value', axisLabel: { ...axisLabelStyle, formatter: fmtTickFn }, axisLine: axisLineStyle, splitLine: splitLineStyle, name: fmt.axis.yLabel || undefined, nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
+        };
         return {
           backgroundColor: 'transparent',
           tooltip: tooltipCfg,
           legend: legendCfg,
-          grid: baseGrid,
+          grid: hasMixedTypes ? { ...baseGrid, right: 60 } : baseGrid,
           xAxis: {
             type: 'category',
             data: labels,
             axisLabel: { ...axisLabelStyle, formatter: fmtTickFn, rotate: fmt.axis.xLabelRotation || 0, interval: chartData.length > 12 ? 'auto' : 0 },
             axisLine: axisLineStyle,
             name: fmt.axis.xLabel || undefined,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+            nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
           },
-          yAxis: {
-            type: 'value',
-            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
-            axisLine: axisLineStyle,
-            splitLine: splitLineStyle,
-            name: fmt.axis.yLabel || undefined,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
-          },
+          yAxis: yAxes,
           series: displayMeasures.map((col, i) => {
             const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
             const hasRules = fmt.colors.rules?.some((r) => r.measure === col);
+            const hasCatColors = Object.keys(fmt.colors.categoryColors || {}).length > 0;
+            const perType = measureSeriesTypes[col] || (chartType === 'stacked' ? 'bar' : 'bar');
+            const isLine = perType === 'line';
+            const isArea = perType === 'area';
+            const effectiveType = isArea ? 'line' : perType;
             return {
-              type: 'bar',
+              type: effectiveType,
               name: col,
-              stack: chartType === 'stacked' ? 'stack' : undefined,
+              stack: (chartType === 'stacked' && perType === 'bar') ? 'stack' : undefined,
+              yAxisIndex: (hasMixedTypes && (isLine || isArea)) ? 1 : 0,
               data: hasRules
                 ? chartData.map((row) => ({ value: row[col], itemStyle: { color: resolveColor(col, row[col], i, fmt.colors, dashboardPalette) } }))
-                : chartData.map((row) => row[col]),
-              itemStyle: { color: baseColor, borderRadius: chartType === 'stacked' ? 0 : [6, 6, 0, 0] },
+                : (hasCatColors && displayMeasures.length === 1)
+                  ? chartData.map((row, ri) => ({
+                      value: row[col],
+                      itemStyle: { color: resolveCategoryColor(row[labelCol], ri, fmt.colors, dashboardPalette) },
+                    }))
+                  : chartData.map((row) => row[col]),
+              ...(isLine || isArea ? {
+                lineStyle: { color: baseColor, width: 2.5 },
+                symbolSize: 4,
+                smooth: true,
+                ...(isArea ? { areaStyle: { color: baseColor, opacity: 0.12 } } : {}),
+              } : {
+                itemStyle: { color: baseColor, borderRadius: chartType === 'stacked' ? 0 : [6, 6, 0, 0] },
+              }),
               label: dataLabelCfg,
               markLine: i === 0 && markLineData.length ? { data: markLineData, silent: true, symbol: 'none' } : undefined,
-              emphasis: { itemStyle: { opacity: 0.85 } },
+              emphasis: isLine || isArea ? { focus: 'series' } : { itemStyle: { opacity: 0.85 } },
             };
           }),
           animationDuration: 800,
           animationEasing: 'cubicOut',
         };
+      }
 
-      case "bar_h":
+      case "bar_h": {
+        // Reverse data for horizontal bars — ECharts renders y-axis bottom-to-top,
+        // so we reverse to make visual top-to-bottom match the logical sort order.
+        const hLabels = [...labels].reverse();
+        const hChartData = [...chartData].reverse();
         return {
           backgroundColor: 'transparent',
           tooltip: tooltipCfg,
@@ -508,11 +601,11 @@ export default function ResultsChart({
           grid: { left: 100, right: 30, top: 20, bottom: 30 },
           yAxis: {
             type: 'category',
-            data: labels,
+            data: hLabels,
             axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
             axisLine: axisLineStyle,
             name: fmt.axis.yLabel || undefined,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+            nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
           },
           xAxis: {
             type: 'value',
@@ -520,64 +613,80 @@ export default function ResultsChart({
             axisLine: axisLineStyle,
             splitLine: splitLineStyle,
             name: fmt.axis.xLabel || undefined,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+            nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
           },
           series: displayMeasures.map((col, i) => {
             const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
             const hasRules = fmt.colors.rules?.some((r) => r.measure === col);
+            const hasCatColors = Object.keys(fmt.colors.categoryColors || {}).length > 0;
             return {
               type: 'bar',
               name: col,
               data: hasRules
-                ? chartData.map((row) => ({ value: row[col], itemStyle: { color: resolveColor(col, row[col], i, fmt.colors, dashboardPalette) } }))
-                : chartData.map((row) => row[col]),
+                ? hChartData.map((row) => ({ value: row[col], itemStyle: { color: resolveColor(col, row[col], i, fmt.colors, dashboardPalette) } }))
+                : (hasCatColors && displayMeasures.length === 1)
+                  ? hChartData.map((row, ri) => ({
+                      value: row[col],
+                      itemStyle: { color: resolveCategoryColor(row[labelCol], ri, fmt.colors, dashboardPalette) },
+                    }))
+                  : hChartData.map((row) => row[col]),
               itemStyle: { color: baseColor, borderRadius: [0, 6, 6, 0] },
-              label: dataLabelCfg,
+              label: dataLabelCfg.show ? { ...dataLabelCfg, position: 'right' } : dataLabelCfg,
               markLine: i === 0 && markLineData.length ? { data: markLineData.map((ml) => ({ ...ml, xAxis: ml.yAxis, yAxis: undefined })), silent: true, symbol: 'none' } : undefined,
             };
           }),
           animationDuration: 800,
         };
+      }
 
-      case "line":
+      case "line": {
+        const lineYAxes = hasMixedTypes ? [
+          { type: 'value', axisLabel: { ...axisLabelStyle, formatter: fmtTickFn }, axisLine: axisLineStyle, splitLine: splitLineStyle, name: fmt.axis.yLabel || undefined, nameTextStyle: { color: chartColors.nameText, fontSize: 11 } },
+          { type: 'value', axisLabel: { ...axisLabelStyle, formatter: fmtTickFn }, axisLine: { ...axisLineStyle, show: true }, splitLine: { show: false }, nameTextStyle: { color: chartColors.nameText, fontSize: 11 } },
+        ] : {
+          type: 'value', axisLabel: { ...axisLabelStyle, formatter: fmtTickFn }, axisLine: axisLineStyle, splitLine: splitLineStyle, name: fmt.axis.yLabel || undefined, nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
+        };
         return {
           backgroundColor: 'transparent',
           tooltip: tooltipCfg,
           legend: legendCfg,
-          grid: baseGrid,
+          grid: hasMixedTypes ? { ...baseGrid, right: 60 } : baseGrid,
           xAxis: {
             type: 'category',
             data: labels,
             axisLabel: { ...axisLabelStyle, formatter: fmtTickFn, rotate: fmt.axis.xLabelRotation || 0 },
             axisLine: axisLineStyle,
             name: fmt.axis.xLabel || undefined,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+            nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
           },
-          yAxis: {
-            type: 'value',
-            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
-            axisLine: axisLineStyle,
-            splitLine: splitLineStyle,
-            name: fmt.axis.yLabel || undefined,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
-          },
+          yAxis: lineYAxes,
           series: displayMeasures.map((col, i) => {
             const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+            const perType = measureSeriesTypes[col] || 'line';
+            const isBar = perType === 'bar';
+            const isArea = perType === 'area';
             return {
-              type: 'line',
+              type: isBar ? 'bar' : 'line',
               name: col,
+              yAxisIndex: (hasMixedTypes && isBar) ? 1 : 0,
               data: chartData.map((row) => row[col]),
-              lineStyle: { color: baseColor, width: 2.5 },
-              itemStyle: { color: baseColor, borderColor: '#111827', borderWidth: 2 },
-              symbolSize: 6,
-              smooth: true,
+              ...(isBar ? {
+                itemStyle: { color: baseColor, borderRadius: [6, 6, 0, 0] },
+              } : {
+                lineStyle: { color: baseColor, width: 2.5 },
+                itemStyle: { color: baseColor, borderColor: chartColors.pieBorder, borderWidth: 2 },
+                symbolSize: 6,
+                smooth: true,
+                ...(isArea ? { areaStyle: { color: baseColor, opacity: 0.12 } } : {}),
+              }),
               label: dataLabelCfg,
               markLine: i === 0 && markLineData.length ? { data: markLineData, silent: true, symbol: 'none' } : undefined,
-              emphasis: { focus: 'series' },
+              emphasis: isBar ? { itemStyle: { opacity: 0.85 } } : { focus: 'series' },
             };
           }),
           animationDuration: 1000,
         };
+      }
 
       case "area":
         return {
@@ -591,7 +700,7 @@ export default function ResultsChart({
             axisLabel: { ...axisLabelStyle, formatter: fmtTickFn, rotate: fmt.axis.xLabelRotation || 0 },
             axisLine: axisLineStyle,
             name: fmt.axis.xLabel || undefined,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+            nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
           },
           yAxis: {
             type: 'value',
@@ -599,19 +708,31 @@ export default function ResultsChart({
             axisLine: axisLineStyle,
             splitLine: splitLineStyle,
             name: fmt.axis.yLabel || undefined,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+            nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
           },
           series: displayMeasures.map((col, i) => {
             const baseColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+            const perType = measureSeriesTypes[col] || 'area';
+            const isBar = perType === 'bar';
+            const isLine = perType === 'line';
             return {
-              type: 'line',
+              type: isBar ? 'bar' : 'line',
               name: col,
               data: chartData.map((row) => row[col]),
-              areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: baseColor + '59' }, { offset: 1, color: baseColor + '05' }] } },
-              lineStyle: { color: baseColor, width: 2 },
-              itemStyle: { color: baseColor },
-              symbolSize: 4,
-              smooth: true,
+              ...(isBar ? {
+                itemStyle: { color: baseColor, borderRadius: [6, 6, 0, 0] },
+              } : isLine ? {
+                lineStyle: { color: baseColor, width: 2.5 },
+                itemStyle: { color: baseColor },
+                symbolSize: 4,
+                smooth: true,
+              } : {
+                areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: baseColor + '59' }, { offset: 1, color: baseColor + '05' }] } },
+                lineStyle: { color: baseColor, width: 2 },
+                itemStyle: { color: baseColor },
+                symbolSize: 4,
+                smooth: true,
+              }),
               label: dataLabelCfg,
               markLine: i === 0 && markLineData.length ? { data: markLineData, silent: true, symbol: 'none' } : undefined,
             };
@@ -631,19 +752,20 @@ export default function ResultsChart({
             center: ['50%', '50%'],
             data: chartData.map((row, i) => {
               const origIdx = pieColorMap[String(row[labelCol])] ?? i;
+              const catLabel = String(row[labelCol]);
               return {
-                name: String(row[labelCol]),
+                name: catLabel,
                 value: row[currentMeasure],
-                itemStyle: { color: resolveColor(currentMeasure, null, origIdx, fmt.colors, dashboardPalette), borderColor: '#111827', borderWidth: 2 },
+                itemStyle: { color: resolveCategoryColor(catLabel, origIdx, fmt.colors, dashboardPalette), borderColor: chartColors.pieBorder, borderWidth: 2 },
               };
             }),
             label: {
               show: true,
-              color: '#9ca3af',
+              color: chartColors.labelText,
               fontSize: 11,
               formatter: (p) => p.percent < 4 ? '' : `${p.name?.length > 14 ? p.name.slice(0, 14) + '..' : p.name} ${p.percent.toFixed(0)}%`,
             },
-            labelLine: { lineStyle: { color: '#4b5563' } },
+            labelLine: { lineStyle: { color: chartColors.axis } },
             padAngle: chartType === 'donut' ? 3 : 2,
             itemStyle: chartType === 'donut' ? { borderRadius: 4 } : {},
             emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.3)' } },
@@ -661,10 +783,10 @@ export default function ResultsChart({
               const maxVal = Math.max(...displayMeasures.map((col) => Math.max(...chartData.map((r) => Number(r[col]) || 0))));
               return { name, max: maxVal * 1.2 || 100 };
             }),
-            axisName: { color: '#9ca3af', fontSize: fmt.typography.axisFontSize },
+            axisName: { color: chartColors.labelText, fontSize: fmt.typography.axisFontSize },
             splitLine: { lineStyle: { color: fmt.grid.color } },
             splitArea: { show: false },
-            axisLine: { lineStyle: { color: '#1e293b' } },
+            axisLine: { lineStyle: { color: chartColors.axisLine } },
           },
           series: [{
             type: 'radar',
@@ -689,11 +811,14 @@ export default function ResultsChart({
           series: [{
             type: 'treemap',
             data: chartData
-              .map((r, i) => ({
-                name: String(r[labelCol] || `Item ${i + 1}`),
-                value: r[currentMeasure] || 0,
-                itemStyle: { color: resolveColor(labelCol, null, i, fmt.colors, dashboardPalette), borderColor: '#0B1120', borderWidth: 2 },
-              }))
+              .map((r, i) => {
+                const catLabel = String(r[labelCol] || `Item ${i + 1}`);
+                return {
+                  name: catLabel,
+                  value: r[currentMeasure] || 0,
+                  itemStyle: { color: resolveCategoryColor(catLabel, i, fmt.colors, dashboardPalette), borderColor: chartColors.treemapBorder, borderWidth: 2 },
+                };
+              })
               .filter((d) => d.value > 0),
             label: { show: true, color: '#fff', fontSize: 11, fontWeight: 600 },
             breadcrumb: { show: false },
@@ -720,7 +845,7 @@ export default function ResultsChart({
             axisLine: axisLineStyle,
             splitLine: splitLineStyle,
             name: fmt.axis.xLabel || xMeasure,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+            nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
           },
           yAxis: {
             type: 'value',
@@ -728,7 +853,7 @@ export default function ResultsChart({
             axisLine: axisLineStyle,
             splitLine: splitLineStyle,
             name: fmt.axis.yLabel || yMeasure,
-            nameTextStyle: { color: '#94a3b8', fontSize: 11 },
+            nameTextStyle: { color: chartColors.nameText, fontSize: 11 },
           },
           series: [{
             type: 'scatter',
@@ -744,7 +869,7 @@ export default function ResultsChart({
       default:
         return { backgroundColor: 'transparent' };
     }
-  }, [chartType, chartData, labelCol, displayMeasures, currentMeasure, colors, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn]);
+  }, [chartType, chartData, labelCol, displayMeasures, currentMeasure, colors, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn, chartColors, measureSeriesTypes, hasMixedTypes]);
 
   /* ── ECharts event handlers for cross-filter ── */
   const onChartEvents = useMemo(() => {
@@ -768,11 +893,32 @@ export default function ResultsChart({
 
   /* ── Build accessible summary ── */
   const chartSummary = useMemo(() => {
+    if (!data.length || !labelCol) return "";
     const top = data.slice(0, 3);
     const measureLabel = isSingleMeasureChart ? currentMeasure : displayMeasures.join(", ");
     const topItems = top.map((r) => `${r[labelCol]}: ${formatNumber(r[isSingleMeasureChart ? currentMeasure : displayMeasures[0]])}`).join("; ");
     return `${rankedCharts[0]?.label || chartType} chart showing ${measureLabel} across ${data.length} items. Top entries: ${topItems}`;
   }, [data, labelCol, chartType, currentMeasure, displayMeasures, isSingleMeasureChart, rankedCharts]);
+
+  // ── Early return for insufficient data (placed after all hooks) ──
+  if (augColumns.length < 2 || data.length === 0 || numericCols.length === 0 || rankedCharts.length === 0) {
+    if (embedded) {
+      let msg = "Cannot render chart";
+      if (data.length === 0) msg = "0 data rows";
+      else if (augColumns.length < 2) msg = "Required: ≥ 2 columns";
+      else if (numericCols.length === 0) msg = "Required: ≥ 1 numeric metric";
+
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
+           <svg className="w-8 h-8 mb-2" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+           </svg>
+           <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{msg}</span>
+        </div>
+      );
+    }
+    return null;
+  }
 
   /* ── ECharts renderer (shared by embedded and full modes) ── */
   const renderEChart = (height = '100%') => (
@@ -812,9 +958,9 @@ export default function ResultsChart({
 
   /* ── Full mode with toolbar ── */
   return (
-    <div className="bg-slate-900/60 rounded-xl border border-slate-800 overflow-hidden">
+    <div className="rounded-2xl overflow-hidden backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.12)]" style={{ background: 'var(--glass-bg-card)', border: '1px solid var(--glass-border)' }}>
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/80 gap-2">
+      <div className="flex items-center justify-between px-4 py-3 gap-2" style={{ borderBottom: '1px solid var(--border-default)', background: 'var(--bg-base)' }}>
         {/* Chart type selector */}
         <div className="flex gap-1.5 flex-wrap min-w-0">
           {rankedCharts.map(({ key, label, icon, relevance }) => (
@@ -827,8 +973,9 @@ export default function ResultsChart({
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 cursor-pointer ${
                 chartType === key
                   ? "bg-blue-600/15 text-blue-400 border border-blue-500/30"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 border border-transparent"
+                  : "border border-transparent"
               }`}
+              style={chartType !== key ? { color: 'var(--text-muted)' } : undefined}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
@@ -852,6 +999,7 @@ export default function ResultsChart({
                 palette,
                 question,
                 sql,
+                seriesTypes: Object.keys(measureSeriesTypes).length > 0 ? measureSeriesTypes : undefined,
               })}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/20 transition-colors duration-200 cursor-pointer"
               title="Add to dashboard"
@@ -865,7 +1013,8 @@ export default function ResultsChart({
 
           <button
             onClick={() => { setShowSettings(!showSettings); setShowExportMenu(false); }}
-            className={`p-2 rounded-lg transition-colors duration-200 cursor-pointer ${showSettings ? "bg-slate-800 text-blue-400" : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/60"}`}
+            className={`p-2 rounded-lg transition-colors duration-200 cursor-pointer ${showSettings ? "text-blue-400" : ""}`}
+            style={showSettings ? { background: 'var(--bg-hover)' } : { color: 'var(--text-muted)' }}
             title="Chart settings"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -876,7 +1025,8 @@ export default function ResultsChart({
           <div className="relative">
             <button
               onClick={() => { setShowExportMenu(!showExportMenu); setShowSettings(false); }}
-              className={`p-2 rounded-lg transition-colors duration-200 cursor-pointer ${showExportMenu ? "bg-slate-800 text-blue-400" : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/60"}`}
+              className={`p-2 rounded-lg transition-colors duration-200 cursor-pointer ${showExportMenu ? "text-blue-400" : ""}`}
+              style={showExportMenu ? { background: 'var(--bg-hover)' } : { color: 'var(--text-muted)' }}
               title="Export chart"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -884,8 +1034,8 @@ export default function ResultsChart({
               </svg>
             </button>
             {showExportMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden min-w-[150px]">
-                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 border-b border-slate-800">Image</div>
+              <div className="absolute right-0 top-full mt-1 rounded-xl shadow-2xl z-50 overflow-hidden min-w-[150px]" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)' }}>
+                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-default)' }}>Image</div>
                 {[
                   { key: "png", label: "PNG", desc: "High quality" },
                   { key: "jpg", label: "JPG", desc: "Compressed" },
@@ -893,13 +1043,16 @@ export default function ResultsChart({
                   <button
                     key={fmt.key}
                     onClick={() => { const ok = exportChart(chartRef, fmt.key); if (!ok) setExportError('Chart not ready — try again'); setShowExportMenu(false); }}
-                    className="w-full flex items-center justify-between px-3 py-2.5 text-xs text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors duration-200 cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-xs transition-colors duration-200 cursor-pointer"
+                    style={{ color: 'var(--text-primary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     <span className="font-medium">{fmt.label}</span>
-                    <span className="text-slate-500">{fmt.desc}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{fmt.desc}</span>
                   </button>
                 ))}
-                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 border-t border-b border-slate-800">Data</div>
+                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-default)', borderBottom: '1px solid var(--border-default)' }}>Data</div>
                 {[
                   { key: "csv", label: "CSV", desc: "Spreadsheet" },
                   { key: "json", label: "JSON", desc: "Structured" },
@@ -919,10 +1072,13 @@ export default function ResultsChart({
                       URL.revokeObjectURL(url);
                       setShowExportMenu(false);
                     }}
-                    className="w-full flex items-center justify-between px-3 py-2.5 text-xs text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors duration-200 cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-xs transition-colors duration-200 cursor-pointer"
+                    style={{ color: 'var(--text-primary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     <span className="font-medium">{fmt.label}</span>
-                    <span className="text-slate-500">{fmt.desc}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{fmt.desc}</span>
                   </button>
                 ))}
               </div>
@@ -939,26 +1095,27 @@ export default function ResultsChart({
 
       {/* ── Measure Selector Row ── */}
       {numericCols.length > 1 && (
-        <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-900/40">
+        <div className="px-4 py-2.5" style={{ borderBottom: '1px solid var(--border-default)', background: 'var(--bg-surface)' }}>
           {isSingleMeasureChart ? (
             <MeasureSelector measures={numericCols} selected={currentMeasure} onSelect={handleSingleSelect} colors={colors} mode="single" />
           ) : isMultiMeasureChart ? (
-            <MeasureSelector measures={numericCols} selected={displayMeasures} onSelect={handleMultiToggle} colors={colors} mode="multi" />
+            <MeasureSelector measures={numericCols} selected={displayMeasures} onSelect={handleMultiToggle} colors={colors} mode="multi" seriesTypes={measureSeriesTypes} onSeriesTypeChange={handleSeriesTypeChange} />
           ) : null}
         </div>
       )}
 
       {/* ── Settings Panel ── */}
       {showSettings && (
-        <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/40 flex flex-wrap items-center gap-5">
+        <div className="px-4 py-3 flex flex-wrap items-center gap-5" style={{ borderBottom: '1px solid var(--border-default)', background: 'var(--bg-surface)' }}>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Palette</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Palette</span>
             <div className="flex gap-1.5">
               {Object.entries(PALETTES).map(([key, cols]) => (
                 <button
                   key={key}
                   onClick={() => setPalette(key)}
-                  className={`w-5 h-5 rounded-full border-2 transition-all duration-200 cursor-pointer ${palette === key ? "border-white scale-110 ring-2 ring-blue-500/20" : "border-transparent hover:border-slate-600"}`}
+                  className={`w-5 h-5 rounded-full border-2 transition-all duration-200 cursor-pointer ${palette === key ? "scale-110 ring-2 ring-blue-500/20" : "border-transparent"}`}
+                  style={palette === key ? { borderColor: 'var(--text-primary)' } : undefined}
                   style={{ background: `linear-gradient(135deg, ${cols[0]}, ${cols[1]})` }}
                   title={key}
                   aria-label={`${key} color palette${palette === key ? " (selected)" : ""}`}
@@ -968,12 +1125,12 @@ export default function ResultsChart({
             </div>
           </div>
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" checked={showGrid} onChange={() => setShowGrid(!showGrid)} className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-0 cursor-pointer" />
-            <span className="text-xs text-slate-400">Grid</span>
+            <input type="checkbox" checked={showGrid} onChange={() => setShowGrid(!showGrid)} className="w-3.5 h-3.5 rounded text-blue-500 focus:ring-0 cursor-pointer" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-surface)' }} />
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Grid</span>
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" checked={showLegend} onChange={() => setShowLegend(!showLegend)} className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-0 cursor-pointer" />
-            <span className="text-xs text-slate-400">Legend</span>
+            <input type="checkbox" checked={showLegend} onChange={() => setShowLegend(!showLegend)} className="w-3.5 h-3.5 rounded text-blue-500 focus:ring-0 cursor-pointer" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-surface)' }} />
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Legend</span>
           </label>
         </div>
       )}
@@ -995,8 +1152,8 @@ export default function ResultsChart({
       </div>
 
       {/* ── Data summary bar (hidden in embedded/dashboard mode) ── */}
-      {!embedded && <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-800 bg-slate-900/40">
-        <span className="text-xs text-slate-500">
+      {!embedded && <div className="flex items-center justify-between px-4 py-2.5" style={{ borderTop: '1px solid var(--border-default)', background: 'var(--bg-surface)' }}>
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
           <span className="tabular-nums">{data.length}</span> data point{data.length !== 1 ? "s" : ""} &middot; <span className="tabular-nums">{numericCols.length}</span> metric{numericCols.length !== 1 ? "s" : ""}
           {rankedCharts[0] && <> &middot; best fit: <span className="text-blue-400/70">{rankedCharts[0].label}</span></>}
         </span>

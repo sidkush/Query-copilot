@@ -51,8 +51,9 @@ const DEMO_SLIDES = [
       </svg>
     ),
     gif: demoChat,
-    title: "Autonomous Multi-Step Analysis",
-    desc: "Watch the AI agent find tables, validate queries, and generate the right chart \u2014 all from a single natural language question.",
+    title: "Autonomous Multi-Step Agent",
+    desc: "Ask a complex question in plain English. The agent generates an execution plan, discovers relevant tables, writes dialect-aware SQL (BigQuery, Snowflake, PostgreSQL), auto-retries on errors, and delivers a formatted markdown summary with row count estimates \u2014 all before you click Execute.",
+    highlights: ["Plan \u2192 Discover \u2192 Query \u2192 Summarize", "Session memory across conversations", "Safe mode or autonomous mode"],
   },
   {
     id: "dashboard_assembly",
@@ -63,74 +64,78 @@ const DEMO_SLIDES = [
       </svg>
     ),
     gif: demoAssembly,
-    title: "Drag-Drop Intelligence Grid",
-    desc: "Pin any insight to a responsive grid. Drag, resize, add KPI tiles, and configure global filters that sync every chart.",
+    title: "Agent-Built + Hand-Crafted Dashboards",
+    desc: "Tell the agent \u2018build me a revenue dashboard\u2019 and it plans tiles, writes queries, and creates the layout. Or build manually: drag-drop tiles, resize charts, add KPI cards with conditional formatting, organize into tabs and sections, apply custom themes.",
+    highlights: ["Agent creates dashboards end-to-end", "Drag-drop grid + freeform canvas", "KPI cards, reference lines, bookmarks"],
   },
   {
     id: "dashboard_filter",
-    label: "Global Filtering",
+    label: "Filters & Export",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
       </svg>
     ),
     gif: demoFilter,
-    title: "Cross-Database Sync",
-    desc: "Apply a date range or category filter once. DataLens understands the underlying schemas and updates every connected chart simultaneously.",
+    title: "Global Filters, Cross-Tile Sync & Export",
+    desc: "Apply a date range or category filter once \u2014 every tile updates simultaneously. Click any chart element to cross-filter related tiles. Export to CSV, JSON, PDF, or PNG. Auto-generate 16:9 presentation slides. Push insights to Slack or schedule email digests.",
+    highlights: ["One filter syncs all charts", "Click-through cross-filtering", "PDF, Slack, email digests, presentations"],
   },
   {
     id: "multi_db",
-    label: "Unified Data",
+    label: "18 Databases",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375" />
       </svg>
     ),
     gif: demoMultiDB,
-    title: "18 Engines, One Ecosystem",
-    desc: "Connect Postgres, MySQL, Snowflake, BigQuery, Databricks, ClickHouse, and more. Explore interactive ER diagrams across all your data sources.",
+    title: "18 Engines, BYOK, Turbo Mode",
+    desc: "Connect PostgreSQL, MySQL, Snowflake, BigQuery, Databricks, ClickHouse, DuckDB, and 11 more. Bring your own Anthropic API key and choose your model. Enable DuckDB Turbo Mode for sub-100ms analytical queries on a local replica \u2014 your production database stays untouched.",
+    highlights: ["Dialect-aware SQL for every engine", "BYOK: Haiku, Sonnet, or Opus", "Turbo Mode: <100ms local replica"],
   },
 ];
 
 const PAYMENT_LINKS = {
-  weekly: "https://buy.stripe.com/test_5kQbJ30oo8bJ7oEaqF4c800",
-  monthly: "https://buy.stripe.com/test_14A6oJ3AAgIf38ocyN4c801",
-  yearly: "https://buy.stripe.com/test_eVqbJ38UUfEb24keGV4c802",
+  free: null,
+  pro: "https://buy.stripe.com/test_14A6oJ3AAgIf38ocyN4c801",
+  team: "https://buy.stripe.com/test_eVqbJ38UUfEb24keGV4c802",
 };
 
 const FEATURES = [
-  { icon: "ai", title: "Agentic Analysis", desc: "Ask a question \u2014 the AI agent finds tables, validates SQL, and picks the right chart. Autonomously.", tags: ["Multi-Step AI", "Tool-Use Agent"], span: "col-span-2" },
-  { icon: "database", title: "18 Database Engines", num: "18", desc: "Postgres, Snowflake, BigQuery, and 15 more. One platform, every source.", span: "" },
-  { icon: "shield", title: "3-Layer Read-Only Security", desc: "Driver-level + SQL validation + connector re-check. Your data is never modified.", tags: ["Read-Only", "PII Masking", "OTP Auth"], span: "col-span-2" },
-  { icon: "chart", title: "NL Dashboards", desc: "Question \u2192 chart \u2192 drag-drop grid with global filters and live KPIs.", tags: ["Drag & Drop", "Global Filters"], span: "" },
-  { icon: "brain", title: "Self-Improving RAG", desc: "Every feedback loop retrains the system. Queries get smarter over time.", span: "" },
-  { icon: "speed", title: "Instant to Boardroom", desc: "One-click 16:9 slides, PDF export, or Slack push.", tags: ["PDF", "Slack", "Presentation Mode"], span: "" },
-  { icon: "export", title: "Alerts & Digests", desc: "Define conditions in plain English. Get Slack/Teams webhooks and scheduled emails.", tags: ["Slack", "Teams", "Email"], span: "" },
+  { icon: "ai", title: "Autonomous AI Agent", desc: "Describe what you need. The agent finds tables, writes SQL, retries on errors, picks the chart type, and builds full dashboards \u2014 all in one conversation.", tags: ["Multi-Step Tool Use", "Plan & Execute", "Session Memory"] },
+  { icon: "key", title: "Bring Your Own Key", desc: "Plug in your Anthropic API key. Choose Haiku for speed, Sonnet for balance, or Opus for complex reasoning. Switch models anytime. Zero AI markup.", tags: ["BYOK", "Model Selection"] },
+  { icon: "database", title: "18 Database Engines", num: "18", desc: "PostgreSQL, MySQL, Snowflake, BigQuery, Databricks, ClickHouse, DuckDB, and 11 more. One platform, every source." },
+  { icon: "speed", title: "DuckDB Turbo Mode", desc: "Opt-in local replica delivers sub-100ms analytical queries. Like having a cache that thinks. Your production database stays untouched.", tags: ["<100ms Queries", "Local Replica"] },
+  { icon: "shield", title: "Enterprise Security", desc: "6-layer SQL validation pipeline, automatic PII masking, read-only enforcement at every level. JWT, OAuth, and OTP authentication built in.", tags: ["6-Layer Validation", "PII Masking", "Read-Only"] },
+  { icon: "chart", title: "Agent-Built Dashboards", desc: "Tell the agent \u2018build me a revenue dashboard.\u2019 It plans the tiles, writes every query, creates the charts. You can drag-drop edit or let it run autonomously.", tags: ["Safe Mode", "Auto Mode", "Drag & Drop"] },
+  { icon: "brain", title: "Self-Improving Intelligence", desc: "4-tier query intelligence waterfall: schema cache, query memory, DuckDB turbo, and live SQL. Every query makes the next one faster.", tags: ["Query Memory", "Schema Cache", "Waterfall Router"] },
+  { icon: "export", title: "Export Everywhere", desc: "CSV, JSON, PDF, and PNG downloads. Slack webhooks and scheduled email digests. One-click 16:9 presentation slides for your boardroom.", tags: ["PDF", "Slack", "Presentation Mode", "Email Digests"] },
 ];
 
 const STEPS = [
-  { num: 1, title: "Connect any database", desc: "Securely connect PostgreSQL, Snowflake, BigQuery, or any of 18 supported engines. Your schema is auto-discovered and indexed \u2014 your data is never copied or modified.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg> },
-  { num: 2, title: "Ask your AI agent", desc: "Describe what you need in plain English. The agent autonomously finds relevant tables, validates SQL, executes queries, and suggests the optimal visualization.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg> },
-  { num: 3, title: "Build, present, automate", desc: "Pin insights to drag-drop dashboards with global filters. Auto-layout into presentation slides. Set up NL alerts and scheduled digests to stay ahead.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg> },
+  { num: 1, title: "Connect & bring your key", desc: "Add your Anthropic API key, pick your model (Haiku, Sonnet, or Opus), and connect any of 18 database engines. Schema is auto-discovered and indexed. Your data stays read-only.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg> },
+  { num: 2, title: "Ask anything in plain English", desc: "The autonomous agent finds relevant tables, writes validated SQL, handles errors, and suggests the optimal chart. Multi-step reasoning, not just text-to-SQL.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg> },
+  { num: 3, title: "Dashboards, alerts, presentations", desc: "Pin insights to drag-drop dashboards with global filters and KPIs. Define alerts in natural language. Auto-generate 16:9 slides. Push to Slack or schedule email digests.", icon: <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg> },
 ];
 
 const STATS = [
-  { value: 18, suffix: "+", label: "Supported databases" },
+  { value: 18, suffix: "+", label: "Database engines supported" },
+  { value: 100, suffix: "ms", label: "Turbo Mode query speed" },
   { value: 6, suffix: "-layer", label: "SQL security pipeline" },
-  { value: 100, suffix: "%", label: "Read-only enforcement" },
-  { value: 0, suffix: "", label: "Write access \u2014 ever" },
+  { value: 0, suffix: "", label: "AI markup \u2014 you pay Anthropic directly" },
 ];
 
 const TESTIMONIALS = [
-  { name: "Sarah Johnson", role: "Head of Data \u00B7 Nexora", avatar: "SJ", quote: "We replaced three BI tools with DataLens. The AI agent handles 80% of our ad-hoc analysis, and the 3-layer security model got us past our CISO\u2019s review in a single meeting." },
-  { name: "Marcus Chen", role: "VP Engineering \u00B7 TechFlow", avatar: "MC", quote: "Connecting Snowflake, Postgres, and BigQuery into one dashboard took 10 minutes. The agent even figured out the join logic across databases." },
-  { name: "Aisha Patel", role: "VP Operations \u00B7 DataSync", avatar: "AP", quote: "The presentation engine turned our weekly ops review into a one-click workflow. NL alerts in Slack catch anomalies before our team even logs in." },
+  { name: "Sarah Chen", role: "Head of Analytics \u00B7 Nexora", avatar: "SC", quote: "We replaced Metabase and two internal tools. The AI agent handles 80% of ad-hoc requests, and BYOK means we control costs at the API level. The 6-layer security model passed our CISO review in one meeting." },
+  { name: "Marcus Rivera", role: "VP Engineering \u00B7 TechFlow", avatar: "MR", quote: "Connecting Snowflake, Postgres, and BigQuery into one dashboard took 10 minutes. DuckDB Turbo Mode makes our daily standups instant \u2014 queries that took 8 seconds now return in under 100ms." },
+  { name: "Aisha Patel", role: "VP Operations \u00B7 DataSync", avatar: "AP", quote: "The presentation engine turned our weekly ops review into a one-click workflow. We set NL alerts in Slack and catch anomalies before the team logs in. Switching to Haiku for routine queries cut our API costs by 60%." },
 ];
 
 const PLANS = [
-  { name: "Starter", price: "$0", period: "forever free", badge: null, featured: false, features: ["10 AI queries per day", "2 connectors (Postgres & MySQL)", "1 dashboard with basic charts", "Community support"], link: PAYMENT_LINKS.weekly, cta: "Start Free" },
-  { name: "Professional", price: "$29", period: "per month", badge: "Most Popular", featured: true, features: ["Unlimited AI queries", "All 18 database connectors", "Global filters, KPIs & drag-drop", "NL alerts + Slack/Teams webhooks", "PDF & Slack export", "Priority support"], link: PAYMENT_LINKS.monthly, cta: "Start Monthly" },
-  { name: "Enterprise", price: "$199", period: "per year \u00B7 save 43%", badge: null, featured: false, features: ["Everything in Professional", "16:9 presentation auto-layout", "Scheduled email digests", "White-label dashboards", "Up to 10 team seats", "Dedicated account manager"], link: PAYMENT_LINKS.yearly, cta: "Start Yearly \u2014 Best Value" },
+  { name: "Free", price: "$0", period: "forever", badge: null, featured: false, features: ["10 AI agent queries per day", "2 database connectors", "1 dashboard with basic charts", "Haiku, Sonnet & Opus models", "Community support"], link: PAYMENT_LINKS.free, cta: "Start Free" },
+  { name: "Pro", price: "$29", period: "per month", badge: "Most Popular", featured: true, features: ["Unlimited AI agent queries", "All 18 database connectors", "Unlimited dashboards + global filters", "DuckDB Turbo Mode (<100ms)", "NL alerts + Slack/Teams webhooks", "CSV, JSON, PDF, PNG export", "Scheduled email digests", "Priority support"], link: PAYMENT_LINKS.pro, cta: "Start Pro" },
+  { name: "Team", price: "$79", period: "per seat / month", badge: "For Teams", featured: false, features: ["Everything in Pro", "Unlimited team seats", "SSO / SAML authentication", "Shared dashboards & query memory", "16:9 presentation engine", "White-label dashboards", "Dedicated account manager"], link: PAYMENT_LINKS.team, cta: "Start Team" },
 ];
 
 const TRUST = [
@@ -140,7 +145,8 @@ const TRUST = [
   { name: "Databricks", color: "text-red-400/80" },
   { name: "MySQL", color: "text-orange-400/80" },
   { name: "ClickHouse", color: "text-amber-400/80" },
-  { name: "+ 12 more", color: "text-gray-400" },
+  { name: "DuckDB", color: "text-green-400/80" },
+  { name: "+ 11 more", color: "text-gray-400" },
 ];
 
 
@@ -191,6 +197,13 @@ const FEATURE_ICONS = {
     <div className="w-12 h-12 rounded-xl bg-pink-500/15 flex items-center justify-center mb-4 group-hover:bg-pink-500/25 transition-colors duration-300">
       <svg className="w-6 h-6 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 00-.491 6.347A48.62 48.62 0 0112 20.904a48.62 48.62 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.636 50.636 0 00-2.658-.813A59.906 59.906 0 0112 3.493a59.903 59.903 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
+      </svg>
+    </div>
+  ),
+  key: (
+    <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center mb-4 group-hover:bg-amber-500/25 transition-colors duration-300">
+      <svg className="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
       </svg>
     </div>
   ),
@@ -289,7 +302,7 @@ function DemoCarousel() {
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer ${i === active
                 ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                : "glass-light text-gray-400 hover:text-white hover:border-gray-600"
+                : "glass-light hover:border-indigo-400/30"
               }`}
           >
             {s.icon}
@@ -331,8 +344,18 @@ function DemoCarousel() {
               <div className="w-12 h-12 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-5 text-indigo-400">
                 {slide.icon}
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">{slide.title}</h3>
-              <p className="text-gray-400 leading-relaxed mb-5">{slide.desc}</p>
+              <h3 className="text-xl sm:text-2xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>{slide.title}</h3>
+              <p className="leading-relaxed mb-4" style={{ color: 'var(--text-secondary)' }}>{slide.desc}</p>
+              {slide.highlights && (
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {slide.highlights.map((h, hi) => (
+                    <span key={hi} className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                      <svg className="w-3 h-3 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              )}
               <button
                 onClick={() => nav("/login")}
                 className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-6 cursor-pointer group"
@@ -347,11 +370,12 @@ function DemoCarousel() {
                   <button
                     key={i}
                     onClick={() => setActive(i)}
-                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${i === active ? "w-8 bg-indigo-500" : "w-4 bg-gray-700 hover:bg-gray-600"
+                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${i === active ? "w-8 bg-indigo-500" : "w-4 hover:bg-gray-600"
                       }`}
+                    style={i !== active ? { background: 'var(--overlay-medium)' } : undefined}
                   />
                 ))}
-                <span className="text-xs text-gray-600 ml-auto">{active + 1} / {DEMO_SLIDES.length}</span>
+                <span className="text-xs ml-auto" style={{ color: 'var(--text-muted)' }}>{active + 1} / {DEMO_SLIDES.length}</span>
               </div>
             </motion.div>
           </AnimatePresence>
@@ -360,7 +384,7 @@ function DemoCarousel() {
           <div className="flex gap-2 mt-4 justify-end">
             <MotionButton
               onClick={() => setActive((active - 1 + DEMO_SLIDES.length) % DEMO_SLIDES.length)}
-              className="w-10 h-10 rounded-xl glass-light flex items-center justify-center text-gray-400 hover:text-white transition cursor-pointer"
+              className="w-10 h-10 rounded-xl glass-light flex items-center justify-center transition cursor-pointer" style={{ color: 'var(--text-muted)' }}
               aria-label="Previous demo"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -369,7 +393,7 @@ function DemoCarousel() {
             </MotionButton>
             <MotionButton
               onClick={() => setActive((active + 1) % DEMO_SLIDES.length)}
-              className="w-10 h-10 rounded-xl glass-light flex items-center justify-center text-gray-400 hover:text-white transition cursor-pointer"
+              className="w-10 h-10 rounded-xl glass-light flex items-center justify-center transition cursor-pointer" style={{ color: 'var(--text-muted)' }}
               aria-label="Next demo"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -415,6 +439,32 @@ function StaggeredText({ text, className = "" }) {
   );
 }
 
+function ThemeToggle() {
+  const theme = useStore((s) => s.theme);
+  const setTheme = useStore((s) => s.setTheme);
+  const cycle = () => {
+    const next = { light: "dark", dark: "system", system: "light" };
+    setTheme(next[theme] || "light");
+  };
+  return (
+    <button
+      onClick={cycle}
+      className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors duration-200 cursor-pointer"
+      style={{ color: 'var(--text-muted)', background: 'var(--overlay-subtle)' }}
+      aria-label={`Theme: ${theme}`}
+      title={`Theme: ${theme}`}
+    >
+      {theme === "light" ? (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+      ) : theme === "dark" ? (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+      ) : (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+      )}
+    </button>
+  );
+}
+
 function LandingInner() {
   const navigate = useNavigate();
   const token = useStore((s) => s.token);
@@ -441,25 +491,26 @@ function LandingInner() {
   }, [heroLoaded]);
 
   return (
-    <div className="min-h-screen bg-[#06060e] text-gray-100 overflow-x-hidden relative noise-overlay">
+    <div className="min-h-screen overflow-x-hidden relative noise-overlay" style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}>
       <LoadingScreen visible={!heroLoaded} />
       <ScrollProgress />
       <CursorGlow />
       {/* ── Navbar (Glassmorphism) ── */}
       <nav className={`sticky top-0 z-50 transition-all duration-500 ${scrolled ? "glass-navbar shadow-lg" : "bg-transparent border-b border-transparent"}`}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="text-xl font-extrabold tracking-tight font-poppins">Data<span style={{ color: '#A855F7' }}>Lens</span></span>
+          <span className="text-xl font-extrabold tracking-tight font-poppins">Ask<span style={{ color: '#A855F7' }}>DB</span></span>
           <div className="hidden md:flex items-center gap-8">
-            <button onClick={() => scrollTo("features")} className="text-sm text-gray-400 hover:text-white transition-colors duration-200 cursor-pointer">Features</button>
-            <button onClick={() => scrollTo("how")} className="text-sm text-gray-400 hover:text-white transition-colors duration-200 cursor-pointer">How It Works</button>
-            <button onClick={() => scrollTo("pricing")} className="text-sm text-gray-400 hover:text-white transition-colors duration-200 cursor-pointer">Pricing</button>
+            <button onClick={() => scrollTo("features")} className="text-sm transition-colors duration-200 cursor-pointer" style={{ color: 'var(--text-secondary)' }}>Features</button>
+            <button onClick={() => scrollTo("how")} className="text-sm transition-colors duration-200 cursor-pointer" style={{ color: 'var(--text-secondary)' }}>How It Works</button>
+            <button onClick={() => scrollTo("pricing")} className="text-sm transition-colors duration-200 cursor-pointer" style={{ color: 'var(--text-secondary)' }}>Pricing</button>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             {token ? (
               <MotionButton onClick={() => navigate("/dashboard")} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-full transition-all duration-300 shadow-lg shadow-indigo-500/25 cursor-pointer btn-glow">Go to Dashboard</MotionButton>
             ) : (
               <>
-                <button onClick={() => navigate("/login")} className="text-sm text-gray-400 hover:text-white transition-colors duration-200 cursor-pointer">Sign In</button>
+                <button onClick={() => navigate("/login")} className="text-sm transition-colors duration-200 cursor-pointer" style={{ color: 'var(--text-secondary)' }}>Sign In</button>
                 <MotionButton onClick={() => navigate("/login")} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-full transition-all duration-300 shadow-lg shadow-indigo-500/25 cursor-pointer btn-glow">Get Started</MotionButton>
               </>
             )}
@@ -487,7 +538,7 @@ function LandingInner() {
             transition={{ type: "spring", stiffness: 120, damping: 14, delay: 0.1 }}
           >
             <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-            The Agentic Data Intelligence Platform
+            Bring Your Own Key &mdash; You control the AI, we provide the platform
           </motion.div>
 
           <motion.h1
@@ -496,19 +547,20 @@ function LandingInner() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 80, damping: 16, delay: 0.25 }}
           >
-            Your AI Analyst Across{" "}
+            Talk to Your Databases.{" "}
             <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-pink-400 bg-clip-text text-transparent text-shimmer">
-              Every Database
+              Get Dashboards Back.
             </span>
           </motion.h1>
 
           <motion.p
-            className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed"
+            className="text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
+            style={{ color: 'var(--text-secondary)' }}
             initial="hidden"
             animate="visible"
           >
             <StaggeredText
-              text="One AI agent. 18 databases. Enterprise-grade security. DataLens autonomously explores your data, generates insights, and builds presentation-ready dashboards — no SQL required."
+              text="Connect any of 18 databases. Ask questions in plain English. An autonomous AI agent writes the SQL, picks the chart, and builds the dashboard — end to end. Bring your own Anthropic API key. Pick your model. Pay only for what you use."
             />
           </motion.p>
 
@@ -518,12 +570,13 @@ function LandingInner() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 100, damping: 16, delay: 0.7 }}
           >
-            <MotionButton onClick={() => navigate("/login")} className="px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-full shadow-xl shadow-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/40 transition-all duration-300 cursor-pointer btn-glow">Start for free</MotionButton>
-            <MotionButton onClick={() => scrollTo("demo")} className="px-8 py-3.5 glass text-white font-bold rounded-full hover:border-indigo-500/40 transition-all duration-300 cursor-pointer">Watch it work</MotionButton>
+            <MotionButton onClick={() => navigate("/login")} className="px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-full shadow-xl shadow-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/40 transition-all duration-300 cursor-pointer btn-glow">Start free &mdash; no credit card</MotionButton>
+            <MotionButton onClick={() => scrollTo("demo")} className="px-8 py-3.5 glass font-bold rounded-full hover:border-indigo-500/40 transition-all duration-300 cursor-pointer" style={{ color: 'var(--text-primary)' }}>Watch it work</MotionButton>
           </motion.div>
 
           <motion.p
-            className="mt-10 text-sm text-gray-600 animate-bounce"
+            className="mt-10 text-sm animate-bounce"
+            style={{ color: 'var(--text-muted)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.2, duration: 0.6 }}
@@ -536,9 +589,9 @@ function LandingInner() {
       {/* ── Trust Strip (Glassmorphism) ── */}
       <section className="glass-navbar py-5">
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
-          <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold mr-2">Connects to</span>
+          <span className="text-xs uppercase tracking-widest font-semibold mr-2" style={{ color: 'var(--text-muted)' }}>Connects to</span>
           {TRUST.map((db) => (
-            <span key={db.name} className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wide border border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.07] transition-colors duration-200 ${db.color}`}>
+            <span key={db.name} className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-colors duration-200 ${db.color}`} style={{ border: '1px solid var(--border-default)', background: 'var(--overlay-faint)' }}>
               <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
               {db.name}
             </span>
@@ -552,16 +605,15 @@ function LandingInner() {
         <RevealSection className="max-w-7xl mx-auto px-6" parallaxSpeed={0.15}>
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Features</p>
-            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 text-white font-heading">Intelligence, security, and scale — in one platform</ScrollReveal>
-            <p className="text-gray-400 max-w-xl mx-auto">From ad-hoc questions to automated monitoring, DataLens replaces your entire BI stack.</p>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 font-heading">One AI agent that replaces your entire BI stack</ScrollReveal>
+            <p className="max-w-xl mx-auto" style={{ color: 'var(--text-secondary)' }}>BYOK means you control the AI. AskDB provides the intelligence layer &mdash; from ad-hoc questions to production dashboards.</p>
           </motion.div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {FEATURES.map((f, i) => {
-              const isWide = f.span?.includes("col-span-2");
+              const isWide = false;
               return (
                 <motion.div
                   key={i}
-                  className={f.span || ""}
                   variants={{
                     hidden: { opacity: 0, y: 40, scale: 0.95 },
                     visible: {
@@ -579,8 +631,8 @@ function LandingInner() {
                         <div className="relative z-10">
                           {FEATURE_ICONS[f.icon]}
                           {f.num && <span className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent block mb-1">{f.num}</span>}
-                          <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
-                          <p className="text-sm text-gray-400 leading-relaxed">{f.desc}</p>
+                          <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{f.title}</h3>
+                          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{f.desc}</p>
                           {f.tags && (
                             <div className="flex gap-2 mt-4 flex-wrap">
                               {f.tags.map((tag) => (
@@ -606,7 +658,7 @@ function LandingInner() {
         <RevealSection className="max-w-7xl mx-auto px-6 relative z-10" parallaxSpeed={0.1}>
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">How It Works</p>
-            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight text-white font-heading">From connection to intelligence in 3 steps</ScrollReveal>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight font-heading">From API key to production dashboard in 3 steps</ScrollReveal>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {STEPS.map((s) => (
@@ -628,8 +680,8 @@ function LandingInner() {
                       {s.icon}
                     </div>
                     <div className="inline-flex items-center justify-center w-8 h-8 rounded-full glass text-indigo-400 text-sm font-bold mb-4">{s.num}</div>
-                    <h3 className="text-lg font-bold text-white mb-3">{s.title}</h3>
-                    <p className="text-sm text-gray-400 leading-relaxed">{s.desc}</p>
+                    <h3 className="text-lg font-bold mb-3" style={{ color: 'var(--text-primary)' }}>{s.title}</h3>
+                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{s.desc}</p>
                   </div>
                 </TiltCard>
               </motion.div>
@@ -644,8 +696,8 @@ function LandingInner() {
         <RevealSection className="max-w-7xl mx-auto px-6">
           <motion.div className="text-center mb-10" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Live Demo</p>
-            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 text-white font-heading">See agentic intelligence in action</ScrollReveal>
-            <p className="text-gray-400">Click a tab to explore how DataLens works end to end.</p>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 font-heading">See the full platform in action</ScrollReveal>
+            <p style={{ color: 'var(--text-secondary)' }}>Click a tab to explore autonomous agents, dashboards, exports, and 18-database connectivity.</p>
           </motion.div>
           <motion.div variants={fadeScale}>
             <DemoCarousel />
@@ -666,11 +718,12 @@ function LandingInner() {
                   <motion.div
                     key={s.label}
                     className={`flex flex-col items-center justify-center py-8 sm:py-10 px-4 sm:px-6${
-                      i < 2 ? " border-b border-white/[0.06] md:border-b-0" : ""
-                    }${i % 2 === 0 ? " border-r border-white/[0.06]" : ""
-                    }${i === 1 ? " md:border-r md:border-white/[0.06]" : ""
-                    }${i === 2 ? " md:border-r md:border-white/[0.06]" : ""
+                      i < 2 ? " border-b md:border-b-0" : ""
+                    }${i % 2 === 0 ? " border-r" : ""
+                    }${i === 1 ? " md:border-r" : ""
+                    }${i === 2 ? " md:border-r" : ""
                     }${i === 3 ? " border-r-0" : ""}`}
+                    style={{ borderColor: 'var(--border-default)' }}
                     variants={{
                       hidden: { opacity: 0, y: 20 },
                       visible: {
@@ -688,7 +741,7 @@ function LandingInner() {
                         className="text-3xl sm:text-4xl md:text-[2.75rem] font-extrabold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent leading-none tracking-tight"
                       />
                     </div>
-                    <p className="text-xs sm:text-sm text-gray-400 leading-relaxed text-center max-w-[140px]">{s.label}</p>
+                    <p className="text-xs sm:text-sm leading-relaxed text-center max-w-[140px]" style={{ color: 'var(--text-secondary)' }}>{s.label}</p>
                   </motion.div>
                 ))}
               </div>
@@ -703,7 +756,7 @@ function LandingInner() {
         <RevealSection className="max-w-7xl mx-auto px-6" parallaxSpeed={0.1}>
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Testimonials</p>
-            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight text-white font-heading">Trusted by security-conscious data teams</ScrollReveal>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight font-heading">Built for data teams who ship, not wait</ScrollReveal>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {TESTIMONIALS.map((t, i) => (
@@ -731,12 +784,12 @@ function LandingInner() {
                       &ldquo;
                     </motion.span>
                     <div className="text-yellow-400 text-lg mb-4">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-                    <p className="text-gray-300 italic leading-relaxed mb-6">&ldquo;{t.quote}&rdquo;</p>
+                    <p className="italic leading-relaxed mb-6" style={{ color: 'var(--text-secondary)' }}>&ldquo;{t.quote}&rdquo;</p>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-lg shadow-indigo-500/20">{t.avatar}</div>
                       <div>
-                        <p className="text-sm font-semibold text-white">{t.name}</p>
-                        <p className="text-xs text-gray-500">{t.role}</p>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t.name}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{t.role}</p>
                       </div>
                     </div>
                   </div>
@@ -754,8 +807,8 @@ function LandingInner() {
         <RevealSection className="max-w-7xl mx-auto px-6 relative z-10" parallaxSpeed={0.08}>
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Pricing</p>
-            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 text-white font-heading">Simple, transparent pricing</ScrollReveal>
-            <p className="text-gray-400 max-w-md mx-auto">Start free with 2 databases. Unlock the full ecosystem when you&apos;re ready.</p>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 font-heading">Your key, your models, our platform</ScrollReveal>
+            <p className="max-w-md mx-auto" style={{ color: 'var(--text-secondary)' }}>Bring your own Anthropic API key. Pay us for the platform. Pay Anthropic for the AI. No hidden markup.</p>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {PLANS.map((plan, i) => (
@@ -775,15 +828,19 @@ function LandingInner() {
                   <TiltCard className="h-full">
                     <div className={`relative rounded-2xl p-8 h-full ${plan.featured ? "glass-card border-indigo-500/40 shadow-xl shadow-indigo-500/10" : "glass-card"}`}>
                       {plan.badge && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg shadow-indigo-500/30">{plan.badge}</div>}
-                      <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
-                      <div className="mb-1"><span className="text-5xl font-extrabold text-white">{plan.price}</span></div>
-                      <p className="text-sm text-gray-500 mb-6">{plan.period}</p>
+                      <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{plan.name}</h3>
+                      <div className="mb-1"><span className="text-5xl font-extrabold" style={{ color: 'var(--text-primary)' }}>{plan.price}</span></div>
+                      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>{plan.period}</p>
                       <ul className="space-y-3 mb-8">
                         {plan.features.map((f) => (
-                          <li key={f} className="flex items-start gap-2 text-sm text-gray-300"><span className="text-green-400 mt-0.5 flex-shrink-0">&#10003;</span>{f}</li>
+                          <li key={f} className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}><span className="text-green-400 mt-0.5 flex-shrink-0">&#10003;</span>{f}</li>
                         ))}
                       </ul>
-                      <a href={plan.link} target="_blank" rel="noopener noreferrer" className={`block text-center py-3 rounded-full font-bold text-sm transition-all duration-300 cursor-pointer ${plan.featured ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30 hover:-translate-y-0.5 btn-glow shine-sweep" : "glass text-white hover:border-indigo-500/40 hover:-translate-y-0.5"}`}>{plan.cta}</a>
+                      {plan.link ? (
+                        <a href={plan.link} target="_blank" rel="noopener noreferrer" className={`block text-center py-3 rounded-full font-bold text-sm transition-all duration-300 cursor-pointer ${plan.featured ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30 hover:-translate-y-0.5 btn-glow shine-sweep" : "glass hover:border-indigo-500/40 hover:-translate-y-0.5"}`}>{plan.cta}</a>
+                      ) : (
+                        <button onClick={() => navigate("/login")} className={`block w-full text-center py-3 rounded-full font-bold text-sm transition-all duration-300 cursor-pointer ${plan.featured ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30 hover:-translate-y-0.5 btn-glow shine-sweep" : "glass hover:border-indigo-500/40 hover:-translate-y-0.5"}`}>{plan.cta}</button>
+                      )}
                     </div>
                   </TiltCard>
                 </AnimatedBorderGradient>
@@ -803,11 +860,11 @@ function LandingInner() {
                 <div className="absolute top-[-50px] right-[-50px] w-[200px] h-[200px] rounded-full bg-indigo-500/20 blur-[60px] pointer-events-none" />
                 <div className="absolute bottom-[-50px] left-[-50px] w-[200px] h-[200px] rounded-full bg-violet-500/15 blur-[60px] pointer-events-none" />
                 <div className="relative z-10">
-                  <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-6 text-white font-heading">Your data is waiting. Your AI agent is ready.</ScrollReveal>
-              <p className="text-gray-400 max-w-xl mx-auto mb-10">Connect any database in under 60 seconds. Enterprise-grade security from day one. No credit card needed.</p>
+                  <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-6 font-heading">Your databases are waiting. Your AI agent is ready.</ScrollReveal>
+              <p className="max-w-xl mx-auto mb-10" style={{ color: 'var(--text-secondary)' }}>Bring your Anthropic API key. Connect any database in under 60 seconds. Enterprise-grade security from day one. No credit card needed.</p>
               <div className="flex items-center justify-center gap-4 flex-wrap">
-                <MotionButton onClick={() => navigate("/login")} className="px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-full shadow-xl shadow-indigo-500/30 hover:shadow-2xl transition-all duration-300 cursor-pointer btn-glow">Get started free</MotionButton>
-                <MotionButton onClick={() => scrollTo("pricing")} className="px-8 py-3.5 glass text-white font-bold rounded-full hover:border-indigo-500/40 transition-all duration-300 cursor-pointer">View plans</MotionButton>
+                <MotionButton onClick={() => navigate("/login")} className="px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-full shadow-xl shadow-indigo-500/30 hover:shadow-2xl transition-all duration-300 cursor-pointer btn-glow">Start free with your API key</MotionButton>
+                <MotionButton onClick={() => scrollTo("pricing")} className="px-8 py-3.5 glass font-bold rounded-full hover:border-indigo-500/40 transition-all duration-300 cursor-pointer" style={{ color: 'var(--text-primary)' }}>Compare plans</MotionButton>
               </div>
                 </div>
               </div>
@@ -817,16 +874,16 @@ function LandingInner() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-gray-800/50 py-16">
+      <footer className="border-t py-16" style={{ borderColor: 'var(--border-default)' }}>
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
             <div className="col-span-2">
-              <span className="text-xl font-extrabold font-poppins">Data<span style={{ color: '#A855F7' }}>Lens</span></span>
-              <p className="text-sm text-gray-500 mt-3 max-w-xs leading-relaxed">The agentic data intelligence platform &mdash; one AI, every database, zero-trust security.</p>
+              <span className="text-xl font-extrabold font-poppins" style={{ color: 'var(--text-primary)' }}>Ask<span style={{ color: '#A855F7' }}>DB</span></span>
+              <p className="text-sm mt-3 max-w-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>The BYOK analytics platform &mdash; your API key, your models, every database, zero-trust security.</p>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-gray-300 mb-4">Product</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
+              <h4 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Product</h4>
+              <ul className="space-y-2 text-sm" style={{ color: 'var(--text-muted)' }}>
                 <li><button onClick={() => scrollTo("features")} className="hover:text-gray-300 transition cursor-pointer">Features</button></li>
                 <li><button onClick={() => scrollTo("pricing")} className="hover:text-gray-300 transition cursor-pointer">Pricing</button></li>
                 <li><button onClick={() => scrollTo("how")} className="hover:text-gray-300 transition cursor-pointer">How It Works</button></li>
@@ -834,24 +891,24 @@ function LandingInner() {
               </ul>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-gray-300 mb-4">Resources</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li><span className="text-gray-600">Documentation <span className="text-[10px] text-indigo-400/60 ml-1">Soon</span></span></li>
-                <li><span className="text-gray-600">Changelog <span className="text-[10px] text-indigo-400/60 ml-1">Soon</span></span></li>
-                <li><span className="text-gray-600">API Reference <span className="text-[10px] text-indigo-400/60 ml-1">Soon</span></span></li>
+              <h4 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Resources</h4>
+              <ul className="space-y-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                <li><span>Documentation <span className="text-[10px] text-indigo-400/60 ml-1">Soon</span></span></li>
+                <li><span>Changelog <span className="text-[10px] text-indigo-400/60 ml-1">Soon</span></span></li>
+                <li><span>API Reference <span className="text-[10px] text-indigo-400/60 ml-1">Soon</span></span></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-gray-300 mb-4">Contact</h4>
-              <ul className="space-y-2 text-sm text-gray-500">
-                <li><span className="text-gray-400">hello@datalens.ai</span></li>
-                <li><span className="text-gray-400">@DataLens</span></li>
+              <h4 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Contact</h4>
+              <ul className="space-y-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                <li><span style={{ color: 'var(--text-secondary)' }}>hello@askdb.ai</span></li>
+                <li><span style={{ color: 'var(--text-secondary)' }}>@AskDB</span></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800/50 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-gray-600">&copy; 2026 DataLens. All rights reserved.</p>
-            <div className="flex gap-6 text-xs text-gray-600"><span>Privacy</span><span>Terms</span></div>
+          <div className="border-t pt-8 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderColor: 'var(--border-default)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>&copy; 2026 AskDB. All rights reserved.</p>
+            <div className="flex gap-6 text-xs" style={{ color: 'var(--text-muted)' }}><span>Privacy</span><span>Terms</span></div>
           </div>
         </div>
       </footer>

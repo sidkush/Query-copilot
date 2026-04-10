@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGPUTier, scaleParticles } from "../../lib/gpuDetect";
+import { useStore } from "../../store";
 
 /* ═══════���═══════════════════════════════════════════════════════
    Background3D — Enhanced Neural Pulse Network (Dora-inspired)
@@ -34,7 +35,7 @@ function MouseTracker() {
 }
 
 /* ── LAYER 1: Starfield with z-based opacity falloff ── */
-function Starfield({ count = 600 }) {
+function Starfield({ count = 600, isLight = false }) {
   const ref = useRef();
 
   const [positions, opacities] = useMemo(() => {
@@ -60,13 +61,13 @@ function Starfield({ count = 600 }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.05} color="#4f46e5" transparent opacity={0.4} sizeAttenuation depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial size={0.05} color={isLight ? "#818cf8" : "#4f46e5"} transparent opacity={isLight ? 0.3 : 0.4} sizeAttenuation depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
     </points>
   );
 }
 
 /* ── LAYER 2: Dashboard screen wireframe (mouse-reactive) ── */
-function DashboardScreen({ enableMouseTracking = true }) {
+function DashboardScreen({ enableMouseTracking = true, isLight = false }) {
   const groupRef = useRef();
   const glowRef = useRef();
   const targetRot = useRef({ x: 0, y: 0 });
@@ -101,22 +102,22 @@ function DashboardScreen({ enableMouseTracking = true }) {
     <group ref={groupRef} position={[0, 0, -10]}>
       <mesh>
         <planeGeometry args={[8, 5]} />
-        <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.06} depthWrite={false} blending={THREE.AdditiveBlending} />
+        <meshBasicMaterial color={isLight ? "#818cf8" : "#6366f1"} wireframe transparent opacity={isLight ? 0.08 : 0.06} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
       </mesh>
       <mesh ref={glowRef} position={[0, 0, -0.1]}>
         <planeGeometry args={[9, 6]} />
-        <meshBasicMaterial color="#6366f1" transparent opacity={0.03} depthWrite={false} blending={THREE.AdditiveBlending} />
+        <meshBasicMaterial color={isLight ? "#818cf8" : "#6366f1"} transparent opacity={isLight ? 0.05 : 0.03} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
       </mesh>
       {bars.map((bar, i) => (
         <mesh key={i} position={[bar.x, -1.5 + bar.height / 2, 0.01]}>
           <planeGeometry args={[0.4, bar.height]} />
-          <meshBasicMaterial color={i % 2 === 0 ? "#818cf8" : "#a78bfa"} transparent opacity={0.07} depthWrite={false} blending={THREE.AdditiveBlending} />
+          <meshBasicMaterial color={i % 2 === 0 ? (isLight ? "#818cf8" : "#818cf8") : (isLight ? "#a78bfa" : "#a78bfa")} transparent opacity={isLight ? 0.10 : 0.07} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
         </mesh>
       ))}
       {[-0.5, 0.5, 1.5].map((y, i) => (
         <mesh key={`h${i}`} position={[0, y, 0.01]}>
           <planeGeometry args={[7, 0.005]} />
-          <meshBasicMaterial color="#6366f1" transparent opacity={0.08} depthWrite={false} blending={THREE.AdditiveBlending} />
+          <meshBasicMaterial color={isLight ? "#818cf8" : "#6366f1"} transparent opacity={isLight ? 0.08 : 0.08} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
         </mesh>
       ))}
     </group>
@@ -124,7 +125,7 @@ function DashboardScreen({ enableMouseTracking = true }) {
 }
 
 /* ── LAYER 3: Enhanced Neural Pulses (24 paths, burst effect) ── */
-function NeuralPulses({ count = 24, particlesPerPath = 25 }) {
+function NeuralPulses({ count = 24, particlesPerPath = 25, isLight = false }) {
   const totalParticles = count * particlesPerPath;
   const ref = useRef();
 
@@ -197,13 +198,13 @@ function NeuralPulses({ count = 24, particlesPerPath = 25 }) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
       </bufferGeometry>
-      <pointsMaterial size={0.1} color="#a78bfa" transparent opacity={0.7} sizeAttenuation depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial size={0.1} color={isLight ? "#7c3aed" : "#a78bfa"} transparent opacity={isLight ? 0.45 : 0.7} sizeAttenuation depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
     </points>
   );
 }
 
 /* ── LAYER 4: Outgoing pulses ── */
-function OutgoingPulses({ count = 8, particlesPerPath = 15 }) {
+function OutgoingPulses({ count = 8, particlesPerPath = 15, isLight = false }) {
   const totalParticles = count * particlesPerPath;
   const ref = useRef();
 
@@ -253,13 +254,13 @@ function OutgoingPulses({ count = 8, particlesPerPath = 15 }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.07} color="#34d399" transparent opacity={0.5} sizeAttenuation depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial size={0.07} color={isLight ? "#10b981" : "#34d399"} transparent opacity={isLight ? 0.35 : 0.5} sizeAttenuation depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
     </points>
   );
 }
 
 /* ── LAYER 5: Orbital rings ── */
-function OrbitalRings() {
+function OrbitalRings({ isLight = false }) {
   const ring1 = useRef(), ring2 = useRef();
 
   useFrame((s) => {
@@ -272,18 +273,18 @@ function OrbitalRings() {
     <group position={[0, 0, -8]}>
       <mesh ref={ring1}>
         <torusGeometry args={[11, 0.015, 8, 100]} />
-        <meshBasicMaterial color="#6366f1" transparent opacity={0.1} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={isLight ? "#818cf8" : "#6366f1"} transparent opacity={isLight ? 0.12 : 0.1} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} side={THREE.DoubleSide} />
       </mesh>
       <mesh ref={ring2}>
         <torusGeometry args={[14, 0.01, 8, 120]} />
-        <meshBasicMaterial color="#a855f7" transparent opacity={0.07} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={isLight ? "#a855f7" : "#a855f7"} transparent opacity={isLight ? 0.10 : 0.07} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
 }
 
 /* ── LAYER 6: Grid floor ── */
-function GridFloor() {
+function GridFloor({ isLight = false }) {
   const ref = useRef();
   useFrame((s) => {
     if (ref.current) ref.current.position.z = -((s.clock.getElapsedTime() * 0.5) % 2);
@@ -291,13 +292,13 @@ function GridFloor() {
 
   return (
     <group ref={ref} position={[0, -10, -10]} rotation={[-Math.PI / 3, 0, 0]}>
-      <gridHelper args={[60, 40, "#6366f1", "#1e1b4b"]} material-transparent material-opacity={0.08} material-depthWrite={false} />
+      <gridHelper args={[60, 40, isLight ? "#818cf8" : "#6366f1", isLight ? "#c7d2fe" : "#1e1b4b"]} material-transparent material-opacity={isLight ? 0.10 : 0.08} material-depthWrite={false} />
     </group>
   );
 }
 
 /* ── LAYER 7 (NEW): Magnetic cursor particles ── */
-function MagneticParticles({ count = 200 }) {
+function MagneticParticles({ count = 200, isLight = false }) {
   const ref = useRef();
   const velocities = useRef(null);
 
@@ -357,7 +358,7 @@ function MagneticParticles({ count = 200 }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.06} color="#818cf8" transparent opacity={0.35} sizeAttenuation depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial size={0.06} color={isLight ? "#6366f1" : "#818cf8"} transparent opacity={isLight ? 0.25 : 0.35} sizeAttenuation depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
     </points>
   );
 }
@@ -367,6 +368,8 @@ function MagneticParticles({ count = 200 }) {
    ═══════���══════════════════════════════���════════════════════════ */
 export default function Background3D({ className = "" }) {
   const tier = useGPUTier();
+  const resolvedTheme = useStore(s => s.resolvedTheme);
+  const isLight = resolvedTheme === 'light';
 
   // Low tier: don't render 3D at all (caller shows 2D fallback)
   if (tier === "low") return null;
@@ -380,15 +383,15 @@ export default function Background3D({ className = "" }) {
         dpr={[1, isHigh ? 1.5 : 1]}
         gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
       >
-        <fog attach="fog" args={["#06060e", 15, 45]} />
+        <fog attach="fog" args={[isLight ? "#F8F9FB" : "#06060e", 15, 45]} />
         {isHigh && <MouseTracker />}
-        <Starfield count={scaleParticles(600, tier)} />
-        <DashboardScreen enableMouseTracking={isHigh} />
-        <NeuralPulses count={scaleParticles(24, tier)} />
-        <OutgoingPulses count={scaleParticles(8, tier)} />
-        <OrbitalRings />
-        <GridFloor />
-        {isHigh && <MagneticParticles count={200} />}
+        <Starfield count={scaleParticles(600, tier)} isLight={isLight} />
+        <DashboardScreen enableMouseTracking={isHigh} isLight={isLight} />
+        <NeuralPulses count={scaleParticles(24, tier)} isLight={isLight} />
+        <OutgoingPulses count={scaleParticles(8, tier)} isLight={isLight} />
+        <OrbitalRings isLight={isLight} />
+        <GridFloor isLight={isLight} />
+        {isHigh && <MagneticParticles count={200} isLight={isLight} />}
       </Canvas>
     </div>
   );

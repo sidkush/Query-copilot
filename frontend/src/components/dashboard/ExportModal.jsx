@@ -13,7 +13,7 @@ export default function ExportModal({ show, onClose, dashboardName, onExport }) 
 
   const captureElement = async (html2canvas, target) => {
     return html2canvas(target, {
-      backgroundColor: '#06060e',
+      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-page').trim() || '#06060e',
       scale: 2,
       useCORS: true,
       logging: false,
@@ -92,7 +92,7 @@ export default function ExportModal({ show, onClose, dashboardName, onExport }) 
         await new Promise(r => setTimeout(r, 100));
 
         const canvas = await html2canvas(target, {
-          backgroundColor: '#06060e',
+          backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-page').trim() || '#06060e',
           scale: 2,
           useCORS: true,
           logging: false,

@@ -52,7 +52,7 @@ function TypingDemo({ text }) {
   }, [text]);
 
   return (
-    <div className="glass rounded-lg px-4 py-3 text-sm text-gray-200 font-mono min-h-[44px]">
+    <div className="glass rounded-lg px-4 py-3 text-sm font-mono min-h-[44px]" style={{ color: 'var(--text-primary)' }}>
       {displayed}
       <span className="inline-block w-[2px] h-4 bg-purple-400 ml-0.5 animate-pulse align-middle" />
     </div>
@@ -70,7 +70,7 @@ function SQLPreview() {
   ];
 
   return (
-    <pre className="glass rounded-lg px-4 py-3 text-sm text-gray-300 font-mono overflow-x-auto whitespace-pre">
+    <pre className="glass rounded-lg px-4 py-3 text-sm font-mono overflow-x-auto whitespace-pre" style={{ color: 'var(--text-secondary)' }}>
       {lines.map((tokens, lineIdx) => (
         <span key={lineIdx}>
           {tokens.map((tok, tokIdx) =>
@@ -93,8 +93,8 @@ function BarChart({ bars }) {
     <div className="space-y-3 mt-1">
       {bars.map((bar, i) => (
         <div key={bar.label} className="flex items-center gap-3">
-          <span className="text-xs text-gray-400 w-12 text-right">{bar.label}</span>
-          <div className="flex-1 h-5 rounded-full bg-white/5 overflow-hidden">
+          <span className="text-xs w-12 text-right" style={{ color: 'var(--text-secondary)' }}>{bar.label}</span>
+          <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: 'var(--overlay-subtle)' }}>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${bar.pct}%` }}
@@ -103,7 +103,7 @@ function BarChart({ bars }) {
               style={{ backgroundColor: palette[i % palette.length] }}
             />
           </div>
-          <span className="text-xs text-gray-500 w-8">{bar.pct}%</span>
+          <span className="text-xs w-8" style={{ color: 'var(--text-muted)' }}>{bar.pct}%</span>
         </div>
       ))}
     </div>
@@ -145,7 +145,8 @@ export default function OnboardingTour({ onNext }) {
         <motion.h2
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-xl font-bold text-white text-center mb-8"
+          className="text-xl font-bold text-center mb-8"
+          style={{ color: 'var(--text-primary)' }}
         >
           How it works
         </motion.h2>
@@ -160,17 +161,18 @@ export default function OnboardingTour({ onNext }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
                 onClick={() => handlePanelClick(idx)}
-                className={`bg-white/5 backdrop-blur-sm border rounded-xl p-6 cursor-pointer transition-all duration-300 ${
+                className={`backdrop-blur-sm border rounded-xl p-6 cursor-pointer transition-all duration-300 ${
                   isActive
                     ? "border-purple-500/50 shadow-lg shadow-purple-500/10"
-                    : "border-white/10 opacity-60 hover:opacity-80"
+                    : "opacity-60 hover:opacity-80"
                 }`}
+                style={{ background: 'var(--overlay-subtle)', borderColor: isActive ? undefined : 'var(--border-default)' }}
               >
                 <div className="flex items-center gap-3 mb-3">
-                  <span className={`text-xs font-semibold uppercase tracking-wider ${isActive ? "text-purple-400" : "text-gray-500"}`}>
+                  <span className={`text-xs font-semibold uppercase tracking-wider ${isActive ? "text-purple-400" : ""}`} style={isActive ? {} : { color: 'var(--text-muted)' }}>
                     {panel.title}
                   </span>
-                  <span className="text-xs text-gray-600">{panel.description}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{panel.description}</span>
                 </div>
 
                 <AnimatePresence mode="wait">

@@ -1,15 +1,23 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
+import { useStore } from "../store";
 
 /**
  * SVG-based ER Diagram that renders tables as draggable rectangles
  * with columns, and FK relationships as connecting lines.
  */
 export default function ERDiagram({ tables = [], compact = false, savedPositions = null, onPositionsChange = null }) {
+  const resolvedTheme = useStore((s) => s.resolvedTheme);
   const [hoveredTable, setHoveredTable] = useState(null);
   const [nodePositions, setNodePositions] = useState(null);
   const [dragState, setDragState] = useState(null); // { nodeName, offsetX, offsetY }
   const [hasDragged, setHasDragged] = useState({}); // tracks which nodes have been dragged (skip animation)
   const svgRef = useRef(null);
+
+  // Theme-aware colors for SVG elements
+  const erColors = useMemo(() => resolvedTheme === 'light'
+    ? { nodeBg: '#ffffff', nodeHoverBg: '#f8fafc', nodeBorder: '#d1d5db', shadow: 'rgba(0,0,0,0.08)', colText: '#374151', typeText: '#9ca3af', dotDefault: '#9ca3af' }
+    : { nodeBg: '#111827', nodeHoverBg: '#1e1e2e', nodeBorder: '#374151', shadow: 'rgba(0,0,0,0.3)', colText: '#d1d5db', typeText: '#6b7280', dotDefault: '#4b5563' },
+  [resolvedTheme]);
 
   // Layout constants
   const COL_GAP = 320;
@@ -187,7 +195,7 @@ export default function ERDiagram({ tables = [], compact = false, savedPositions
   const isDragging = dragState !== null;
 
   return (
-    <div className={`overflow-auto rounded-2xl border border-gray-800 bg-gray-900/50 ${compact ? "h-full" : ""}`}>
+    <div className={`overflow-auto rounded-2xl ${compact ? "h-full" : ""}`} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
       <svg
         ref={svgRef}
         width={compact ? "100%" : svgWidth}
@@ -253,7 +261,7 @@ export default function ERDiagram({ tables = [], compact = false, savedPositions
                 width={node.w}
                 height={node.h}
                 rx="12"
-                fill="rgba(0,0,0,0.3)"
+                fill={erColors.shadow}
               />
               {/* Background */}
               <rect
@@ -262,8 +270,8 @@ export default function ERDiagram({ tables = [], compact = false, savedPositions
                 width={node.w}
                 height={node.h}
                 rx="12"
-                fill={isHovered ? "#1e1e2e" : "#111827"}
-                stroke={isHovered ? "#6366f1" : "#374151"}
+                fill={isHovered ? erColors.nodeHoverBg : erColors.nodeBg}
+                stroke={isHovered ? "#6366f1" : erColors.nodeBorder}
                 strokeWidth={isHovered ? "2" : "1"}
               />
               {/* Header bar */}
@@ -305,15 +313,15 @@ export default function ERDiagram({ tables = [], compact = false, savedPositions
                       cx={node.x + 18}
                       cy={y}
                       r="4"
-                      fill={isPK ? "#eab308" : isFK ? "#6366f1" : "#4b5563"}
+                      fill={isPK ? "#eab308" : isFK ? "#6366f1" : erColors.dotDefault}
                     />
-                    <text x={node.x + 30} y={y + 4} fill="#d1d5db" fontSize="11" fontFamily="monospace">
+                    <text x={node.x + 30} y={y + 4} fill={erColors.colText} fontSize="11" fontFamily="monospace">
                       {col.name}
                     </text>
                     <text
                       x={node.x + node.w - 14}
                       y={y + 4}
-                      fill="#6b7280"
+                      fill={erColors.typeText}
                       fontSize="10"
                       fontFamily="monospace"
                       textAnchor="end"

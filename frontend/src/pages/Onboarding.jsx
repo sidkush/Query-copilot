@@ -52,8 +52,9 @@ function ProgressDots({ current, total }) {
                 ? "w-8 h-2 bg-purple-500 shadow-lg shadow-purple-500/40"
                 : isComplete
                   ? "w-2 h-2 bg-purple-400/60"
-                  : "w-2 h-2 bg-white/15"
+                  : "w-2 h-2"
             }`}
+            style={!isActive && !isComplete ? { background: 'var(--overlay-medium)' } : undefined}
             layout
           />
         );
@@ -99,16 +100,16 @@ export default function Onboarding() {
       case 3:
         return <OnboardingApiKey onNext={goNext} onSkip={handleFinish} isDemo={false} />;
       case 4:
-        return <OnboardingConnect onNext={goNext} />;
+        return <OnboardingConnect onNext={goNext} onSkip={handleFinish} />;
       case 5:
-        return <OnboardingFirstQuery onNext={handleFinish} />;
+        return <OnboardingFirstQuery onNext={handleFinish} onSkip={handleFinish} />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#06060e] relative min-h-screen">
+    <div className="flex-1 overflow-y-auto relative min-h-screen" style={{ background: 'var(--bg-page)' }}>
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
       <GPUTierProvider>
         <_WebGLBound fallback={<AnimatedBackground className="fixed inset-0 pointer-events-none" />}>

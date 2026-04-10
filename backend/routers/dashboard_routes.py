@@ -2,7 +2,7 @@
 
 import asyncio
 import json as _json
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -16,6 +16,19 @@ from user_storage import (
 )
 
 router = APIRouter(prefix="/api/v1/dashboards", tags=["dashboards"])
+
+import math as _math
+
+def _sanitize_nan(obj):
+    """Replace NaN/Inf floats with None to prevent JSON serialization crashes.
+    Dashboard tile data can contain NaN from SQL computations (LAG, differences, etc.)."""
+    if isinstance(obj, float) and (_math.isnan(obj) or _math.isinf(obj)):
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize_nan(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_nan(item) for item in obj]
+    return obj
 
 
 # ── Auto-reconnect helper ─────────────────────────────────────────
@@ -52,7 +65,9 @@ def _auto_reconnect(email: str, app):
             connector.connect()
 
             new_conn_id = uuid.uuid4().hex[:8]
-            engine = QueryEngine(connector, namespace=new_conn_id)
+            from provider_registry import get_provider_for_user
+            provider = get_provider_for_user(email)
+            engine = QueryEngine(connector, namespace=new_conn_id, provider=provider)
             engine.train_schema()
 
             database_name = (
@@ -71,7 +86,7 @@ def _auto_reconnect(email: str, app):
             _logger.info("Auto-reconnected %s for %s", database_name, email)
             return entry
         except Exception as e:
-            _logger.debug("Auto-reconnect failed for config %s: %s", cfg.get('id'), e)
+            _logger.warning("Auto-reconnect failed for config %s: %s", cfg.get('id'), e, exc_info=True)
             continue
     return None
 
@@ -125,6 +140,11 @@ class UpdateTileBody(BaseModel):
     blendConfig: Optional[dict] = None
     visualConfig: Optional[dict] = None
 
+class GenerateColumnSQLBody(BaseModel):
+    conn_id: str
+    existing_sql: str
+    new_columns: list  # column names to add to SELECT
+
 class AddAnnotation(BaseModel):
     text: str
     author: Optional[str] = None
@@ -158,7 +178,7 @@ async def get_dashboard(dashboard_id: str, user=Depends(get_current_user)):
     d = load_dashboard(user["email"], dashboard_id)
     if not d:
         raise HTTPException(404, "Dashboard not found")
-    return d
+    return _sanitize_nan(d)
 
 @router.put("/{dashboard_id}")
 async def update_existing_dashboard(dashboard_id: str, body: UpdateDashboardBody, user=Depends(get_current_user)):
@@ -235,6 +255,37 @@ async def add_tile(dashboard_id: str, tab_id: str, section_id: str, body: AddTil
         raise HTTPException(404, "Dashboard, tab, or section not found")
     return d
 
+
+@router.post("/{dashboard_id}/tiles")
+async def add_tile_shortcut(dashboard_id: str, body: AddTile, user=Depends(get_current_user)):
+    """Shortcut: add tile to the first tab's first section of a dashboard.
+
+    Used by the Chat page's 'Add to Dashboard' flow which doesn't know
+    about the tab/section hierarchy.
+    """
+    from user_storage import _load_dashboards
+    dashboards = _load_dashboards(user["email"])
+    target = next((d for d in dashboards if d["id"] == dashboard_id), None)
+    if not target:
+        raise HTTPException(404, "Dashboard not found")
+    tabs = target.get("tabs", [])
+    if not tabs:
+        raise HTTPException(404, "Dashboard has no tabs")
+    tab = tabs[0]
+    sections = tab.get("sections", [])
+    if not sections:
+        raise HTTPException(404, "Dashboard tab has no sections")
+    section = sections[0]
+    tile_data = body.model_dump(exclude_none=True)
+    tile_data["title"] = tile_data.get("title", "")[:200]
+    if "rows" in tile_data:
+        tile_data["rows"] = tile_data["rows"][:5000]
+    tile_data.setdefault("annotations", [])
+    d = add_tile_to_section(user["email"], dashboard_id, tab["id"], section["id"], tile_data)
+    if not d:
+        raise HTTPException(404, "Failed to add tile")
+    return d
+
 @router.put("/{dashboard_id}/tiles/{tile_id}")
 async def update_tile_endpoint(dashboard_id: str, tile_id: str, body: UpdateTileBody, user=Depends(get_current_user)):
     updates = body.model_dump(exclude_none=True)
@@ -256,6 +307,109 @@ async def remove_tile(dashboard_id: str, tile_id: str, user=Depends(get_current_
             sec["layout"] = [l for l in sec.get("layout", []) if l["i"] != tile_id]
     update_dashboard(user["email"], dashboard_id, {"tabs": d["tabs"]})
     return load_dashboard(user["email"], dashboard_id)
+
+
+# ── Generate Column SQL ──────────────────────────────────────────────
+
+@router.post("/generate-column-sql")
+async def generate_column_sql(body: GenerateColumnSQLBody, request: Request, user=Depends(get_current_user)):
+    """Rewrite a SQL SELECT to include additional columns. Returns error for complex SQL."""
+    import sqlglot
+    from sql_validator import SQLValidator
+
+    email = user["email"]
+    conns = request.app.state.connections.get(email, {})
+    entry = conns.get(body.conn_id)
+    if not entry:
+        raise HTTPException(404, "Connection not found")
+
+    sql = body.existing_sql.strip().rstrip(';')
+
+    # Detect complex SQL that we can't safely rewrite
+    sql_upper = sql.upper()
+    is_complex = (
+        'WITH ' in sql_upper  # CTE
+        or sql_upper.count(' JOIN ') > 2  # >2 JOINs
+        or 'UNION' in sql_upper  # UNION
+        or sql_upper.count('SELECT') > 1  # subqueries
+    )
+
+    if is_complex:
+        return {"error": "complex_sql", "message": "This query is too complex to auto-modify. Use the Agent to add columns."}
+
+    # Try to parse and rewrite with sqlglot
+    try:
+        dialect = entry.db_type if entry.db_type != "postgresql" else "postgres"
+        parsed = sqlglot.parse_one(sql, read=dialect)
+
+        # Find existing SELECT columns
+        existing_cols = set()
+        for expr in parsed.find(sqlglot.exp.Select).expressions:
+            if hasattr(expr, 'alias_or_name'):
+                existing_cols.add(expr.alias_or_name.lower())
+
+        # Add new columns that aren't already selected
+        from_clause = parsed.find(sqlglot.exp.From)
+        table_alias = None
+        if from_clause and from_clause.this:
+            table_alias = from_clause.this.alias_or_name
+
+        for col in body.new_columns:
+            if col.lower() not in existing_cols:
+                col_expr = sqlglot.exp.Column(this=sqlglot.exp.to_identifier(col))
+                if table_alias:
+                    col_expr.set("table", sqlglot.exp.to_identifier(table_alias))
+                parsed.find(sqlglot.exp.Select).expressions.append(col_expr)
+
+        new_sql = parsed.sql(dialect=dialect)
+    except Exception as e:
+        # sqlglot parse failed — fall back to simple string rewrite
+        import re
+        match = re.match(r'(SELECT\s+)(.*?)(\s+FROM\s+)', sql, re.IGNORECASE | re.DOTALL)
+        if not match:
+            return {"error": "parse_failed", "message": f"Could not parse SQL: {str(e)[:100]}"}
+
+        select_part = match.group(2)
+        existing_cols_lower = {c.strip().lower().split('.')[-1].split(' as ')[-1].split(' AS ')[-1].strip() for c in select_part.split(',')}
+        additions = [c for c in body.new_columns if c.lower() not in existing_cols_lower]
+        if not additions:
+            return {"sql": sql}  # all columns already present
+
+        new_sql = f"{match.group(1)}{select_part}, {', '.join(additions)}{match.group(3)}{sql[match.end():]}"
+
+    # Validate the generated SQL through sql_validator
+    try:
+        validator = SQLValidator(dialect=entry.db_type)
+        is_valid, error = validator.validate(new_sql)
+        if not is_valid:
+            return {"error": "validation_failed", "message": f"Generated SQL failed validation: {error}"}
+    except Exception as e:
+        return {"error": "validation_error", "message": str(e)[:200]}
+
+    return {"sql": new_sql}
+
+
+# ── Tile Move & Copy ─────────────────────────────────────────────────
+
+class MoveCopyTileBody(BaseModel):
+    target_tab_id: str
+    target_section_id: str
+
+@router.post("/{dashboard_id}/tiles/{tile_id}/move")
+async def move_tile_endpoint(dashboard_id: str, tile_id: str, body: MoveCopyTileBody, user=Depends(get_current_user)):
+    from user_storage import move_tile
+    result = move_tile(user["email"], dashboard_id, tile_id, body.target_tab_id, body.target_section_id)
+    if not result:
+        raise HTTPException(404, "Tile, target tab, or target section not found")
+    return result
+
+@router.post("/{dashboard_id}/tiles/{tile_id}/copy")
+async def copy_tile_endpoint(dashboard_id: str, tile_id: str, body: MoveCopyTileBody, user=Depends(get_current_user)):
+    from user_storage import copy_tile
+    result = copy_tile(user["email"], dashboard_id, tile_id, body.target_tab_id, body.target_section_id)
+    if not result:
+        raise HTTPException(404, "Tile, target tab, or target section not found")
+    return result
 
 
 # ── Tile Refresh (re-execute SQL) ───────────────────────────────────
@@ -308,7 +462,8 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
     try:
         from sql_validator import SQLValidator
         from pii_masking import mask_dataframe
-        validator = SQLValidator()
+        _dialect = entry.connector.db_type.value if hasattr(entry.connector, 'db_type') and hasattr(entry.connector.db_type, 'value') else 'postgres'
+        validator = SQLValidator(dialect=_dialect)
         if target_sql is None:
             target_sql = target_tile["sql"]
         is_valid, validated_sql, validation_err = validator.validate(target_sql)
@@ -600,8 +755,8 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                     try:
                         if not _pv_ok or not _tv_ok:
                             raise ValueError(f"Post-filter validation failed: {_pv_err or _tv_err}")
-                        df_current = entry.connector.execute_query(target_sql)
-                        df_prev = entry.connector.execute_query(prev_sql)
+                        df_current = entry.connector.execute_query(_kpi_validator.apply_limit(target_sql))
+                        df_prev = entry.connector.execute_query(_kpi_validator.apply_limit(prev_sql))
                         
                         df_current = mask_dataframe(df_current)
                         df_prev = mask_dataframe(df_prev)
@@ -633,9 +788,11 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                                     src["columns"] = columns
                                     src["rows"] = rows
                                     break
-                            update_tile(email, dashboard_id, tile_id, {"dataSources": sources})
+                            if not _has_filters:
+                                update_tile(email, dashboard_id, tile_id, {"dataSources": sources})
                         else:
-                            update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
+                            if not _has_filters:
+                                update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
                         _publish_tile_update(dashboard_id, tile_id, columns, rows)
                         return {"columns": columns, "rows": rows, "rowCount": 2}
                     except Exception as e:
@@ -643,32 +800,35 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                         # Fallback to single query below if twin query fails
 
         # Apply additional field filters (column/operator/value)
+        # Inject directly into the SQL WHERE clause so filters work on source
+        # columns even when the output is aggregated (e.g., GROUP BY aliases).
         if filters and filters.get("fields"):
+            import re as _re_field
             _ALLOWED_OPS = {'=', '!=', '>', '<', '>=', '<=', 'LIKE', 'IN'}
-            conditions = []
 
             def _sql_escape(v: str) -> str:
                 """Escape single quotes to prevent SQL injection."""
                 return v.replace("'", "''")
 
+            conditions = []
             for f in filters["fields"]:
+                # Per-tile scope: skip this filter if it has tileIds and current tile isn't in scope
+                scope_ids = f.get("tileIds")
+                if scope_ids and tile_id not in scope_ids:
+                    continue
                 col = f.get("column", "")
                 op  = f.get("operator", "=").upper()
                 val = f.get("value", "")
                 if not col or not val or op not in _ALLOWED_OPS:
                     continue
-                # Validate column name: only allow alphanumeric, underscores, dots (for qualified names)
-                import re as _re_col
-                if not _re_col.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*$', col):
+                if not _re_field.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*$', col):
                     continue
-                # Quote identifier safely using sqlglot if available, otherwise basic quoting
                 try:
                     import sqlglot
                     quoted_col = sqlglot.exp.column(col).sql()
                 except Exception:
                     quoted_col = f'"{col}"'
                 if op == "IN":
-                    # Split on comma, escape and quote each element individually
                     elements = [e.strip() for e in val.split(",") if e.strip()]
                     safe_elements = []
                     for elem in elements:
@@ -682,15 +842,39 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                 elif op == "LIKE":
                     conditions.append(f"{quoted_col} LIKE '{_sql_escape(val)}'")
                 else:
-                    # Numeric check: avoid quoting numbers
                     try:
                         float(val)
                         conditions.append(f"{quoted_col} {op} {val}")
                     except ValueError:
                         conditions.append(f"{quoted_col} {op} '{_sql_escape(val)}'")
+
             if conditions:
-                where_clause = " AND ".join(conditions)
-                target_sql = f"SELECT * FROM ({target_sql}) _field_filter WHERE {where_clause}"
+                added_cond = " AND ".join(conditions)
+                # Inject into the SQL WHERE clause directly (not as a wrapper subquery)
+                sql_stripped = target_sql.rstrip().rstrip(';').rstrip()
+                if _re_field.search(r'\bWHERE\b', sql_stripped, _re_field.IGNORECASE):
+                    # Has WHERE — find last WHERE before GROUP BY/ORDER BY/LIMIT and append AND
+                    # Insert before GROUP BY, ORDER BY, HAVING, LIMIT if present
+                    insert_before = _re_field.search(
+                        r'\b(GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT)\b',
+                        sql_stripped, _re_field.IGNORECASE
+                    )
+                    if insert_before:
+                        pos = insert_before.start()
+                        target_sql = f"{sql_stripped[:pos]} AND {added_cond} {sql_stripped[pos:]}"
+                    else:
+                        target_sql = f"{sql_stripped} AND {added_cond}"
+                else:
+                    # No WHERE — insert before GROUP BY/ORDER BY/HAVING/LIMIT
+                    insert_before = _re_field.search(
+                        r'\b(GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT)\b',
+                        sql_stripped, _re_field.IGNORECASE
+                    )
+                    if insert_before:
+                        pos = insert_before.start()
+                        target_sql = f"{sql_stripped[:pos]} WHERE {added_cond} {sql_stripped[pos:]}"
+                    else:
+                        target_sql = f"{sql_stripped} WHERE {added_cond}"
 
         # Apply What-If parameters (numeric only, validated)
         if body.parameters:
@@ -713,13 +897,13 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
         # Standard singular execution (or fallback)
         original_sql = target_tile["sql"]
         try:
-            df = entry.connector.execute_query(target_sql)
+            df = entry.connector.execute_query(validator.apply_limit(target_sql))
         except Exception as filter_err:
             # If filtered SQL fails (e.g., injected column doesn't exist), fall back to original
             if target_sql != original_sql:
                 _logger.info("Filtered SQL failed, falling back to original: %s", filter_err)
                 is_valid2, validated2, _ = validator.validate(original_sql)
-                df = entry.connector.execute_query(validated2 if is_valid2 else original_sql)
+                df = entry.connector.execute_query(validator.apply_limit(validated2 if is_valid2 else original_sql))
             else:
                 raise
         df = mask_dataframe(df)
@@ -730,17 +914,19 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                 if isinstance(v, Decimal):
                     row[k] = float(v)
         columns = list(df.columns)
-        if body.source_id:
-            # Update the specific data source within the tile
-            sources = target_tile.get("dataSources", [])
-            for src in sources:
-                if src.get("id") == body.source_id:
-                    src["columns"] = columns
-                    src["rows"] = rows
-                    break
-            update_tile(email, dashboard_id, tile_id, {"dataSources": sources})
-        else:
-            update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
+        # Only persist to disk if no filters are active — filtered data is temporary
+        _has_filters = bool(body.filters and (body.filters.get("fields") or (body.filters.get("range") and body.filters.get("range") != "all_time")))
+        if not _has_filters:
+            if body.source_id:
+                sources = target_tile.get("dataSources", [])
+                for src in sources:
+                    if src.get("id") == body.source_id:
+                        src["columns"] = columns
+                        src["rows"] = rows
+                        break
+                update_tile(email, dashboard_id, tile_id, {"dataSources": sources})
+            else:
+                update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
         _publish_tile_update(dashboard_id, tile_id, columns, rows)
         return {"columns": columns, "rows": rows, "rowCount": len(df)}
     except HTTPException:
@@ -794,7 +980,8 @@ async def batch_refresh_tiles(dashboard_id: str, body: BatchRefreshBody, user=De
     from sql_validator import SQLValidator
     from pii_masking import mask_dataframe
     from decimal import Decimal
-    validator = SQLValidator()
+    _dialect = entry.connector.db_type.value if hasattr(entry.connector, 'db_type') and hasattr(entry.connector.db_type, 'value') else 'postgres'
+    validator = SQLValidator(dialect=_dialect)
 
     def _refresh_one(tile_id: str) -> dict:
         tile = tile_map.get(tile_id)
@@ -804,7 +991,50 @@ async def batch_refresh_tiles(dashboard_id: str, body: BatchRefreshBody, user=De
         is_valid, validated_sql, err = validator.validate(target_sql)
         if not is_valid:
             return {"error": f"SQL validation failed: {err}"}
-        df = entry.connector.execute_query(validated_sql)
+
+        # Apply field filters (same logic as single-tile refresh endpoint)
+        filters = body.filters
+        if filters and filters.get("fields"):
+            import re as _re_bf
+            _ALLOWED_OPS = {'=', '!=', '>', '<', '>=', '<=', 'LIKE', 'IN'}
+            def _esc(v): return v.replace("'", "''")
+            conditions = []
+            for f in filters["fields"]:
+                # Per-tile scope: skip this filter if it has tileIds and current tile isn't in scope
+                scope_ids = f.get("tileIds")
+                if scope_ids and tile_id not in scope_ids:
+                    continue
+                col, op, val = f.get("column", ""), f.get("operator", "=").upper(), f.get("value", "")
+                if not col or not val or op not in _ALLOWED_OPS: continue
+                if not _re_bf.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*$', col): continue
+                try:
+                    import sqlglot; qc = sqlglot.exp.column(col).sql()
+                except Exception: qc = f'"{col}"'
+                if op == "IN":
+                    elems = [e.strip() for e in val.split(",") if e.strip()]
+                    safe = []
+                    for e in elems:
+                        try: float(e); safe.append(e)
+                        except ValueError: safe.append(f"'{_esc(e)}'")
+                    if safe: conditions.append(f"{qc} IN ({', '.join(safe)})")
+                elif op == "LIKE": conditions.append(f"{qc} LIKE '{_esc(val)}'")
+                else:
+                    try: float(val); conditions.append(f"{qc} {op} {val}")
+                    except ValueError: conditions.append(f"{qc} {op} '{_esc(val)}'")
+            if conditions:
+                added = " AND ".join(conditions)
+                sql_s = validated_sql.rstrip().rstrip(';').rstrip()
+                insert_pt = _re_bf.search(r'\b(GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT)\b', sql_s, _re_bf.IGNORECASE)
+                if _re_bf.search(r'\bWHERE\b', sql_s, _re_bf.IGNORECASE):
+                    if insert_pt: validated_sql = f"{sql_s[:insert_pt.start()]} AND {added} {sql_s[insert_pt.start():]}"
+                    else: validated_sql = f"{sql_s} AND {added}"
+                else:
+                    if insert_pt: validated_sql = f"{sql_s[:insert_pt.start()]} WHERE {added} {sql_s[insert_pt.start():]}"
+                    else: validated_sql = f"{sql_s} WHERE {added}"
+
+        exec_sql = validator.apply_limit(validated_sql)
+        _logger.info("batch_refresh tile=%s sql=%s", tile_id, exec_sql[:200])
+        df = entry.connector.execute_query(exec_sql)
         df = mask_dataframe(df)
         rows = df.head(5000).to_dict("records")
         for row in rows:
@@ -812,7 +1042,10 @@ async def batch_refresh_tiles(dashboard_id: str, body: BatchRefreshBody, user=De
                 if isinstance(v, Decimal):
                     row[k] = float(v)
         columns = list(df.columns)
-        update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
+        # Only persist to disk if no filters are active — filtered data is temporary
+        has_filters = bool(filters and (filters.get("fields") or (filters.get("range") and filters.get("range") != "all_time")))
+        if not has_filters:
+            update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
         _publish_tile_update(dashboard_id, tile_id, columns, rows)
         return {"columns": columns, "rows": rows, "rowCount": len(df)}
 
@@ -834,60 +1067,6 @@ async def batch_refresh_tiles(dashboard_id: str, body: BatchRefreshBody, user=De
                 errors[tid] = str(e)[:200]
 
     return {"results": results, "errors": errors}
-
-
-# ── AI Chart Suggestion ────────────────────────────────────────────
-class AIChartSuggestBody(BaseModel):
-    columns: list
-    sample_rows: list = []
-    question: Optional[str] = None
-
-@router.post("/{dashboard_id}/tiles/{tile_id}/ai-suggest")
-async def ai_suggest_chart(dashboard_id: str, tile_id: str, body: AIChartSuggestBody, user=Depends(get_current_user)):
-    """Ask Claude to suggest optimal chart type and formatting for tile data."""
-    import json as _json
-    try:
-        from provider_registry import get_provider_for_user
-        email = user["email"]
-        provider = get_provider_for_user(email)
-
-        sample = body.sample_rows[:5]  # Send max 5 rows to keep prompt small
-        prompt = f"""Given this dataset:
-Columns: {body.columns}
-Sample data (first 5 rows): {_json.dumps(sample, default=str)[:2000]}
-{f'Context: {body.question}' if body.question else ''}
-
-Suggest the optimal chart configuration. Return ONLY valid JSON:
-{{
-  "recommendedType": "bar|line|area|pie|donut|scatter|stacked_bar|horizontal_bar|kpi|table",
-  "reasoning": "one sentence why",
-  "config": {{
-    "xAxis": "column_name for x-axis",
-    "yAxis": "column_name for y-axis (if applicable)",
-    "series": ["measure_column_1", "measure_column_2"],
-    "colors": {{"measure_name": "#hex_color"}},
-    "showLegend": true,
-    "showDataLabels": false,
-    "yAxisLabel": "optional axis label"
-  }}
-}}"""
-
-        response = provider.complete(
-            model=provider.default_model,
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}],
-            system="You are a data visualization expert. Return ONLY valid JSON, no markdown.",
-        )
-
-        text = response.text.strip()
-        # Strip markdown fences if present
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        result = _json.loads(text)
-        return result
-    except Exception as e:
-        _logger.exception("AI chart suggestion failed for dashboard=%s tile=%s", dashboard_id, tile_id)
-        raise HTTPException(500, "AI suggestion failed — please try again")
 
 
 # ── Bookmarks ──────────────────────────────────────────────────────
@@ -1021,7 +1200,8 @@ async def refresh_all_tiles_background(dashboard_id: str, body: RefreshTileBody,
     from sql_validator import SQLValidator
     from pii_masking import mask_dataframe
     from decimal import Decimal
-    validator = SQLValidator()
+    _dialect = entry.connector.db_type.value if hasattr(entry.connector, 'db_type') and hasattr(entry.connector.db_type, 'value') else 'postgres'
+    validator = SQLValidator(dialect=_dialect)
 
     def _refresh_tile(tile_id):
         dash = load_dashboard(email, dashboard_id)
@@ -1040,7 +1220,7 @@ async def refresh_all_tiles_background(dashboard_id: str, body: RefreshTileBody,
             is_valid, validated_sql, _ = validator.validate(tile["sql"])
             if not is_valid:
                 return
-            df = entry.connector.execute_query(validated_sql)
+            df = entry.connector.execute_query(validator.apply_limit(validated_sql))
             df = mask_dataframe(df)
             rows = df.head(5000).to_dict("records")
             for row in rows:

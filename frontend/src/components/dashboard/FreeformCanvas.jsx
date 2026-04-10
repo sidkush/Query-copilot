@@ -12,7 +12,7 @@ const DOT_GRID = `radial-gradient(circle, ${TOKENS.border.default} 1px, transpar
 export default function FreeformCanvas({
   tiles, freeformLayout = [], canvasViewport = { panX: 0, panY: 0, zoom: 1 },
   onLayoutChange, onViewportChange, sectionId,
-  connId, onTileEdit, onTileEditSQL, onTileChartChange, onTileRemove, onTileRefresh, customMetrics,
+  connId, onTileEdit, onTileChartChange, onTileRemove, onTileRefresh, customMetrics,
   onTileSelect, selectedTileId, crossFilter, onCrossFilterClick, dashboardId, themeConfig,
 }) {
   const containerRef = useRef(null);
@@ -150,7 +150,6 @@ export default function FreeformCanvas({
                 <TileWrapper
                   tile={tile} index={idx}
                   onEdit={onTileEdit}
-                  onEditSQL={() => onTileEditSQL?.(tile)}
                   onChangeChart={(tileId, chartType) => onTileChartChange?.(tileId, chartType)}
                   onRemove={() => onTileRemove?.(tile.id)}
                   onRefresh={() => onTileRefresh?.(tile.id, connId)}

@@ -8,6 +8,23 @@ import MotionButton from "../components/animation/MotionButton";
 
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
+
+function ThemeToggleBtn() {
+  const theme = useStore((s) => s.theme);
+  const setTheme = useStore((s) => s.setTheme);
+  const cycle = () => { const next = { light: "dark", dark: "system", system: "light" }; setTheme(next[theme] || "light"); };
+  return (
+    <button onClick={cycle} className="absolute top-6 right-6 w-8 h-8 rounded-lg flex items-center justify-center transition-colors duration-200 cursor-pointer z-10" style={{ color: 'var(--text-muted)', background: 'var(--overlay-subtle)' }} aria-label={`Theme: ${theme}`}>
+      {theme === "light" ? (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+      ) : theme === "dark" ? (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+      ) : (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+      )}
+    </button>
+  );
+}
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
 class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
@@ -155,7 +172,8 @@ function OTPInput({ length = 6, value, onChange }) {
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={i === 0 ? handlePaste : undefined}
-          className="w-11 h-13 text-center text-xl font-bold glass-input rounded-lg text-white focus:outline-none input-glow transition-all duration-200"
+          className="w-11 h-13 text-center text-xl font-bold glass-input rounded-lg focus:outline-none input-glow transition-all duration-200"
+          style={{ color: 'var(--text-primary)' }}
           whileFocus={{ scale: 1.08 }}
           transition={{ type: "spring", stiffness: 400, damping: 20 }}
         />
@@ -192,25 +210,27 @@ function CountrySelect({ value, onChange }) {
       <button
         type="button"
         onClick={() => { setOpen(!open); setSearch(""); }}
-        className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 text-white hover:border-indigo-500/30 transition-all duration-200 cursor-pointer min-w-[140px]"
+        className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 hover:border-indigo-500/30 transition-all duration-200 cursor-pointer min-w-[140px]"
+        style={{ color: 'var(--text-primary)' }}
       >
         <span className="text-lg leading-none">{selected.flag}</span>
         <span className="text-sm font-mono text-indigo-400">{selected.dial}</span>
-        <span className="text-xs text-gray-400 truncate max-w-[60px]">{selected.name}</span>
-        <svg className={`w-3 h-3 text-gray-500 ml-auto transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <span className="text-xs truncate max-w-[60px]" style={{ color: 'var(--text-secondary)' }}>{selected.name}</span>
+        <svg className={`w-3 h-3 ml-auto transition-transform ${open ? "rotate-180" : ""}`} style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {open && (
         <div className="absolute left-0 top-full mt-1 w-80 glass-card rounded-xl shadow-2xl shadow-black/50 z-50 overflow-hidden">
-          <div className="p-2 border-b border-gray-700">
+          <div className="p-2 border-b" style={{ borderColor: 'var(--border-default)' }}>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search country..."
-              className="w-full glass-input rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none input-glow"
+              className="w-full glass-input rounded-lg px-3 py-2 text-sm placeholder-gray-500 focus:outline-none input-glow"
+              style={{ color: 'var(--text-primary)' }}
               autoFocus
             />
           </div>
@@ -220,17 +240,18 @@ function CountrySelect({ value, onChange }) {
                 key={`${c.code}-${c.dial}`}
                 type="button"
                 onClick={() => { onChange(c.code); setOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-700/60 transition cursor-pointer ${c.code === value ? "bg-indigo-600/20 text-white" : "text-gray-300"
+                className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition cursor-pointer ${c.code === value ? "bg-indigo-600/20" : ""
                   }`}
+                style={{ color: c.code === value ? 'var(--text-primary)' : 'var(--text-secondary)' }}
               >
                 <span className="text-lg leading-none">{c.flag}</span>
                 <span className="font-mono text-indigo-400 w-14 text-right">{c.dial}</span>
                 <span className="flex-1 text-left">{c.name}</span>
-                <span className="text-xs text-gray-500">{c.code}</span>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{c.code}</span>
               </button>
             ))}
             {filtered.length === 0 && (
-              <p className="text-center text-gray-500 text-xs py-4">No countries found</p>
+              <p className="text-center text-xs py-4" style={{ color: 'var(--text-muted)' }}>No countries found</p>
             )}
           </div>
         </div>
@@ -482,7 +503,7 @@ export default function Login() {
 
   /* ─── Render ──────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-[#06060e] flex items-center justify-center px-4 relative overflow-hidden noise-overlay">
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden noise-overlay" style={{ background: 'var(--bg-page)' }}>
       {/* 3D background with 2D fallback */}
       <GPUTierProvider>
         <_WebGLBound fallback={<AnimatedBackground />}>
@@ -495,10 +516,14 @@ export default function Login() {
       {/* Mesh gradient */}
       <div className="absolute inset-0 mesh-gradient pointer-events-none" />
 
+      {/* Theme toggle */}
+      <ThemeToggleBtn />
+
       {/* Back to home */}
       <button
         onClick={() => navigate("/")}
-        className="absolute top-6 left-6 flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-all duration-200 cursor-pointer group z-10"
+        className="absolute top-6 left-6 flex items-center gap-2 text-sm hover:text-white transition-all duration-200 cursor-pointer group z-10"
+        style={{ color: 'var(--text-muted)' }}
       >
         <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -508,14 +533,14 @@ export default function Login() {
 
       <div className="w-full max-w-md relative z-10 fade-scale-in">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-white tracking-tight font-poppins">
-            Data<span style={{ color: '#A855F7' }}>Lens</span>
+          <h1 className="text-3xl font-extrabold tracking-tight font-poppins" style={{ color: 'var(--text-primary)' }}>
+            Ask<span style={{ color: '#A855F7' }}>DB</span>
           </h1>
-          <p className="text-gray-400 mt-2">The agentic data intelligence platform</p>
+          <p className="mt-2" style={{ color: 'var(--text-secondary)' }}>The agentic data intelligence platform</p>
         </div>
 
         <div className="glass-card rounded-2xl p-8">
-          <h2 className="text-xl font-semibold text-white mb-2">
+          <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
             {isRegister ? "Create Account" : "Sign In"}
           </h2>
 
@@ -530,8 +555,9 @@ export default function Login() {
                           ? "bg-green-500 text-white shadow-lg shadow-green-500/30"
                           : i === regStep
                             ? "bg-gradient-to-br from-indigo-500 to-violet-500 text-white ring-2 ring-indigo-400/30 shadow-lg shadow-indigo-500/30"
-                            : "glass text-gray-500"
+                            : "glass"
                         }`}
+                      style={i >= regStep ? { color: 'var(--text-muted)' } : undefined}
                     >
                       {i < regStep ? (
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -541,12 +567,12 @@ export default function Login() {
                         i + 1
                       )}
                     </div>
-                    <span className={`text-[10px] mt-1 ${i === regStep ? "text-indigo-400" : "text-gray-600"}`}>
+                    <span className={`text-[10px] mt-1 ${i === regStep ? "text-indigo-400" : ""}`} style={i !== regStep ? { color: 'var(--text-muted)' } : undefined}>
                       {s.label}
                     </span>
                   </div>
                   {i < REG_STEPS.length - 1 && (
-                    <div className={`h-px flex-1 mx-1 mb-4 transition-colors duration-300 ${i < regStep ? "bg-green-500" : "bg-gray-800"}`} />
+                    <div className={`h-px flex-1 mx-1 mb-4 transition-colors duration-300 ${i < regStep ? "bg-green-500" : ""}`} style={i >= regStep ? { background: 'var(--border-default)' } : undefined} />
                   )}
                 </div>
               ))}
@@ -595,24 +621,24 @@ export default function Login() {
               >
                 <motion.div variants={fieldStagger} initial="initial" animate="animate">
                   <motion.div variants={fieldItem} className="mb-4">
-                    <label className="block text-sm text-gray-400 mb-1">Email</label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full glass-input rounded-lg px-4 py-2.5 text-white focus:outline-none input-glow transition"
+                      className="w-full glass-input rounded-lg px-4 py-2.5 focus:outline-none input-glow transition" style={{ color: 'var(--text-primary)' }}
                       placeholder="you@example.com"
                       required
                     />
                   </motion.div>
 
                   <motion.div variants={fieldItem} className="mb-6">
-                    <label className="block text-sm text-gray-400 mb-1">Password</label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Password</label>
                     <input
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full glass-input rounded-lg px-4 py-2.5 text-white focus:outline-none input-glow transition"
+                      className="w-full glass-input rounded-lg px-4 py-2.5 focus:outline-none input-glow transition" style={{ color: 'var(--text-primary)' }}
                       placeholder="Enter your password"
                       required
                     />
@@ -642,38 +668,38 @@ export default function Login() {
               >
                 <motion.div variants={fieldStagger} initial="initial" animate="animate" className="space-y-4">
                   <motion.div variants={fieldItem}>
-                    <label className="block text-sm text-gray-400 mb-1">Full Name <span className="text-red-400">*</span></label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Full Name <span className="text-red-400">*</span></label>
                     <input
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full glass-input rounded-lg px-4 py-2.5 text-white focus:outline-none input-glow transition"
+                      className="w-full glass-input rounded-lg px-4 py-2.5 focus:outline-none input-glow transition" style={{ color: 'var(--text-primary)' }}
                       placeholder="John Doe"
                     />
                   </motion.div>
                   <motion.div variants={fieldItem}>
-                    <label className="block text-sm text-gray-400 mb-1">Email Address <span className="text-red-400">*</span></label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Email Address <span className="text-red-400">*</span></label>
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full glass-input rounded-lg px-4 py-2.5 text-white focus:outline-none input-glow transition"
+                      className="w-full glass-input rounded-lg px-4 py-2.5 focus:outline-none input-glow transition" style={{ color: 'var(--text-primary)' }}
                       placeholder="you@example.com"
                     />
                   </motion.div>
                   <motion.div variants={fieldItem}>
-                    <label className="block text-sm text-gray-400 mb-1">Mobile Number <span className="text-red-400">*</span></label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Mobile Number <span className="text-red-400">*</span></label>
                     <div className="flex gap-2">
                       <CountrySelect value={selectedCountry} onChange={setSelectedCountry} />
                       <input
                         type="tel"
                         value={phone}
                         onChange={(e) => setPhone(formatPhone(e.target.value, countryObj.format))}
-                        className="flex-1 glass-input rounded-lg px-4 py-2.5 text-white focus:outline-none input-glow transition"
+                        className="flex-1 glass-input rounded-lg px-4 py-2.5 focus:outline-none input-glow transition" style={{ color: 'var(--text-primary)' }}
                         placeholder={countryObj.format || "Phone number"}
                       />
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                       {countryObj.flag} {countryCode} will be added automatically
                     </p>
                   </motion.div>
@@ -700,13 +726,13 @@ export default function Login() {
               >
                 <motion.div variants={fieldStagger} initial="initial" animate="animate" className="space-y-4">
                   <motion.div variants={fieldItem}>
-                    <label className="block text-sm text-gray-400 mb-1">Password <span className="text-red-400">*</span></label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Password <span className="text-red-400">*</span></label>
                     <div className="relative">
                       <input
                         type={showPassword ? "text" : "password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full glass-input rounded-lg px-4 py-2.5 pr-10 text-white focus:outline-none input-glow transition"
+                        className="w-full glass-input rounded-lg px-4 py-2.5 pr-10 focus:outline-none input-glow transition" style={{ color: 'var(--text-primary)' }}
                         placeholder="Min 8 characters"
                       />
                       <button
@@ -741,13 +767,13 @@ export default function Login() {
                   </motion.div>
 
                   <motion.div variants={fieldItem}>
-                    <label className="block text-sm text-gray-400 mb-1">Confirm Password <span className="text-red-400">*</span></label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Confirm Password <span className="text-red-400">*</span></label>
                     <div className="relative">
                       <input
                         type={showConfirm ? "text" : "password"}
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={`w-full glass-input rounded-lg px-4 py-2.5 pr-10 text-white focus:outline-none transition ${passwordsMismatch
+                        className={`w-full glass-input rounded-lg px-4 py-2.5 pr-10 focus:outline-none transition ${passwordsMismatch
                             ? "!border-red-500 focus:!border-red-500"
                             : passwordsMatch
                               ? "!border-green-500 focus:!border-green-500"
@@ -783,7 +809,7 @@ export default function Login() {
                   <motion.div variants={fieldItem} className="flex gap-3">
                     <MotionButton
                       onClick={handleBack}
-                      className="flex-1 glass hover:bg-white/10 text-gray-300 font-medium rounded-lg py-2.5 transition-all duration-200 cursor-pointer"
+                      className="flex-1 glass hover:bg-white/10 font-medium rounded-lg py-2.5 transition-all duration-200 cursor-pointer" style={{ color: 'var(--text-secondary)' }}
                     >
                       Back
                     </MotionButton>
@@ -815,8 +841,8 @@ export default function Login() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <h3 className="text-white font-semibold mb-1">Verify Your Email</h3>
-                  <p className="text-sm text-gray-400">
+                  <h3 className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Verify Your Email</h3>
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                     We sent a 6-digit code to <span className="text-indigo-400 font-medium">{email}</span>
                   </p>
                 </div>
@@ -829,7 +855,7 @@ export default function Login() {
                       </svg>
                     </div>
                     <p className="text-green-400 font-medium">Email Verified</p>
-                    <p className="text-gray-500 text-sm mt-1">Creating your account...</p>
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Creating your account...</p>
                     <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mt-3" />
                   </div>
                 ) : emailOtpExpired ? (
@@ -840,7 +866,7 @@ export default function Login() {
                       </svg>
                     </div>
                     <p className="text-red-400 font-medium">OTP Expired</p>
-                    <p className="text-sm text-gray-400">Your verification code has expired.</p>
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Your verification code has expired.</p>
                     <MotionButton onClick={handleSendEmailOTP} disabled={loading}
                       className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-40 text-white font-semibold rounded-lg py-2.5 transition-all duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 btn-glow">
                       {loading ? "Sending..." : "Send New OTP"}
@@ -856,6 +882,7 @@ export default function Login() {
                         <span className={`font-mono ${emailExpiryCountdown <= 60 ? "text-red-400" : emailExpiryCountdown <= 180 ? "text-amber-400" : "text-gray-400"}`}>
                           Code expires in {formatTime(emailExpiryCountdown)}
                         </span>
+
                       </div>
                     )}
                     <OTPInput value={emailOTP} onChange={setEmailOTP} />
@@ -863,7 +890,7 @@ export default function Login() {
                       className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-40 text-white font-semibold rounded-lg py-2.5 transition-all duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 btn-glow">
                       {loading ? "Verifying..." : "Verify Email"}
                     </MotionButton>
-                    <p className="text-center text-sm text-gray-500">
+                    <p className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                       {otpCountdown > 0 ? (
                         <>Resend in <span className="text-indigo-400 font-mono">{otpCountdown}s</span></>
                       ) : (
@@ -877,7 +904,7 @@ export default function Login() {
                 {/* Back button */}
                 <MotionButton
                   onClick={handleBack}
-                  className="w-full glass hover:bg-white/10 text-gray-300 text-sm rounded-lg py-2 transition-all duration-200 cursor-pointer"
+                  className="w-full glass hover:bg-white/10 text-sm rounded-lg py-2 transition-all duration-200 cursor-pointer" style={{ color: 'var(--text-secondary)' }}
                 >
                   Back
                 </MotionButton>
@@ -889,9 +916,9 @@ export default function Login() {
           {(!isRegister || (isRegister && regStep === 0)) && (
             <>
               <div className="flex items-center gap-3 my-6">
-                <div className="flex-1 h-px bg-gray-800" />
-                <span className="text-xs text-gray-600 uppercase">or continue with</span>
-                <div className="flex-1 h-px bg-gray-800" />
+                <div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} />
+                <span className="text-xs uppercase" style={{ color: 'var(--text-muted)' }}>or continue with</span>
+                <div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} />
               </div>
 
               <div className="flex gap-3">
@@ -903,7 +930,7 @@ export default function Login() {
                       window.location.href = data.url;
                     } catch (err) { setError(err.message); }
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 glass-light rounded-lg py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:border-gray-500/30 transition-all duration-200 cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2 glass-light rounded-lg py-2.5 text-sm hover:bg-white/10 hover:border-gray-500/30 transition-all duration-200 cursor-pointer" style={{ color: 'var(--text-secondary)' }}
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -921,7 +948,7 @@ export default function Login() {
                       window.location.href = data.url;
                     } catch (err) { setError(err.message); }
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 glass-light rounded-lg py-2.5 text-sm text-gray-300 hover:bg-white/10 hover:border-gray-500/30 transition-all duration-200 cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2 glass-light rounded-lg py-2.5 text-sm hover:bg-white/10 hover:border-gray-500/30 transition-all duration-200 cursor-pointer" style={{ color: 'var(--text-secondary)' }}
                 >
                   <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
@@ -933,7 +960,7 @@ export default function Login() {
           )}
 
           {/* Toggle sign in / register */}
-          <p className="text-center text-gray-500 text-sm mt-5">
+          <p className="text-center text-sm mt-5" style={{ color: 'var(--text-muted)' }}>
             {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
             <button
               type="button"
@@ -947,13 +974,13 @@ export default function Login() {
 
         {/* Dev hint for OTP */}
         {isRegister && regStep === 2 && (
-          <p className="text-center text-[11px] text-gray-700 mt-3">
+          <p className="text-center text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
             Dev mode: OTPs are logged in backend/.data/sent_otps.log
           </p>
         )}
 
         {/* Demo test user — remove before production */}
-        <div className="mt-4 pt-4" style={{ borderTop: '1px dashed rgba(255,255,255,0.08)' }}>
+        <div className="mt-4 pt-4" style={{ borderTop: '1px dashed var(--border-default)' }}>
           <button
             type="button"
             onClick={handleDemoLogin}
@@ -968,7 +995,7 @@ export default function Login() {
           >
             {demoLoading ? 'Logging in...' : 'Demo Test User'}
           </button>
-          <p className="text-center text-[10px] text-gray-600 mt-1.5">
+          <p className="text-center text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
             Instant login with a pre-made test account
           </p>
         </div>

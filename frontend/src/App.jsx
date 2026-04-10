@@ -4,6 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { useStore } from "./store";
 import { api } from "./api";
 import behaviorEngine from "./lib/behaviorEngine";
+import useThemeInit from "./hooks/useThemeInit";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import OAuthCallback from "./pages/OAuthCallback";
@@ -26,7 +27,6 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 function ProtectedRoute({ children }) {
   const token = useStore((s) => s.token);
   const onboardingComplete = useStore((s) => s.onboardingComplete);
-  const apiKeyStatus = useStore((s) => s.apiKeyStatus);
   const location = useLocation();
 
   if (!token) return <Navigate to="/login" replace />;
@@ -37,12 +37,8 @@ function ProtectedRoute({ children }) {
   // New users: full onboarding
   if (!onboardingComplete) return <Navigate to="/onboarding" replace />;
 
-  // Existing users without API key: direct to step 3
-  // apiKeyStatus is null on first load (before fetch) — only gate when
-  // we have a definitive answer that no key is configured.
-  if (apiKeyStatus !== null && apiKeyStatus.configured === false) {
-    return <Navigate to="/onboarding?step=3" replace />;
-  }
+  // BYOK users without a key see the AppLayout banner (not a redirect gate).
+  // A previous redirect here caused an infinite loop: skip→/dashboard→gate→/onboarding→skip…
 
   return children;
 }
@@ -58,6 +54,9 @@ function AppPage({ children }) {
 function AnimatedRoutes() {
   const location = useLocation();
   const token = useStore((s) => s.token);
+
+  // Initialize theme (light/dark/system)
+  useThemeInit();
 
   // Initialize behavior engine with user's consent level
   useEffect(() => {
@@ -87,7 +86,7 @@ function AnimatedRoutes() {
         <Route path="/shared/:token" element={<PageTransition><SharedDashboard /></PageTransition>} />
 
         {/* Protected — no sidebar */}
-        <Route path="/onboarding" element={<ProtectedRoute><Suspense fallback={<div className="flex-1 bg-[#06060e]" />}><PageTransition><Onboarding /></PageTransition></Suspense></ProtectedRoute>} />
+        <Route path="/onboarding" element={<ProtectedRoute><Suspense fallback={<div className="flex-1" style={{ background: 'var(--bg-page)' }} />}><PageTransition><Onboarding /></PageTransition></Suspense></ProtectedRoute>} />
 
         {/* Protected — with sidebar */}
         <Route path="/dashboard" element={<AppPage><PageTransition><Dashboard /></PageTransition></AppPage>} />

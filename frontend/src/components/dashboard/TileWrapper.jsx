@@ -5,8 +5,9 @@ import KPICard from './KPICard';
 import { blendSources } from '../../lib/dataBlender';
 import { mergeFormatting } from '../../lib/formatUtils';
 import { api } from '../../api';
-import { downloadCSV, downloadJSON } from '../../lib/exportUtils';
+import { downloadCSV } from '../../lib/exportUtils';
 import { detectAnomalies, formatAnomalyBadge } from '../../lib/anomalyDetector';
+import { isDateColumn } from '../../lib/fieldClassification';
 
 const CanvasChart = lazy(() => import('./CanvasChart'));
 
@@ -19,15 +20,15 @@ const CHART_TYPES = [
   { id: 'table',         label: 'Table',        icon: 'M3 3h18v18H3V3zm0 6h18M3 15h18M9 3v18' },
   { id: 'kpi',           label: 'KPI',          icon: 'M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16' },
   { id: 'stacked_bar',   label: 'Stacked',      icon: 'M8 2v8h8V2H8zm0 10v8h8v-8H8zM2 6v4h4V6H2zm0 8v4h4v-4H2zm14-8v4h4V6h-4zm0 8v4h4v-4h-4z' },
-  { id: 'horizontal_bar',label: 'H-Bar',        icon: 'M3 12h18M3 6h12M3 18h15' },
+  { id: 'bar_h',         label: 'H-Bar',        icon: 'M3 12h18M3 6h12M3 18h15' },
   { id: 'scatter',       label: 'Scatter',      icon: 'M3 3l7.07 14.14L12 3l4.95 11.05L19 3l-2 18H5L3 3z' },
 ];
 
-function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, onRefresh, customMetrics = [], onSelect, selectedTileId, crossFilter, onCrossFilterClick, dashboardId, themeConfig }) {
+function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onCopy, onRefresh, customMetrics = [], onSelect, selectedTileId, crossFilter, onCrossFilterClick, dashboardId, themeConfig, allTabs = [] }) {
   const [chartPickerOpen, setChartPickerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [moveMenuOpen, setMoveMenuOpen] = useState(null); // null | "move" | "copy"
+  const moveMenuRef = useRef(null);
   const [showComments, setShowComments] = useState(false);
   const [anomalyExplanation, setAnomalyExplanation] = useState(null);
   const [explainLoading, setExplainLoading] = useState(false);
@@ -46,24 +47,6 @@ function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, 
     }
   }, [onRefresh, refreshing]);
 
-  const handleAISuggest = useCallback(async () => {
-    if (!tile?.columns?.length || !tile?.rows?.length) return;
-    setAiLoading(true);
-    try {
-      const result = await api.aiSuggestChart(
-        dashboardId, tile.id, tile.columns, tile.rows.slice(0, 5), tile.question
-      );
-      setAiSuggestion(result);
-      // Auto-apply: change chart type
-      if (result?.recommendedType && result.recommendedType !== tile.chartType) {
-        onChangeChart?.(tile.id, result.recommendedType);
-      }
-    } catch (err) {
-      console.error('AI suggest failed:', err);
-    } finally {
-      setAiLoading(false);
-    }
-  }, [tile, dashboardId, onChangeChart]);
 
   const handleExplain = useCallback(async () => {
     if (explanation) { setExplanation(null); return; } // toggle off
@@ -87,6 +70,14 @@ function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, 
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, [chartPickerOpen]);
+  useEffect(() => {
+    if (!moveMenuOpen) return;
+    const handle = (e) => {
+      if (moveMenuRef.current && !moveMenuRef.current.contains(e.target)) setMoveMenuOpen(null);
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [moveMenuOpen]);
 
   // Close comments popover when clicking outside
   useEffect(() => {
@@ -116,7 +107,13 @@ function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, 
 
   // Trend indicator (local computation — no API call)
   const trend = useMemo(() => {
-    if (!chartRows || chartRows.length < 3) return null;
+    if (!chartRows?.length || chartRows.length < 3) return null;
+
+    // Only show trending on time-series charts
+    const activeMeasureSet = new Set(tile?.activeMeasures || []);
+    const xAxisCol = (tile?.columns || []).find(c => !activeMeasureSet.has(c));
+    if (!xAxisCol || !isDateColumn(xAxisCol, chartRows)) return null;
+
     const measure = tile?.selectedMeasure || tile?.activeMeasures?.[0];
     if (!measure) return null;
     const values = chartRows.map(r => { const v = r[measure]; return v != null ? Number(v) : NaN; }).filter(v => !isNaN(v));
@@ -131,7 +128,7 @@ function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, 
     if (stdev === 0) return null;
     const dir = slope > stdev * 0.1 ? 'up' : slope < -stdev * 0.1 ? 'down' : null;
     return dir;
-  }, [chartRows, tile?.selectedMeasure, tile?.activeMeasures]);
+  }, [chartRows, tile?.selectedMeasure, tile?.activeMeasures, tile?.columns]);
 
   // Anomaly detection
   const anomaly = useMemo(() => {
@@ -205,11 +202,6 @@ function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, 
               {anomaly.direction === 'high' ? '▲' : '▼'} {anomalyExplanation || formatAnomalyBadge(anomaly)}
             </span>
           )}
-          {aiSuggestion?.reasoning && (
-            <span style={{ fontSize: 10, color: TOKENS.accentLight, marginTop: 2, display: 'block', fontStyle: 'italic' }}>
-              AI: {aiSuggestion.reasoning}
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100" style={{ transition: `opacity ${TOKENS.transition}` }}>
           {commentCount > 0 && (
@@ -237,12 +229,9 @@ function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, 
           )}
           {[
             { title: refreshing ? 'Refreshing...' : 'Refresh',  icon: 'M4.755 10.059a7.5 7.5 0 0112.548-3.364l1.903 1.903H14.25a.75.75 0 000 1.5h6a.75.75 0 00.75-.75v-6a.75.75 0 00-1.5 0v2.553l-1.256-1.255a9 9 0 00-14.3 5.842.75.75 0 001.506-.429zM15.245 9.941a7.5 7.5 0 01-12.548 3.364L.794 11.402H5.75a.75.75 0 000-1.5h-6a.75.75 0 00-.75.75v6a.75.75 0 001.5 0v-2.553l1.256 1.255a9 9 0 0014.3-5.842.75.75 0 00-1.506.429z', onClick: handleRefresh },
-            { title: aiLoading ? 'Thinking...' : 'AI Suggest', icon: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z', onClick: handleAISuggest },
             { title: explainLoading ? 'Explaining...' : (explanation ? 'Hide Insight' : 'Explain'), icon: 'M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18', onClick: handleExplain },
-            { title: 'Edit SQL', icon: 'M6.28 5.22a.75.75 0 010 1.06L2.56 10l3.72 3.72a.75.75 0 01-1.06 1.06L.97 10.53a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0zm7.44 0a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L17.44 10l-3.72-3.72a.75.75 0 010-1.06zM11.377 2.011a.75.75 0 01.612.867l-2.5 14.5a.75.75 0 01-1.478-.255l2.5-14.5a.75.75 0 01.866-.612z', onClick: onEditSQL },
             { title: 'Edit',     icon: 'M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z', onClick: () => onEdit?.(tile) },
             { title: 'Download CSV', icon: 'M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3', onClick: () => downloadCSV(tile?.columns, tile?.rows, tile?.title) },
-            { title: 'Download JSON', icon: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z', onClick: () => downloadJSON(tile?.columns, tile?.rows, tile?.title) },
           ].map(({ title, icon, onClick }) => (
             <button key={title} onClick={onClick} title={title}
               className="w-7 h-7 flex items-center justify-center rounded-md cursor-pointer"
@@ -254,6 +243,61 @@ function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, 
               </svg>
             </button>
           ))}
+
+          {/* Move / Copy */}
+          <div className="relative" ref={moveMenuRef}>
+            <button title="Move to..." onClick={() => setMoveMenuOpen(m => m === 'move' ? null : 'move')}
+              className="w-7 h-7 flex items-center justify-center rounded-md cursor-pointer"
+              style={{ color: moveMenuOpen === 'move' ? TOKENS.accent : TOKENS.text.muted, transition: `all ${TOKENS.transition}` }}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                <path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 012 10z" clipRule="evenodd"/>
+              </svg>
+            </button>
+            <button title="Copy to..." onClick={() => setMoveMenuOpen(m => m === 'copy' ? null : 'copy')}
+              className="w-7 h-7 flex items-center justify-center rounded-md cursor-pointer"
+              style={{ color: moveMenuOpen === 'copy' ? TOKENS.accent : TOKENS.text.muted, transition: `all ${TOKENS.transition}` }}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z"/>
+                <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z"/>
+              </svg>
+            </button>
+            {moveMenuOpen && (
+              <div style={{
+                position: 'absolute', right: 0, top: 32, zIndex: 60,
+                background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.hover}`,
+                borderRadius: 10, padding: 8, minWidth: 200, maxHeight: 250, overflowY: 'auto',
+                boxShadow: '0 12px 36px rgba(0,0,0,0.6)',
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: TOKENS.text.muted, padding: '2px 8px 6px', letterSpacing: '0.05em' }}>
+                  {moveMenuOpen === 'move' ? 'Move to' : 'Copy to'}
+                </div>
+                {allTabs.map(tab => (
+                  <div key={tab.id}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: TOKENS.text.secondary, padding: '4px 8px 2px' }}>{tab.name || tab.id}</div>
+                    {(tab.sections || []).map(sec => (
+                      <button key={sec.id}
+                        onClick={() => {
+                          if (moveMenuOpen === 'move') onMove?.(tab.id, sec.id);
+                          else onCopy?.(tab.id, sec.id);
+                          setMoveMenuOpen(null);
+                        }}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          padding: '5px 8px 5px 16px', fontSize: 12, color: TOKENS.text.primary,
+                          background: 'transparent', border: 'none', cursor: 'pointer',
+                          borderRadius: 4,
+                        }}
+                        onMouseEnter={e => { e.target.style.background = TOKENS.accentGlow; }}
+                        onMouseLeave={e => { e.target.style.background = 'transparent'; }}
+                      >
+                        {sec.name || sec.id}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Chart type picker */}
           <div className="relative" ref={pickerRef}>
@@ -360,7 +404,7 @@ function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, 
       <div className="flex-1 min-h-0 overflow-hidden"
         style={{ padding: `4px ${fmt.style.padding ?? 12}px ${fmt.style.padding ?? 8}px` }}>
         {isKPI ? (
-          <KPICard tile={tile} index={index} onEdit={onEdit} />
+          <KPICard tile={tile} index={index} onEdit={onEdit} formatting={tile.visualConfig} />
         ) : chartRows?.length > 0 ? (
           chartRows.length > 1000 && ['scatter', 'heatmap'].includes(tile?.chartType) ? (
             <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><span style={{ color: '#5C5F66', fontSize: 12 }}>Loading...</span></div>}>
@@ -373,7 +417,7 @@ function TileWrapper({ tile, index, onEdit, onEditSQL, onChangeChart, onRemove, 
             </Suspense>
           ) : (
             <ResultsChart
-              key={`${tile.id}-${tile.chartType}-${tile.palette}-${tile.dataSources?.length || 0}-${JSON.stringify(tile.visualConfig?.colors?.measureColors || {})}-${themeConfig?.palette || ''}-${(tile.activeMeasures || []).join(',')}`}
+              key={`${tile.id}-${tile.chartType}-${tile.palette}-${tile.dataSources?.length || 0}-${JSON.stringify(tile.visualConfig?.colors?.measureColors || {})}-${JSON.stringify(tile.visualConfig?.colors?.categoryColors || {})}-${themeConfig?.palette || ''}-${(tile.activeMeasures || []).join(',')}`}
               columns={chartColumns} rows={chartRows} embedded
               defaultChartType={tile.chartType} defaultPalette={tile.palette}
               defaultMeasure={tile.selectedMeasure} defaultMeasures={tile.activeMeasures}

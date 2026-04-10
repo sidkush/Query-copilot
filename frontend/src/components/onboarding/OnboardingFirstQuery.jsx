@@ -42,7 +42,7 @@ function ConfettiCelebration() {
   );
 }
 
-export default function OnboardingFirstQuery({ onNext }) {
+export default function OnboardingFirstQuery({ onNext, onSkip }) {
   const connections = useStore((s) => s.connections);
   const [question, setQuestion] = useState("What are the top 10 records?");
   const [loading, setLoading] = useState(false);
@@ -83,8 +83,8 @@ export default function OnboardingFirstQuery({ onNext }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">Connect a database to start asking questions</h3>
-          <p className="text-sm text-gray-400 mb-6">
+          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Connect a database to start asking questions</h3>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
             You need at least one database connection to try your first query.
           </p>
           <button
@@ -93,6 +93,17 @@ export default function OnboardingFirstQuery({ onNext }) {
           >
             Connect Database
           </button>
+          {onSkip && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={onSkip}
+                className="text-xs text-gray-500 hover:text-gray-400 transition underline underline-offset-2 cursor-pointer"
+              >
+                Skip for now
+              </button>
+            </div>
+          )}
         </motion.div>
       </div>
     );
@@ -108,8 +119,8 @@ export default function OnboardingFirstQuery({ onNext }) {
       >
         {showConfetti && <ConfettiCelebration />}
 
-        <h3 className="text-lg font-semibold text-white mb-1">Try your first query</h3>
-        <p className="text-sm text-gray-400 mb-5">Ask a question and see the SQL we generate.</p>
+        <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Try your first query</h3>
+        <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>Ask a question and see the SQL we generate.</p>
 
         {/* Chat-like input */}
         <div className="flex gap-2 mb-4">
@@ -118,7 +129,8 @@ export default function OnboardingFirstQuery({ onNext }) {
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !loading) handleSubmit(); }}
-            className="flex-1 glass-input rounded-lg px-4 py-2.5 text-white text-sm input-glow"
+            className="flex-1 glass-input rounded-lg px-4 py-2.5 text-sm input-glow"
+            style={{ color: 'var(--text-primary)' }}
             placeholder="Ask a question about your data..."
           />
           <button
@@ -142,7 +154,8 @@ export default function OnboardingFirstQuery({ onNext }) {
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            className="bg-red-900/20 border border-red-800/50 text-red-400 rounded-lg p-3 text-sm mb-4"
+            className="border border-red-800/50 text-red-400 rounded-lg p-3 text-sm mb-4"
+            style={{ background: 'rgba(239,68,68,0.08)' }}
           >
             {error}
           </motion.div>
@@ -155,7 +168,7 @@ export default function OnboardingFirstQuery({ onNext }) {
             animate={{ opacity: 1, y: 0 }}
             className="mb-4"
           >
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Generated SQL</p>
+            <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Generated SQL</p>
             <pre className="glass rounded-lg p-4 text-sm text-green-400 font-mono overflow-x-auto whitespace-pre-wrap">
               {generatedSQL}
             </pre>
@@ -177,6 +190,18 @@ export default function OnboardingFirstQuery({ onNext }) {
               Go to Dashboard
             </button>
           </motion.div>
+        )}
+
+        {onSkip && (
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={onSkip}
+              className="text-xs text-gray-500 hover:text-gray-400 transition underline underline-offset-2 cursor-pointer"
+            >
+              Skip for now
+            </button>
+          </div>
         )}
       </motion.div>
     </div>

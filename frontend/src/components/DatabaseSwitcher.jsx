@@ -49,7 +49,7 @@ function DbIcon({ dbType, size = 14 }) {
   );
 }
 
-export default function DatabaseSwitcher({ connections, activeConnId, onSwitch }) {
+export default function DatabaseSwitcher({ connections, activeConnId, onSwitch, liveConnIds = null }) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
   const ref = useRef(null);
@@ -104,9 +104,9 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch }
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '6px 10px 6px 8px',
           borderRadius: 12,
-          background: open ? 'rgba(255,255,255,0.1)' : 'transparent',
+          background: open ? 'var(--overlay-light)' : 'transparent',
           border: 'none',
-          color: '#e2e8f0', cursor: 'pointer',
+          color: 'var(--text-primary)', cursor: 'pointer',
           transition: 'all 0.15s',
           whiteSpace: 'nowrap', maxWidth: 220,
           outline: 'none',
@@ -114,7 +114,7 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch }
       >
         {activeConn ? (
           <>
-            <StatusDot isLive={true} />
+            <StatusDot isLive={!liveConnIds || liveConnIds.has(activeConn?.conn_id)} />
             <DbIcon dbType={activeConn?.db_type} />
             <span style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>
               {dbLabel}
@@ -122,15 +122,15 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch }
           </>
         ) : (
           <>
-            <svg style={{ width: 14, height: 14, color: '#6b7280', flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg style={{ width: 14, height: 14, color: 'var(--text-muted)', flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
             </svg>
-            <span style={{ fontSize: 12, color: '#6b7280' }}>No database</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No database</span>
           </>
         )}
         {/* Chevron */}
         <svg style={{
-          width: 12, height: 12, color: '#6b7280', flexShrink: 0, marginLeft: 2,
+          width: 12, height: 12, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 2,
           transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
           transition: 'transform 0.15s',
         }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -145,9 +145,9 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch }
           style={{
             position: 'absolute', top: 'calc(100% + 6px)', left: 0,
             minWidth: 240, maxWidth: 320,
-            background: 'rgba(10, 10, 12, 0.8)',
+            background: 'var(--bg-elevated)',
             backdropFilter: 'blur(30px) saturate(1.5)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid var(--border-default)',
             borderRadius: 14,
             boxShadow: '0 20px 48px rgba(0,0,0,0.7)',
             zIndex: 100,
@@ -156,12 +156,12 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch }
           }}
         >
           {/* Header label */}
-          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#5C5F66', padding: '4px 10px 8px' }}>
+          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', padding: '4px 10px 8px' }}>
             Connected Databases
           </p>
 
           {connections.length === 0 && (
-            <p style={{ fontSize: 12, color: '#5C5F66', padding: '4px 10px 8px' }}>No active connections</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 10px 8px' }}>No active connections</p>
           )}
 
           {connections.map((conn, idx) => {
@@ -185,13 +185,13 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch }
                 onMouseEnter={() => setFocusIdx(idx)}
                 onMouseLeave={() => setFocusIdx(-1)}
               >
-                <StatusDot isLive={true} />
+                <StatusDot isLive={!liveConnIds || liveConnIds.has(conn.conn_id)} />
                 <DbIcon dbType={conn.db_type} size={14} />
                 <span style={{ flex: 1, overflow: 'hidden' }}>
-                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: isActive ? '#a5b4fc' : '#c9cdd4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: isActive ? '#a5b4fc' : 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {conn.database_name}
                   </span>
-                  <span style={{ display: 'block', fontSize: 11, color: '#5C5F66', marginTop: 1 }}>{label}</span>
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{label}</span>
                 </span>
                 {isActive && (
                   <svg style={{ width: 14, height: 14, color: '#818cf8', flexShrink: 0 }} viewBox="0 0 20 20" fill="currentColor">
@@ -203,7 +203,7 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch }
           })}
 
           {/* Divider + Connect new */}
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
+          <div style={{ height: 1, background: 'var(--border-default)', margin: '4px 0' }} />
           <button
             onClick={() => { navigate('/dashboard'); setOpen(false); }}
             style={{

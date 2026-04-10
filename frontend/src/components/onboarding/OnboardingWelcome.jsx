@@ -1,6 +1,6 @@
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
-import DataLensLogo from "../DataLensLogo";
+import AskDBLogo from "../AskDBLogo";
 
 export default function OnboardingWelcome({ onNext }) {
   return (
@@ -11,14 +11,15 @@ export default function OnboardingWelcome({ onNext }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <DataLensLogo size="lg" />
+          <AskDBLogo size="lg" />
         </motion.div>
 
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="text-gray-400 text-lg mt-4"
+          className="text-lg mt-4"
+          style={{ color: 'var(--text-secondary)' }}
         >
           Your data, one question away.
         </motion.p>

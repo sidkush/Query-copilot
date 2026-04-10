@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, Component, lazy } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
@@ -231,6 +231,8 @@ export default function Dashboard() {
   const [testResult, setTestResult] = useState(null); // null | "testing" | "success" | "fail"
   const [testMessage, setTestMessage] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null); // config id awaiting confirmation
+  const [turboStates, setTurboStates] = useState({}); // conn_id → {enabled, syncing, twinInfo}
+  const turboPolls = useRef({}); // conn_id → interval ID
   const navigate = useNavigate();
   const connections = useStore((s) => s.connections);
   const addConnection = useStore((s) => s.addConnection);
@@ -238,8 +240,20 @@ export default function Dashboard() {
   const savedConnections = useStore((s) => s.savedConnections);
   const setSavedConnections = useStore((s) => s.setSavedConnections);
   const setConnections = useStore((s) => s.setConnections);
+  const setTurboStatus = useStore((s) => s.setTurboStatus);
 
   const db = DB_MAP[selected] || null;
+
+  // Fetch turbo status for all live connections
+  const fetchTurboStatuses = useCallback(async (conns) => {
+    for (const c of conns) {
+      try {
+        const status = await api.getTurboStatus(c.conn_id);
+        setTurboStates((prev) => ({ ...prev, [c.conn_id]: status }));
+        setTurboStatus(c.conn_id, status);
+      } catch { /* turbo not available for this connection */ }
+    }
+  }, [setTurboStatus]);
 
   useEffect(() => {
     api.getSavedConnections()
@@ -253,13 +267,60 @@ export default function Dashboard() {
           db_type: c.db_type,
           database_name: c.database_name,
         }));
-        if (live.length > 0) setConnections(live);
+        // Always update — clears stale localStorage connections when backend has none
+        setConnections(live);
+        if (live.length > 0) fetchTurboStatuses(live);
       })
       .catch(() => {});
+    // Cleanup polling on unmount
+    return () => Object.values(turboPolls.current).forEach(clearInterval);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isLive = (saved) =>
-    connections.some((c) => c.database_name === saved.database && c.db_type === saved.db_type);
+  const handleTurboToggle = async (connId, currentlyEnabled) => {
+    try {
+      if (currentlyEnabled) {
+        await api.disableTurbo(connId);
+        setTurboStates((prev) => ({ ...prev, [connId]: { enabled: false, syncing: false, twin_info: null } }));
+        setTurboStatus(connId, { enabled: false, syncing: false });
+        if (turboPolls.current[connId]) {
+          clearInterval(turboPolls.current[connId]);
+          delete turboPolls.current[connId];
+        }
+      } else {
+        await api.enableTurbo(connId);
+        setTurboStates((prev) => ({ ...prev, [connId]: { enabled: true, syncing: true, twin_info: null } }));
+        setTurboStatus(connId, { enabled: true, syncing: true });
+        // Poll for sync completion every 3s
+        turboPolls.current[connId] = setInterval(async () => {
+          try {
+            const status = await api.getTurboStatus(connId);
+            setTurboStates((prev) => ({ ...prev, [connId]: status }));
+            setTurboStatus(connId, status);
+            if (status.enabled && !status.syncing) {
+              clearInterval(turboPolls.current[connId]);
+              delete turboPolls.current[connId];
+            }
+          } catch {
+            clearInterval(turboPolls.current[connId]);
+            delete turboPolls.current[connId];
+          }
+        }, 3000);
+      }
+    } catch (err) {
+      setError(err.message || "Turbo mode toggle failed");
+    }
+  };
+
+  const isLive = (saved) => {
+    // BigQuery uses project/dataset, not database — normalize for comparison
+    const savedDbName = saved.database || saved.project || saved.host || "";
+    return connections.some(
+      (c) => c.db_type === saved.db_type && (
+        c.database_name === savedDbName ||
+        c.conn_id === saved.id  // Fallback: match by conn_id if names differ
+      )
+    );
+  };
 
   const handleConnect = async () => {
     if (!db) return;
@@ -346,7 +407,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#06060e] relative">
+    <div className="flex-1 overflow-y-auto relative" style={{ background: 'var(--bg-page)' }}>
       {/* Background mesh */}
       <div className="fixed inset-0 mesh-gradient opacity-30 pointer-events-none" />
       <GPUTierProvider>
@@ -360,8 +421,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 glass-navbar sticky top-0 z-20">
         <div>
-          <h1 className="text-xl font-bold text-white">Connect Database</h1>
-          <p className="text-xs text-gray-400">Choose a database engine to get started</p>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Connect Database</h1>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Choose a database engine to get started</p>
         </div>
         <UserDropdown />
       </div>
@@ -377,7 +438,7 @@ export default function Dashboard() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="fixed inset-0 bg-[#06060e]/95 backdrop-blur-sm z-50 flex items-center justify-center"
+              className="fixed inset-0 backdrop-blur-sm z-50 flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--bg-page) 95%, transparent)' }}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.85 }}
@@ -393,8 +454,8 @@ export default function Dashboard() {
                     <DbIcon className={`w-6 h-6 ${db?.iconColor || "text-white"}`} />
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Connecting to {db?.name}...</h3>
-                <p className="text-gray-500 text-sm">Discovering schema and training AI</p>
+                <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Connecting to {db?.name}...</h3>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Discovering schema and training AI</p>
                 <div className="mt-4 flex items-center justify-center gap-1.5">
                   {[0, 1, 2].map((i) => (
                     <div key={i} className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
@@ -402,7 +463,7 @@ export default function Dashboard() {
                 </div>
                 <button
                   onClick={() => { setStatus("idle"); }}
-                  className="mt-6 px-5 py-2 glass text-gray-400 text-sm rounded-full hover:text-white hover:border-indigo-500/40 transition-all duration-200 cursor-pointer"
+                  className="mt-6 px-5 py-2 glass text-sm rounded-full hover:border-indigo-500/40 transition-all duration-200 cursor-pointer" style={{ color: 'var(--text-secondary)' }}
                 >
                   Cancel
                 </button>
@@ -419,7 +480,7 @@ export default function Dashboard() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="fixed inset-0 bg-[#06060e]/95 backdrop-blur-sm z-50 flex items-center justify-center"
+              className="fixed inset-0 backdrop-blur-sm z-50 flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--bg-page) 95%, transparent)' }}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.85 }}
@@ -438,11 +499,11 @@ export default function Dashboard() {
                     <path className="check-draw" strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </motion.div>
-                <h3 className="text-xl font-bold text-white mb-2">Connected!</h3>
+                <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Connected!</h3>
                 {tablesFound != null && (
                   <p className="text-indigo-400 text-sm font-medium mb-1">{tablesFound} table{tablesFound !== 1 ? "s" : ""} discovered</p>
                 )}
-                <p className="text-gray-400 text-sm">Loading schema explorer...</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading schema explorer...</p>
               </motion.div>
             </motion.div>
           )}
@@ -451,7 +512,7 @@ export default function Dashboard() {
         {/* ── Saved connections ─────────────────────────────── */}
         {savedConnections.length > 0 && !selected && status === "idle" && (
           <div className="mb-8">
-            <h2 className="text-lg font-semibold text-white mb-3">Saved Databases</h2>
+            <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Saved Databases</h2>
             {error && (
               <motion.div
                 role="alert"
@@ -467,6 +528,16 @@ export default function Dashboard() {
                 const info = DB_LABELS[saved.db_type] || { name: saved.db_type };
                 const live = isLive(saved);
                 const isReconnecting = reconnecting === saved.id;
+                // Find the live conn_id for turbo operations
+                const savedDbName = saved.database || saved.project || saved.host || "";
+                const liveConn = connections.find(
+                  (c) => c.db_type === saved.db_type && (c.database_name === savedDbName || c.conn_id === saved.id)
+                );
+                const liveConnId = liveConn?.conn_id;
+                const turbo = liveConnId ? turboStates[liveConnId] : null;
+                const turboEnabled = turbo?.enabled || false;
+                const turboSyncing = turbo?.syncing || false;
+                const turboInfo = turbo?.twin_info || null;
 
                 return (
                   <StaggerItem key={saved.id} className="flex items-center justify-between glass-card rounded-xl px-4 py-3">
@@ -474,10 +545,16 @@ export default function Dashboard() {
                       <DbIcon className={`w-5 h-5 flex-shrink-0 ${DB_MAP[saved.db_type]?.iconColor || "text-gray-400"}`} />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-white font-medium truncate">{saved.label || saved.database}</span>
-                          <span className="text-xs px-2 py-0.5 bg-gray-800 text-gray-500 rounded-full flex-shrink-0">{info.name}</span>
+                          <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{saved.label || saved.database}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{info.name}</span>
+                          {turboEnabled && !turboSyncing && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded-full border border-cyan-700/40 flex-shrink-0 font-semibold">TURBO</span>
+                          )}
                         </div>
-                        {saved.label && saved.database && <p className="text-xs text-gray-600 truncate">{saved.database}</p>}
+                        {saved.label && saved.database && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{saved.database}</p>}
+                        {turboEnabled && !turboSyncing && turboInfo && (
+                          <p className="text-[10px] text-cyan-600 mt-0.5">{turboInfo.tables} tables &middot; {turboInfo.size_mb?.toFixed(1) || "?"} MB &middot; &lt;100ms queries</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -492,9 +569,34 @@ export default function Dashboard() {
                           {isReconnecting ? "Connecting..." : "Disconnected"}
                         </MotionButton>
                       )}
+                      {/* Turbo Mode toggle — only for live connections */}
+                      {live && liveConnId && (
+                        <button
+                          onClick={() => handleTurboToggle(liveConnId, turboEnabled)}
+                          disabled={turboSyncing}
+                          className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg transition cursor-pointer disabled:opacity-60 ${
+                            turboEnabled && !turboSyncing
+                              ? "bg-cyan-900/20 border border-cyan-700/50 text-cyan-400 hover:bg-cyan-900/40"
+                              : turboSyncing
+                              ? "bg-amber-900/20 border border-amber-700/50 text-amber-400"
+                              : "bg-gray-800/50 border border-gray-700/50 text-gray-500 hover:text-cyan-400 hover:border-cyan-700/50 hover:bg-cyan-900/20"
+                          }`}
+                          title={turboEnabled ? "Disable Turbo Mode" : turboSyncing ? "Syncing local replica..." : "Enable DuckDB Turbo Mode for <100ms queries"}
+                          aria-label={`${turboEnabled ? "Disable" : "Enable"} Turbo Mode`}
+                        >
+                          {turboSyncing ? (
+                            <div className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                            </svg>
+                          )}
+                          {turboSyncing ? "Syncing..." : turboEnabled ? "Turbo" : "Turbo"}
+                        </button>
+                      )}
                       {deleteConfirm === saved.id ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-gray-400">Are you sure?</span>
+                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Are you sure?</span>
                           <button onClick={() => { handleDeleteSaved(saved.id); setDeleteConfirm(null); }} className="px-2 py-0.5 text-xs font-medium rounded-lg bg-red-900/30 border border-red-800/50 text-red-400 hover:bg-red-900/50 transition cursor-pointer" aria-label="Confirm delete connection">Yes</button>
                           <button onClick={() => setDeleteConfirm(null)} className="px-2 py-0.5 text-xs font-medium rounded-lg glass text-gray-400 hover:text-white transition cursor-pointer" aria-label="Cancel delete connection">No</button>
                         </div>
@@ -508,7 +610,7 @@ export default function Dashboard() {
                 );
               })}
             </StaggerContainer>
-            <div className="mt-4 flex items-center gap-2 text-sm text-gray-400">
+            <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
               <span>Select a database below to add another connection, or</span>
               <button onClick={() => navigate("/chat")} className="text-indigo-400 hover:text-indigo-300 font-medium transition cursor-pointer">go to chat</button>
             </div>
@@ -518,7 +620,7 @@ export default function Dashboard() {
         {/* ── Live-only connections (no saved) ─────────────── */}
         {connections.length > 0 && savedConnections.length === 0 && !selected && status === "idle" && (
           <div className="mb-8">
-            <h2 className="text-lg font-semibold text-white mb-3">Connected Databases</h2>
+            <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Connected Databases</h2>
             <div className="space-y-2">
               {connections.map((conn) => {
                 const lbl = DB_LABELS[conn.db_type] || { name: conn.db_type };
@@ -527,15 +629,48 @@ export default function Dashboard() {
                     <div className="flex items-center gap-3">
                       <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" /></span>
                       <DbIcon className={`w-5 h-5 ${DB_MAP[conn.db_type]?.iconColor || "text-gray-400"}`} />
-                      <span className="text-white font-medium">{conn.database_name}</span>
-                      <span className="text-xs text-gray-500">{lbl.name}</span>
+                      <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{conn.database_name}</span>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{lbl.name}</span>
                     </div>
-                    <MotionButton onClick={async () => { try { await api.disconnectDB(conn.conn_id); } catch {} removeConnection(conn.conn_id); }} className="px-3 py-1 text-xs font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg hover:bg-red-900/40 transition cursor-pointer" aria-label={`Disconnect ${conn.database_name}`}>Disconnect</MotionButton>
+                    <div className="flex items-center gap-2">
+                      {/* Turbo Mode toggle for live connection */}
+                      {(() => {
+                        const ts = turboStates[conn.conn_id];
+                        const tEnabled = ts?.enabled || false;
+                        const tSyncing = ts?.syncing || false;
+                        const tInfo = ts?.twin_info || null;
+                        return (
+                          <button
+                            onClick={() => handleTurboToggle(conn.conn_id, tEnabled)}
+                            disabled={tSyncing}
+                            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg transition cursor-pointer disabled:opacity-60 ${
+                              tEnabled && !tSyncing
+                                ? "bg-cyan-900/20 border border-cyan-700/50 text-cyan-400 hover:bg-cyan-900/40"
+                                : tSyncing
+                                ? "bg-amber-900/20 border border-amber-700/50 text-amber-400"
+                                : "bg-gray-800/50 border border-gray-700/50 text-gray-500 hover:text-cyan-400 hover:border-cyan-700/50 hover:bg-cyan-900/20"
+                            }`}
+                            title={tEnabled ? "Disable Turbo Mode" : tSyncing ? "Syncing local replica..." : "Enable DuckDB Turbo Mode for <100ms queries"}
+                            aria-label={`${tEnabled ? "Disable" : "Enable"} Turbo Mode`}
+                          >
+                            {tSyncing ? (
+                              <div className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                              </svg>
+                            )}
+                            {tSyncing ? "Syncing..." : "Turbo"}
+                          </button>
+                        );
+                      })()}
+                      <MotionButton onClick={async () => { try { await api.disconnectDB(conn.conn_id); } catch {} removeConnection(conn.conn_id); }} className="px-3 py-1 text-xs font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg hover:bg-red-900/40 transition cursor-pointer" aria-label={`Disconnect ${conn.database_name}`}>Disconnect</MotionButton>
+                    </div>
                   </div>
                 );
               })}
             </div>
-            <div className="mt-4 flex items-center gap-2 text-sm text-gray-400">
+            <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
               <span>Select a database below to add another connection, or</span>
               <button onClick={() => navigate("/chat")} className="text-indigo-400 hover:text-indigo-300 font-medium transition cursor-pointer">go to chat</button>
             </div>
@@ -548,8 +683,8 @@ export default function Dashboard() {
             {DB_CATEGORIES.map((cat) => (
               <div key={cat.title}>
                 <div className="mb-4">
-                  <h2 className="text-lg font-bold text-white">{cat.title}</h2>
-                  <p className="text-xs text-gray-500">{cat.subtitle}</p>
+                  <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{cat.title}</h2>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{cat.subtitle}</p>
                 </div>
                 <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {cat.dbs.map((d) => (
@@ -563,8 +698,8 @@ export default function Dashboard() {
                         <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${d.color} flex items-center justify-center mb-3 group-hover:scale-110 group-hover:shadow-lg transition-all duration-300`}>
                           <DbIcon className="w-5 h-5 text-white" />
                         </div>
-                        <h3 className="text-base font-bold text-white mb-0.5">{d.name}</h3>
-                        <p className="text-xs text-gray-500 leading-relaxed">{d.desc}</p>
+                        <h3 className="text-base font-bold mb-0.5" style={{ color: 'var(--text-primary)' }}>{d.name}</h3>
+                        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{d.desc}</p>
                       </motion.button>
                     </StaggerItem>
                   ))}
@@ -585,7 +720,7 @@ export default function Dashboard() {
               transition={{ type: "spring", stiffness: 300, damping: 28 }}
               className="max-w-md mx-auto"
             >
-              <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-6 transition cursor-pointer group" aria-label="Back to databases">
+              <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm mb-6 transition cursor-pointer group" style={{ color: 'var(--text-muted)' }} aria-label="Back to databases">
                 <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 Back to databases
               </button>
@@ -595,7 +730,7 @@ export default function Dashboard() {
                   <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${db.color} flex items-center justify-center shadow-lg`}>
                     <DbIcon className="w-5 h-5 text-white" />
                   </div>
-                  <h2 className="text-xl font-bold text-white">{db.name}</h2>
+                  <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{db.name}</h2>
                 </div>
 
                 {error && (
@@ -611,19 +746,20 @@ export default function Dashboard() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">Connection Label <span className="text-gray-600">(optional)</span></label>
-                    <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Production DB, Staging Analytics" className="w-full glass-input rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none input-glow transition" />
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Connection Label <span style={{ color: 'var(--text-muted)' }}>(optional)</span></label>
+                    <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Production DB, Staging Analytics" className="w-full glass-input rounded-lg px-4 py-2.5 placeholder-gray-600 focus:outline-none input-glow transition" style={{ color: 'var(--text-primary)' }} />
                   </div>
 
                   {db.fields.map((field) => (
                     <div key={field.key}>
-                      <label className="block text-sm text-gray-400 mb-1">{field.label}</label>
+                      <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>{field.label}</label>
                       <input
                         type={field.type}
                         value={form[field.key] || ""}
                         onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
                         placeholder={field.placeholder}
-                        className="w-full glass-input rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none input-glow transition"
+                        className="w-full glass-input rounded-lg px-4 py-2.5 placeholder-gray-600 focus:outline-none input-glow transition"
+                        style={{ color: 'var(--text-primary)' }}
                       />
                     </div>
                   ))}
@@ -665,11 +801,12 @@ export default function Dashboard() {
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
                 <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Connection Failed</h3>
+              <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Connection Failed</h3>
               <motion.p
                 animate={{ x: [0, -8, 8, -4, 4, 0] }}
                 transition={{ duration: 0.4 }}
-                className="text-sm text-gray-400 mb-6"
+                className="text-sm mb-6"
+                style={{ color: 'var(--text-secondary)' }}
               >
                 {error}
               </motion.p>

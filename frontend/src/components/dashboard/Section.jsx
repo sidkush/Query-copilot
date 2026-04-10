@@ -5,7 +5,7 @@ import FreeformCanvas from './FreeformCanvas';
 import LayoutModeToggle from './LayoutModeToggle';
 import { TOKENS } from './tokens';
 
-function SectionGrid({ tiles, layout, onLayoutChange, sectionId, connId, onTileEdit, onTileEditSQL, onTileChartChange, onTileRemove, onTileRefresh, customMetrics, onTileSelect, selectedTileId, themeConfig, crossFilter, onCrossFilterClick, dashboardId, fullscreenMode = false }) {
+function SectionGrid({ tiles, layout, onLayoutChange, sectionId, connId, onTileEdit, onTileChartChange, onTileRemove, onTileMove, onTileCopy, onTileRefresh, customMetrics, onTileSelect, selectedTileId, themeConfig, crossFilter, onCrossFilterClick, dashboardId, fullscreenMode = false, allTabs = [] }) {
   const containerRef = useRef(null);
   const [width, setWidth] = useState(0);
 
@@ -39,9 +39,10 @@ function SectionGrid({ tiles, layout, onLayoutChange, sectionId, connId, onTileE
             <div key={tile.id}>
               <TileWrapper tile={tile} index={i}
                 onEdit={onTileEdit}
-                onEditSQL={() => onTileEditSQL?.(tile)}
                 onChangeChart={(tileId, chartType) => onTileChartChange?.(tileId, chartType)}
                 onRemove={() => onTileRemove?.(tile.id)}
+                onMove={(targetTabId, targetSectionId) => onTileMove?.(tile.id, targetTabId, targetSectionId)}
+                onCopy={(targetTabId, targetSectionId) => onTileCopy?.(tile.id, targetTabId, targetSectionId)}
                 onRefresh={() => onTileRefresh?.(tile.id, connId)}
                 customMetrics={customMetrics}
                 onSelect={() => onTileSelect?.(tile.id)}
@@ -49,7 +50,8 @@ function SectionGrid({ tiles, layout, onLayoutChange, sectionId, connId, onTileE
                 crossFilter={crossFilter}
                 onCrossFilterClick={onCrossFilterClick}
                 dashboardId={dashboardId}
-                themeConfig={themeConfig} />
+                themeConfig={themeConfig}
+                allTabs={allTabs} />
             </div>
           ))}
         </GridLayout>
@@ -59,12 +61,12 @@ function SectionGrid({ tiles, layout, onLayoutChange, sectionId, connId, onTileE
 }
 
 export default function Section({
-  section, connId, onLayoutChange, onTileEdit, onTileEditSQL,
-  onTileChartChange, onTileRemove, onTileRefresh, onAddTile, onEditSection,
+  section, connId, onLayoutChange, onTileEdit,
+  onTileChartChange, onTileRemove, onTileMove, onTileCopy, onTileRefresh, onAddTile, onEditSection,
   onDeleteSection, onReorderSection, onRenameSection,
   customMetrics, onToggleLayoutMode, onFreeformLayoutChange, onCanvasViewportChange,
   onTileSelect, selectedTileId, themeConfig, crossFilter, onCrossFilterClick, dashboardId,
-  fullscreenMode = false,
+  fullscreenMode = false, allTabs = [],
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -167,11 +169,12 @@ export default function Section({
       {!collapsed && tiles.length > 0 && layoutMode === 'grid' && (
         <SectionGrid tiles={tiles} layout={layout} onLayoutChange={onLayoutChange} sectionId={section.id}
           connId={connId}
-          onTileEdit={onTileEdit} onTileEditSQL={onTileEditSQL} onTileChartChange={onTileChartChange}
-          onTileRemove={onTileRemove} onTileRefresh={onTileRefresh} customMetrics={customMetrics}
+          onTileEdit={onTileEdit} onTileChartChange={onTileChartChange}
+          onTileRemove={onTileRemove} onTileMove={onTileMove} onTileCopy={onTileCopy}
+          onTileRefresh={onTileRefresh} customMetrics={customMetrics}
           onTileSelect={onTileSelect} selectedTileId={selectedTileId} themeConfig={themeConfig}
           crossFilter={crossFilter} onCrossFilterClick={onCrossFilterClick}
-          dashboardId={dashboardId} fullscreenMode={fullscreenMode} />
+          dashboardId={dashboardId} fullscreenMode={fullscreenMode} allTabs={allTabs} />
       )}
 
       {!collapsed && tiles.length > 0 && layoutMode === 'freeform' && (
@@ -185,7 +188,6 @@ export default function Section({
             sectionId={section.id}
             connId={connId}
             onTileEdit={onTileEdit}
-            onTileEditSQL={onTileEditSQL}
             onTileChartChange={onTileChartChange}
             onTileRemove={onTileRemove}
             onTileRefresh={onTileRefresh}

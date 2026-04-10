@@ -17,6 +17,25 @@ export const useStore = create((set, get) => ({
     set({ user: null, token: null, connections: [], activeConnId: null });
   },
 
+  // Theme
+  theme: localStorage.getItem("askdb-theme") || "system",
+  resolvedTheme: (() => {
+    const pref = localStorage.getItem("askdb-theme") || "system";
+    if (pref === "system") return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    return pref;
+  })(),
+  setTheme: (preference) => {
+    localStorage.setItem("askdb-theme", preference);
+    const resolved = preference === "system"
+      ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : preference;
+    // Smooth transition class
+    document.documentElement.classList.add("theme-transitioning");
+    document.documentElement.classList.toggle("light", resolved === "light");
+    setTimeout(() => document.documentElement.classList.remove("theme-transitioning"), 350);
+    set({ theme: preference, resolvedTheme: resolved });
+  },
+
   // Onboarding state (replaces tutorialComplete)
   tutorialComplete: localStorage.getItem("tutorialComplete") === "true",
   setTutorialComplete: (v) => {
@@ -68,7 +87,13 @@ export const useStore = create((set, get) => ({
   messages: [],
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
   clearMessages: () => set({ messages: [] }),
-  setMessages: (msgs) => set({ messages: msgs }),
+  setMessages: (msgs) => {
+    if (typeof msgs === "function") {
+      set((s) => ({ messages: msgs(s.messages) }));
+    } else {
+      set({ messages: Array.isArray(msgs) ? msgs : [] });
+    }
+  },
 
   // Saved connections
   savedConnections: [],
@@ -149,6 +174,11 @@ export const useStore = create((set, get) => ({
   queryIntelligence: { schemaProfileLoaded: false, memoryInsightCount: 0, lastTierHit: null },
   dualResponseActive: false,
   cachedResultStep: null,
+  agentChecklist: [],
+  agentPhase: null,
+  agentElapsedMs: 0,
+  agentEstimatedMs: 0,
+  agentVerification: null,
   agentDock: "float",
   agentPanelWidth: 380,
   agentPanelHeight: 500,
@@ -184,15 +214,31 @@ export const useStore = create((set, get) => ({
   setAgentResizing: (v) => set({ agentResizing: !!v }),
 
   setAgentSteps: (steps) => set({ agentSteps: Array.isArray(steps) ? steps : [] }),
-  addAgentStep: (step) => set((s) => {
-    const base = { agentSteps: [...s.agentSteps, step] };
+  addAgentStep: (step) => set((state) => {
+    const newSteps = [...state.agentSteps, step];
+    const updates = { agentSteps: newSteps };
     if (step.type === "cached_result") {
-      return { ...base, dualResponseActive: true, cachedResultStep: step };
+      updates.dualResponseActive = true;
+      updates.cachedResultStep = step;
     }
     if (step.type === "live_correction" || step.type === "result") {
-      return { ...base, dualResponseActive: false };
+      updates.dualResponseActive = false;
     }
-    return base;
+    if (step.type === "checklist_update" && step.checklist) {
+      updates.agentChecklist = step.checklist;
+      if (step.elapsed_ms != null) updates.agentElapsedMs = step.elapsed_ms;
+      if (step.estimated_total_ms != null) updates.agentEstimatedMs = step.estimated_total_ms;
+    }
+    if (step.type === "phase_start") {
+      updates.agentPhase = step.phase;
+    }
+    if (step.type === "phase_complete") {
+      updates.agentPhase = null;
+    }
+    if (step.type === "verification") {
+      updates.agentVerification = step.tool_input;
+    }
+    return updates;
   }),
   clearAgent: () => set({
     agentSteps: [],
@@ -203,9 +249,19 @@ export const useStore = create((set, get) => ({
     agentChatId: null,
     dualResponseActive: false,
     cachedResultStep: null,
+    agentChecklist: [],
+    agentPhase: null,
+    agentElapsedMs: 0,
+    agentEstimatedMs: 0,
+    agentVerification: null,
   }),
   setDualResponseActive: (active) => set({ dualResponseActive: active }),
   setCachedResultStep: (step) => set({ cachedResultStep: step }),
+  setAgentChecklist: (checklist) => set({ agentChecklist: checklist }),
+  setAgentPhase: (phase) => set({ agentPhase: phase }),
+  setAgentElapsedMs: (ms) => set({ agentElapsedMs: ms }),
+  setAgentEstimatedMs: (ms) => set({ agentEstimatedMs: ms }),
+  setAgentVerification: (v) => set({ agentVerification: v }),
   setAgentLoading: (v) => set({ agentLoading: v }),
   setAgentError: (e) => set({ agentError: e }),
   agentWaitingOptions: null,
@@ -223,55 +279,50 @@ export const useStore = create((set, get) => ({
     queryIntelligence: { ...s.queryIntelligence, ...update },
   })),
 
-  // Agent history persistence (localStorage, max 20 conversations)
+  // Agent history persistence (server-side via API — Invariant-5)
+  // Backend auto-saves on SSE completion; saveAgentHistory is now a no-op
+  // kept for backward compatibility with callers in AgentPanel.jsx
   saveAgentHistory: () => {
-    const { agentChatId, agentSteps } = get();
-    if (!agentChatId || !agentSteps.length) return;
-    try {
-      const raw = JSON.parse(localStorage.getItem("qc_agent_history") || "{}");
-      raw[agentChatId] = {
-        steps: agentSteps,
-        updatedAt: Date.now(),
-      };
-      // Keep only last 20 conversations
-      const keys = Object.keys(raw).sort((a, b) => (raw[b].updatedAt || 0) - (raw[a].updatedAt || 0));
-      if (keys.length > 20) {
-        for (const k of keys.slice(20)) delete raw[k];
-      }
-      localStorage.setItem("qc_agent_history", JSON.stringify(raw));
-    } catch { /* quota exceeded or corrupt — ignore */ }
+    // No-op: backend persists sessions to SQLite automatically (Task 3)
   },
-  loadAgentHistory: (chatId) => {
+  loadAgentHistory: async (chatId) => {
     try {
-      const raw = JSON.parse(localStorage.getItem("qc_agent_history") || "{}");
-      const entry = raw[chatId];
-      if (entry?.steps?.length) {
-        set({ agentSteps: entry.steps, agentChatId: chatId });
+      const { api } = await import("./api");
+      const session = await api.agentSessionLoad(chatId);
+      if (session?.steps?.length) {
+        set({ agentSteps: session.steps, agentChatId: chatId, agentSessionProgress: session.progress || null });
         return true;
       }
-    } catch { /* corrupt — ignore */ }
+    } catch (err) {
+      console.warn("Failed to load agent session:", err);
+    }
     return false;
   },
-  getAgentHistoryList: () => {
+  getAgentHistoryList: async () => {
     try {
-      const raw = JSON.parse(localStorage.getItem("qc_agent_history") || "{}");
-      return Object.entries(raw)
-        .map(([id, v]) => ({
-          chatId: id,
-          updatedAt: v.updatedAt || 0,
-          preview: v.steps?.find((s) => s.type === "result")?.content?.slice(0, 80)
-            || v.steps?.[0]?.content?.slice(0, 80)
-            || "Agent conversation",
-          stepCount: v.steps?.length || 0,
-        }))
-        .sort((a, b) => b.updatedAt - a.updatedAt);
-    } catch { return []; }
+      const { api } = await import("./api");
+      const data = await api.agentSessions();
+      return (data?.sessions || []).map((s) => ({
+        chatId: s.chat_id,
+        updatedAt: s.updated_at ? s.updated_at * 1000 : 0, // Convert epoch seconds to ms
+        preview: s.title || "Agent conversation",
+        stepCount: s.step_count || 0,
+        hasPending: s.has_pending || false,
+      }));
+    } catch (err) {
+      console.warn("Failed to list agent sessions:", err);
+      return [];
+    }
   },
-  deleteAgentHistory: (chatId) => {
+  deleteAgentHistory: async (chatId) => {
     try {
-      const raw = JSON.parse(localStorage.getItem("qc_agent_history") || "{}");
-      delete raw[chatId];
-      localStorage.setItem("qc_agent_history", JSON.stringify(raw));
-    } catch { /* ignore */ }
+      const { api } = await import("./api");
+      await api.agentSessionDelete(chatId);
+    } catch (err) {
+      console.warn("Failed to delete agent session:", err);
+    }
   },
+  // Progress state for continue/resume UI
+  agentSessionProgress: null,
+  setAgentSessionProgress: (p) => set({ agentSessionProgress: p }),
 }));
