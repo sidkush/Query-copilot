@@ -2,14 +2,14 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "datalens-backend",
+      "name": "askdb-backend",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "uvicorn", "main:app", "--reload", "--port", "8002"],
       "cwd": "C:\\Users\\sid23\\Documents\\Agentic_AI\\files\\QueryCopilot V1\\backend",
       "port": 8002
     },
     {
-      "name": "datalens-frontend",
+      "name": "askdb-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "cwd": "C:\\Users\\sid23\\Documents\\Agentic_AI\\files\\QueryCopilot V1\\frontend",

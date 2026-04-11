@@ -1,16 +1,16 @@
 # ── Core Framework ──────────────────────────────────────────
-fastapi>=0.115
+fastapi==0.115.6
 uvicorn[standard]>=0.34
-pydantic>=2.6
+pydantic==2.12.5
 pydantic-settings>=2.6
 python-dotenv>=1.0
 
 # ── AI & RAG ────────────────────────────────────────────────
-anthropic>=0.86
+anthropic==0.86.0
 chromadb>=1.0
 
 # ── Database — Core ────────────────────────────────────────
-sqlalchemy>=2.0
+sqlalchemy==2.0.48
 pandas>=2.2
 
 # ── Database Drivers — Relational ──────────────────────────
@@ -22,8 +22,8 @@ pymssql>=2.2                      # Microsoft SQL Server
 # ── Database Drivers — Cloud Data Warehouses ───────────────
 # snowflake-sqlalchemy            # Snowflake (install manually if needed)
 # google-cloud-bigquery[sqlalchemy] # BigQuery (install manually if needed)
-sqlalchemy-redshift>=0.8          # Amazon Redshift
-redshift-connector>=2.0           # Amazon Redshift driver
+# sqlalchemy-redshift>=0.8        # Amazon Redshift (install manually — requires SQLAlchemy <2.0)
+# redshift-connector>=2.0         # Amazon Redshift driver
 
 # ── Database Drivers — Analytics Engines ───────────────────
 duckdb>=0.9                       # DuckDB
@@ -45,12 +45,12 @@ oracledb>=1.0                     # Oracle
 # ibm_db>=3.0                    # IBM Db2 driver
 
 # ── SQL Validation ──────────────────────────────────────────
-sqlglot>=26.0
+sqlglot==30.1.0
 
 # ── Auth ────────────────────────────────────────────────────
-python-jose[cryptography]>=3.3
+python-jose[cryptography]==3.5.0
 passlib[bcrypt]>=1.7
-bcrypt>=4.0
+bcrypt==5.0.0
 
 # ── CORS & Utils ────────────────────────────────────────────
 python-multipart>=0.0.18

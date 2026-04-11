@@ -1,5 +1,5 @@
 """
-JWT Authentication for DataLens.
+JWT Authentication for AskDB.
 Includes email/password auth + Google & GitHub OAuth.
 """
 
@@ -39,6 +39,7 @@ def _verify_password(password: str, hashed: str) -> bool:
 security = HTTPBearer()
 
 USERS_FILE = str(Path(__file__).resolve().parent / ".data" / "users.json")
+DELETED_USERS_FILE = str(Path(__file__).resolve().parent / ".data" / "deleted_users.json")
 _lock = threading.Lock()
 
 
@@ -74,18 +75,31 @@ def _load_users() -> dict:
     if not os.path.exists(USERS_FILE):
         return {}
     with open(USERS_FILE, "r") as f:
-        return json.load(f)
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            return {}
 
 
 def _save_users(users: dict):
     os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
-    with open(USERS_FILE, "w") as f:
+    tmp = USERS_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(users, f, indent=2)
+    os.replace(tmp, USERS_FILE)
 
 
 def _sanitize_text(text: str) -> str:
-    """Strip HTML tags and dangerous characters from user input."""
-    return re.sub(r"<[^>]*>", "", text).strip()
+    """Strip HTML tags, entities, and dangerous URI schemes from user input."""
+    import html
+    # Decode HTML entities first so encoded tags become real tags for stripping
+    text = html.unescape(text)
+    # Strip HTML tags
+    text = re.sub(r"<[^>]*>", "", text)
+    # Strip dangerous URI schemes
+    text = re.sub(r"(?i)\b(javascript|vbscript)\s*:", "", text)
+    text = re.sub(r"(?i)\bdata\s*:\s*text/html\b[^,]*,?", "", text)
+    return text.strip()
 
 
 _PHONE_RE = re.compile(r"^\d{4,15}$")
@@ -104,8 +118,10 @@ def _load_verifications() -> dict:
 
 def _save_verifications(data: dict):
     os.makedirs(os.path.dirname(PENDING_VERIFICATIONS_FILE), exist_ok=True)
-    with open(PENDING_VERIFICATIONS_FILE, "w") as f:
+    tmp = PENDING_VERIFICATIONS_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
+    os.replace(tmp, PENDING_VERIFICATIONS_FILE)
 
 
 def mark_verified(identifier: str, channel: str):
@@ -127,7 +143,8 @@ def is_verified(identifier: str, channel: str) -> bool:
     """Check if email or phone has been verified."""
     identifier = identifier.strip().lower()
     key = f"{channel}:{identifier}"
-    vdata = _load_verifications()
+    with _lock:
+        vdata = _load_verifications()
     entry = vdata.get(key)
     if not entry:
         return False
@@ -155,6 +172,16 @@ def check_verification_status(email: str, phone: str = "") -> dict:
     else:
         result["phone_verified"] = False
     return result
+
+
+def _load_deleted_users() -> dict:
+    if not os.path.exists(DELETED_USERS_FILE):
+        return {}
+    try:
+        with open(DELETED_USERS_FILE, "r") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return {}
 
 
 def _normalize_phone(phone: str) -> str:
@@ -192,6 +219,13 @@ def create_user(email: str, password: str, name: str = "",
         users = _load_users()
         if email in users:
             raise ValueError("User already exists")
+
+        # Block re-registration of deleted accounts
+        deleted = _load_deleted_users()
+        if email in deleted:
+            raise ValueError(
+                "This account was previously deleted. Contact support to reactivate."
+            )
 
         users[email] = {
             "email": email,
@@ -313,8 +347,10 @@ def _load_oauth_states() -> dict:
 
 def _save_oauth_states(states: dict):
     os.makedirs(os.path.dirname(OAUTH_STATES_FILE), exist_ok=True)
-    with open(OAUTH_STATES_FILE, "w") as f:
+    tmp = OAUTH_STATES_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(states, f, indent=2)
+    os.replace(tmp, OAUTH_STATES_FILE)
 
 
 def _new_oauth_state(provider: str) -> str:

@@ -1,5 +1,5 @@
 """
-DataLens — FastAPI Backend
+AskDB — FastAPI Backend
 """
 
 import logging
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup — no auto DB connection; user connects via /api/connections/connect
-    logger.info("Starting DataLens backend (lazy mode — waiting for user to connect a database)...")
+    logger.info("Starting AskDB backend (lazy mode — waiting for user to connect a database)...")
     app.state.connections = {}  # {email: {conn_id: ConnectionEntry}}
     # M1: Explicit thread pool to prevent default 8-12 thread bottleneck
     # P2 NEMESIS fix: use get_running_loop() (Python 3.10+ safe in async context)
@@ -40,7 +40,37 @@ async def lifespan(app: FastAPI):
         start_digest_scheduler()
     except Exception as exc:
         logger.warning(f"Digest scheduler failed to start: {exc}")
+    # Start periodic cleanup_stale scheduler for query memory (every 6 hours)
+    memory_cleanup_task = None
+    try:
+        async def _periodic_cleanup_stale():
+            """Run cleanup_stale() for all active connections every 6 hours."""
+            import asyncio as _aio
+            from query_memory import QueryMemory
+            qm = QueryMemory()  # Create once — reuse across iterations to avoid ChromaDB client proliferation
+            INTERVAL = 6 * 3600  # 6 hours
+            while True:
+                await _aio.sleep(INTERVAL)
+                try:
+                    for _email, user_conns in list(app.state.connections.items()):
+                        for conn_id in list(user_conns.keys()):
+                            try:
+                                deleted = qm.cleanup_stale(conn_id)
+                                if deleted:
+                                    logger.info(f"cleanup_stale: pruned {deleted} stale insights for conn={conn_id}")
+                            except Exception:
+                                logger.debug(f"cleanup_stale: skipped conn={conn_id}")
+                except Exception:
+                    logger.exception("Periodic cleanup_stale failed")
+        memory_cleanup_task = asyncio.create_task(_periodic_cleanup_stale())
+        logger.info("Query memory cleanup scheduler started (interval=6h)")
+    except Exception as exc:
+        logger.warning(f"Query memory cleanup scheduler failed to start: {exc}")
     yield
+    # Shutdown — stop cleanup_stale scheduler
+    if memory_cleanup_task is not None:
+        memory_cleanup_task.cancel()
+        logger.info("Query memory cleanup scheduler stopped")
     # Shutdown — stop digest scheduler
     try:
         from digest import stop_digest_scheduler
@@ -55,7 +85,7 @@ async def lifespan(app: FastAPI):
             except Exception:
                 pass
     app.state.connections.clear()
-    logger.info("DataLens backend shut down.")
+    logger.info("AskDB backend shut down.")
 
 
 app = FastAPI(
@@ -108,18 +138,43 @@ app.include_router(behavior_routes.router)
 
 @app.get("/api/v1/health")
 def health_check():
-    any_alive = False
-    total_connections = 0
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    HEALTH_CHECK_TIMEOUT = 5  # seconds per connection
+
+    entries = []
     for email, user_conns in app.state.connections.items():
         for conn_id, entry in user_conns.items():
-            total_connections += 1
+            entries.append((conn_id, entry))
+
+    total_connections = len(entries)
+    healthy_count = 0
+    unhealthy_count = 0
+
+    if entries:
+        def _check(item):
+            _cid, entry = item
             try:
-                if entry.connector.test_connection():
-                    any_alive = True
+                return entry.connector.test_connection()
             except Exception:
-                pass
+                return False
+
+        with ThreadPoolExecutor(max_workers=min(total_connections, 8)) as pool:
+            futures = [pool.submit(_check, e) for e in entries]
+            for future in as_completed(futures, timeout=HEALTH_CHECK_TIMEOUT):
+                try:
+                    alive = future.result(timeout=HEALTH_CHECK_TIMEOUT)
+                    if alive:
+                        healthy_count += 1
+                    else:
+                        unhealthy_count += 1
+                except Exception:
+                    unhealthy_count += 1
+
     return {
         "status": "healthy",
-        "database_connected": any_alive,
+        "database_connected": healthy_count > 0,
         "active_connections": total_connections,
+        "healthy_connections": healthy_count,
+        "unhealthy_connections": unhealthy_count,
     }

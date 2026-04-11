@@ -852,7 +852,7 @@ Return ONLY valid JSON array, no markdown fences.""",
                 continue
             tile_config = {
                 "title": str(t.get("title", "Untitled"))[:200],
-                "chartType": t.get("chartType", "bar") if t.get("chartType") in ("bar", "line", "area", "pie", "donut", "table", "kpi", "scatter", "stacked_bar", "horizontal_bar") else "bar",
+                "chartType": t.get("chartType", "bar") if t.get("chartType") in ("bar", "line", "area", "pie", "donut", "table", "kpi", "scatter", "stacked_bar", "bar_h") else "bar",
                 "suggestedQuery": str(t.get("suggestedQuery", ""))[:500],
             }
             # Generate SQL from suggested query

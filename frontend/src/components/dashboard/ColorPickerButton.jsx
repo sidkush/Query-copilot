@@ -44,7 +44,7 @@ export default function ColorPickerButton({ color, onChange, size = 28 }) {
             style={{
               marginTop: 8, width: '100%', padding: '6px 8px', boxSizing: 'border-box',
               background: TOKENS.bg.deep, border: `1px solid ${TOKENS.border.default}`,
-              borderRadius: 4, color: '#fff', fontSize: 12, fontFamily: 'monospace',
+              borderRadius: 4, color: TOKENS.text.primary, fontSize: 12, fontFamily: 'monospace',
               outline: 'none',
             }}
           />

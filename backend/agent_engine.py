@@ -401,6 +401,7 @@ class SessionMemory:
         self._running: bool = False  # True while an agent loop is active
         self._waiting_for_user: bool = False  # True while agent is blocked on ask_user
         self._lock: threading.Lock = threading.Lock()  # Guards _running, _user_response, _waiting_for_user
+        self._user_response_event: threading.Event = threading.Event()  # Replaces sleep-polling for ask_user
 
     def add_turn(self, role: str, content: str):
         with self._lock:
@@ -1162,9 +1163,15 @@ class AgentEngine:
                         yield AgentStep(type="tier_routing", content=f"Answered from {tier_result.tier_name} tier",
                                       tool_name="waterfall", tool_result=json.dumps(tier_result.data or {}))
                         _logger.info("Waterfall hit: tier=%s, time=%dms", tier_result.tier_name, tier_result.metadata.get("time_ms", 0))
-                        if tier_result.tier_name == "schema" and tier_result.data:
+                        if tier_result.tier_name in ("schema", "memory") and tier_result.data:
                             self.memory.add_turn("user", question)
                             self.memory.add_turn("assistant", tier_result.data.get("answer", ""))
+                            # Count cached answers against daily query limits
+                            try:
+                                from user_storage import increment_query_stats
+                                increment_query_stats(self.email, tier_result.metadata.get("time_ms", 0), True)
+                            except Exception:
+                                pass
                             yield AgentStep(type="result", content=tier_result.data.get("answer", ""))
                             self._result.final_answer = tier_result.data.get("answer", "")
                             return
@@ -1192,22 +1199,55 @@ class AgentEngine:
                 if _cached_result.tier_name == "schema":
                     self.memory.add_turn("user", question)
                     self.memory.add_turn("assistant", _dual_cached_content)
+                    try:
+                        from user_storage import increment_query_stats
+                        increment_query_stats(self.email, 0, True)
+                    except Exception:
+                        pass
                     yield AgentStep(type="result", content=_dual_cached_content)
                     self._result.final_answer = _dual_cached_content
                     return
 
-                # If staleness gate says fresh + no live needed, return cached as final
-                if _live_callable is None:
+                # Memory early return — instant answer, async live verification.
+                # Note: Turbo tier reports availability but doesn't answer
+                # questions directly (it's an execution backend), so it should
+                # NOT early-return; its cached_result is a status indicator only.
+                if _cached_result.tier_name == "memory":
                     self.memory.add_turn("user", question)
                     self.memory.add_turn("assistant", _dual_cached_content)
-                    yield AgentStep(
-                        type="live_correction",
-                        content=_dual_cached_content,
-                        is_correction=True,
-                        diff_summary="Confirmed, data unchanged (cache is fresh)",
-                    )
+                    try:
+                        from user_storage import increment_query_stats
+                        increment_query_stats(self.email, 0, True)
+                    except Exception:
+                        pass
                     yield AgentStep(type="result", content=_dual_cached_content)
                     self._result.final_answer = _dual_cached_content
+                    self._result.dual_response = True
+
+                    # Fire live verification in background thread — non-blocking
+                    if _live_callable is not None:
+                        import threading
+                        _cached_snapshot = _dual_cached_content  # capture for closure
+
+                        def _bg_verify():
+                            try:
+                                live_result = _live_callable()
+                                if live_result and live_result.hit:
+                                    live_answer = live_result.data.get("answer", "")
+                                    if live_answer and live_answer.strip() != _cached_snapshot.strip():
+                                        self._result.live_correction = live_answer
+                                        self._result.live_diff = self._compute_diff(
+                                            _cached_snapshot, live_answer
+                                        )
+                                        _logger.info("Background verify: correction detected")
+                                    else:
+                                        _logger.info("Background verify: data unchanged")
+                                else:
+                                    _logger.info("Background verify: live tier miss (cached answer stands)")
+                            except Exception as exc:
+                                _logger.warning("Background live verification failed: %s", exc)
+
+                        threading.Thread(target=_bg_verify, daemon=True).start()
                     return
 
         # ── Parallel schema prefetch (Task 4) ────────────────────
@@ -1513,16 +1553,18 @@ class AgentEngine:
                             # before the memory flag is set (409 desync bug)
                             with self.memory._lock:
                                 self.memory._waiting_for_user = True
+                                self.memory._user_response_event.clear()
                             yield ask_step
-                            # Block generator until user responds (polled by SSE loop)
+                            # Block generator until user responds (Event-based, not polling)
+                            user_wait_deadline = time.monotonic() + self.WALL_CLOCK_LIMIT * 10
                             while self.memory._user_response is None:
                                 if self.memory._cancelled:
                                     raise AgentGuardrailError("Session cancelled by client disconnect")
-                                time.sleep(0.3)
-                                # Respect wall-clock timeout (extended for user input)
-                                elapsed = time.monotonic() - self._start_time
-                                if elapsed > self.WALL_CLOCK_LIMIT * 10:
+                                remaining = user_wait_deadline - time.monotonic()
+                                if remaining <= 0:
                                     raise AgentGuardrailError("Timed out waiting for user response")
+                                # Wait on Event — releases thread to OS (no busy-loop)
+                                self.memory._user_response_event.wait(timeout=min(remaining, 5.0))
                             # Resume with user response
                             with self.memory._lock:
                                 user_resp = self.memory._user_response

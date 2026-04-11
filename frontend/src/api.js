@@ -386,6 +386,12 @@ export const api = {
   refreshTile: (dashboardId, tileId, connId, filters = null, sourceId = null, parameters = null) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}/refresh`, { method: "POST", body: JSON.stringify({ conn_id: connId, filters, source_id: sourceId, parameters: parameters || undefined }) }),
 
+  // ── Tile Move & Copy ──
+  moveTile: (dashboardId, tileId, targetTabId, targetSectionId) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}/move`, { method: "POST", body: JSON.stringify({ target_tab_id: targetTabId, target_section_id: targetSectionId }) }),
+  copyTile: (dashboardId, tileId, targetTabId, targetSectionId) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}/copy`, { method: "POST", body: JSON.stringify({ target_tab_id: targetTabId, target_section_id: targetSectionId }) }),
+
   // ── Annotations ──
   addDashboardAnnotation: (dashboardId, text, authorName) =>
     request(`/dashboards/${dashboardId}/annotations`, { method: "POST", body: JSON.stringify({ text, authorName }) }),
@@ -396,12 +402,6 @@ export const api = {
   deleteTileAnnotation: (dashboardId, tileId, annotationId) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}/annotations/${annotationId}`, { method: "DELETE" }),
 
-  // ── AI Suggestions ──
-  aiSuggestChart: (dashboardId, tileId, columns, sampleRows, question) =>
-    request(`/dashboards/${dashboardId}/tiles/${tileId}/ai-suggest`, {
-      method: "POST",
-      body: JSON.stringify({ columns, sample_rows: sampleRows, question }),
-    }),
   editTileNL: (instruction, tileState, connId = null) =>
     request('/queries/edit-tile', {
       method: "POST",
@@ -411,6 +411,12 @@ export const api = {
     request('/queries/image-to-dashboard', {
       method: "POST",
       body: JSON.stringify({ image_base64: imageBase64, media_type: mediaType, conn_id: connId }),
+    }),
+
+  generateColumnSQL: (connId, existingSQL, newColumns) =>
+    request('/dashboards/generate-column-sql', {
+      method: 'POST',
+      body: JSON.stringify({ conn_id: connId, existing_sql: existingSQL, new_columns: newColumns }),
     }),
 
   explainAnomaly: (data) =>
@@ -623,6 +629,76 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ chat_id: chatId, response }),
     }),
+
+  agentCancel: (chatId) =>
+    request(`/agent/cancel/${chatId}`, { method: "POST" }),
+
+  // ── Agent Session Persistence ──────────────────────────────
+  agentSessions: () => request("/agent/sessions"),
+
+  agentSessionLoad: (chatId) => request(`/agent/sessions/${chatId}`),
+
+  agentSessionDelete: (chatId) =>
+    request(`/agent/sessions/${chatId}`, { method: "DELETE" }),
+
+  agentContinue: (chatId, connId, onStep, { persona, permissionMode } = {}) => {
+    const controller = new AbortController();
+    const body = JSON.stringify({
+      chat_id: chatId,
+      conn_id: connId || null,
+      persona: persona || null,
+      permission_mode: permissionMode || "supervised",
+    });
+    const run = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/agent/continue`, {
+          method: "POST",
+          headers: getHeaders(),
+          body,
+          signal: controller.signal,
+        });
+        if (res.status === 401) {
+          localStorage.removeItem("token");
+          window.location.href = "/login";
+          return;
+        }
+        if (!res.ok) {
+          const errText = await res.text();
+          onStep({ type: "error", content: errText || `Server error (${res.status})` });
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                onStep(data);
+              } catch { /* skip malformed */ }
+            }
+          }
+        }
+        if (buffer.startsWith("data: ")) {
+          try {
+            onStep(JSON.parse(buffer.slice(6)));
+          } catch { /* skip */ }
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          onStep({ type: "error", content: err.message });
+        }
+      }
+    };
+    run();
+    return { close: () => controller.abort() };
+  },
 
   // Health
   health: () => request("/health"),

@@ -1,5 +1,5 @@
 """
-Redis connection helper for DataLens.
+Redis connection helper for AskDB.
 
 Provides a singleton connection pool with graceful fallback — returns
 ``None`` if Redis is unavailable so callers can fall back to in-memory.

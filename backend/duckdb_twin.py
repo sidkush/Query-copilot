@@ -33,10 +33,18 @@ _MAX_ROWS_PER_TABLE = 50_000          # Hard cap — prevents bloat on TB-scale 
 _METADATA_TABLE = "_twin_metadata"   # Internal DuckDB table holding sync metadata
 
 # Databases known to support TABLESAMPLE SYSTEM (SQL standard / dialect-specific).
-# For others we fall back to ORDER BY RANDOM() LIMIT.
+# For others we fall back to ORDER BY RANDOM()/RAND() LIMIT.
 _TABLESAMPLE_ENGINES = {
     "postgresql", "redshift", "cockroachdb",
     "mssql", "oracle", "ibm_db2",
+    "bigquery", "databricks",  # Both support TABLESAMPLE SYSTEM (N PERCENT)
+}
+
+# Databases that use RAND() instead of RANDOM() for random ordering.
+# PostgreSQL, Snowflake, SQLite, DuckDB, Trino use RANDOM().
+# MySQL, MariaDB, SAP HANA, ClickHouse use RAND().
+_RAND_ENGINES = {
+    "mysql", "mariadb", "sap_hana", "clickhouse",
 }
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -75,25 +83,36 @@ def _supports_tablesample(db_connector) -> bool:
     return _db_type_name(db_connector) in _TABLESAMPLE_ENGINES
 
 
+def _uses_rand(db_connector) -> bool:
+    """Return True if the source DB uses RAND() instead of RANDOM()."""
+    return _db_type_name(db_connector) in _RAND_ENGINES
+
+
 def _build_sample_sql(
     table: str,
     supports_tablesample: bool,
     sample_percent: float,
     max_rows: int,
+    use_rand: bool = False,
 ) -> str:
     """
     Build a SELECT-only sampling query for the given table.
 
     Invariant-1: This is always a SELECT statement — never mutates the source DB.
+
+    Args:
+        use_rand: If True, use RAND() instead of RANDOM() for databases
+                  like MySQL, MariaDB, SAP HANA, ClickHouse.
     """
     if supports_tablesample:
         return (
             f"SELECT * FROM {table} "
-            f"TABLESAMPLE SYSTEM ({sample_percent}) "
+            f"TABLESAMPLE SYSTEM ({sample_percent} PERCENT) "
             f"LIMIT {max_rows}"
         )
-    # Fallback: ORDER BY RANDOM() — portable across all engines
-    return f"SELECT * FROM {table} ORDER BY RANDOM() LIMIT {max_rows}"
+    # Fallback: ORDER BY RANDOM()/RAND() depending on dialect
+    rand_fn = "RAND()" if use_rand else "RANDOM()"
+    return f"SELECT * FROM {table} ORDER BY {rand_fn} LIMIT {max_rows}"
 
 
 # ── Query-pattern warm priorities (Task 4.2) ──────────────────────────────────
@@ -284,6 +303,7 @@ class DuckDBTwin:
         )
         max_size_mb: float = float(settings.TURBO_TWIN_MAX_SIZE_MB)
         supports_ts = _supports_tablesample(db_connector)
+        use_rand = _uses_rand(db_connector)
         computed_hash = _schema_hash(schema_profile)
         tmp_path = self._tmp_path(conn_id)
         final_path = self._twin_path(conn_id)
@@ -322,6 +342,7 @@ class DuckDBTwin:
                         supports_tablesample=supports_ts,
                         sample_percent=resolved_percent,
                         max_rows=_MAX_ROWS_PER_TABLE,
+                        use_rand=use_rand,
                     )
 
                     # ── Fetch sampled data from source DB ────────────────────
@@ -438,6 +459,23 @@ class DuckDBTwin:
             # when the destination already exists on some Windows versions.
             os.replace(str(tmp_path), str(final_path))
 
+            # ── Restrict file permissions (owner-only) ────────────────────
+            # Twin files contain sampled rows that may include PHI/PII.
+            # Set 0o600 (rw-------) so only the process owner can access.
+            try:
+                os.chmod(str(final_path), 0o600)
+            except OSError as perm_err:
+                logger.warning("create_twin(%s): could not restrict file permissions — %s", conn_id, perm_err)
+
+            # ── Warn about unencrypted twin files ─────────────────────────
+            if settings.TURBO_TWIN_WARN_UNENCRYPTED:
+                logger.warning(
+                    "create_twin(%s): twin file at %s is NOT encrypted at rest. "
+                    "For healthcare/finance deployments, ensure the volume is encrypted "
+                    "or set TURBO_TWIN_WARN_UNENCRYPTED=false after confirming disk encryption.",
+                    conn_id, final_path,
+                )
+
         except Exception as exc:
             logger.error("create_twin(%s): fatal error — %s", conn_id, exc, exc_info=True)
             # Clean up the partial tmp file if it exists
@@ -494,7 +532,7 @@ class DuckDBTwin:
         try:
             from sql_validator import SQLValidator
             validator = SQLValidator()
-            is_valid, error_msg = validator.validate(sql)
+            is_valid, _cleaned, error_msg = validator.validate(sql)
             if not is_valid:
                 return {
                     "status": "error",
@@ -550,11 +588,11 @@ class DuckDBTwin:
         schema_profile,
     ) -> Dict[str, Any]:
         """
-        Delete the existing twin (if any) and create a fresh one.
+        Atomically replace the existing twin with a fresh one.
 
-        Returns the same dict as create_twin.
+        create_twin() writes to .tmp.duckdb and renames to .duckdb,
+        so the existing twin remains available until the swap completes.
         """
-        self.delete_twin(conn_id)
         return self.create_twin(conn_id, db_connector, schema_profile)
 
     def delete_twin(self, conn_id: str) -> bool:

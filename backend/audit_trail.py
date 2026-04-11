@@ -101,7 +101,6 @@ def _append_entry(entry: dict) -> None:
             with open(active, "a", encoding="utf-8") as fh:
                 fh.write(line)
                 fh.flush()
-                os.fsync(fh.fileno())
         except OSError:
             logger.exception(
                 "audit_trail: failed to write entry to %s — entry: %s",
@@ -218,6 +217,29 @@ def log_memory_event(
         "conn_id": conn_id,
         "event_type": event_type,
         "intent_hash": intent_hash,
+    }
+    _append_entry(entry)
+
+
+def log_agent_event(
+    event_type: str,
+    session_id: str = "",
+    details: Optional[dict] = None,
+) -> None:
+    """
+    Log an agent lifecycle event (budget extension, plan generation, etc.).
+
+    Parameters
+    ----------
+    event_type  : Event discriminator (e.g., "budget_extension", "plan_generated").
+    session_id  : Agent session / chat_id.
+    details     : Arbitrary dict of event-specific data.
+    """
+    entry = {
+        "timestamp": _utc_now_iso(),
+        "event_type": event_type,
+        "session_id": session_id,
+        **(details or {}),
     }
     _append_entry(entry)
 

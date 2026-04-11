@@ -1,10 +1,12 @@
 """
-OTP generation, storage, and verification for DataLens.
+OTP generation, storage, and verification for AskDB.
 Supports email and phone channels with file-based storage,
 rate limiting, and thread-safe operations.
 Real email delivery via SMTP (Gmail App Password, SendGrid, etc.)
 """
 
+import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -14,7 +16,12 @@ import time
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from collections import defaultdict
 from pathlib import Path
+
+# In-memory rate tracker: {channel:identifier -> [timestamp, ...]}
+# Primary enforcement — cannot be bypassed by deleting log files.
+_rate_tracker: dict[str, list[float]] = defaultdict(list)
 
 DATA_DIR = str(Path(__file__).resolve().parent / ".data")
 OTP_STORE_FILE = os.path.join(DATA_DIR, "otp_store.json")
@@ -51,6 +58,14 @@ def _make_key(identifier: str, channel: str) -> str:
     return f"{channel}:{identifier}"
 
 
+def _hmac_code(code: str) -> str:
+    """Return HMAC-SHA256 hex digest of an OTP code using JWT_SECRET_KEY."""
+    from config import settings
+    return hmac.new(
+        settings.JWT_SECRET_KEY.encode(), code.encode(), hashlib.sha256
+    ).hexdigest()
+
+
 def _cleanup_expired(store: dict) -> dict:
     """Remove expired entries from the store."""
     now = time.time()
@@ -60,26 +75,17 @@ def _cleanup_expired(store: dict) -> dict:
 def _count_recent_requests(store: dict, identifier: str, channel: str) -> int:
     """Count how many OTP requests this identifier has made in the last hour.
 
-    Only counts from the log file (single source of truth) to avoid double-counting.
+    Uses the in-memory _rate_tracker as the primary source of truth.
+    Evicts entries older than 1 hour on each call.
     """
     one_hour_ago = time.time() - 3600
-    count = 0
-    if os.path.exists(SENT_OTPS_LOG):
-        try:
-            with open(SENT_OTPS_LOG, "r") as f:
-                for line in f:
-                    if f"| {channel} | {identifier} |" in line:
-                        parts = line.strip().split(" | ")
-                        if len(parts) >= 4:
-                            try:
-                                log_time = float(parts[0].strip())
-                                if log_time > one_hour_ago:
-                                    count += 1
-                            except (ValueError, IndexError):
-                                pass
-        except (IOError, OSError):
-            pass
-    return count
+    key = _make_key(identifier, channel)
+
+    # Evict expired entries from in-memory tracker
+    timestamps = _rate_tracker.get(key, [])
+    _rate_tracker[key] = [t for t in timestamps if t > one_hour_ago]
+
+    return len(_rate_tracker[key])
 
 
 def _log_sent_otp(identifier: str, channel: str, otp: str):
@@ -128,12 +134,15 @@ def generate_otp(identifier: str, channel: str) -> str:
 
         key = _make_key(identifier, channel)
         store[key] = {
-            "code": code,
+            "code": _hmac_code(code),
             "created_at": now,
             "expires_at": now + OTP_TTL_SECONDS,
             "attempts": 0,
             "channel": channel,
         }
+
+        # Record in in-memory rate tracker
+        _rate_tracker[key].append(now)
 
         _save_otp_store(store)
 
@@ -174,9 +183,8 @@ def verify_otp(identifier: str, channel: str, code: str) -> bool:
             _save_otp_store(store)
             return False
 
-        # Check code — use constant-time comparison to prevent timing oracle
-        import hmac
-        if hmac.compare_digest(entry["code"], code.strip()):
+        # Check code — HMAC the submitted code and compare with stored hash
+        if hmac.compare_digest(entry["code"], _hmac_code(code.strip())):
             # Valid - remove the OTP entry (single use)
             del store[key]
             _save_otp_store(store)
@@ -242,10 +250,10 @@ def _send_via_resend(email: str, otp: str, settings) -> bool:
         r = resend.Emails.send({
             "from": settings.RESEND_FROM_EMAIL,
             "to": [email],
-            "subject": f"DataLens — Your verification code is {otp}",
+            "subject": f"AskDB — Your verification code is {otp}",
             "html": _build_otp_email_html(otp, expiry_min),
             "text": (
-                f"Your DataLens verification code is: {otp}\n\n"
+                f"Your AskDB verification code is: {otp}\n\n"
                 f"This code expires in {expiry_min} minutes.\n"
                 f"If you didn't request this code, please ignore this email."
             ),
@@ -262,12 +270,12 @@ def _send_via_smtp(email: str, otp: str, settings) -> bool:
     try:
         expiry_min = settings.OTP_EXPIRY_SECONDS // 60
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"DataLens — Your verification code is {otp}"
+        msg["Subject"] = f"AskDB — Your verification code is {otp}"
         msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL or settings.SMTP_USER}>"
         msg["To"] = email
 
         text_body = (
-            f"Your DataLens verification code is: {otp}\n\n"
+            f"Your AskDB verification code is: {otp}\n\n"
             f"This code expires in {expiry_min} minutes.\n"
             f"If you didn't request this code, please ignore this email."
         )
@@ -321,7 +329,7 @@ def _send_sms_via_twilio(phone: str, otp: str, settings) -> bool:
         from twilio.rest import Client
         client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
         params = {
-            "body": f"Your DataLens verification code is: {otp}. It expires in {settings.OTP_EXPIRY_SECONDS // 60} minutes.",
+            "body": f"Your AskDB verification code is: {otp}. It expires in {settings.OTP_EXPIRY_SECONDS // 60} minutes.",
             "to": phone,
         }
         # Use MessagingServiceSid if available (better deliverability), else from_ number

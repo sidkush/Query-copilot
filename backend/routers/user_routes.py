@@ -12,9 +12,9 @@ from user_storage import (
     load_profile, save_profile, load_connection_configs,
     list_chats, load_query_stats, clear_chat_history,
     delete_connection_config, save_api_key_to_profile,
-    encrypt_password, decrypt_password,
+    encrypt_password, decrypt_password, get_daily_usage,
 )
-from provider_registry import ANTHROPIC_MODELS, get_provider_for_user
+from provider_registry import ANTHROPIC_MODELS, get_provider_for_user, get_models_for_plan
 from model_provider import InvalidKeyError
 from anthropic_provider import AnthropicProvider
 
@@ -148,7 +148,7 @@ def get_account(user: dict = Depends(get_current_user)):
         "name": user_record.get("name", ""),
         "created_at": user_record.get("created_at", ""),
         "oauth_provider": user_record.get("oauth_provider"),
-        "plan": "free",
+        "plan": load_profile(email).get("plan", "free"),
         "active_connection_count": len(active_connections),
         "active_connections": active_connections,
         "query_stats": {
@@ -167,14 +167,48 @@ def get_account(user: dict = Depends(get_current_user)):
 
 @router.get("/billing")
 def get_billing(user: dict = Depends(get_current_user)):
-    """Placeholder billing endpoint."""
-    return {
-        "plan": "free",
-        "features": [
-            "Unlimited queries",
-            "All 16 databases",
-            "Chat history",
+    """Return billing info from user's actual plan stored in profile."""
+    email = user["email"]
+    usage = get_daily_usage(email)
+    plan = usage["plan"]
+
+    # Feature lists per plan tier
+    PLAN_FEATURES = {
+        "free": [
+            "10 AI agent queries per day",
+            "2 database connectors",
+            "1 dashboard with basic charts",
+            "Haiku, Sonnet & Opus models",
+            "Community support",
         ],
+        "pro": [
+            "Unlimited AI agent queries",
+            "All 18 database connectors",
+            "Unlimited dashboards + global filters",
+            "DuckDB Turbo Mode (<100ms)",
+            "NL alerts + Slack/Teams webhooks",
+            "CSV, JSON, PDF, PNG export",
+            "Scheduled email digests",
+            "Priority support",
+        ],
+        "team": [
+            "Everything in Pro",
+            "Unlimited team seats",
+            "SSO / SAML authentication",
+            "Shared dashboards & query memory",
+            "16:9 presentation engine",
+            "White-label dashboards",
+            "Dedicated account manager",
+        ],
+    }
+
+    return {
+        "plan": plan,
+        "daily_limit": usage["daily_limit"],
+        "queries_today": usage["queries_today"],
+        "remaining": usage["remaining"],
+        "unlimited": usage["unlimited"],
+        "features": PLAN_FEATURES.get(plan, PLAN_FEATURES["free"]),
     }
 
 
@@ -384,5 +418,10 @@ def update_preferred_model(body: UpdateModelBody, user: dict = Depends(get_curre
 
 @router.get("/available-models")
 def list_available_models(user: dict = Depends(get_current_user)):
-    """Return all available Anthropic models."""
-    return {"models": [{"id": k, **v} for k, v in ANTHROPIC_MODELS.items()]}
+    """Return Anthropic models available for the user's plan."""
+    plan = load_profile(user["email"]).get("plan", "free")
+    allowed_ids = set(get_models_for_plan(plan))
+    return {"models": [
+        {"id": k, **v} for k, v in ANTHROPIC_MODELS.items()
+        if k in allowed_ids
+    ]}

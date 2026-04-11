@@ -117,20 +117,25 @@ export const useStore = create((set, get) => ({
   setActiveDashboardId: (id) => set({ activeDashboardId: id }),
 
   // Reactive dashboard filters — tiles subscribe to version counters
-  dashboardGlobalFilters: { dateColumn: "", range: "all_time", fields: [] },
+  // dateFilters: array of { id, dateColumn, range, dateStart, dateEnd }
+  dashboardGlobalFilters: { dateFilters: [], fields: [] },
   dashboardFilterVersion: 0,
-  applyGlobalFilters: (filters) => set((s) => ({
-    dashboardGlobalFilters: {
-      dateColumn: filters?.dateColumn ?? "",
-      range: filters?.range ?? "all_time",
-      dateStart: filters?.dateStart,
-      dateEnd: filters?.dateEnd,
-      fields: Array.isArray(filters?.fields) ? filters.fields : [],
-    },
-    dashboardFilterVersion: s.dashboardFilterVersion + 1,
-  })),
+  applyGlobalFilters: (filters) => set((s) => {
+    // Migration shim: convert old single-dateColumn format to dateFilters array
+    let dateFilters = filters?.dateFilters;
+    if (!dateFilters && filters?.dateColumn) {
+      dateFilters = [{ id: "df_migrated", dateColumn: filters.dateColumn, range: filters.range || "all_time", dateStart: filters.dateStart || "", dateEnd: filters.dateEnd || "" }];
+    }
+    return {
+      dashboardGlobalFilters: {
+        dateFilters: Array.isArray(dateFilters) ? dateFilters : [],
+        fields: Array.isArray(filters?.fields) ? filters.fields : [],
+      },
+      dashboardFilterVersion: s.dashboardFilterVersion + 1,
+    };
+  }),
   resetGlobalFilters: () => set({
-    dashboardGlobalFilters: { dateColumn: "", range: "all_time", fields: [] },
+    dashboardGlobalFilters: { dateFilters: [], fields: [] },
     dashboardFilterVersion: 0,
   }),
 

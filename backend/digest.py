@@ -1,5 +1,5 @@
 """
-Scheduled email digest service for DataLens.
+Scheduled email digest service for AskDB.
 
 Sends periodic usage summaries to opted-in users. Digest frequency
 is per-user (daily / weekly / none) stored in their profile's
@@ -96,7 +96,7 @@ def _build_digest_text(display_name: str, stats: dict, period: str) -> str:
     )
 
     return (
-        f"DataLens — {period_label} Usage Digest\n"
+        f"AskDB — {period_label} Usage Digest\n"
         f"{'=' * 40}\n\n"
         f"Hi {display_name or 'there'},\n\n"
         f"Queries ({period_label}): {queries_period}\n"
@@ -155,7 +155,7 @@ def _send_digests(frequency: str):
                 continue  # No activity, skip
 
             display_name = profile.get("display_name", "")
-            subject = f"DataLens — Your {'Daily' if frequency == 'daily' else 'Weekly'} Analytics Digest"
+            subject = f"AskDB — Your {'Daily' if frequency == 'daily' else 'Weekly'} Analytics Digest"
             html = _build_digest_html(display_name, stats, frequency)
             text = _build_digest_text(display_name, stats, frequency)
 

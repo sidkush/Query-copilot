@@ -426,6 +426,13 @@ def connect_database(req: ConnectRequest, user: dict = Depends(get_current_user)
         email = user["email"]
         user_conns = get_user_connections(email)
 
+        # Enforce per-user connection limit
+        if len(user_conns) >= settings.MAX_CONNECTIONS_PER_USER:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Connection limit reached ({settings.MAX_CONNECTIONS_PER_USER}). Disconnect an existing database first.",
+            )
+
         # Generate a unique connection id
         conn_id = uuid.uuid4().hex[:8]
 
@@ -450,13 +457,16 @@ def connect_database(req: ConnectRequest, user: dict = Depends(get_current_user)
         )
         user_conns[conn_id] = entry
 
-        # Profile schema for Query Intelligence
-        try:
-            schema_profile = _schema_intel.profile_connection(connector, conn_id)
-            entry.schema_profile = schema_profile
-            logger.info(f"Schema profiled: {len(schema_profile.tables)} tables, hash={schema_profile.schema_hash[:8]}")
-        except Exception as e:
-            logger.warning(f"Schema profiling failed (non-fatal): {e}")
+        # Profile schema for Query Intelligence (background — avoids blocking slow DBs)
+        import threading as _threading
+        def _bg_profile(entry_ref, connector_ref, cid):
+            try:
+                schema_profile = _schema_intel.profile_connection(connector_ref, cid)
+                entry_ref.schema_profile = schema_profile
+                logger.info(f"Schema profiled (background): {len(schema_profile.tables)} tables, hash={schema_profile.schema_hash[:8]}")
+            except Exception as e:
+                logger.warning(f"Schema profiling failed (non-fatal): {e}")
+        _threading.Thread(target=_bg_profile, args=(entry, connector, conn_id), daemon=True).start()
 
         # Behavior-based warm priorities (Task 4.3)
         # Log the tables that should be prioritised for twin pre-warming.
@@ -700,6 +710,18 @@ def reconnect_from_saved(config_id: str, user: dict = Depends(get_current_user))
         )
         user_conns[conn_id] = entry
 
+        # Profile schema in background so turbo mode and waterfall router can work
+        import threading as _threading
+        def _bg_profile_reconnect(entry_ref, connector_ref, cid):
+            try:
+                schema_profile = _schema_intel.profile_connection(connector_ref, cid)
+                entry_ref.schema_profile = schema_profile
+                logger.info("Reconnect schema profiled (background): %d tables, hash=%s",
+                            len(schema_profile.tables), schema_profile.schema_hash[:8])
+            except Exception as prof_err:
+                logger.warning("Reconnect schema profiling failed (non-fatal): %s", prof_err)
+        _threading.Thread(target=_bg_profile_reconnect, args=(entry, connector, conn_id), daemon=True).start()
+
         schema_param = (
             working_cfg.get("schema_name")
             if working_cfg.get("db_type") in _SCHEMA_DB_TYPES
@@ -729,7 +751,7 @@ def reconnect_from_saved(config_id: str, user: dict = Depends(get_current_user))
         raise HTTPException(status_code=400, detail=_safe_error(e))
 
 
-@router.get("/connections/{conn_id}/schema-profile")
+@router.get("/{conn_id}/schema-profile")
 async def get_schema_profile(conn_id: str, request: Request, user: dict = Depends(get_current_user)):
     email = user["email"]
     connections = request.app.state.connections.get(email, {})
@@ -748,7 +770,7 @@ async def get_schema_profile(conn_id: str, request: Request, user: dict = Depend
     }
 
 
-@router.post("/connections/{conn_id}/refresh-schema")
+@router.post("/{conn_id}/refresh-schema")
 async def refresh_schema(conn_id: str, request: Request, user: dict = Depends(get_current_user)):
     email = user["email"]
     connections = request.app.state.connections.get(email, {})
@@ -764,7 +786,7 @@ async def refresh_schema(conn_id: str, request: Request, user: dict = Depends(ge
         raise HTTPException(status_code=500, detail=f"Schema refresh failed: {str(e)}")
 
 
-@router.post("/connections/{conn_id}/turbo/enable")
+@router.post("/{conn_id}/turbo/enable")
 async def enable_turbo(conn_id: str, request: Request, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
     email = user["email"]
     connections = request.app.state.connections.get(email, {})
@@ -790,7 +812,7 @@ async def enable_turbo(conn_id: str, request: Request, background_tasks: Backgro
     return {"status": "syncing", "message": "Turbo Mode sync started in background"}
 
 
-@router.post("/connections/{conn_id}/turbo/disable")
+@router.post("/{conn_id}/turbo/disable")
 async def disable_turbo(conn_id: str, request: Request, user: dict = Depends(get_current_user)):
     email = user["email"]
     connections = request.app.state.connections.get(email, {})
@@ -803,7 +825,7 @@ async def disable_turbo(conn_id: str, request: Request, user: dict = Depends(get
     return {"status": "disabled"}
 
 
-@router.get("/connections/{conn_id}/turbo/status")
+@router.get("/{conn_id}/turbo/status")
 async def turbo_status(conn_id: str, request: Request, user: dict = Depends(get_current_user)):
     email = user["email"]
     connections = request.app.state.connections.get(email, {})
@@ -819,7 +841,7 @@ async def turbo_status(conn_id: str, request: Request, user: dict = Depends(get_
     }
 
 
-@router.post("/connections/{conn_id}/turbo/refresh")
+@router.post("/{conn_id}/turbo/refresh")
 async def refresh_turbo(conn_id: str, request: Request, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
     email = user["email"]
     connections = request.app.state.connections.get(email, {})

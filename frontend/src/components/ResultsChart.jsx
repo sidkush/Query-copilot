@@ -876,8 +876,38 @@ export default function ResultsChart({
         };
       }
 
-      default:
-        return { backgroundColor: 'transparent' };
+      case "table":
+      case "kpi":
+        // Table/KPI types don't render as ECharts — fall through to bar as visual fallback
+      default: {
+        // Fallback: render as bar chart so the tile is never blank
+        const fallbackGrid = { left: 60, right: 20, top: 30, bottom: 40 };
+        return {
+          backgroundColor: 'transparent',
+          tooltip: tooltipCfg,
+          legend: legendCfg,
+          grid: fallbackGrid,
+          xAxis: {
+            type: 'category',
+            data: labels,
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn, rotate: chartData.length > 8 ? 45 : 0, interval: 0 },
+            axisLine: axisLineStyle,
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: { ...axisLabelStyle, formatter: fmtTickFn },
+            axisLine: axisLineStyle,
+            splitLine: splitLineStyle,
+          },
+          series: displayMeasures.map((col, i) => ({
+            type: 'bar',
+            name: col,
+            data: chartData.map((row) => row[col]),
+            itemStyle: { color: resolveColor(col, null, i, fmt.colors, dashboardPalette), borderRadius: [6, 6, 0, 0] },
+          })),
+          animationDuration: 800,
+        };
+      }
     }
   }, [chartType, chartData, labelCol, displayMeasures, currentMeasure, colors, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn, chartColors, measureSeriesTypes, hasMixedTypes]);
 

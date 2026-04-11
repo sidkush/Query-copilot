@@ -72,12 +72,32 @@ _DATE_PATTERN = re.compile(
     re.VERBOSE | re.IGNORECASE,
 )
 
+_DOLLAR_QUOTED_PATTERN = re.compile(
+    r"""
+    \$([A-Za-z_]*)           # opening tag (possibly empty for $$...$$)
+    \$                       # literal $
+    .*?                      # body (non-greedy)
+    \$\1\$                   # matching closing tag
+    """,
+    re.VERBOSE | re.DOTALL,
+)
+
 _STRING_PATTERN = re.compile(
     r"""
     (?:
-        '(?:[^'\\]|\\.)*'    # single-quoted string (handles escaped quotes)
+        '(?:[^'\\]|\\.)*'    # single-quoted string (handles backslash escapes)
+      | '(?:[^']|'')*'       # single-quoted with SQL-standard doubled quotes
       | "(?:[^"\\]|\\.)*"    # double-quoted string
     )
+    """,
+    re.VERBOSE,
+)
+
+_HEX_PATTERN = re.compile(
+    r"""
+    (?<!\w)                  # not preceded by word char
+    0[xX][0-9a-fA-F]+       # hex literal: 0xFF, 0x1A2B
+    (?!\w)                   # not followed by word char
     """,
     re.VERBOSE,
 )
@@ -87,9 +107,11 @@ _NUMBER_PATTERN = re.compile(
     (?<![.\w])               # not preceded by word char or dot (avoid col names)
     -?                       # optional sign
     (?:
-        \d+\.\d+             # float
+        \d+\.\d*             # float or trailing-dot (1.5, 1.)
+      | \.\d+                # leading-dot float (.5, .123)
       | \d+                  # integer
     )
+    (?:[eE][+-]?\d+)?        # optional scientific notation exponent
     (?![.\w])                # not followed by word char or dot
     """,
     re.VERBOSE,
@@ -110,9 +132,13 @@ def anonymize_sql(sql: str) -> str:
     """
     # Step 1 — replace date/timestamp literals
     result = _DATE_PATTERN.sub("?", sql)
-    # Step 2 — replace remaining string literals
+    # Step 2 — replace dollar-quoted strings (PostgreSQL)
+    result = _DOLLAR_QUOTED_PATTERN.sub("?", result)
+    # Step 3 — replace remaining string literals (incl. SQL-standard '' escapes)
     result = _STRING_PATTERN.sub("?", result)
-    # Step 3 — replace numeric literals
+    # Step 4 — replace hex literals (0xFF, 0x1A2B)
+    result = _HEX_PATTERN.sub("?", result)
+    # Step 5 — replace numeric literals (incl. scientific notation 1e10, 3.14e-2)
     result = _NUMBER_PATTERN.sub("?", result)
     # Collapse any doubled placeholders that may result from overlap
     result = re.sub(r"\?\s*\?", "?", result)
@@ -300,15 +326,27 @@ class QueryMemory:
             try:
                 from pii_masking import SENSITIVE_COLUMN_PATTERNS
                 for col_name in SENSITIVE_COLUMN_PATTERNS:
-                    # Case-insensitive word-boundary replacement in the intent
+                    # Use lookarounds that treat underscore as transparent, so
+                    # compound names like employee_ssn match the pattern "ssn".
                     sql_intent = re.sub(
-                        r'\b' + re.escape(col_name) + r'\b',
+                        r'(?<![a-zA-Z])' + re.escape(col_name) + r'(?![a-zA-Z])',
                         '[MASKED]',
                         sql_intent,
                         flags=re.IGNORECASE,
                     )
             except ImportError:
                 pass  # pii_masking not available — degrade gracefully
+            # Mask sensitive column names in metadata (ssn, salary, etc.)
+            masked_columns = list(columns)
+            try:
+                from pii_masking import SENSITIVE_COLUMN_PATTERNS
+                masked_columns = [
+                    '[MASKED]' if any(p in str(c).lower().replace(' ', '_') for p in SENSITIVE_COLUMN_PATTERNS)
+                    else str(c)
+                    for c in columns
+                ]
+            except ImportError:
+                masked_columns = [str(c) for c in columns]
             doc_id = self._doc_id(conn_id, sql_intent)
             now_iso = self._now_iso()
 
@@ -317,7 +355,7 @@ class QueryMemory:
                 "question": question,
                 "sql_intent": sql_intent,
                 "result_summary": result_summary,
-                "columns": ",".join(str(c) for c in columns),  # ChromaDB metadata is flat
+                "columns": ",".join(masked_columns),  # ChromaDB metadata is flat
                 "row_count": row_count,
                 "confidence": 0.5,
                 "stored_at": now_iso,

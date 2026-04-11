@@ -1,5 +1,5 @@
 """
-Anthropic provider adapter for DataLens.
+Anthropic provider adapter for AskDB.
 
 Wraps the `anthropic.Anthropic` SDK behind the `ModelProvider` interface.
 This is the ONLY file that should import `anthropic` — all other modules
@@ -31,13 +31,15 @@ logger = logging.getLogger(__name__)
 
 
 class _CircuitBreaker:
-    """Simple circuit breaker: after N consecutive failures, block calls for cooldown_sec."""
+    """Simple circuit breaker: after N consecutive failures, block calls for cooldown_sec + jitter."""
 
-    def __init__(self, threshold: int = 3, cooldown_sec: int = 30):
+    def __init__(self, threshold: int = 5, cooldown_sec: int = 30, jitter_sec: int = 30):
         self.threshold = threshold
         self.cooldown_sec = cooldown_sec
+        self.jitter_sec = jitter_sec
         self._failures = 0
         self._open_since: Optional[float] = None
+        self._cooldown_actual: float = cooldown_sec
         self._lock = threading.Lock()
 
     def record_success(self):
@@ -46,13 +48,16 @@ class _CircuitBreaker:
             self._open_since = None
 
     def record_failure(self):
+        import random
         with self._lock:
             self._failures += 1
             if self._failures >= self.threshold:
+                # Add random jitter to prevent thundering herd on recovery
+                self._cooldown_actual = self.cooldown_sec + random.uniform(0, self.jitter_sec)
                 self._open_since = time.time()
                 logger.warning(
-                    "Circuit breaker OPEN after %d consecutive API failures",
-                    self._failures,
+                    "Circuit breaker OPEN after %d consecutive API failures (cooldown %.0fs)",
+                    self._failures, self._cooldown_actual,
                 )
 
     def is_open(self) -> bool:
@@ -60,7 +65,7 @@ class _CircuitBreaker:
             if self._open_since is None:
                 return False
             elapsed = time.time() - self._open_since
-            if elapsed >= self.cooldown_sec:
+            if elapsed >= self._cooldown_actual:
                 self._open_since = None
                 self._failures = 0
                 logger.info("Circuit breaker half-open — allowing retry")
@@ -86,7 +91,7 @@ def _get_breaker(api_key: str) -> _CircuitBreaker:
     key_hash = _hashlib.sha256(api_key.encode()).hexdigest()[:16]
     with _breakers_lock:
         if key_hash not in _breakers:
-            _breakers[key_hash] = _CircuitBreaker(threshold=3, cooldown_sec=30)
+            _breakers[key_hash] = _CircuitBreaker(threshold=5, cooldown_sec=30, jitter_sec=30)
         return _breakers[key_hash]
 
 

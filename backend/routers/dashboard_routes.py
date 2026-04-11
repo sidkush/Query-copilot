@@ -249,6 +249,12 @@ async def add_tile(dashboard_id: str, tab_id: str, section_id: str, body: AddTil
     tile_data["title"] = tile_data.get("title", "")[:200]
     if "rows" in tile_data:
         tile_data["rows"] = tile_data["rows"][:5000]
+    # Validate SQL at write time
+    if tile_data.get("sql"):
+        from sql_validator import SQLValidator
+        is_valid, _cleaned, error = SQLValidator().validate(tile_data["sql"])
+        if not is_valid:
+            raise HTTPException(400, f"Invalid SQL: {error}")
     tile_data.setdefault("annotations", [])
     d = add_tile_to_section(user["email"], dashboard_id, tab_id, section_id, tile_data)
     if not d:
@@ -278,6 +284,12 @@ async def add_tile_shortcut(dashboard_id: str, body: AddTile, user=Depends(get_c
     tile_data["title"] = tile_data.get("title", "")[:200]
     if "rows" in tile_data:
         tile_data["rows"] = tile_data["rows"][:5000]
+    # Validate SQL at write time
+    if tile_data.get("sql"):
+        from sql_validator import SQLValidator
+        is_valid, _cleaned, error = SQLValidator().validate(tile_data["sql"])
+        if not is_valid:
+            raise HTTPException(400, f"Invalid SQL: {error}")
     tile_data.setdefault("annotations", [])
     d = add_tile_to_section(user["email"], dashboard_id, tab["id"], section["id"], tile_data)
     if not d:
@@ -289,6 +301,12 @@ async def update_tile_endpoint(dashboard_id: str, tile_id: str, body: UpdateTile
     updates = body.model_dump(exclude_none=True)
     if "rows" in updates:
         updates["rows"] = updates["rows"][:5000]
+    # Validate SQL at write time
+    if updates.get("sql"):
+        from sql_validator import SQLValidator
+        is_valid, _cleaned, error = SQLValidator().validate(updates["sql"])
+        if not is_valid:
+            raise HTTPException(400, f"Invalid SQL: {error}")
     d = update_tile(user["email"], dashboard_id, tile_id, updates)
     if not d:
         raise HTTPException(404, "Dashboard or tile not found")
@@ -378,7 +396,7 @@ async def generate_column_sql(body: GenerateColumnSQLBody, request: Request, use
     # Validate the generated SQL through sql_validator
     try:
         validator = SQLValidator(dialect=entry.db_type)
-        is_valid, error = validator.validate(new_sql)
+        is_valid, _cleaned, error = validator.validate(new_sql)
         if not is_valid:
             return {"error": "validation_failed", "message": f"Generated SQL failed validation: {error}"}
     except Exception as e:
@@ -471,13 +489,23 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
 
         # Apply Global Filters if present
         filters = body.filters
-        if filters and filters.get("dateColumn") and filters.get("range") and filters.get("range") != "all_time":
-            date_col = filters["dateColumn"]
+        # Normalize: support both new dateFilters[] array and old single dateColumn format
+        _date_filters_list = []
+        if filters:
+            if isinstance(filters.get("dateFilters"), list):
+                _date_filters_list = [df for df in filters["dateFilters"]
+                                      if df.get("dateColumn") and df.get("range") and df["range"] != "all_time"]
+            elif filters.get("dateColumn") and filters.get("range") and filters["range"] != "all_time":
+                _date_filters_list = [{"dateColumn": filters["dateColumn"], "range": filters["range"],
+                                       "dateStart": filters.get("dateStart", ""), "dateEnd": filters.get("dateEnd", "")}]
+
+        for _df_entry in _date_filters_list:
+            date_col = _df_entry["dateColumn"]
             # Validate dateColumn: only allow safe identifier characters
             import re as _re_dc
             if not _re_dc.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*$', date_col):
                 raise HTTPException(400, "Invalid date column name")
-            date_range = filters["range"]
+            date_range = _df_entry["range"]
             
             from datetime import datetime, timedelta, timezone
             from dateutil.relativedelta import relativedelta
@@ -539,8 +567,8 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                 prev_end = start_date - timedelta(microseconds=1)
             elif date_range == "custom":
                 # Custom date range: use dateStart/dateEnd from frontend
-                ds = filters.get("dateStart", "")
-                de = filters.get("dateEnd", "")
+                ds = _df_entry.get("dateStart", "")
+                de = _df_entry.get("dateEnd", "")
                 if ds and de:
                     start_date = datetime.fromisoformat(ds).replace(tzinfo=timezone.utc) if 'T' in ds else datetime.strptime(ds, '%Y-%m-%d').replace(tzinfo=timezone.utc)
                     end_date = datetime.fromisoformat(de).replace(tzinfo=timezone.utc) if 'T' in de else datetime.strptime(de, '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc)
@@ -913,7 +941,7 @@ async def refresh_tile(dashboard_id: str, tile_id: str, body: RefreshTileBody, u
                     row[k] = float(v)
         columns = list(df.columns)
         # Only persist to disk if no filters are active — filtered data is temporary
-        _has_filters = bool(body.filters and (body.filters.get("fields") or (body.filters.get("range") and body.filters.get("range") != "all_time")))
+        _has_filters = bool(body.filters and (body.filters.get("fields") or body.filters.get("dateFilters") or (body.filters.get("range") and body.filters.get("range") != "all_time")))
         if not _has_filters:
             if body.source_id:
                 sources = target_tile.get("dataSources", [])
@@ -1041,7 +1069,7 @@ async def batch_refresh_tiles(dashboard_id: str, body: BatchRefreshBody, user=De
                     row[k] = float(v)
         columns = list(df.columns)
         # Only persist to disk if no filters are active — filtered data is temporary
-        has_filters = bool(filters and (filters.get("fields") or (filters.get("range") and filters.get("range") != "all_time")))
+        has_filters = bool(filters and (filters.get("fields") or filters.get("dateFilters") or (filters.get("range") and filters.get("range") != "all_time")))
         if not has_filters:
             update_tile(email, dashboard_id, tile_id, {"columns": columns, "rows": rows})
         _publish_tile_update(dashboard_id, tile_id, columns, rows)

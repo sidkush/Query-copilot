@@ -1,5 +1,5 @@
 """
-Per-user file-based data layer for DataLens.
+Per-user file-based data layer for AskDB.
 Stores connection configs, chat history, and user profiles.
 
 Storage is pluggable via the StorageBackend ABC.  The active backend is
@@ -135,12 +135,14 @@ def _user_dir(email: str) -> Path:
 
 def _fernet() -> Fernet:
     """Create a Fernet cipher. Uses FERNET_SECRET_KEY if configured,
-    otherwise falls back to SHA256(JWT_SECRET_KEY) for backward compatibility."""
+    otherwise derives key from JWT_SECRET_KEY via PBKDF2-HMAC-SHA256."""
     if settings.FERNET_SECRET_KEY:
         # Use dedicated Fernet key directly (must be valid base64-encoded 32-byte key)
         return Fernet(settings.FERNET_SECRET_KEY.encode("utf-8"))
     key_bytes = settings.JWT_SECRET_KEY.encode("utf-8")
-    derived = hashlib.sha256(key_bytes).digest()
+    derived = hashlib.pbkdf2_hmac(
+        "sha256", key_bytes, b"askdb-fernet-salt", 600000
+    )
     return Fernet(base64.urlsafe_b64encode(derived))
 
 
@@ -393,11 +395,13 @@ def _backfill_stats_from_chats(email: str) -> dict:
 # Daily query limits per plan
 DAILY_LIMITS = {
     "free": 10,
+    "pro": -1,          # unlimited
+    "team": -1,         # unlimited
+    # Legacy plan names (backward compat for existing users)
     "weekly": 50,
     "monthly": 200,
     "yearly": 500,
-    "pro": 1000,
-    "enterprise": -1,  # unlimited
+    "enterprise": -1,
 }
 
 
@@ -515,9 +519,25 @@ def _load_dashboards(email: str) -> list:
     return _backend.read_json(_dashboards_key(email)) or []
 
 
+def _sanitize_for_json(obj):
+    """Replace NaN/Inf floats with None to prevent JSON serialization errors.
+    These values appear in computed columns (e.g., first-order differences where
+    the first row has no predecessor). Python's json.dumps crashes on NaN/Inf."""
+    import math
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(item) for item in obj]
+    return obj
+
+
 def _save_dashboards(email: str, dashboards: list):
     """Atomic write-then-rename for crash safety [ADV-FIX]."""
-    _backend.write_json(_dashboards_key(email), dashboards, atomic=True)
+    _backend.write_json(_dashboards_key(email), _sanitize_for_json(dashboards), atomic=True)
 
 
 def list_dashboards(email: str) -> list:
@@ -601,7 +621,7 @@ def update_dashboard(email: str, dashboard_id: str, updates: dict) -> Optional[d
                 # Snapshot before structural changes (tabs/tiles)
                 if "tabs" in updates:
                     _auto_version_snapshot(email, dashboard_id, d)
-                for key in ("name", "description", "tabs", "annotations", "sharing", "customMetrics", "globalFilters", "themeConfig", "bookmarks"):
+                for key in ("name", "description", "tabs", "annotations", "sharing", "customMetrics", "globalFilters", "themeConfig", "bookmarks", "settings"):
                     if key in updates:
                         d[key] = updates[key]
                 d["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -740,6 +760,98 @@ def update_tile(email: str, dashboard_id: str, tile_id: str, updates: dict) -> O
         return None
 
 
+def move_tile(email: str, dashboard_id: str, tile_id: str,
+              target_tab_id: str, target_section_id: str) -> Optional[dict]:
+    """Move a tile from its current section to a target section (can cross tabs)."""
+    with _lock:
+        dashboards = _load_dashboards(email)
+        for d in dashboards:
+            if d["id"] != dashboard_id:
+                continue
+            # Find and remove tile from source
+            source_tile = None
+            for tab in d.get("tabs", []):
+                for sec in tab.get("sections", []):
+                    for i, tile in enumerate(sec.get("tiles", [])):
+                        if tile["id"] == tile_id:
+                            source_tile = sec["tiles"].pop(i)
+                            sec["layout"] = [l for l in sec.get("layout", []) if l["i"] != tile_id]
+                            break
+                    if source_tile:
+                        break
+                if source_tile:
+                    break
+            if not source_tile:
+                return None
+            # Add to target section
+            for tab in d.get("tabs", []):
+                if tab["id"] == target_tab_id:
+                    for sec in tab.get("sections", []):
+                        if sec["id"] == target_section_id:
+                            sec["tiles"].append(source_tile)
+                            existing = sec.get("layout", [])
+                            max_y = max((item["y"] + item["h"] for item in existing), default=0)
+                            col = len(existing) % 3
+                            row_y = max_y if col == 0 else max(max_y - 3, 0)
+                            sec.setdefault("layout", []).append({
+                                "i": tile_id, "x": col * 4, "y": row_y,
+                                "w": 4, "h": 3, "minW": 2, "minH": 2,
+                            })
+                            d["updated_at"] = datetime.now(timezone.utc).isoformat()
+                            _save_dashboards(email, dashboards)
+                            return d
+            return None
+    return None
+
+
+def copy_tile(email: str, dashboard_id: str, tile_id: str,
+              target_tab_id: str, target_section_id: str) -> Optional[dict]:
+    """Copy a tile to a target section (can cross tabs). Creates a new tile with a new ID."""
+    import copy as _copy
+    with _lock:
+        dashboards = _load_dashboards(email)
+        for d in dashboards:
+            if d["id"] != dashboard_id:
+                continue
+            # Find source tile
+            source_tile = None
+            for tab in d.get("tabs", []):
+                for sec in tab.get("sections", []):
+                    for tile in sec.get("tiles", []):
+                        if tile["id"] == tile_id:
+                            source_tile = _copy.deepcopy(tile)
+                            break
+                    if source_tile:
+                        break
+                if source_tile:
+                    break
+            if not source_tile:
+                return None
+            # Assign new ID
+            new_id = uuid.uuid4().hex[:8]
+            source_tile["id"] = new_id
+            source_tile["title"] = source_tile.get("title", "Untitled") + " (Copy)"
+            # Add to target section
+            for tab in d.get("tabs", []):
+                if tab["id"] == target_tab_id:
+                    for sec in tab.get("sections", []):
+                        if sec["id"] == target_section_id:
+                            sec["tiles"].append(source_tile)
+                            existing = sec.get("layout", [])
+                            max_y = max((item["y"] + item["h"] for item in existing), default=0)
+                            col = len(existing) % 3
+                            row_y = max_y if col == 0 else max(max_y - 3, 0)
+                            sec.setdefault("layout", []).append({
+                                "i": new_id, "x": col * 4, "y": row_y,
+                                "w": 4, "h": 3, "minW": 2, "minH": 2,
+                            })
+                            d["updated_at"] = datetime.now(timezone.utc).isoformat()
+                            _save_dashboards(email, dashboards)
+                            return d
+            return None
+    return None
+
+
 def add_annotation(email: str, dashboard_id: str, annotation: dict, tile_id: str = None) -> Optional[dict]:
     """Add annotation to dashboard or specific tile."""
     with _lock:
@@ -846,6 +958,16 @@ def _load_share_tokens() -> dict:
 def _save_share_tokens(tokens: dict):
     _backend.write_json(_SHARE_TOKENS_KEY, tokens, atomic=True)
 
+SHARE_TOKEN_LIMITS = {
+    "free": 5,
+    "weekly": 10,
+    "monthly": 20,
+    "yearly": 30,
+    "pro": 50,
+    "team": 50,
+    "enterprise": -1,  # unlimited
+}
+
 def create_share_token(email: str, dashboard_id: str, expires_hours: int = 0) -> dict:
     """Generate an opaque share token for a dashboard.
     Uses SHARE_TOKEN_EXPIRE_HOURS from config if expires_hours is 0."""
@@ -854,6 +976,22 @@ def create_share_token(email: str, dashboard_id: str, expires_hours: int = 0) ->
         expires_hours = settings.SHARE_TOKEN_EXPIRE_HOURS
     with _lock:
         tokens = _load_share_tokens()
+
+        # Enforce per-plan share token quota
+        profile = load_profile(email)
+        plan = profile.get("plan", "free")
+        limit = SHARE_TOKEN_LIMITS.get(plan, SHARE_TOKEN_LIMITS["free"])
+        if limit != -1:
+            user_count = sum(
+                1 for t in tokens.values()
+                if t.get("created_by") == email and not t.get("revoked")
+            )
+            if user_count >= limit:
+                raise ValueError(
+                    f"Share token limit reached ({limit} on {plan} plan). "
+                    f"Revoke an existing token or upgrade your plan."
+                )
+
         token = uuid.uuid4().hex
         entry = {
             "dashboard_id": dashboard_id,

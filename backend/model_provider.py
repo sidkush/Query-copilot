@@ -1,5 +1,5 @@
 """
-Model provider abstraction for DataLens.
+Model provider abstraction for AskDB.
 
 Defines the `ModelProvider` ABC that all LLM provider adapters must implement.
 Currently only `AnthropicProvider` exists; OpenAI/Google/xAI adapters are future work.

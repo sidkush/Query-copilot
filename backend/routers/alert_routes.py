@@ -100,8 +100,7 @@ def check_alert(alert_id: str, request: Request, user=Depends(get_current_user))
 
     # Validate SQL through the same 6-layer validator used by query_routes [ADV-FIX C2]
     from sql_validator import SQLValidator
-    validator = SQLValidator()
-    db_type = "generic"
+    db_type = "postgres"
     user_conns = request.app.state.connections.get(email, {})
     entry = user_conns.get(conn_id) if conn_id else None
     if not entry and user_conns:
@@ -110,14 +109,15 @@ def check_alert(alert_id: str, request: Request, user=Depends(get_current_user))
         raise HTTPException(status_code=400, detail="No active database connection")
 
     if hasattr(entry, "connector") and hasattr(entry.connector, "db_type"):
-        db_type = str(entry.connector.db_type)
-    is_valid, error_msg = validator.validate(sql, db_type)
+        db_type = entry.connector.db_type.value if hasattr(entry.connector.db_type, 'value') else str(entry.connector.db_type)
+    validator = SQLValidator(dialect=db_type)
+    is_valid, clean_sql, error_msg = validator.validate(sql)
     if not is_valid:
         raise HTTPException(status_code=400, detail=f"Alert SQL rejected by validator: {error_msg}")
 
     start = time.time()
     try:
-        result = entry.connector.execute_query(sql)
+        result = entry.connector.execute_query(validator.apply_limit(clean_sql))
         latency = (time.time() - start) * 1000
         increment_query_stats(email, latency, True)
     except Exception as e:
@@ -217,8 +217,16 @@ def parse_alert_condition(body: ParseAlertBody, request: Request, user=Depends(g
         entry = next(iter(user_conns.values()))
     if entry:
         try:
-            tables = entry.connector.get_tables()
-            schema_context = f"Available tables and columns:\n{tables[:2000]}"
+            # Prefer schema_profile for accurate table/column info
+            if hasattr(entry, 'schema_profile') and entry.schema_profile and entry.schema_profile.tables:
+                lines = []
+                for t in entry.schema_profile.tables:
+                    cols = ", ".join(c.get("name", "") for c in (t.columns or [])[:20])
+                    lines.append(f"  Table: {t.name} — columns: {cols}")
+                schema_context = "Available tables and columns (use these EXACT table names):\n" + "\n".join(lines[:20])
+            else:
+                tables = entry.connector.get_tables()
+                schema_context = f"Available tables (use these EXACT table names in SQL):\n{tables[:2000]}"
         except Exception:
             pass
 

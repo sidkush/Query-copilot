@@ -46,6 +46,7 @@ export default function AppLayout({ children }) {
         initial={{ x: -56, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="h-full"
       >
         <AppSidebar />
       </motion.div>

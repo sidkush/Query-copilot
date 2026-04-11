@@ -177,16 +177,19 @@ def login(user: UserLogin):
 
 
 # ── Demo login (for testing — remove before production) ─────
-DEMO_EMAIL = "demo@datalens.dev"
+DEMO_EMAIL = "demo@askdb.dev"
 DEMO_PASSWORD = "DemoTest2026!"
 DEMO_NAME = "Demo User"
 
 @router.post("/demo-login", response_model=TokenResponse)
 def demo_login():
     """Create or log in as the demo test user. No OTP required.
-    Disabled in production unless DEMO_LOGIN_ENABLED=true."""
+    Disabled unless DEMO_ENABLED=true in config."""
+    from config import settings
+    if not settings.DEMO_ENABLED:
+        raise HTTPException(status_code=403, detail="Demo login is disabled")
     import os
-    if (os.environ.get("DATALENS_ENV") or os.environ.get("QUERYCOPILOT_ENV", "")).lower() in ("production", "prod", "staging"):
+    if (os.environ.get("ASKDB_ENV") or os.environ.get("QUERYCOPILOT_ENV", "")).lower() in ("production", "prod", "staging"):
         if not os.environ.get("DEMO_LOGIN_ENABLED", "").lower() in ("true", "1"):
             raise HTTPException(status_code=403, detail="Demo login is disabled in production")
     authenticated = authenticate_user(email=DEMO_EMAIL, password=DEMO_PASSWORD)

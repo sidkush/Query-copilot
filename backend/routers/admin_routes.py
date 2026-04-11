@@ -250,7 +250,7 @@ def get_user_detail(email: str, admin: dict = Depends(get_admin_user)):
 # ── Change User Plan ─────────────────────────────────────────
 
 class PlanUpdate(BaseModel):
-    plan: str  # "free", "pro", "enterprise"
+    plan: str  # "free", "pro", "team"
 
 
 @router.put("/users/{email}/plan")
@@ -260,9 +260,9 @@ def update_user_plan(email: str, body: PlanUpdate, admin: dict = Depends(get_adm
     if email not in users:
         raise HTTPException(status_code=404, detail="User not found")
 
-    allowed_plans = {"free", "pro", "enterprise"}
+    allowed_plans = {"free", "pro", "team", "weekly", "monthly", "yearly", "enterprise"}
     if body.plan not in allowed_plans:
-        raise HTTPException(status_code=400, detail=f"Plan must be one of: {', '.join(allowed_plans)}")
+        raise HTTPException(status_code=400, detail=f"Plan must be one of: {', '.join(sorted(allowed_plans))}")
 
     profile = load_profile(email)
     profile["plan"] = body.plan

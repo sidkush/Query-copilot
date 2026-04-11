@@ -5,6 +5,7 @@ PII Masking — Detect and redact sensitive data in query results.
 import json
 import re
 import threading
+import unicodedata
 from pathlib import Path
 from typing import Set
 
@@ -108,8 +109,8 @@ def mask_dataframe(df, mask_char: str = "*", extra_columns: Set[str] = None, con
     columns_to_mask = set()
 
     for col in masked.columns:
-        col_lower = col.lower().replace(" ", "_")
-        if col_lower in SENSITIVE_COLUMN_PATTERNS or col_lower in extra:
+        col_lower = unicodedata.normalize("NFKC", col).lower().replace(" ", "_")
+        if any(p in col_lower for p in SENSITIVE_COLUMN_PATTERNS) or col_lower in extra:
             columns_to_mask.add(col)
 
     for col in columns_to_mask:

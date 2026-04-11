@@ -1,5 +1,5 @@
 """
-DataLens Configuration
+AskDB Configuration
 Central configuration management using Pydantic settings.
 """
 
@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     FALLBACK_MODEL: str = Field(default="claude-sonnet-4-5-20250514")
     MAX_TOKENS: int = Field(default=2048)
 
+    # ── Agent Phase Timeouts ──────────────────────────────────────
+    AGENT_PHASE_PLANNING: int = Field(default=30, description="Planning phase budget (seconds)")
+    AGENT_PHASE_SCHEMA: int = Field(default=60, description="Schema discovery budget (seconds)")
+    AGENT_PHASE_SQL_GEN: int = Field(default=30, description="SQL generation budget (seconds)")
+    AGENT_PHASE_DB_EXEC: int = Field(default=300, description="DB execution budget (seconds)")
+    AGENT_PHASE_VERIFY: int = Field(default=30, description="Verification pass budget (seconds)")
+    AGENT_SESSION_HARD_CAP: int = Field(default=1800, description="Absolute session cap (seconds)")
+    AGENT_MAX_CONCURRENT_PER_USER: int = Field(default=2, description="Max concurrent agent sessions per user")
+
     # ── Database Connection ────────────────────────────────────────
     DB_TYPE: DBType = Field(default=DBType.POSTGRESQL)
     DB_HOST: str = Field(default="localhost")
@@ -67,6 +76,7 @@ class Settings(BaseSettings):
     # ── Security Settings ─────────────────────────────────────────
     MAX_ROWS: int = Field(default=1000)
     QUERY_TIMEOUT_SECONDS: int = Field(default=30)
+    MAX_CONNECTIONS_PER_USER: int = Field(default=10)
     BLOCKED_KEYWORDS: list = Field(
         default=["DROP", "DELETE", "UPDATE", "INSERT", "ALTER",
                  "TRUNCATE", "GRANT", "REVOKE", "CREATE", "EXEC",
@@ -77,7 +87,7 @@ class Settings(BaseSettings):
     # ── JWT Auth ──────────────────────────────────────────────────
     JWT_SECRET_KEY: str = Field(default="change-me-in-production-use-a-long-random-string")
     ADMIN_JWT_SECRET_KEY: str = Field(default="")  # Separate admin JWT secret; falls back to JWT_SECRET_KEY if empty
-    JWT_ALGORITHM: str = Field(default="HS256")
+    JWT_ALGORITHM: str = Field(default="HS256")  # Constrained at startup to SAFE_JWT_ALGORITHMS
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=1440)  # 24 hours
 
     # ── Encryption ───────────────────────────────────────────────
@@ -100,14 +110,14 @@ class Settings(BaseSettings):
     # ── Email Delivery (OTP) ────────────────────────────────────
     # Option 1: Resend (recommended — free 100 emails/day, no domain setup)
     RESEND_API_KEY: str = Field(default="")
-    RESEND_FROM_EMAIL: str = Field(default="DataLens <onboarding@resend.dev>")
+    RESEND_FROM_EMAIL: str = Field(default="AskDB <onboarding@resend.dev>")
     # Option 2: SMTP (Gmail App Password, SendGrid, Brevo, etc.)
     SMTP_HOST: str = Field(default="smtp.gmail.com")
     SMTP_PORT: int = Field(default=587)
     SMTP_USER: str = Field(default="")
     SMTP_PASSWORD: str = Field(default="")
     SMTP_FROM_EMAIL: str = Field(default="")
-    SMTP_FROM_NAME: str = Field(default="DataLens")
+    SMTP_FROM_NAME: str = Field(default="AskDB")
     OTP_EXPIRY_SECONDS: int = Field(default=600)  # 10 minutes
 
     # ── SMS Delivery (Phone OTP via Twilio) ───────────────────
@@ -120,7 +130,7 @@ class Settings(BaseSettings):
     SLACK_WEBHOOK_URL: str = Field(default="")  # Incoming webhook URL for alert notifications
 
     # ── App ───────────────────────────────────────────────────────
-    APP_TITLE: str = Field(default="DataLens")
+    APP_TITLE: str = Field(default="AskDB")
     FRONTEND_URL: str = Field(default="http://localhost:5173")
 
     # ── ChromaDB ──────────────────────────────────────────────────
@@ -152,6 +162,7 @@ class Settings(BaseSettings):
     TURBO_TWIN_MAX_SIZE_MB: int = Field(default=500)
     TURBO_TWIN_SAMPLE_PERCENT: float = Field(default=1.0)  # 1% sample for TB-scale
     TURBO_TWIN_REFRESH_HOURS: int = Field(default=4)
+    TURBO_TWIN_WARN_UNENCRYPTED: bool = Field(default=True)  # Log warning when twins enabled without disk encryption
     DECOMPOSITION_ENABLED: bool = Field(default=True)
     DECOMPOSITION_MIN_ROWS: int = Field(default=1_000_000)  # only decompose if estimated > 1M rows
     STREAMING_PROGRESS_INTERVAL_MS: int = Field(default=1000)
@@ -190,6 +201,9 @@ class Settings(BaseSettings):
     FEATURE_AUTO_SWITCH: bool = Field(default=False)  # #6: connection switching prediction
     FEATURE_SMART_PRELOAD: bool = Field(default=False)  # #8: dashboard pre-loading
 
+    # Demo login guard — must be explicitly enabled
+    DEMO_ENABLED: bool = Field(default=False)
+
     model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @model_validator(mode="after")
@@ -216,7 +230,7 @@ if settings.JWT_SECRET_KEY in ("change-me-in-production-use-a-long-random-string
         "Example: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
     )
     import os as _os
-    if (_os.environ.get("DATALENS_ENV") or _os.environ.get("QUERYCOPILOT_ENV", "")).lower() in ("production", "prod", "staging"):
+    if (_os.environ.get("ASKDB_ENV") or _os.environ.get("QUERYCOPILOT_ENV", "")).lower() in ("production", "prod", "staging"):
         raise SystemExit("FATAL: JWT_SECRET_KEY must be changed from default in production/staging")
 
 # Cap MAX_ROWS to prevent env-var abuse
@@ -232,3 +246,19 @@ _missing = _MANDATORY_BLOCKED - _current_blocked
 if _missing:
     _cfg_logger.warning("BLOCKED_KEYWORDS missing mandatory entries: %s — adding them", _missing)
     settings.BLOCKED_KEYWORDS.extend(sorted(_missing))
+
+# Constrain JWT algorithm to safe HMAC variants (prevent "none" algorithm attack)
+_SAFE_JWT_ALGORITHMS = {"HS256", "HS384", "HS512"}
+if settings.JWT_ALGORITHM not in _SAFE_JWT_ALGORITHMS:
+    _cfg_logger.critical(
+        "JWT_ALGORITHM=%r is not in safe set %s — forcing HS256",
+        settings.JWT_ALGORITHM, _SAFE_JWT_ALGORITHMS,
+    )
+    object.__setattr__(settings, "JWT_ALGORITHM", "HS256")
+
+# Warn when admin JWT secret falls back to user secret (collapses admin/user auth boundary)
+if not settings.ADMIN_JWT_SECRET_KEY:
+    _cfg_logger.warning(
+        "ADMIN_JWT_SECRET_KEY is empty — admin auth uses JWT_SECRET_KEY. "
+        "Set a separate secret in .env to isolate admin from user auth."
+    )

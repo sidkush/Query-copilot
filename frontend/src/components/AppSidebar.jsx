@@ -121,7 +121,7 @@ export default function AppSidebar() {
   }, [theme, setTheme]);
 
   return (
-    <div className="w-14 flex-shrink-0 flex flex-col items-center py-3 gap-1 relative" style={{ background: 'var(--bg-page)', borderRight: '1px solid var(--border-default)' }}>
+    <div className="w-14 h-full flex-shrink-0 flex flex-col items-center py-3 gap-1 relative" style={{ background: 'var(--bg-page)', borderRight: '1px solid var(--border-default)' }}>
       {/* Subtle gradient glow at top */}
       <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-indigo-500/5 to-transparent pointer-events-none" />
 
@@ -147,7 +147,19 @@ export default function AppSidebar() {
             aria-label="AskDB Home"
             {...tooltipProps}
           >
-            <span className="text-white font-bold text-sm" aria-hidden="true">Q</span>
+            {/* AskDB logo — speech bubble + database cylinder */}
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              {/* Database cylinder (bottom) */}
+              <ellipse cx="12" cy="17" rx="6" ry="2" fill="white" opacity="0.3" />
+              <rect x="6" y="12" width="12" height="5" fill="white" opacity="0.5" />
+              <ellipse cx="12" cy="12" rx="6" ry="2" fill="white" opacity="0.7" />
+              {/* Speech bubble (top) */}
+              <path d="M5 4C5 3.44772 5.44772 3 6 3H18C18.5523 3 19 3.44772 19 4V10C19 10.5523 18.5523 11 18 11H9L6 14V11H6C5.44772 11 5 10.5523 5 10V4Z" fill="white" />
+              {/* Query dots inside bubble */}
+              <circle cx="9" cy="7" r="1" fill="#6366f1" />
+              <circle cx="12" cy="7" r="1" fill="#6366f1" />
+              <circle cx="15" cy="7" r="1" fill="#6366f1" />
+            </svg>
           </motion.button>
         )}
       </Tooltip>

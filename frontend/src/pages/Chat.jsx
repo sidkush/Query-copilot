@@ -424,7 +424,7 @@ export default function Chat() {
             return;
           }
 
-          if (step.type === "thinking" || step.type === "tool_call") {
+          if (["thinking", "tool_call", "tier_routing"].includes(step.type)) {
             // Update the agent_steps message in-place
             agentStepMsg.steps = [...(agentStepMsg.steps || []), step];
             setMessages((prev) => {
@@ -432,6 +432,28 @@ export default function Chat() {
               const idx = updated.findIndex((m) => m === agentStepMsg);
               if (idx >= 0) updated[idx] = { ...agentStepMsg };
               return updated;
+            });
+          }
+
+          // Turbo Mode instant answer — show as a prominent separate message
+          if (step.type === "cached_result" && step.content) {
+            setLoading(false); // Hide "Generating SQL..." immediately
+            addMessage({
+              type: "assistant",
+              content: step.content,
+              turboInstant: true,
+              cacheAge: step.cache_age_seconds,
+              timestamp: Date.now(),
+            });
+          }
+
+          // Live correction — update the turbo answer
+          if (step.type === "live_correction" && step.content) {
+            addMessage({
+              type: "assistant",
+              content: step.content,
+              liveCorrection: true,
+              timestamp: Date.now(),
             });
           }
 
@@ -1164,7 +1186,29 @@ export default function Chat() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 >
-                  <div className="backdrop-blur-md border rounded-2xl rounded-tl-sm px-5 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.15)]" style={{ background: 'var(--glass-bg-card)', borderColor: 'var(--glass-border)' }}>
+                  <div className="backdrop-blur-md border rounded-2xl rounded-tl-sm px-5 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.15)]" style={{
+                    background: 'var(--glass-bg-card)',
+                    borderColor: msg.turboInstant ? '#06b6d4' : msg.liveCorrection ? '#f59e0b' : 'var(--glass-border)',
+                    borderLeftWidth: (msg.turboInstant || msg.liveCorrection) ? 3 : undefined,
+                  }}>
+                    {msg.turboInstant && (
+                      <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold text-cyan-400">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        Instant Answer (Turbo Mode)
+                        {msg.cacheAge != null && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">
+                            {msg.cacheAge < 60 ? `${Math.round(msg.cacheAge)}s` : `${Math.round(msg.cacheAge / 60)}m`}
+                          </span>
+                        )}
+                        <span className="ml-auto animate-pulse w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" title="Live verification running..." />
+                      </div>
+                    )}
+                    {msg.liveCorrection && (
+                      <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold text-amber-400">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        Verified &amp; Updated
+                      </div>
+                    )}
                     <ReactMarkdown
                       components={{
                         h1: ({ children }) => <h1 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{children}</h1>,
@@ -1287,13 +1331,40 @@ export default function Chat() {
                     {msg.status === "done" ? "Agent completed" : "Agent working..."}
                   </div>
                   {(msg.steps || []).map((step, si) => (
-                    <div key={si} className="text-xs text-[#6B6F76] pl-4 flex items-center gap-1.5">
-                      {step.type === "thinking" && <span className="italic text-[var(--text-muted)]">Analyzing...</span>}
+                    <div key={si} className="text-xs pl-4 flex items-start gap-1.5">
+                      {step.type === "thinking" && <span className="italic" style={{ color: 'var(--text-muted)' }}>Analyzing...</span>}
                       {step.type === "tool_call" && (
                         <span>
                           <span className="text-blue-400/70">{step.tool_name}</span>
                           {step.tool_result && <span className="text-emerald-500/60 ml-1">done</span>}
                         </span>
+                      )}
+                      {step.type === "tier_routing" && (
+                        <span className="text-amber-400/80 font-medium">{step.content || "Checking intelligence tiers..."}</span>
+                      )}
+                      {step.type === "cached_result" && (
+                        <div className="w-full rounded-lg p-3 mt-1 mb-1" style={{ background: 'rgba(6, 182, 212, 0.06)', borderLeft: '3px solid #06b6d4' }}>
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-400 mb-1.5">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            Instant Answer (Turbo Mode)
+                            {step.cache_age_seconds != null && (
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+                                {step.cache_age_seconds < 60 ? `${Math.round(step.cache_age_seconds)}s ago` : `${Math.round(step.cache_age_seconds / 60)}m ago`}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[13px] font-medium" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{step.content}</div>
+                          <div className="text-[10px] mt-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                            <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                            Live verification in progress...
+                          </div>
+                        </div>
+                      )}
+                      {step.type === "live_correction" && (
+                        <div className="w-full rounded-lg p-2 mt-1" style={{ background: 'rgba(245, 158, 11, 0.06)', borderLeft: '3px solid #f59e0b' }}>
+                          <span className="text-[11px] font-semibold text-amber-400">Updated</span>
+                          <div className="text-[12px] mt-1" style={{ color: 'var(--text-secondary)' }}>{step.content}</div>
+                        </div>
                       )}
                     </div>
                   ))}

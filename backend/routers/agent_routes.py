@@ -18,8 +18,10 @@ from fastapi.responses import StreamingResponse
 import pydantic
 from pydantic import BaseModel
 
+from config import settings
 from auth import get_current_user
 from agent_engine import AgentEngine, SessionMemory, AgentStep
+from agent_session_store import session_store
 from schema_intelligence import SchemaIntelligence
 from waterfall_router import build_default_router
 from provider_registry import get_provider_for_user
@@ -28,6 +30,17 @@ _logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/agent", tags=["agent"])
 
+# Cap for collected_steps lists in SSE generators to prevent memory bloat
+MAX_COLLECTED_STEPS = 500
+
+
+def _cap_collected_steps(steps: list) -> list:
+    """Trim collected_steps to MAX_COLLECTED_STEPS, keeping the most recent entries."""
+    if len(steps) <= MAX_COLLECTED_STEPS:
+        return steps
+    # Keep first 10 (initial context) + last (MAX - 10) entries
+    return steps[:10] + steps[-(MAX_COLLECTED_STEPS - 10):]
+
 # P0 fix: module-level singleton — avoids creating new ChromaDB clients per request
 _waterfall_router = build_default_router()
 
@@ -35,6 +48,8 @@ _waterfall_router = build_default_router()
 
 _sessions: dict[str, SessionMemory] = {}
 _sessions_lock = threading.Lock()  # Guards all _sessions dict mutations
+_active_agents: dict[str, int] = {}  # email -> count of active sessions
+_active_agents_lock = threading.Lock()
 _MAX_SESSIONS = 100
 
 
@@ -87,6 +102,13 @@ class AgentRespondRequest(BaseModel):
     response: str
 
 
+class AgentContinueRequest(BaseModel):
+    chat_id: str
+    conn_id: Optional[str] = None
+    persona: Optional[str] = None
+    permission_mode: Optional[str] = "supervised"
+
+
 # ── Endpoints ────────────────────────────────────────────────────
 
 @router.post("/run")
@@ -98,6 +120,19 @@ async def agent_run(req: AgentRunRequest, request: Request,
     email = user.get("email", "")
     if not req.question.strip():
         raise HTTPException(400, "Question cannot be empty")
+
+    # Enforce per-user concurrency cap
+    max_concurrent = settings.AGENT_MAX_CONCURRENT_PER_USER
+    with _active_agents_lock:
+        current = _active_agents.get(email, 0)
+        if current >= max_concurrent:
+            raise HTTPException(
+                429,
+                f"Maximum {max_concurrent} concurrent agent sessions. "
+                "Please wait for a running query to complete or cancel it."
+            )
+        _active_agents[email] = current + 1
+
     connections = app.state.connections.get(email, {})
     if not connections:
         raise HTTPException(400, "No active database connections")
@@ -111,7 +146,7 @@ async def agent_run(req: AgentRunRequest, request: Request,
         entry = next(iter(connections.values()))
 
     # Session — use cryptographic nonce if generating new chat_id
-    chat_id = req.chat_id or f"agent_{email}_{int(time.time())}_{secrets.token_hex(8)}"
+    chat_id = req.chat_id or f"agent_{email}_{int(time.time())}_{secrets.token_hex(16)}"
     try:
         memory = _get_or_create_session(chat_id, owner_email=email)
     except ValueError as e:
@@ -145,17 +180,20 @@ async def agent_run(req: AgentRunRequest, request: Request,
 
     async def event_generator():
         """Yield SSE events from the agent loop."""
+        collected_steps = []  # Collect step dicts for SQLite persistence
+
+        def _persist_session():
+            """Save collected steps + progress to SQLite (Invariant-5)."""
+            try:
+                progress = getattr(engine, '_progress', {})
+                title = req.question[:80]
+                session_store.save_session(chat_id, email, title, _cap_collected_steps(collected_steps), progress)
+            except Exception as exc:
+                _logger.warning("Session persist failed for %s: %s", chat_id, exc)
+
         try:
-            # Run the blocking agent loop in a thread
-            steps = []
-
-            def _run_agent():
-                for step in engine.run(req.question):
-                    steps.append(step)
-
             # We need to yield steps as they arrive, so use a queue
             queue: asyncio.Queue = asyncio.Queue()
-            done_event = asyncio.Event()
 
             def _run_agent_with_queue():
                 try:
@@ -188,11 +226,15 @@ async def agent_run(req: AgentRunRequest, request: Request,
                     # Send final result
                     result_data = engine._result.to_dict()
                     result_data["chat_id"] = chat_id
+                    collected_steps.append(result_data)
                     yield f"data: {json.dumps(result_data, default=str)}\n\n"
+                    # Persist completed session to SQLite
+                    _persist_session()
                     break
 
                 step_data = step.to_dict() if isinstance(step, AgentStep) else step
                 step_data["chat_id"] = chat_id
+                collected_steps.append(step_data)
                 # Dual-response logging (Task 1.6)
                 _step_type = step_data.get("type", "") if isinstance(step_data, dict) else ""
                 if _step_type == "cached_result":
@@ -210,6 +252,8 @@ async def agent_run(req: AgentRunRequest, request: Request,
                 with memory._lock:
                     if memory._running:
                         memory._cancelled = True
+            # Persist partial progress even on disconnect (Invariant-2)
+            _persist_session()
         except Exception as e:
             _logger.exception("Agent SSE error")
             # Guard _cancelled write with lock to prevent killing a new run
@@ -219,6 +263,15 @@ async def agent_run(req: AgentRunRequest, request: Request,
                         memory._cancelled = True
             safe_msg = str(e)[:200]  # Don't leak internal details via SSE
             yield f"data: {json.dumps({'type': 'error', 'content': safe_msg}, default=str)}\n\n"
+            # Persist partial progress even on error
+            _persist_session()
+        finally:
+            with _active_agents_lock:
+                count = _active_agents.get(email, 1)
+                if count <= 1:
+                    _active_agents.pop(email, None)
+                else:
+                    _active_agents[email] = count - 1
 
     return StreamingResponse(
         event_generator(),
@@ -261,7 +314,201 @@ async def agent_respond(req: AgentRespondRequest,
         if session._user_response is not None:
             raise HTTPException(409, "A response has already been submitted")
         session._user_response = req.response[:2000]  # Cap length
+        session._user_response_event.set()  # Wake up Event-waiting thread
     return {"status": "ok", "chat_id": req.chat_id}
+
+
+@router.post("/cancel/{chat_id}")
+async def agent_cancel(chat_id: str, request: Request,
+                       user: dict = Depends(get_current_user)):
+    """Cancel a running agent session."""
+    email = user.get("email", "")
+    with _sessions_lock:
+        session = _sessions.get(chat_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    with session._lock:
+        if session.owner_email and session.owner_email != email:
+            raise HTTPException(403, "Not your session")
+        session._cancelled = True
+        session._user_response_event.set()  # Wake up Event-waiting thread on cancel
+    return {"status": "cancelled", "chat_id": chat_id}
+
+
+@router.post("/continue")
+async def agent_continue(req: AgentContinueRequest, request: Request,
+                         user: dict = Depends(get_current_user)):
+    """Resume an interrupted agent session from its progress tracker."""
+    from main import app
+
+    email = user.get("email", "")
+
+    # Enforce per-user concurrency cap (same as /run endpoint)
+    max_concurrent = settings.AGENT_MAX_CONCURRENT_PER_USER
+    with _active_agents_lock:
+        current = _active_agents.get(email, 0)
+        if current >= max_concurrent:
+            raise HTTPException(
+                429,
+                f"Maximum {max_concurrent} concurrent agent sessions. "
+                "Please wait for a running query to complete or cancel it."
+            )
+        _active_agents[email] = current + 1
+
+    # Load session from SQLite (Invariant-3: email-scoped)
+    saved = session_store.load_session(req.chat_id, email)
+    if not saved:
+        _decrement_active()
+        raise HTTPException(404, "Session not found")
+
+    def _decrement_active():
+        with _active_agents_lock:
+            count = _active_agents.get(email, 1)
+            if count <= 1:
+                _active_agents.pop(email, None)
+            else:
+                _active_agents[email] = count - 1
+
+    progress = saved.get("progress", {})
+    if not progress.get("pending"):
+        _decrement_active()
+        raise HTTPException(400, "No pending tasks to continue")
+
+    connections = app.state.connections.get(email, {})
+    if not connections:
+        _decrement_active()
+        raise HTTPException(400, "No active database connections")
+
+    # Resolve connection
+    if req.conn_id:
+        entry = connections.get(req.conn_id)
+        if not entry:
+            _decrement_active()
+            raise HTTPException(404, f"Connection '{req.conn_id}' not found")
+    else:
+        entry = next(iter(connections.values()))
+
+    chat_id = req.chat_id
+    try:
+        memory = _get_or_create_session(chat_id, owner_email=email)
+    except ValueError as e:
+        _decrement_active()
+        msg = str(e)
+        if "capacity" in msg:
+            raise HTTPException(503, msg)
+        raise HTTPException(403, "Session belongs to a different user")
+
+    # Prevent duplicate agent loops on the same session
+    with memory._lock:
+        if memory._running:
+            _decrement_active()
+            raise HTTPException(409, "Agent loop already running on this session")
+
+    waterfall_router = _waterfall_router
+    perm_mode = req.permission_mode if req.permission_mode in ("supervised", "autonomous") else "supervised"
+    provider = get_provider_for_user(email)
+    if memory.provider is None:
+        memory.provider = provider
+
+    engine = AgentEngine(
+        engine=entry.engine,
+        email=email,
+        connection_entry=entry,
+        provider=provider,
+        memory=memory,
+        auto_execute=True,
+        permission_mode=perm_mode,
+        waterfall_router=waterfall_router,
+    )
+    if req.persona:
+        engine._persona = req.persona
+
+    # Pre-load progress into engine so it resumes from where it left off
+    engine._progress = progress
+
+    # Build a resume question from progress
+    goal = progress.get("goal", "the previous task")
+    completed_count = len(progress.get("completed", []))
+    pending_count = len(progress.get("pending", []))
+    resume_question = (
+        f"Continue the previous task: {goal}. "
+        f"{completed_count} tasks completed, {pending_count} remaining. "
+        f"Resume from the next pending task."
+    )
+
+    async def event_generator():
+        collected_steps = []
+
+        def _persist_session():
+            try:
+                title = saved.get("title", goal[:80])
+                session_store.save_session(chat_id, email, title, _cap_collected_steps(collected_steps), engine._progress)
+            except Exception as exc:
+                _logger.warning("Continue session persist failed for %s: %s", chat_id, exc)
+
+        try:
+            queue: asyncio.Queue = asyncio.Queue()
+
+            def _run_agent_with_queue():
+                try:
+                    for step in engine.run(resume_question):
+                        asyncio.run_coroutine_threadsafe(queue.put(step), loop)
+                except Exception as e:
+                    err = AgentStep(type="error", content=str(e))
+                    asyncio.run_coroutine_threadsafe(queue.put(err), loop)
+                finally:
+                    asyncio.run_coroutine_threadsafe(queue.put(None), loop)
+
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(None, _run_agent_with_queue)
+
+            while True:
+                try:
+                    step = await asyncio.wait_for(queue.get(), timeout=30)
+                except asyncio.TimeoutError:
+                    yield ": heartbeat\n\n"
+                    continue
+
+                if step is None:
+                    result_data = engine._result.to_dict()
+                    result_data["chat_id"] = chat_id
+                    collected_steps.append(result_data)
+                    yield f"data: {json.dumps(result_data, default=str)}\n\n"
+                    _persist_session()
+                    break
+
+                step_data = step.to_dict() if isinstance(step, AgentStep) else step
+                step_data["chat_id"] = chat_id
+                collected_steps.append(step_data)
+                yield f"data: {json.dumps(step_data, default=str)}\n\n"
+
+        except asyncio.CancelledError:
+            if memory:
+                with memory._lock:
+                    if memory._running:
+                        memory._cancelled = True
+            _persist_session()
+        except Exception as e:
+            _logger.exception("Agent continue SSE error")
+            if memory:
+                with memory._lock:
+                    if memory._running:
+                        memory._cancelled = True
+            safe_msg = str(e)[:200]
+            yield f"data: {json.dumps({'type': 'error', 'content': safe_msg}, default=str)}\n\n"
+            _persist_session()
+        finally:
+            _decrement_active()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/intelligence/stats")
@@ -286,3 +533,33 @@ async def intelligence_stats(user: dict = Depends(get_current_user)):
         "cache_age_p50": ages[len(ages) // 2] if ages else None,
         "cache_age_p95": ages[int(len(ages) * 0.95)] if ages else None,
     }
+
+
+# ── Session Persistence Endpoints ─────────────────────────────
+
+@router.get("/sessions")
+async def list_agent_sessions(user: dict = Depends(get_current_user)):
+    """List all agent sessions for the authenticated user (newest first)."""
+    email = user.get("email", "")
+    sessions = session_store.list_sessions(email, limit=50)
+    return {"sessions": sessions}
+
+
+@router.get("/sessions/{chat_id}")
+async def load_agent_session(chat_id: str, user: dict = Depends(get_current_user)):
+    """Load a full agent session by chat_id. Invariant-3: email-scoped."""
+    email = user.get("email", "")
+    session = session_store.load_session(chat_id, email)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    return session
+
+
+@router.delete("/sessions/{chat_id}")
+async def delete_agent_session(chat_id: str, user: dict = Depends(get_current_user)):
+    """Delete an agent session. Invariant-3: email-scoped."""
+    email = user.get("email", "")
+    deleted = session_store.delete_session(chat_id, email)
+    if not deleted:
+        raise HTTPException(404, "Session not found")
+    return {"status": "ok"}

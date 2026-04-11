@@ -36,10 +36,7 @@ const SectionBackground3D = lazy(() => import("../components/animation/SectionBa
 const DeviceFrame3D = lazy(() => import("../components/animation/DeviceFrame3D"));
 import { useScrollReveal } from "../components/animation/useScrollReveal";
 import ScrollReveal from "../components/animation/ScrollReveal";
-import demoChat from "../assets/chat_to_chart.webp";
-import demoAssembly from "../assets/dashboard_assembly.webp";
-import demoFilter from "../assets/dashboard_filter.webp";
-import demoMultiDB from "../assets/multi_db_er.webp";
+// Static images replaced with animated React mockups (DemoVisual component below)
 
 const DEMO_SLIDES = [
   {
@@ -50,7 +47,7 @@ const DEMO_SLIDES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
       </svg>
     ),
-    gif: demoChat,
+    visual: "agent",
     title: "Autonomous Multi-Step Agent",
     desc: "Ask a complex question in plain English. The agent generates an execution plan, discovers relevant tables, writes dialect-aware SQL (BigQuery, Snowflake, PostgreSQL), auto-retries on errors, and delivers a formatted markdown summary with row count estimates \u2014 all before you click Execute.",
     highlights: ["Plan \u2192 Discover \u2192 Query \u2192 Summarize", "Session memory across conversations", "Safe mode or autonomous mode"],
@@ -63,7 +60,7 @@ const DEMO_SLIDES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" />
       </svg>
     ),
-    gif: demoAssembly,
+    visual: "dashboard",
     title: "Agent-Built + Hand-Crafted Dashboards",
     desc: "Tell the agent \u2018build me a revenue dashboard\u2019 and it plans tiles, writes queries, and creates the layout. Or build manually: drag-drop tiles, resize charts, add KPI cards with conditional formatting, organize into tabs and sections, apply custom themes.",
     highlights: ["Agent creates dashboards end-to-end", "Drag-drop grid + freeform canvas", "KPI cards, reference lines, bookmarks"],
@@ -76,7 +73,7 @@ const DEMO_SLIDES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
       </svg>
     ),
-    gif: demoFilter,
+    visual: "filters",
     title: "Global Filters, Cross-Tile Sync & Export",
     desc: "Apply a date range or category filter once \u2014 every tile updates simultaneously. Click any chart element to cross-filter related tiles. Export to CSV, JSON, PDF, or PNG. Auto-generate 16:9 presentation slides. Push insights to Slack or schedule email digests.",
     highlights: ["One filter syncs all charts", "Click-through cross-filtering", "PDF, Slack, email digests, presentations"],
@@ -89,7 +86,7 @@ const DEMO_SLIDES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375" />
       </svg>
     ),
-    gif: demoMultiDB,
+    visual: "databases",
     title: "18 Engines, BYOK, Turbo Mode",
     desc: "Connect PostgreSQL, MySQL, Snowflake, BigQuery, Databricks, ClickHouse, DuckDB, and 11 more. Bring your own Anthropic API key and choose your model. Enable DuckDB Turbo Mode for sub-100ms analytical queries on a local replica \u2014 your production database stays untouched.",
     highlights: ["Dialect-aware SQL for every engine", "BYOK: Haiku, Sonnet, or Opus", "Turbo Mode: <100ms local replica"],
@@ -283,6 +280,253 @@ function VisibleSectionBg({ children }) {
   );
 }
 
+/* ── Animated Demo Visuals ── */
+function DemoVisual({ type }) {
+  const cardBg = 'var(--bg-elevated)';
+  const borderCol = 'var(--border-default)';
+  const textP = 'var(--text-primary)';
+  const textS = 'var(--text-secondary)';
+  const textM = 'var(--text-muted)';
+  const surfBg = 'var(--bg-surface)';
+
+  if (type === "agent") {
+    // AI Agent workflow: typing → SQL → results → chart
+    return (
+      <div className="p-4 space-y-3" style={{ background: cardBg }}>
+        {/* Chat input with typing */}
+        <div className="rounded-xl p-3" style={{ background: surfBg, border: `1px solid ${borderCol}` }}>
+          <div className="text-[10px] font-semibold mb-2" style={{ color: textM }}>ASK ANYTHING</div>
+          <motion.div className="text-sm font-medium" style={{ color: textP }}
+            initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 2, ease: "easeOut" }}>
+            <span style={{ overflow: 'hidden', display: 'inline-block', whiteSpace: 'nowrap', borderRight: '2px solid #6366f1' }}>
+              Show me revenue by region with growth rates
+            </span>
+          </motion.div>
+        </div>
+        {/* Agent steps */}
+        <div className="space-y-1.5">
+          {["Planning query execution...", "Discovering tables: orders, regions", "Writing SQL (PostgreSQL dialect)", "Executing query — 847 rows"].map((step, i) => (
+            <motion.div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px]"
+              style={{ background: surfBg, border: `1px solid ${borderCol}` }}
+              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.8 + i * 0.6, duration: 0.4 }}>
+              <motion.div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                initial={{ background: '#f59e0b' }} animate={{ background: '#22c55e' }}
+                transition={{ delay: 1.0 + i * 0.6 }}>
+                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+              </motion.div>
+              <span style={{ color: textS }}>{step}</span>
+            </motion.div>
+          ))}
+        </div>
+        {/* Result chart */}
+        <motion.div className="rounded-xl p-3" style={{ background: surfBg, border: `1px solid ${borderCol}` }}
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 3.4 }}>
+          <div className="text-[10px] font-semibold mb-2" style={{ color: textM }}>RESULTS — 847 rows</div>
+          <div className="flex items-end gap-1 h-16">
+            {[35, 52, 42, 68, 58, 75, 62, 88, 72, 95].map((h, i) => (
+              <motion.div key={i} className="flex-1 rounded-t-sm"
+                style={{ background: i >= 8 ? '#6366f1' : i >= 5 ? '#818cf8' : '#a5b4fc' }}
+                initial={{ height: 0 }} animate={{ height: `${h}%` }}
+                transition={{ delay: 3.6 + i * 0.08, duration: 0.4, ease: "easeOut" }} />
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (type === "dashboard") {
+    // Dashboard builder: tiles appearing + KPIs filling
+    return (
+      <div className="p-4" style={{ background: cardBg }}>
+        <div className="text-[10px] font-semibold mb-3 flex items-center gap-2" style={{ color: textM }}>
+          <span className="w-2 h-2 rounded-full bg-emerald-400" /> MARKETING DASHBOARD
+        </div>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {[
+            { label: "Total Revenue", val: "$2.4M", color: "#2563EB" },
+            { label: "Conversion Rate", val: "4.8%", color: "#22C55E" },
+            { label: "Avg Order Value", val: "$127", color: "#A855F7" },
+          ].map((kpi, i) => (
+            <motion.div key={i} className="rounded-lg p-2.5" style={{ background: surfBg, border: `1px solid ${borderCol}` }}
+              initial={{ opacity: 0, scale: 0.8, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ delay: 0.3 + i * 0.2, type: "spring", stiffness: 200 }}>
+              <div className="text-[8px] uppercase tracking-wider font-semibold" style={{ color: textM }}>{kpi.label}</div>
+              <motion.div className="text-lg font-bold" style={{ color: textP }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 + i * 0.2 }}>{kpi.val}</motion.div>
+              <div className="h-1 rounded-full mt-1" style={{ background: `${borderCol}` }}>
+                <motion.div className="h-full rounded-full" style={{ background: kpi.color }}
+                  initial={{ width: 0 }} animate={{ width: `${60 + i * 15}%` }} transition={{ delay: 1 + i * 0.15, duration: 0.8 }} />
+              </div>
+            </motion.div>
+          ))}
+        </div>
+        {/* Chart tiles */}
+        <div className="grid grid-cols-2 gap-2">
+          <motion.div className="rounded-lg p-3" style={{ background: surfBg, border: `1px solid ${borderCol}` }}
+            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.2 }}>
+            <div className="text-[9px] font-semibold mb-2" style={{ color: textM }}>Revenue Trend</div>
+            <div className="flex items-end gap-0.5 h-20">
+              {[30, 45, 35, 55, 48, 65, 58, 78, 68, 85, 75, 92].map((h, i) => (
+                <motion.div key={i} className="flex-1 rounded-t-sm" style={{ background: '#6366f1' }}
+                  initial={{ height: 0 }} animate={{ height: `${h}%` }}
+                  transition={{ delay: 1.5 + i * 0.05, duration: 0.3 }} />
+              ))}
+            </div>
+          </motion.div>
+          <motion.div className="rounded-lg p-3" style={{ background: surfBg, border: `1px solid ${borderCol}` }}
+            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.5 }}>
+            <div className="text-[9px] font-semibold mb-2" style={{ color: textM }}>By Category</div>
+            <div className="flex items-center justify-center h-20">
+              <svg viewBox="0 0 100 100" className="w-20 h-20">
+                {[
+                  { d: "M50 10 A40 40 0 0 1 90 50 L50 50Z", fill: "#6366f1" },
+                  { d: "M90 50 A40 40 0 0 1 50 90 L50 50Z", fill: "#22c55e" },
+                  { d: "M50 90 A40 40 0 0 1 10 50 L50 50Z", fill: "#f59e0b" },
+                  { d: "M10 50 A40 40 0 0 1 50 10 L50 50Z", fill: "#a855f7" },
+                ].map((seg, i) => (
+                  <motion.path key={i} d={seg.d} fill={seg.fill}
+                    initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }}
+                    style={{ transformOrigin: '50px 50px' }}
+                    transition={{ delay: 1.8 + i * 0.15, duration: 0.4 }} />
+                ))}
+              </svg>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "filters") {
+    // Filters: filter bar → tiles updating → export
+    return (
+      <div className="p-4 space-y-3" style={{ background: cardBg }}>
+        {/* Filter bar */}
+        <motion.div className="rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap"
+          style={{ background: surfBg, border: `1px solid ${borderCol}` }}
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#6366f1' }}>Filters</span>
+          <motion.span className="text-[10px] px-2 py-0.5 rounded-md" style={{ background: '#6366f120', color: '#818cf8', border: '1px solid #6366f130' }}
+            initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.6 }}>
+            date ≥ 2024-01-01
+          </motion.span>
+          <motion.span className="text-[10px] px-2 py-0.5 rounded-md" style={{ background: '#6366f120', color: '#818cf8', border: '1px solid #6366f130' }}
+            initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.9 }}>
+            region = North America
+          </motion.span>
+          <motion.div className="ml-auto px-3 py-1 rounded-md text-[10px] font-bold text-white"
+            style={{ background: '#6366f1' }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
+            whileHover={{ scale: 1.05 }}>Apply</motion.div>
+        </motion.div>
+        {/* Tiles updating */}
+        <div className="grid grid-cols-2 gap-2">
+          {["Revenue by Region", "Monthly Trends", "Top Products", "Customer Segments"].map((title, i) => (
+            <motion.div key={i} className="rounded-lg p-2.5 relative overflow-hidden"
+              style={{ background: surfBg, border: `1px solid ${borderCol}` }}
+              initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 + i * 0.2 }}>
+              <div className="text-[9px] font-semibold mb-1" style={{ color: textM }}>{title}</div>
+              <div className="flex items-end gap-0.5 h-12">
+                {Array.from({ length: 6 }, (_, j) => 20 + Math.random() * 60).map((h, j) => (
+                  <motion.div key={j} className="flex-1 rounded-t-sm"
+                    style={{ background: ['#6366f1', '#22c55e', '#a855f7', '#f59e0b'][i] }}
+                    initial={{ height: `${h * 0.3}%` }} animate={{ height: `${h}%` }}
+                    transition={{ delay: 1.6 + i * 0.2 + j * 0.05, duration: 0.5 }} />
+                ))}
+              </div>
+              {/* Update flash */}
+              <motion.div className="absolute inset-0 rounded-lg"
+                style={{ background: `${['#6366f1', '#22c55e', '#a855f7', '#f59e0b'][i]}15` }}
+                initial={{ opacity: 0 }} animate={{ opacity: [0, 0.6, 0] }}
+                transition={{ delay: 1.5 + i * 0.2, duration: 0.6 }} />
+            </motion.div>
+          ))}
+        </div>
+        {/* Export row */}
+        <motion.div className="flex items-center gap-2 justify-center"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3 }}>
+          {["CSV", "PDF", "PNG", "Slack"].map((fmt, i) => (
+            <motion.span key={fmt} className="text-[10px] font-semibold px-2.5 py-1 rounded-md cursor-pointer"
+              style={{ background: surfBg, color: textS, border: `1px solid ${borderCol}` }}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 3.2 + i * 0.1 }}
+              whileHover={{ borderColor: '#6366f1', color: '#818cf8' }}>{fmt}</motion.span>
+          ))}
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (type === "databases") {
+    // 18 databases connecting + Turbo Mode
+    const dbs = [
+      { name: "PostgreSQL", color: "#336791" }, { name: "BigQuery", color: "#4285F4" },
+      { name: "Snowflake", color: "#29B5E8" }, { name: "MySQL", color: "#4479A1" },
+      { name: "Databricks", color: "#FF3621" }, { name: "ClickHouse", color: "#FFCC00" },
+      { name: "DuckDB", color: "#FFC300" }, { name: "Redshift", color: "#8C4FFF" },
+      { name: "MSSQL", color: "#CC2927" },
+    ];
+    return (
+      <div className="p-4 space-y-3" style={{ background: cardBg }}>
+        <div className="text-[10px] font-semibold mb-1" style={{ color: textM }}>CONNECTED SOURCES</div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {dbs.map((db, i) => (
+            <motion.div key={db.name} className="rounded-lg px-2 py-2 flex items-center gap-1.5"
+              style={{ background: surfBg, border: `1px solid ${borderCol}` }}
+              initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 + i * 0.1, type: "spring", stiffness: 300 }}>
+              <motion.div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                initial={{ background: '#f59e0b' }} animate={{ background: '#22c55e' }}
+                transition={{ delay: 0.6 + i * 0.1 }} />
+              <span className="text-[10px] font-semibold truncate" style={{ color: textP }}>{db.name}</span>
+            </motion.div>
+          ))}
+        </div>
+        {/* BYOK model selector */}
+        <motion.div className="rounded-xl p-3" style={{ background: surfBg, border: `1px solid ${borderCol}` }}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }}>
+          <div className="text-[9px] font-semibold uppercase tracking-wider mb-2" style={{ color: textM }}>YOUR API KEY — MODEL SELECTION</div>
+          <div className="flex gap-1.5">
+            {[
+              { name: "Haiku", desc: "Fast", active: false },
+              { name: "Sonnet", desc: "Balanced", active: true },
+              { name: "Opus", desc: "Powerful", active: false },
+            ].map((m, i) => (
+              <motion.div key={m.name} className="flex-1 rounded-lg px-2 py-1.5 text-center cursor-pointer"
+                style={{
+                  background: m.active ? '#6366f120' : 'transparent',
+                  border: `1px solid ${m.active ? '#6366f1' : borderCol}`,
+                }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.8 + i * 0.1 }}>
+                <div className="text-[11px] font-bold" style={{ color: m.active ? '#818cf8' : textP }}>{m.name}</div>
+                <div className="text-[8px]" style={{ color: textM }}>{m.desc}</div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+        {/* Turbo Mode */}
+        <motion.div className="rounded-xl p-3 flex items-center gap-3"
+          style={{ background: '#22c55e0d', border: '1px solid #22c55e30' }}
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2.4 }}>
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
+          </div>
+          <div>
+            <div className="text-[11px] font-bold text-emerald-400">Turbo Mode Active</div>
+            <div className="text-[9px]" style={{ color: textM }}>DuckDB replica — queries under 100ms</div>
+          </div>
+          <motion.div className="ml-auto text-lg font-bold text-emerald-400"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.8 }}>94ms</motion.div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 /* ── Demo Carousel Component ── */
 function DemoCarousel() {
   const [active, setActive] = useState(0);
@@ -313,20 +557,18 @@ function DemoCarousel() {
 
       {/* Content area */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-        {/* GIF panel with crossfade */}
-        <div className="lg:col-span-3 rounded-2xl overflow-hidden glass-card relative" style={{ minHeight: 300 }}>
+        {/* Animated visual panel */}
+        <div className="lg:col-span-3 rounded-2xl overflow-hidden glass-card relative" style={{ minHeight: 340 }}>
           <AnimatePresence mode="wait">
-            <motion.img
+            <motion.div
               key={slide.id}
-              src={slide.gif}
-              alt={slide.title}
-              className="w-full h-auto"
-              loading="lazy"
               initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.02 }}
               transition={{ duration: 0.4, ease: "easeInOut" }}
-            />
+            >
+              <DemoVisual type={slide.visual} />
+            </motion.div>
           </AnimatePresence>
         </div>
 
@@ -518,86 +760,196 @@ function LandingInner() {
         </div>
       </nav>
 
-      {/* ── Hero (with 3D Background & Fallback) ── */}
-      <section className="relative min-h-[92vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
-        {/* 3D glassmorphism tech background with 2D fallback */}
+      {/* ── Hero (Split Layout: Text Left + Visual Right) ── */}
+      <section className="relative min-h-[92vh] flex items-center px-6 overflow-hidden">
+        {/* 3D background */}
         <WebGLErrorBoundary fallback={<AnimatedBackground />}>
           <Suspense fallback={<AnimatedBackground />}>
             <Background3D onCreated={() => setHeroLoaded(true)} />
           </Suspense>
         </WebGLErrorBoundary>
-
-        {/* Mesh gradient overlay */}
         <div className="absolute inset-0 mesh-gradient pointer-events-none" />
 
-        <div className="relative z-10 max-w-4xl">
+        <div className="relative z-10 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          {/* ── Left: Text ── */}
+          <div>
+            <motion.div
+              className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-xs font-semibold text-indigo-400 mb-6 shadow-lg shadow-indigo-500/10"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 120, damping: 14, delay: 0.1 }}
+            >
+              <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+              BYOK &mdash; You control the AI
+            </motion.div>
+
+            <motion.h1
+              className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.08] mb-5"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 80, damping: 16, delay: 0.2 }}
+            >
+              Ask your data.{" "}
+              <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-pink-400 bg-clip-text text-transparent text-shimmer">
+                Get dashboards.
+              </span>
+            </motion.h1>
+
+            <motion.p
+              className="text-base sm:text-lg max-w-lg mb-8 leading-relaxed"
+              style={{ color: 'var(--text-secondary)' }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              Connect 18+ databases. Ask in plain English. An autonomous AI agent writes SQL, picks charts, and builds dashboards &mdash; end to end.
+            </motion.p>
+
+            <motion.div
+              className="flex items-center gap-3 flex-wrap mb-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+            >
+              <MotionButton onClick={() => navigate("/login")} className="px-7 py-3 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-full shadow-xl shadow-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/40 transition-all duration-300 cursor-pointer btn-glow text-sm">Start free</MotionButton>
+              <MotionButton onClick={() => scrollTo("demo")} className="px-7 py-3 glass font-bold rounded-full hover:border-indigo-500/40 transition-all duration-300 cursor-pointer text-sm" style={{ color: 'var(--text-primary)' }}>See it work</MotionButton>
+            </motion.div>
+
+            {/* Compact trust strip */}
+            <motion.div
+              className="flex items-center gap-2 flex-wrap"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+            >
+              <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--text-muted)' }}>Works with</span>
+              {["PostgreSQL", "BigQuery", "Snowflake", "MySQL", "Redshift", "+13 more"].map((db) => (
+                <span key={db} className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: 'var(--text-muted)', border: '1px solid var(--border-default)' }}>{db}</span>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* ── Right: Glossy data pipeline visual ── */}
           <motion.div
-            className="inline-flex items-center gap-2 glass rounded-full px-5 py-2 text-sm font-semibold text-indigo-400 mb-8 shadow-lg shadow-indigo-500/10"
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: "spring", stiffness: 120, damping: 14, delay: 0.1 }}
+            className="relative hidden lg:block"
+            initial={{ opacity: 0, x: 60, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 60, damping: 18, delay: 0.4 }}
           >
-            <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-            Bring Your Own Key &mdash; You control the AI, we provide the platform
+            {/* Glossy dashboard mockup */}
+            <div className="glass-card-elevated rounded-2xl p-1 shadow-2xl" style={{ transform: 'perspective(1200px) rotateY(-6deg) rotateX(2deg)' }}>
+              <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
+                {/* Fake browser chrome */}
+                <div className="flex items-center gap-1.5 px-3 py-2" style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-default)' }}>
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/60" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-green-400/60" />
+                  <span className="flex-1 text-center text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>askdb.dev/analytics</span>
+                </div>
+                {/* Dashboard content mockup */}
+                <div className="p-4 space-y-3">
+                  {/* KPI row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "Total Revenue", value: "$2.4M", change: "+12.3%", color: "#2563EB" },
+                      { label: "Active Users", value: "18.7K", change: "+8.1%", color: "#22C55E" },
+                      { label: "Avg Response", value: "94ms", change: "-23%", color: "#A855F7" },
+                    ].map((kpi) => (
+                      <div key={kpi.label} className="rounded-lg p-2.5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+                        <div className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{kpi.label}</div>
+                        <div className="text-lg font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>{kpi.value}</div>
+                        <div className="text-[10px] font-semibold" style={{ color: kpi.color }}>{kpi.change}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Chart mockup */}
+                  <div className="rounded-lg p-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
+                    <div className="text-[10px] font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Revenue by Quarter</div>
+                    <div className="flex items-end gap-1.5 h-20">
+                      {[40, 55, 45, 70, 60, 85, 75, 92].map((h, i) => (
+                        <motion.div
+                          key={i}
+                          className="flex-1 rounded-t-sm"
+                          style={{ background: i >= 6 ? '#6366f1' : i >= 4 ? '#818cf8' : '#a5b4fc', height: `${h}%` }}
+                          initial={{ height: 0 }}
+                          animate={{ height: `${h}%` }}
+                          transition={{ delay: 0.8 + i * 0.08, duration: 0.5, ease: "easeOut" }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {/* Table mockup */}
+                  <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+                    <div className="grid grid-cols-4 text-[9px] font-semibold uppercase tracking-wider py-1.5 px-2.5" style={{ color: 'var(--text-muted)', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border-default)' }}>
+                      <span>Region</span><span>Revenue</span><span>Growth</span><span>Status</span>
+                    </div>
+                    {[
+                      ["North America", "$1.2M", "+15%", "bg-green-400"],
+                      ["Europe", "$680K", "+9%", "bg-blue-400"],
+                      ["APAC", "$520K", "+22%", "bg-violet-400"],
+                    ].map(([region, rev, growth, dot]) => (
+                      <div key={region} className="grid grid-cols-4 text-[10px] py-1.5 px-2.5 items-center" style={{ borderBottom: '1px solid var(--border-default)' }}>
+                        <span style={{ color: 'var(--text-primary)' }}>{region}</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>{rev}</span>
+                        <span className="text-emerald-400 font-semibold">{growth}</span>
+                        <span className={`w-2 h-2 rounded-full ${dot}`} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Floating data source badges (the "ingestion" part) */}
+            <motion.div
+              className="absolute -left-8 top-8 glass rounded-xl px-3 py-2 shadow-xl flex items-center gap-2"
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold" style={{ color: 'var(--text-primary)' }}>PostgreSQL</div>
+                <div className="text-[8px]" style={{ color: 'var(--text-muted)' }}>Connected</div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              className="absolute -left-4 bottom-16 glass rounded-xl px-3 py-2 shadow-xl flex items-center gap-2"
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+            >
+              <div className="w-7 h-7 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" /></svg>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold" style={{ color: 'var(--text-primary)' }}>BigQuery</div>
+                <div className="text-[8px]" style={{ color: 'var(--text-muted)' }}>3 tables</div>
+              </div>
+            </motion.div>
+
+            {/* AI agent badge */}
+            <motion.div
+              className="absolute -right-4 top-1/2 -translate-y-1/2 glass-card-elevated rounded-xl px-3 py-2 shadow-2xl"
+              animate={{ y: [0, -5, 0] }}
+              transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold" style={{ color: 'var(--text-primary)' }}>AI Agent</div>
+                  <div className="text-[8px] text-emerald-400 font-semibold">Building dashboard...</div>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
-
-          <motion.h1
-            className="text-5xl sm:text-6xl lg:text-8xl font-extrabold tracking-tight leading-[1.04] mb-6"
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 80, damping: 16, delay: 0.25 }}
-          >
-            Talk to Your Databases.{" "}
-            <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-pink-400 bg-clip-text text-transparent text-shimmer">
-              Get Dashboards Back.
-            </span>
-          </motion.h1>
-
-          <motion.p
-            className="text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
-            style={{ color: 'var(--text-secondary)' }}
-            initial="hidden"
-            animate="visible"
-          >
-            <StaggeredText
-              text="Connect any of 18 databases. Ask questions in plain English. An autonomous AI agent writes the SQL, picks the chart, and builds the dashboard — end to end. Bring your own Anthropic API key. Pick your model. Pay only for what you use."
-            />
-          </motion.p>
-
-          <motion.div
-            className="flex items-center justify-center gap-4 flex-wrap"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 100, damping: 16, delay: 0.7 }}
-          >
-            <MotionButton onClick={() => navigate("/login")} className="px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-full shadow-xl shadow-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/40 transition-all duration-300 cursor-pointer btn-glow">Start free &mdash; no credit card</MotionButton>
-            <MotionButton onClick={() => scrollTo("demo")} className="px-8 py-3.5 glass font-bold rounded-full hover:border-indigo-500/40 transition-all duration-300 cursor-pointer" style={{ color: 'var(--text-primary)' }}>Watch it work</MotionButton>
-          </motion.div>
-
-          <motion.p
-            className="mt-10 text-sm animate-bounce"
-            style={{ color: 'var(--text-muted)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.2, duration: 0.6 }}
-          >
-            &#x2193; Scroll to explore
-          </motion.p>
         </div>
       </section>
 
-      {/* ── Trust Strip (Glassmorphism) ── */}
-      <section className="glass-navbar py-5">
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
-          <span className="text-xs uppercase tracking-widest font-semibold mr-2" style={{ color: 'var(--text-muted)' }}>Connects to</span>
-          {TRUST.map((db) => (
-            <span key={db.name} className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wide transition-colors duration-200 ${db.color}`} style={{ border: '1px solid var(--border-default)', background: 'var(--overlay-faint)' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
-              {db.name}
-            </span>
-          ))}
-        </div>
-      </section>
+      {/* Trust strip moved into hero left column */}
 
       {/* ── Features Bento (Glassmorphism Cards) ── */}
       <section id="features" className="py-24 sm:py-32 relative overflow-hidden">
@@ -605,8 +957,8 @@ function LandingInner() {
         <RevealSection className="max-w-7xl mx-auto px-6" parallaxSpeed={0.15}>
           <motion.div className="text-center mb-16" variants={staggerItem}>
             <p className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3">Features</p>
-            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 font-heading">One AI agent that replaces your entire BI stack</ScrollReveal>
-            <p className="max-w-xl mx-auto" style={{ color: 'var(--text-secondary)' }}>BYOK means you control the AI. AskDB provides the intelligence layer &mdash; from ad-hoc questions to production dashboards.</p>
+            <ScrollReveal textClassName="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 font-heading">Everything you need. Nothing you don't.</ScrollReveal>
+            <p className="max-w-lg mx-auto" style={{ color: 'var(--text-secondary)' }}>One platform. Your API key. 18 databases. Full dashboards in minutes.</p>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {FEATURES.map((f, i) => {

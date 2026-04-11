@@ -116,30 +116,38 @@ class SQLValidator:
                 if not isinstance(offset_val, exp.Literal):
                     existing_offset.set("expression", exp.Literal.number(0))
 
-            clean_sql = self._enforce_limit(statement)
+            # Return validated SQL WITHOUT injected LIMIT — keeps displayed SQL clean.
+            # Callers must use apply_limit() before actual DB execution.
+            clean_sql = statement.sql(dialect=self.dialect)
             return True, clean_sql, None
 
         except Exception as e:
             logger.error(f"Validation error: {e}")
             return False, sql, f"Validation error: {str(e)}"
 
-    def _enforce_limit(self, statement: exp.Expression) -> str:
-        existing_limit = statement.find(exp.Limit)
-        if existing_limit:
-            limit_val = existing_limit.expression
-            if isinstance(limit_val, exp.Literal):
-                try:
-                    if int(limit_val.this) > self.max_rows:
+    def apply_limit(self, sql: str) -> str:
+        """Inject or cap LIMIT on a validated SQL string. Call before DB execution only."""
+        try:
+            parsed = sqlglot.parse(sql, read=self.dialect)
+            if not parsed:
+                return sql
+            statement = parsed[0]
+            existing_limit = statement.find(exp.Limit)
+            if existing_limit:
+                limit_val = existing_limit.expression
+                if isinstance(limit_val, exp.Literal):
+                    try:
+                        if int(limit_val.this) > self.max_rows:
+                            existing_limit.set("expression", exp.Literal.number(self.max_rows))
+                    except (ValueError, TypeError):
                         existing_limit.set("expression", exp.Literal.number(self.max_rows))
-                except (ValueError, TypeError):
-                    # Non-parseable literal — replace with safe cap
+                else:
                     existing_limit.set("expression", exp.Literal.number(self.max_rows))
             else:
-                # Non-literal LIMIT (subquery, expression, CAST, etc.) — replace with safe cap
-                existing_limit.set("expression", exp.Literal.number(self.max_rows))
-        else:
-            statement = statement.limit(self.max_rows)
-        return statement.sql(dialect=self.dialect)
+                statement = statement.limit(self.max_rows)
+            return statement.sql(dialect=self.dialect)
+        except Exception:
+            return sql
 
     def format_sql(self, sql: str) -> str:
         try:

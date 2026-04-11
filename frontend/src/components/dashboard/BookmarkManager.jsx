@@ -81,7 +81,8 @@ export default function BookmarkManager({ dashboardId, currentState, onApply, on
               const s = bm.state || {};
               const tabLabel = tabNames[s.activeTabId] || '';
               const filterCount = s.globalFilters?.fields?.length || 0;
-              const rangeLabel = s.globalFilters?.range && s.globalFilters.range !== 'all_time' ? s.globalFilters.range.replace(/_/g, ' ') : '';
+              const dateFilterCount = s.globalFilters?.dateFilters?.length || (s.globalFilters?.dateColumn ? 1 : 0);
+              const rangeLabel = dateFilterCount > 0 ? `${dateFilterCount} date filter${dateFilterCount > 1 ? 's' : ''}` : '';
               const details = [tabLabel, rangeLabel, filterCount > 0 ? `${filterCount} filter${filterCount > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
 
               return (

@@ -43,6 +43,8 @@ python test_registration.py       # auth flow smoke test
 python test_waterfall.py          # waterfall routing tiers
 python test_agent_engine.py       # agent tool-use loop
 python test_phase1.py             # incremental feature tests (1-4)
+python test_bi_editability.py     # BI editability features
+python test_dual_response_invariants.py  # dual-response system invariants
 python regression_test.py         # broad regression checks
 ```
 
@@ -71,7 +73,7 @@ Two independently running services: FastAPI backend on port 8002, React frontend
 - **Structured progress tracker**: `_progress` dict tracks `{goal, completed, pending, total_tool_calls}`. Updated after each tool call. Used by `/continue` endpoint for session resume.
 - **Dialect-aware SQL hints**: BigQuery, Snowflake, MySQL, MSSQL, PostgreSQL hints injected into system prompt based on `connection_entry.db_type`.
 - **Sliding context compaction**: Every 6 tool calls, old tool_result content is summarized to 1-line summaries. Keeps context under ~15K tokens for long dashboard builds.
-- Guardrails: dynamic budget (up to 100 tool calls), 120s per-segment timeout, 900s absolute timeout, max 3 SQL retries, Haiku primary + Sonnet fallback
+- Guardrails: dynamic budget (up to 100 tool calls), phase-aware timeouts (planning 30s, schema 60s, SQL gen 30s, DB exec 300s, verify 30s), 1800s session hard cap, max 3 SQL retries, Haiku primary + Sonnet fallback
 - **Session persistence** (`agent_session_store.py`): SQLite at `.data/agent_sessions.db` (WAL mode). Sessions auto-saved on SSE completion and on disconnect. 50 sessions per user cap with auto-purge.
 - Endpoints: `/api/v1/agent/run` (SSE stream), `/api/v1/agent/respond` (user response to `ask_user`), `/api/v1/agent/continue` (resume interrupted session), `/api/v1/agent/sessions` (list), `/api/v1/agent/sessions/{chat_id}` (load/delete)
 
@@ -130,7 +132,13 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 
 ### Frontend — React 19 + Vite 8 (`/frontend`)
 
-**State:** Zustand store (`store.js`) — auth, connections, chat, profile, agent. Token persisted to localStorage. Agent slice: `agentSteps`, `agentLoading`, `agentError`, `agentWaiting`, `agentAutoExecute`, `agentChatId`.
+**State:** Zustand store (`store.js`) — auth, connections, chat, profile, agent, theme. Token persisted to localStorage. Agent slice properties:
+- Core: `agentSteps`, `agentLoading`, `agentError`, `agentWaiting`, `agentWaitingOptions`, `agentAutoExecute`, `agentChatId`
+- UI panel: `agentDock` (float/right/bottom/left), `agentPanelWidth`, `agentPanelHeight`, `agentPanelOpen`, `agentResizing`
+- Progress: `agentChecklist`, `agentPhase`, `agentElapsedMs`, `agentEstimatedMs`, `agentSessionProgress`, `agentVerification`
+- Permissions: `agentPersona`, `agentPermissionMode`
+- Dual-response: `dualResponseActive`, `cachedResultStep`
+- Intelligence: `agentTierInfo`, `turboStatus`, `queryIntelligence`
 
 **API layer:** `api.js` — injects JWT `Authorization` header. 401 responses redirect to `/login`. Admin API uses separate `admin_token` in localStorage.
 
@@ -160,13 +168,15 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 
 **SharedDashboard** (`src/pages/SharedDashboard.jsx`): Public read-only dashboard view at `/shared/:id`. No auth required. Uses `TOKENS` and `CHART_PALETTES` from `tokens.js`.
 
-**Dashboard lib utilities** (`src/lib/`): `dataBlender.js` — client-side left-join across multiple query result sets; `metricEvaluator.js` — KPI threshold/conditional logic; `visibilityRules.js` — tile show/hide rule engine; `formatUtils.js` — number/date formatting helpers; `anomalyDetector.js` — client-side anomaly detection; `formulaSandbox.js` + `formulaWorker.js` — sandboxed formula evaluation (Web Worker); `exportUtils.js` — dashboard export helpers; `gpuDetect.jsx` — `GPUTierProvider` context for conditional 3D rendering; `behaviorEngine.js` — client-side behavior tracking utilities.
+**Dashboard lib utilities** (`src/lib/`): `dataBlender.js` — client-side left-join across multiple query result sets; `metricEvaluator.js` — KPI threshold/conditional logic; `visibilityRules.js` — tile show/hide rule engine; `formatUtils.js` — number/date formatting helpers; `anomalyDetector.js` — client-side anomaly detection; `formulaSandbox.js` + `formulaWorker.js` — sandboxed formula evaluation (Web Worker); `exportUtils.js` — dashboard export helpers; `gpuDetect.jsx` — `GPUTierProvider` context for conditional 3D rendering; `behaviorEngine.js` — client-side behavior tracking utilities; `fieldClassification.js` — column type classification for auto chart suggestions.
 
 **Charts:** ECharts only (`echarts-for-react`). Used in `ResultsChart.jsx` and `CanvasChart.jsx`. Do not introduce a second chart library.
 
-**Styling:** Tailwind CSS 4.2 + custom glassmorphism classes in `index.css`. Dark theme (`#06060e` bg). Fonts: Poppins (headings) + Open Sans (body). Animations: Framer Motion + GSAP. Three.js for 3D landing backgrounds.
+**Theme system:** Light/dark/system preference stored in Zustand (`theme`/`resolvedTheme`), persisted to `localStorage("askdb-theme")`. `useThemeInit` hook in `App.jsx` toggles `.light` class on `<html>`. CSS variables in `index.css` handle both modes. Dashboard tokens in `tokens.js` adapt to resolved theme.
 
-### Query Intelligence System (`/backend` — 6 new modules)
+**Styling:** Tailwind CSS 4.2 + custom glassmorphism classes in `index.css`. Dark theme default (`#06060e` bg). Fonts: Poppins (headings) + Open Sans (body). Animations: Framer Motion + GSAP. Three.js for 3D landing backgrounds.
+
+### Query Intelligence System (`/backend` — 6 modules)
 
 Four-tier waterfall that makes the agent/chat/dashboard feel instant on large datasets. Each query routes through tiers in order; the first hit wins.
 
@@ -203,7 +213,7 @@ User question
 
 **Audit trail** (`audit_trail.py`): Append-only JSONL at `.data/audit/query_decisions.jsonl`. Logs every routing decision with conn_id, question hash, tiers checked, tier hit, schema hash. Thread-safe, auto-rotates at 50MB.
 
-**Config** (13 new settings in `config.py`): `SCHEMA_CACHE_MAX_AGE_MINUTES` (60), `QUERY_MEMORY_ENABLED` (True), `QUERY_MEMORY_TTL_HOURS` (168), `TURBO_MODE_ENABLED` (True), `TURBO_TWIN_MAX_SIZE_MB` (500), `TURBO_TWIN_SAMPLE_PERCENT` (1.0), `DECOMPOSITION_ENABLED` (True), `DECOMPOSITION_MIN_ROWS` (1M), `STREAMING_PROGRESS_INTERVAL_MS` (1000).
+**Config** (`config.py`): `SCHEMA_CACHE_MAX_AGE_MINUTES` (60), `QUERY_MEMORY_ENABLED` (True), `QUERY_MEMORY_TTL_HOURS` (168), `TURBO_MODE_ENABLED` (True), `TURBO_TWIN_MAX_SIZE_MB` (500), `TURBO_TWIN_SAMPLE_PERCENT` (1.0), `DECOMPOSITION_ENABLED` (True), `DECOMPOSITION_MIN_ROWS` (1M), `STREAMING_PROGRESS_INTERVAL_MS` (1000).
 
 **Frontend** (`AgentStepFeed.jsx`): Three new SSE step types (additive, Invariant-7):
 - `tier_routing` — amber badge: "Checking intelligence tiers..."
@@ -268,12 +278,38 @@ Items #1-4 identified during R7 NEMESIS testing; #5-8 during Query Intelligence 
 | 1 | **OTP hash storage** — store `hmac(secret, code)` instead of plaintext OTP codes in `pending_verifications.json` | `otp.py` | Pre-launch (before first paying customer) | ~30 min | Plaintext OTPs in JSON file; low risk in dev, unacceptable in prod |
 | 2 | **In-memory OTP rate limiter** — replace file-based rate limiting with `collections.defaultdict` + TTL eviction so attackers can't bypass by deleting the log file | `otp.py` | Before SOC 2 / compliance audit | ~1-2 hrs | File-deletable rate limit; low risk without hostile filesystem access |
 | 3 | **PII column-name masking in ChromaDB** — mask column names like `ssn`, `salary` before embedding into vector store metadata | `query_engine.py`, `pii_masking.py` | When adding team/multi-tenant features | ~2-3 hrs | Column names (not values) visible in shared ChromaDB; single-tenant = no exposure |
-| 4 | **Async ask_user (replace thread polling)** — convert `_waiting_for_user` polling loop to `asyncio.Event` so parked agent sessions don't consume thread pool slots | `agent_engine.py`, `routers/agent_routes.py` | ~50 concurrent agent users (thread pool exhaustion threshold) | ~3-4 hrs | Thread starvation under load; irrelevant at low concurrency |
-| 5 | ~~**Column-name masking in query memory**~~ — **RESOLVED 2026-04-06** (P1 adversarial fix). Sensitive column names now masked to `[MASKED]` in `sql_intent` and `columns` metadata before ChromaDB storage. | `query_memory.py`, `agent_engine.py` | ~~When adding multi-tenant / team features~~ | Done | Resolved |
-| 6 | **DuckDB twin encryption at rest** — encrypt `.duckdb` twin files or restrict to encrypted volumes | `duckdb_twin.py` | Pre-launch for healthcare/finance customers | ~2-3 hrs | Sampled rows (potentially PHI/PII) stored in plaintext on disk |
-| 7 | **Auto-schedule `cleanup_stale()`** — add periodic background task to purge expired query memory insights | `query_memory.py`, `main.py` | When ChromaDB storage exceeds 1GB or ~10K insights per connection | ~1 hr | Unbounded ChromaDB collection growth; performance degradation over time |
-| 8 | **Schema profiling async** — move `profile_connection()` to background task during connect to avoid blocking slow databases (Snowflake, BigQuery) | `connection_routes.py`, `schema_intelligence.py` | When supporting cloud warehouses with >30s introspection time | ~1-2 hrs | Connect endpoint blocks for 30-120s on slow databases |
-| 9 | **`anonymize_sql` coverage gaps** — add regex branches for hex (`0xFF`), scientific notation (`1e10`), dollar-quoted (`$$...$$`), and fix backslash-escape model for SQL-standard `''` escaping | `query_memory.py` | Before multi-tenant or when storing insights from PostgreSQL/MySQL workloads | ~2 hrs | Literal values leak into shared ChromaDB through unrecognized syntax forms |
-| 10 | **`refresh_twin()` atomic swap** — replace delete-then-create with create-new-then-rename to eliminate unavailability window during refresh | `duckdb_twin.py` | ~10+ concurrent turbo users (intermittent query failures during refresh) | ~1-2 hrs | Concurrent queries fail with "twin does not exist" during refresh window |
-| 11 | **Audit trail fsync optimization** — replace per-entry `os.fsync()` under global `_write_lock` with buffered writes or async write queue | `audit_trail.py` | ~50+ concurrent users (fsync serializes all routing decisions) | ~2 hrs | 5-50ms latency penalty per concurrent audit write, P99 latency spikes |
-| 12 | **Waterfall cache hits and query limits** — SchemaTier/MemoryTier early returns in agent_engine.py bypass `increment_query_stats()` | `agent_engine.py` | Before monetization launch (free-plan users get unlimited cached queries) | ~30 min | Daily query limits not enforced for waterfall-cached answers |
+| 4 | ~~**Async ask_user (replace thread polling)**~~ — **RESOLVED 2026-04-10**: converted `time.sleep(0.3)` polling to `threading.Event.wait()` in `agent_engine.py`; `/respond` and `/cancel` signal the event | `agent_engine.py`, `routers/agent_routes.py` | ~~~50 concurrent agent users~~ | Done | Thread starvation eliminated |
+| 5 | **DuckDB twin encryption at rest** — encrypt `.duckdb` twin files or restrict to encrypted volumes | `duckdb_twin.py` | Pre-launch for healthcare/finance customers | ~2-3 hrs | Sampled rows (potentially PHI/PII) stored in plaintext on disk |
+| 6 | **Auto-schedule `cleanup_stale()`** — add periodic background task to purge expired query memory insights | `query_memory.py`, `main.py` | When ChromaDB storage exceeds 1GB or ~10K insights per connection | ~1 hr | Unbounded ChromaDB collection growth; performance degradation over time |
+| 7 | **Schema profiling async** — move `profile_connection()` to background task during connect to avoid blocking slow databases (Snowflake, BigQuery) | `connection_routes.py`, `schema_intelligence.py` | When supporting cloud warehouses with >30s introspection time | ~1-2 hrs | Connect endpoint blocks for 30-120s on slow databases |
+| 8 | **`anonymize_sql` coverage gaps** — add regex branches for hex (`0xFF`), scientific notation (`1e10`), dollar-quoted (`$$...$$`), and fix backslash-escape model for SQL-standard `''` escaping | `query_memory.py` | Before multi-tenant or when storing insights from PostgreSQL/MySQL workloads | ~2 hrs | Literal values leak into shared ChromaDB through unrecognized syntax forms |
+| 9 | **`refresh_twin()` atomic swap** — replace delete-then-create with create-new-then-rename to eliminate unavailability window during refresh | `duckdb_twin.py` | ~10+ concurrent turbo users (intermittent query failures during refresh) | ~1-2 hrs | Concurrent queries fail with "twin does not exist" during refresh window |
+| 10 | **Audit trail fsync optimization** — replace per-entry `os.fsync()` under global `_write_lock` with buffered writes or async write queue | `audit_trail.py` | ~50+ concurrent users (fsync serializes all routing decisions) | ~2 hrs | 5-50ms latency penalty per concurrent audit write, P99 latency spikes |
+| 11 | ~~**Waterfall cache hits and query limits**~~ — **RESOLVED 2026-04-10**: all 3 early-return paths (route_sync schema/memory, dual-response schema, dual-response memory) now call `increment_query_stats()` | `agent_engine.py` | ~~Before monetization~~ | Done | Query limits now enforced for cached answers |
+
+
+## Debugging & Bug Fixes
+
+When fixing bugs, always verify the fix actually works before reporting success. Run the app/tests and confirm the issue is resolved end-to-end — don't just check that the code looks correct.
+
+## Refactoring Guidelines
+
+When renaming/rebranding across the codebase, account for string splits across JSX tags (e.g., `Data<span>Lens</span>`), template literals, and dynamic string construction — don't rely solely on grep-based find-and-replace.
+
+## Development Environment
+
+Before starting server processes or builds, check for zombie processes on required ports (e.g., `lsof -i :8002`) and kill them. Always verify dependencies are installed for the current Python/Node version before assuming they work.
+
+## General Rules
+
+- When creating or saving files, always confirm the target directory with the user before writing. Default to the project root unless explicitly told otherwise.
+- This is a full-stack SaaS app. Primary languages: JavaScript (frontend, React + Vite), Python (backend, FastAPI). When making changes, check both frontend and backend impact.
+
+## graphify
+
+A curated knowledge graph exists at `C:/Users/sid23/knowledge/graphify-out/graph.json` (external to this repo). It captures architecture decisions, security model, data flow, and design constraints.
+
+Rules:
+- If `graphify-out/` exists in this repo, read `graphify-out/GRAPH_REPORT.md` for god nodes and community structure before answering architecture questions
+- If `graphify-out/wiki/index.md` exists, navigate it instead of reading raw files
+- Source knowledge docs are at `C:/Users/sid23/knowledge/*.md` — run `/graphify` to rebuild after edits
