@@ -28,17 +28,19 @@ npm run build
 npm run preview
 ```
 
-There are no automated tests. `test_registration.py`, `regression_test.py`, `test_agent_engine.py`, `test_phase*.py`, and `test_waterfall.py` are manual scripts, not pytest suites.
-
-**Docker:**
-```bash
-docker-compose up --build    # backend on :8000, frontend on :5173
-```
-Note: Docker maps backend to port 8000, not 8002. For local dev without Docker, always use port 8002 to match the Vite proxy target in `vite.config.js`.
-
-**Manual test scripts** (not pytest — run individually):
+**Tests (pytest):**
 ```bash
 cd backend
+python -m pytest tests/ -v              # full suite (112 tests)
+python -m pytest tests/test_adv_*.py -v # adversarial hardening tests only
+python -m pytest tests/test_bug_*.py -v # backlog bug fix tests only
+python -m pytest tests/test_adv_otp_hash.py -v  # single test file
+```
+
+112 automated tests across 31 test files in `backend/tests/`. All security-focused — adversarial testing regression guards covering OTP hashing, PII masking, SQL anonymization, file permissions, rate limiting, connection limits, and more. Run the full suite after any security-related change.
+
+**Manual test scripts** (not pytest — run individually from `backend/`):
+```bash
 python test_registration.py       # auth flow smoke test
 python test_waterfall.py          # waterfall routing tiers
 python test_agent_engine.py       # agent tool-use loop
@@ -47,6 +49,12 @@ python test_bi_editability.py     # BI editability features
 python test_dual_response_invariants.py  # dual-response system invariants
 python regression_test.py         # broad regression checks
 ```
+
+**Docker:**
+```bash
+docker-compose up --build    # backend on :8000, frontend on :5173
+```
+Note: Docker maps backend to port 8000, not 8002. For local dev without Docker, always use port 8002 to match the Vite proxy target in `vite.config.js`.
 
 ## Architecture
 
@@ -103,10 +111,18 @@ Two independently running services: FastAPI backend on port 8002, React frontend
 
 **Security — three independent layers, never remove any:**
 1. `db_connector.py` — driver-level read-only (`SET TRANSACTION READ ONLY`)
-2. `sql_validator.py` — 6 layers: multi-statement → keyword blocklist → sqlglot AST (15+ dialects) → SELECT-only → LIMIT enforcement → dangerous-function detection
+2. `sql_validator.py` — 6 layers: multi-statement → keyword blocklist → sqlglot AST (15+ dialects) → SELECT-only → LIMIT enforcement (negative values clamped to 0) → dangerous-function detection
 3. Connector re-validates before execution
 
-**PII masking** (`pii_masking.py`) — column-name pattern matching + regex value scanning. Must always run via `mask_dataframe()` before any data is returned to users or the LLM.
+**PII masking** (`pii_masking.py`) — substring-based column-name pattern matching (catches compound names like `employee_ssn`) + Unicode NFKC normalization (prevents fullwidth bypass) + regex value scanning. Must always run via `mask_dataframe()` before any data is returned to users or the LLM.
+
+**OTP security** (`otp.py`) — OTP codes stored as HMAC-SHA256 hashes (`hmac.new(JWT_SECRET_KEY, code, sha256)`), never plaintext. Verification uses `hmac.compare_digest()` for constant-time comparison. In-memory rate limiting via `collections.defaultdict(list)` with TTL eviction (survives log file deletion).
+
+**JWT hardening** (`config.py`) — `JWT_ALGORITHM` restricted to `_SAFE_JWT_ALGORITHMS = {"HS256", "HS384", "HS512"}` allowlist enforced at startup. Rejects `none` algorithm (CVE-2015-9235).
+
+**Fernet encryption** (`user_storage.py`) — Key derivation uses PBKDF2-HMAC-SHA256 with 480K iterations (upgraded from bare SHA-256). Derives the Fernet key from `JWT_SECRET_KEY`.
+
+**Input sanitization** (`auth.py`) — `_sanitize_text()` strips HTML tags, HTML entities (`&lt;`, `&#60;`, `&#x3c;`), javascript/data/vbscript URIs, and event handler attributes.
 
 **18 supported database engines** (defined as `DBType` enum in `config.py`):
 PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*, Redshift, Databricks\*, ClickHouse, DuckDB, Trino, Oracle, SAP HANA\*, IBM Db2\*, Supabase. (\* = driver commented out in `requirements.txt`; install manually.) Note: Supabase is a virtual type — connects via the PostgreSQL driver.
@@ -122,7 +138,7 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 
 **BYOK (Bring Your Own Key) provider system:**
 - `model_provider.py` — `ModelProvider` ABC that all LLM adapters implement. Defines `ProviderResponse`, `ContentBlock`, `ProviderToolResponse` data classes.
-- `anthropic_provider.py` — Anthropic SDK adapter (the ONLY file that should `import anthropic`). Supports prompt caching, native tool-use, token streaming, circuit breaker (3 failures → 30s cooldown).
+- `anthropic_provider.py` — Anthropic SDK adapter (the ONLY file that should `import anthropic`). Supports prompt caching, native tool-use, token streaming, circuit breaker (5 failures → 30s cooldown with jitter, per-API-key isolation).
 - `provider_registry.py` — resolves the correct provider + API key per user. Demo user (`demo@askdb.dev`) gets the platform key; all others must supply their own. Model catalog in `ANTHROPIC_MODELS` dict.
 - User API keys stored Fernet-encrypted in per-user profile via `user_storage.py`. Key validation and status tracked through `user_routes.py` endpoints.
 
@@ -211,7 +227,7 @@ User question
 
 **Module-level singleton**: `_waterfall_router` in `agent_routes.py` — do NOT create per-request. This prevents ChromaDB client proliferation.
 
-**Audit trail** (`audit_trail.py`): Append-only JSONL at `.data/audit/query_decisions.jsonl`. Logs every routing decision with conn_id, question hash, tiers checked, tier hit, schema hash. Thread-safe, auto-rotates at 50MB.
+**Audit trail** (`audit_trail.py`): Append-only JSONL at `.data/audit/query_decisions.jsonl`. Logs every routing decision with conn_id, question hash, tiers checked, tier hit, schema hash. Thread-safe with buffered writes (flush, no per-entry fsync), auto-rotates at 50MB.
 
 **Config** (`config.py`): `SCHEMA_CACHE_MAX_AGE_MINUTES` (60), `QUERY_MEMORY_ENABLED` (True), `QUERY_MEMORY_TTL_HOURS` (168), `TURBO_MODE_ENABLED` (True), `TURBO_TWIN_MAX_SIZE_MB` (500), `TURBO_TWIN_SAMPLE_PERCENT` (1.0), `DECOMPOSITION_ENABLED` (True), `DECOMPOSITION_MIN_ROWS` (1M), `STREAMING_PROGRESS_INTERVAL_MS` (1000).
 
@@ -239,7 +255,7 @@ When a waterfall tier (memory/turbo) answers a query, the system can simultaneou
 
 ### Reference Documents (`/docs`)
 
-`PROJECT_JOURNAL.md` — full engineering history (architecture decisions, blockers, resolutions). `DASHBOARD_DEEP_DIVE.md` — detailed dashboard subsystem design. `docs/` — session journals, design brainstorms, and audit reports. These are read-only reference material, not configuration.
+`PROJECT_JOURNAL.md` — full engineering history (architecture decisions, blockers, resolutions). `DASHBOARD_DEEP_DIVE.md` — detailed dashboard subsystem design. `docs/journal-2026-04-11-adversarial-hardening.md` — adversarial testing journal with root cause analysis, prevention playbook, and test coverage map. `docs/ultraflow/specs/UFSD-2026-04-10-adversarial-testing.md` — adversarial testing spec with all findings and verdicts. `docs/` — session journals, design brainstorms, and audit reports. These are read-only reference material, not configuration.
 
 ## Key Constraints
 
@@ -262,31 +278,67 @@ When a waterfall tier (memory/turbo) answers a query, the system can simultaneou
 - **Waterfall early-return must store in memory** — if a tier answers and the agent returns early, call `memory.add_turn()` for both question and answer BEFORE returning. Otherwise session history is lost.
 - **ValidationGate rejects empty hashes** for memory/turbo tiers. Only schema/live tiers (which read live data) pass through without a hash.
 - **Turbo Mode is opt-in per connection** — privacy-sensitive customers can skip it. Twin + turbo_status cleaned up on disconnect.
-- **Query memory stores anonymized SQL intents** — `anonymize_sql()` strips all literals. Sensitive column names (`ssn`, `salary`, etc.) are masked to `[MASKED]` in both `sql_intent` and `columns` metadata before ChromaDB storage (P1 fix 2026-04-06). Never store raw query results or column values in ChromaDB.
+- **Query memory stores anonymized SQL intents** — `anonymize_sql()` strips all literals including integers, decimals, leading-dot floats (`.5`), trailing-dot floats (`1.`), scientific notation (`1e5`, `1.e5`), hex (`0xFF`), dollar-quoted strings (`$$...$$`), and SQL-standard escaped quotes (`''`). Sensitive column names (`ssn`, `salary`, etc.) are masked to `[MASKED]` via alpha-only lookarounds (`(?<![a-zA-Z])`) in `sql_intent` and substring matching in `columns` metadata before ChromaDB storage. Never use `\b` word boundary for SQL identifiers — it treats `_` as a word character, so `employee_ssn` won't match `\bssn\b`. Never store raw query results or column values in ChromaDB.
 - **`query_twin()` validates SQL** through `sql_validator.SQLValidator` before execution and caps results at 10K rows (P1 fix 2026-04-06). This prevents filesystem-reading DuckDB functions and OOM from unbounded fetchall.
-- **`cleanup_stale()` on QueryMemory** is defined but not auto-scheduled — call it periodically or on disconnect to prevent unbounded ChromaDB growth.
+- **`cleanup_stale()` on QueryMemory** — auto-scheduled every 6 hours via `_periodic_cleanup_stale()` in `main.py` lifespan. `QueryMemory()` is instantiated once before the loop (not per-iteration) to prevent ChromaDB client proliferation.
 - **Share tokens** — dashboard sharing uses time-limited tokens (`SHARE_TOKEN_EXPIRE_HOURS`, default 7 days). Expired/revoked tokens auto-pruned on startup via `prune_expired_share_tokens()`.
 - **SQL Allowlist mode** — `SQL_ALLOWLIST_MODE` (default False) + `SQL_ALLOWED_TABLES` restricts queries to an explicit table list. Off by default; enable for tightly scoped deployments.
 - **Thread pool** — explicit `ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS)` set in lifespan startup (default 32, bounded 4–256). Replaces the default 8–12 thread pool to prevent agent concurrency bottlenecks.
+- **Per-user connection limit** — `MAX_CONNECTIONS_PER_USER` (default 10) enforced in `connection_routes.py`. Returns 429 when exceeded.
+- **Per-user share token quota** — plan-based limits in `dashboard_routes.py` (`SHARE_TOKEN_LIMITS`). Free=3, weekly=5, monthly=10, yearly=20, pro=50, enterprise=unlimited.
+- **Collected steps cap** — `MAX_COLLECTED_STEPS = 200` in `agent_routes.py`. Prevents memory bloat on long agent sessions. Oldest steps evicted when cap reached.
+- **Health endpoint** — returns aggregate counts only (`healthy_connections`, `unhealthy_connections`). Never expose connection IDs or internal identifiers in unauthenticated endpoints.
+- **Soft-delete re-registration** — `create_user()` in `auth.py` checks `deleted_users.json` before allowing registration with a previously-deleted email.
+- **Tile SQL validation** — `dashboard_routes.py` validates SQL through `SQLValidator` at write time (create/update tile), not just execution time.
+- **Schema profiling** — `profile_connection()` runs in a background thread (`threading.Thread`) to avoid blocking the connect endpoint on slow databases.
+- **Atomic twin refresh** — `refresh_twin()` in `duckdb_twin.py` uses create-then-rename (no delete step) to eliminate unavailability windows during refresh.
+- **Audit trail** — buffered writes with `flush()` instead of per-entry `os.fsync()` to avoid serializing concurrent routing decisions.
+- **Dependencies** — critical packages (`fastapi`, `pydantic`, `anthropic`, `sqlglot`, `python-jose`, `bcrypt`, `sqlalchemy`) pinned to exact versions (`==`) in `requirements.txt` to prevent supply chain attacks.
+- **`ask_user` uses `threading.Event.wait()`** — never `time.sleep()` polling in a thread pool. `/respond` and `/cancel` signal the event.
 
-## Deferred Security Hardening (Prompt When Ready)
+## Security Hardening Status
 
-Items #1-4 identified during R7 NEMESIS testing; #5-8 during Query Intelligence NEMESIS testing (both 2026-04-06). Low-risk today but critical at specific milestones. **When the user reaches a milestone below, proactively recommend implementing the corresponding fix.**
+Two rounds of 20-analyst adversarial testing (2026-04-10/11) identified 33 findings. All P0/P1 fixed with rebreak verification. 112 regression tests added. Full journal: `docs/journal-2026-04-11-adversarial-hardening.md`.
 
-| # | Fix | File(s) | Milestone Trigger | Effort | Risk if Skipped |
-|---|-----|---------|-------------------|--------|-----------------|
-| 1 | **OTP hash storage** — store `hmac(secret, code)` instead of plaintext OTP codes in `pending_verifications.json` | `otp.py` | Pre-launch (before first paying customer) | ~30 min | Plaintext OTPs in JSON file; low risk in dev, unacceptable in prod |
-| 2 | **In-memory OTP rate limiter** — replace file-based rate limiting with `collections.defaultdict` + TTL eviction so attackers can't bypass by deleting the log file | `otp.py` | Before SOC 2 / compliance audit | ~1-2 hrs | File-deletable rate limit; low risk without hostile filesystem access |
-| 3 | **PII column-name masking in ChromaDB** — mask column names like `ssn`, `salary` before embedding into vector store metadata | `query_engine.py`, `pii_masking.py` | When adding team/multi-tenant features | ~2-3 hrs | Column names (not values) visible in shared ChromaDB; single-tenant = no exposure |
-| 4 | ~~**Async ask_user (replace thread polling)**~~ — **RESOLVED 2026-04-10**: converted `time.sleep(0.3)` polling to `threading.Event.wait()` in `agent_engine.py`; `/respond` and `/cancel` signal the event | `agent_engine.py`, `routers/agent_routes.py` | ~~~50 concurrent agent users~~ | Done | Thread starvation eliminated |
-| 5 | **DuckDB twin encryption at rest** — encrypt `.duckdb` twin files or restrict to encrypted volumes | `duckdb_twin.py` | Pre-launch for healthcare/finance customers | ~2-3 hrs | Sampled rows (potentially PHI/PII) stored in plaintext on disk |
-| 6 | **Auto-schedule `cleanup_stale()`** — add periodic background task to purge expired query memory insights | `query_memory.py`, `main.py` | When ChromaDB storage exceeds 1GB or ~10K insights per connection | ~1 hr | Unbounded ChromaDB collection growth; performance degradation over time |
-| 7 | **Schema profiling async** — move `profile_connection()` to background task during connect to avoid blocking slow databases (Snowflake, BigQuery) | `connection_routes.py`, `schema_intelligence.py` | When supporting cloud warehouses with >30s introspection time | ~1-2 hrs | Connect endpoint blocks for 30-120s on slow databases |
-| 8 | **`anonymize_sql` coverage gaps** — add regex branches for hex (`0xFF`), scientific notation (`1e10`), dollar-quoted (`$$...$$`), and fix backslash-escape model for SQL-standard `''` escaping | `query_memory.py` | Before multi-tenant or when storing insights from PostgreSQL/MySQL workloads | ~2 hrs | Literal values leak into shared ChromaDB through unrecognized syntax forms |
-| 9 | **`refresh_twin()` atomic swap** — replace delete-then-create with create-new-then-rename to eliminate unavailability window during refresh | `duckdb_twin.py` | ~10+ concurrent turbo users (intermittent query failures during refresh) | ~1-2 hrs | Concurrent queries fail with "twin does not exist" during refresh window |
-| 10 | **Audit trail fsync optimization** — replace per-entry `os.fsync()` under global `_write_lock` with buffered writes or async write queue | `audit_trail.py` | ~50+ concurrent users (fsync serializes all routing decisions) | ~2 hrs | 5-50ms latency penalty per concurrent audit write, P99 latency spikes |
-| 11 | ~~**Waterfall cache hits and query limits**~~ — **RESOLVED 2026-04-10**: all 3 early-return paths (route_sync schema/memory, dual-response schema, dual-response memory) now call `increment_query_stats()` | `agent_engine.py` | ~~Before monetization~~ | Done | Query limits now enforced for cached answers |
+### Resolved Items
 
+| # | Fix | Status |
+|---|-----|--------|
+| 1 | OTP hash storage (HMAC-SHA256) | **RESOLVED 2026-04-11** — `otp.py` |
+| 2 | In-memory OTP rate limiter (TTL eviction) | **RESOLVED 2026-04-11** — `otp.py` |
+| 3 | PII column-name masking (substring + NFKC) | **RESOLVED 2026-04-11** — `pii_masking.py`, `query_memory.py` |
+| 4 | Async ask_user (Event.wait) | **RESOLVED 2026-04-10** — `agent_engine.py` |
+| 6 | Auto-schedule cleanup_stale (6h interval) | **RESOLVED 2026-04-11** — `main.py` |
+| 7 | Schema profiling async (background thread) | **RESOLVED 2026-04-11** — `connection_routes.py` |
+| 8 | anonymize_sql coverage (hex/sci/dollar/dots) | **RESOLVED 2026-04-11** — `query_memory.py` |
+| 9 | refresh_twin atomic swap (create-then-rename) | **RESOLVED 2026-04-11** — `duckdb_twin.py` |
+| 10 | Audit trail buffered writes (no per-entry fsync) | **RESOLVED 2026-04-11** — `audit_trail.py` |
+| 11 | Waterfall cache query limits | **RESOLVED 2026-04-10** — `agent_engine.py` |
+
+### Remaining Deferred Items
+
+| # | Fix | File(s) | Milestone Trigger | Risk if Skipped |
+|---|-----|---------|-------------------|-----------------|
+| 5 | **DuckDB twin encryption at rest** — encrypt `.duckdb` twin files or restrict to encrypted volumes | `duckdb_twin.py` | Pre-launch for healthcare/finance customers | Sampled rows (potentially PHI/PII) stored in plaintext on disk; `TURBO_TWIN_WARN_UNENCRYPTED` flag logs warning |
+| 12 | **PII substring false positives** — `business` matches `sin`, `adobe` matches `dob` | `pii_masking.py`, `query_memory.py` | When false positive complaints arrive | Over-masking only (data hidden, not leaked); acceptable security tradeoff |
+| 13 | **Per-request QueryMemory proliferation** — `query_routes.py` and `agent_engine.py` create `QueryMemory()` per request | `query_memory.py` | Module-level singleton refactor | Bounded by query rate; scheduler leak fixed |
+
+
+## Security Coding Rules (from adversarial testing)
+
+These rules were established after 33 security findings across two rounds of adversarial testing. See `docs/journal-2026-04-11-adversarial-hardening.md` for full root cause analysis.
+
+- **Never use `\b` for SQL/code identifiers** — `\b` treats `_` as a word character, so `\bssn\b` won't match `employee_ssn`. Use `(?<![a-zA-Z])` / `(?![a-zA-Z])` lookarounds instead.
+- **PII matching must be substring-based** — exact set membership misses compound names. Over-masking is acceptable; under-masking is not.
+- **Normalize Unicode before security checks** — `unicodedata.normalize("NFKC", text)` before pattern matching. Prevents fullwidth character bypasses.
+- **Multi-value returns must use NamedTuple** — bare tuple unpacking silently breaks when return signatures change. All callers must be audited when changing a return type.
+- **Fast paths must preserve side effects** — when adding cache hits or early returns that bypass the normal flow, audit for mandatory operations (rate limiting, stats, audit logging) that the fast path must still run.
+- **File state writes must be atomic** — write to `{path}.tmp`, flush, then `os.replace(tmp, path)`. Never write directly to the target file.
+- **Config values are untrusted input** — validate security-critical config at startup against explicit allowlists (not blocklists).
+- **Never use `time.sleep()` polling in a thread pool** — use `threading.Event.wait()`, `Queue.get()`, or async primitives.
+- **Health endpoints must not leak identifiers** — return aggregate counts, never connection IDs or internal state.
+- **Every config flag must be consumed** — dead flags mislead users into thinking features work. Test that flags are read.
+- **New endpoints must inherit guards** — when adding endpoints that parallel existing ones, extract shared security logic into decorators or middleware.
 
 ## Debugging & Bug Fixes
 
