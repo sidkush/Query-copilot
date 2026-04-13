@@ -104,6 +104,33 @@ const btnPrimary = {
   fontWeight: 600,
   border: 'none',
   cursor: 'pointer',
+  fontFamily: TOKENS.tile.headerFont,
+  transition: `background ${TOKENS.transition}`,
+};
+
+const btnSecondary = {
+  padding: '6px 12px',
+  borderRadius: TOKENS.radius.md,
+  background: 'transparent',
+  color: TOKENS.text.secondary,
+  border: `1px solid ${TOKENS.border.default}`,
+  fontSize: 11,
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: `all ${TOKENS.transition}`,
+};
+
+const selectStyle = {
+  padding: '4px 8px',
+  borderRadius: TOKENS.radius.sm,
+  background: TOKENS.bg.elevated,
+  border: `1px solid ${TOKENS.border.default}`,
+  color: TOKENS.text.primary,
+  fontSize: 12,
+  fontFamily: TOKENS.tile.headerFont,
+  cursor: 'pointer',
+  outline: 'none',
+  transition: `border-color ${TOKENS.transition}`,
 };
 
 const btnClose = {
@@ -122,7 +149,7 @@ const btnClose = {
 
 /* ── Stage content renderers ───────────────────────────────── */
 
-function IngestContent({ data }) {
+function IngestContent({ data, onRunStage }) {
   const [rowLimit, setRowLimit] = useState(10);
   const tables = data?.tables || [];
   const totalRows = data?.rowCount || tables.reduce((s, t) => s + (typeof t.rows === 'number' ? t.rows : 0), 0);
@@ -263,14 +290,21 @@ function IngestContent({ data }) {
           )}
         </div>
       )}
+
+      {/* Run action */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+        <button style={btnPrimary} onClick={() => onRunStage?.('ingest', {})}>
+          Load Data
+        </button>
+      </div>
     </div>
   );
 }
 
-function CleanContent({ data }) {
+function CleanContent({ data, onRunStage }) {
   const missing = data?.missingValues || [];
   const quality = data?.qualityScore ?? '--';
-  const strategy = data?.imputationStrategy || 'None';
+  const [imputation, setImputation] = useState(data?.imputationStrategy || 'median');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -280,8 +314,17 @@ function CleanContent({ data }) {
           <div style={statLabelStyle}>Data Quality</div>
         </div>
         <div style={statCardStyle}>
-          <div style={{ ...statValueStyle, fontSize: 14 }}>{strategy}</div>
-          <div style={statLabelStyle}>Imputation</div>
+          <div style={statLabelStyle}>Imputation Strategy</div>
+          <select
+            value={imputation}
+            onChange={(e) => setImputation(e.target.value)}
+            style={{ ...selectStyle, marginTop: 4, width: '100%' }}
+          >
+            <option value="median">Median (numeric)</option>
+            <option value="mean">Mean (numeric)</option>
+            <option value="mode">Mode (categorical)</option>
+            <option value="drop">Drop rows</option>
+          </select>
         </div>
       </div>
       {missing.length > 0 && (
@@ -304,11 +347,18 @@ function CleanContent({ data }) {
           </tbody>
         </table>
       )}
+
+      {/* Run action */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+        <button style={btnPrimary} onClick={() => onRunStage?.('clean', { imputation })}>
+          Run Cleaning
+        </button>
+      </div>
     </div>
   );
 }
 
-function FeaturesContent({ data, onApplyChanges }) {
+function FeaturesContent({ data, onApplyChanges, onRunStage }) {
   const features = data?.features || [];
   const [selections, setSelections] = useState(() =>
     Object.fromEntries(features.map((f) => [f.name, f.include !== false]))
@@ -354,15 +404,31 @@ function FeaturesContent({ data, onApplyChanges }) {
           ))}
         </tbody>
       </table>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button style={btnPrimary} onClick={handleApply}>Apply Changes</button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button style={btnSecondary} onClick={handleApply}>Apply Changes</button>
+        <button
+          style={btnPrimary}
+          onClick={() => {
+            const include = features.filter(f => selections[f.name]).map(f => f.name);
+            const exclude = features.filter(f => !selections[f.name]).map(f => f.name);
+            onRunStage?.('features', { include, exclude });
+          }}
+        >
+          Run Feature Selection
+        </button>
       </div>
     </div>
   );
 }
 
-function TrainContent({ data, onApplyChanges }) {
+const MODEL_OPTIONS = ['XGBoost', 'LightGBM', 'Random Forest', 'Logistic Regression'];
+
+function TrainContent({ data, onApplyChanges, onRunStage }) {
   const models = data?.models || [];
+  const [targetCol, setTargetCol] = useState(data?.target_column || '');
+  const [selectedModels, setSelectedModels] = useState(
+    data?.models?.map(m => m.name) || ['XGBoost', 'Random Forest']
+  );
   const [params, setParams] = useState(() =>
     Object.fromEntries(
       models.map((m) => [m.name, { learning_rate: m.learning_rate ?? 0.01, n_estimators: m.n_estimators ?? 100, max_depth: m.max_depth ?? 6 }])
@@ -373,6 +439,12 @@ function TrainContent({ data, onApplyChanges }) {
     setParams((p) => ({ ...p, [model]: { ...p[model], [key]: val } }));
   };
 
+  const toggleModel = (name) => {
+    setSelectedModels((prev) =>
+      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    );
+  };
+
   const handleApply = () => {
     onApplyChanges?.({
       models: models.map((m) => ({ ...m, ...params[m.name] })),
@@ -381,6 +453,41 @@ function TrainContent({ data, onApplyChanges }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Target column input */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+          Target Column
+        </span>
+        <input
+          type="text"
+          value={targetCol}
+          onChange={(e) => setTargetCol(e.target.value)}
+          placeholder="e.g. churn, label, target"
+          style={{ ...inputStyle, width: '100%', flex: 1 }}
+        />
+      </div>
+
+      {/* Model selection */}
+      <div>
+        <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 6 }}>
+          Models
+        </span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {MODEL_OPTIONS.map((name) => (
+            <label key={name} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: TOKENS.text.primary, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={selectedModels.includes(name)}
+                onChange={() => toggleModel(name)}
+                style={{ accentColor: TOKENS.accent, cursor: 'pointer' }}
+              />
+              {name}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Hyperparameter table */}
       <table style={tableStyle}>
         <thead>
           <tr>
@@ -425,85 +532,110 @@ function TrainContent({ data, onApplyChanges }) {
           ))}
         </tbody>
       </table>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button style={btnPrimary} onClick={handleApply}>Apply Changes</button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button style={btnSecondary} onClick={handleApply}>Apply Changes</button>
+        <button style={btnPrimary} onClick={() => onRunStage?.('train', {
+          target_column: targetCol,
+          models: selectedModels,
+          params: params,
+        })}>
+          Start Training
+        </button>
       </div>
     </div>
   );
 }
 
-function EvaluateContent({ data }) {
+function EvaluateContent({ data, onRunStage }) {
   const metrics = data?.metrics || [];
   const bestIdx = metrics.reduce((best, m, i) => (m.f1 > (metrics[best]?.f1 ?? -1) ? i : best), 0);
 
   return (
-    <table style={tableStyle}>
-      <thead>
-        <tr>
-          <th style={thStyle}>Model</th>
-          <th style={thStyle}>Accuracy</th>
-          <th style={thStyle}>Precision</th>
-          <th style={thStyle}>Recall</th>
-          <th style={thStyle}>F1</th>
-        </tr>
-      </thead>
-      <tbody>
-        {metrics.map((m, i) => {
-          const isBest = i === bestIdx && metrics.length > 1;
-          const rowBg = isBest ? 'rgba(34,197,94,0.06)' : 'transparent';
-          return (
-            <tr key={m.model} style={{ background: rowBg }}>
-              <td style={{ ...tdStyle, fontWeight: 500, color: TOKENS.text.primary }}>
-                {m.model}
-                {isBest && (
-                  <span style={{ marginLeft: 6, fontSize: 9, padding: '1px 5px', borderRadius: 4, background: TOKENS.success, color: '#fff', fontWeight: 600 }}>
-                    BEST
-                  </span>
-                )}
-              </td>
-              <td style={tdStyle}>{m.accuracy?.toFixed(3) ?? '--'}</td>
-              <td style={tdStyle}>{m.precision?.toFixed(3) ?? '--'}</td>
-              <td style={tdStyle}>{m.recall?.toFixed(3) ?? '--'}</td>
-              <td style={{ ...tdStyle, fontWeight: isBest ? 700 : 400, color: isBest ? TOKENS.success : TOKENS.text.secondary }}>
-                {m.f1?.toFixed(3) ?? '--'}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <table style={tableStyle}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Model</th>
+            <th style={thStyle}>Accuracy</th>
+            <th style={thStyle}>Precision</th>
+            <th style={thStyle}>Recall</th>
+            <th style={thStyle}>F1</th>
+          </tr>
+        </thead>
+        <tbody>
+          {metrics.map((m, i) => {
+            const isBest = i === bestIdx && metrics.length > 1;
+            const rowBg = isBest ? 'rgba(34,197,94,0.06)' : 'transparent';
+            return (
+              <tr key={m.model} style={{ background: rowBg }}>
+                <td style={{ ...tdStyle, fontWeight: 500, color: TOKENS.text.primary }}>
+                  {m.model}
+                  {isBest && (
+                    <span style={{ marginLeft: 6, fontSize: 9, padding: '1px 5px', borderRadius: 4, background: TOKENS.success, color: '#fff', fontWeight: 600 }}>
+                      BEST
+                    </span>
+                  )}
+                </td>
+                <td style={tdStyle}>{m.accuracy?.toFixed(3) ?? '--'}</td>
+                <td style={tdStyle}>{m.precision?.toFixed(3) ?? '--'}</td>
+                <td style={tdStyle}>{m.recall?.toFixed(3) ?? '--'}</td>
+                <td style={{ ...tdStyle, fontWeight: isBest ? 700 : 400, color: isBest ? TOKENS.success : TOKENS.text.secondary }}>
+                  {m.f1?.toFixed(3) ?? '--'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Run action */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button style={btnPrimary} onClick={() => onRunStage?.('evaluate', {})}>
+          Run Evaluation
+        </button>
+      </div>
+    </div>
   );
 }
 
-function ResultsContent({ data }) {
+function ResultsContent({ data, onRunStage }) {
   const model = data?.bestModel || {};
   return (
-    <div style={{ ...statCardStyle, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: TOKENS.tile.headerFont, color: TOKENS.text.primary }}>
-        {model.name || 'No model selected'}
-      </div>
-      {model.accuracy != null && (
-        <div style={{ fontSize: 12, color: TOKENS.text.secondary }}>
-          Accuracy: <span style={{ fontWeight: 600, color: TOKENS.success }}>{(model.accuracy * 100).toFixed(1)}%</span>
-          {model.f1 != null && <> &middot; F1: <span style={{ fontWeight: 600 }}>{model.f1.toFixed(3)}</span></>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ ...statCardStyle, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: TOKENS.tile.headerFont, color: TOKENS.text.primary }}>
+          {model.name || 'No model selected'}
         </div>
-      )}
-      {model.downloadUrl && (
-        <a
-          href={model.downloadUrl}
-          download
-          style={{
-            ...btnPrimary,
-            textDecoration: 'none',
-            textAlign: 'center',
-            display: 'inline-block',
-            alignSelf: 'flex-start',
-            marginTop: 4,
-          }}
-        >
-          Download Model
-        </a>
-      )}
+        {model.accuracy != null && (
+          <div style={{ fontSize: 12, color: TOKENS.text.secondary }}>
+            Accuracy: <span style={{ fontWeight: 600, color: TOKENS.success }}>{(model.accuracy * 100).toFixed(1)}%</span>
+            {model.f1 != null && <> &middot; F1: <span style={{ fontWeight: 600 }}>{model.f1.toFixed(3)}</span></>}
+          </div>
+        )}
+        {model.downloadUrl && (
+          <a
+            href={model.downloadUrl}
+            download
+            style={{
+              ...btnPrimary,
+              textDecoration: 'none',
+              textAlign: 'center',
+              display: 'inline-block',
+              alignSelf: 'flex-start',
+              marginTop: 4,
+            }}
+          >
+            Download Model
+          </a>
+        )}
+      </div>
+
+      {/* Finalize action */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button style={btnPrimary} onClick={() => onRunStage?.('results', {})}>
+          Finalize Pipeline
+        </button>
+      </div>
     </div>
   );
 }
@@ -530,7 +662,7 @@ const STAGE_RENDERERS = {
 
 /* ── Main component ────────────────────────────────────────── */
 
-export default function StageDetailPanel({ stage, data, onClose, onApplyChanges }) {
+export default function StageDetailPanel({ stage, data, onClose, onApplyChanges, onRunStage }) {
   const Renderer = STAGE_RENDERERS[stage];
 
   return (
@@ -564,7 +696,7 @@ export default function StageDetailPanel({ stage, data, onClose, onApplyChanges 
             {/* Body */}
             <div style={bodyStyle}>
               {Renderer ? (
-                <Renderer data={data || {}} onApplyChanges={onApplyChanges} />
+                <Renderer data={data || {}} onApplyChanges={onApplyChanges} onRunStage={onRunStage} />
               ) : (
                 <div style={{ fontSize: 12, color: TOKENS.text.muted }}>No details available for this stage.</div>
               )}
