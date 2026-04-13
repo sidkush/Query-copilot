@@ -205,6 +205,20 @@ export const useStore = create((set, get) => ({
     mlPipelineActiveStage: null,
   }),
 
+  // ML Workflow persistence
+  mlActiveWorkflow: null,
+  mlWorkflows: [],
+  setMLActiveWorkflow: (wf) => set({ mlActiveWorkflow: wf }),
+  setMLWorkflows: (list) => set({ mlWorkflows: list }),
+  updateWorkflowStage: (stageKey, update) => set((s) => {
+    if (!s.mlActiveWorkflow) return {};
+    const stages = { ...s.mlActiveWorkflow.stages };
+    stages[stageKey] = { ...stages[stageKey], ...update };
+    return {
+      mlActiveWorkflow: { ...s.mlActiveWorkflow, stages, updated_at: new Date().toISOString() },
+    };
+  }),
+
   // ── Voice Slice ──────────────────────────────────────────────
   voiceActive: false,
   voiceConfig: { sttProvider: 'browser', ttsProvider: 'browser', voiceId: null, autoListen: true, speed: 1.0 },

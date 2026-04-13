@@ -563,7 +563,7 @@ export const api = {
   },
 
   // ── Agent ──────────────────────────────────────────────────
-  agentRun: (question, connId, chatId, onStep, { persona, permissionMode } = {}) => {
+  agentRun: (question, connId, chatId, onStep, { persona, permissionMode, agentContext } = {}) => {
     const controller = new AbortController();
     const body = JSON.stringify({
       question,
@@ -571,6 +571,7 @@ export const api = {
       chat_id: chatId || null,
       persona: persona || null,
       permission_mode: permissionMode || "supervised",
+      agent_context: agentContext || "query",
     });
     const run = async () => {
       try {
@@ -641,13 +642,14 @@ export const api = {
   agentSessionDelete: (chatId) =>
     request(`/agent/sessions/${chatId}`, { method: "DELETE" }),
 
-  agentContinue: (chatId, connId, onStep, { persona, permissionMode } = {}) => {
+  agentContinue: (chatId, connId, onStep, { persona, permissionMode, agentContext } = {}) => {
     const controller = new AbortController();
     const body = JSON.stringify({
       chat_id: chatId,
       conn_id: connId || null,
       persona: persona || null,
       permission_mode: permissionMode || "supervised",
+      agent_context: agentContext || "query",
     });
     const run = async () => {
       try {
@@ -710,6 +712,32 @@ export const api = {
   mlModels: () => request("/v1/ml/models"),
   mlGetModel: (modelId) => request(`/v1/ml/models/${modelId}`),
   mlDeleteModel: (modelId) => request(`/v1/ml/models/${modelId}`, { method: "DELETE" }),
+
+  // ML Pipeline Workflows
+  mlCreatePipeline: (name, connId, tables, targetColumn) =>
+    request("/v1/ml/pipelines", {
+      method: "POST",
+      body: JSON.stringify({ name, conn_id: connId, tables: tables || [], target_column: targetColumn }),
+    }),
+  mlListPipelines: () => request("/v1/ml/pipelines"),
+  mlLoadPipeline: (id) => request(`/v1/ml/pipelines/${id}`),
+  mlUpdatePipeline: (id, updates) =>
+    request(`/v1/ml/pipelines/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    }),
+  mlDeletePipeline: (id) =>
+    request(`/v1/ml/pipelines/${id}`, { method: "DELETE" }),
+  mlRunStage: (pipelineId, stageKey, config) =>
+    request(`/v1/ml/pipelines/${pipelineId}/stages/${stageKey}/run`, {
+      method: "POST",
+      body: JSON.stringify({ config: config || {} }),
+    }),
+  mlAnalyze: (connId, tables) =>
+    request("/v1/ml/pipelines/analyze", {
+      method: "POST",
+      body: JSON.stringify({ conn_id: connId, tables: tables || [] }),
+    }),
 
   // Health
   health: () => request("/health"),
