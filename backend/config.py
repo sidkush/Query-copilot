@@ -163,6 +163,17 @@ class Settings(BaseSettings):
     TURBO_TWIN_SAMPLE_PERCENT: float = Field(default=1.0)  # 1% sample for TB-scale
     TURBO_TWIN_REFRESH_HOURS: int = Field(default=4)
     TURBO_TWIN_WARN_UNENCRYPTED: bool = Field(default=True)  # Log warning when twins enabled without disk encryption
+
+    # Smart Twin (Phase 3 — Global Comp)
+    SMART_TWIN_FULL_COPY_THRESHOLD: int = Field(default=50_000, description="Tables below this row count are fully copied, not sampled")
+    SMART_TWIN_AGGREGATE_ENABLED: bool = Field(default=True, description="Auto-generate aggregate tables in twin during sync")
+    SMART_TWIN_PATTERN_AWARE: bool = Field(default=True, description="Use query patterns to bias sampling toward frequently-queried data")
+
+    # DataFusion (Phase 3 — Global Comp)
+    DATAFUSION_ENABLED: bool = Field(default=True, description="Use DataFusion for query optimization in LiveTier")
+    DATAFUSION_TIMEOUT_MS: int = Field(default=5000, description="Per-provider timeout for DataFusion execution")
+    DATAFUSION_FALLBACK_TO_DECOMPOSER: bool = Field(default=True, description="Fall back to query_decomposer.py if DataFusion fails")
+
     DECOMPOSITION_ENABLED: bool = Field(default=True)
     DECOMPOSITION_MIN_ROWS: int = Field(default=1_000_000)  # only decompose if estimated > 1M rows
     STREAMING_PROGRESS_INTERVAL_MS: int = Field(default=1000)
