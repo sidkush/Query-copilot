@@ -1,6 +1,7 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
+import { useStore } from '../../store';
 import { TOKENS } from '../dashboard/tokens';
 import ThinkingBubble from './ThinkingBubble';
 import AnimatedChecklist from './AnimatedChecklist';
@@ -456,6 +457,49 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
   verification = null,
   compact = false,
 }) {
+  const updatePipelineStage = useStore((s) => s.updatePipelineStage);
+  const agentContext = useStore((s) => s.agentContext);
+
+  // Watch for ML tool steps and update pipeline
+  useEffect(() => {
+    if (agentContext !== 'ml') return;
+
+    const lastStep = steps[steps.length - 1];
+    if (!lastStep) return;
+
+    // Tool call started — set stage to active
+    if (lastStep.type === 'tool_call') {
+      if (lastStep.tool_name === 'ml_analyze_features') {
+        updatePipelineStage('ingest', { status: 'active' });
+      } else if (lastStep.tool_name === 'ml_train') {
+        updatePipelineStage('train', { status: 'active' });
+      } else if (lastStep.tool_name === 'ml_evaluate') {
+        updatePipelineStage('evaluate', { status: 'active' });
+      }
+    }
+
+    // Tool result arrived — parse and complete stages
+    if (lastStep.tool_result && lastStep.tool_name) {
+      let parsed = null;
+      try {
+        parsed = typeof lastStep.tool_result === 'string'
+          ? JSON.parse(lastStep.tool_result)
+          : lastStep.tool_result;
+      } catch { /* ignore parse errors */ }
+
+      if (lastStep.tool_name === 'ml_analyze_features' && parsed) {
+        updatePipelineStage('ingest', { status: 'complete', data: parsed });
+        updatePipelineStage('clean', { status: 'complete', data: parsed });
+        updatePipelineStage('features', { status: 'complete', data: parsed });
+      } else if (lastStep.tool_name === 'ml_train' && parsed) {
+        updatePipelineStage('train', { status: 'complete', data: parsed });
+        updatePipelineStage('evaluate', { status: 'complete', data: parsed });
+      } else if (lastStep.tool_name === 'ml_evaluate' && parsed) {
+        updatePipelineStage('results', { status: 'complete', data: parsed });
+      }
+    }
+  }, [steps, agentContext, updatePipelineStage]);
+
   // Filter visible steps
   const visibleSteps = steps.filter((s) => !INTERNAL_TYPES.has(s.type));
 

@@ -176,6 +176,35 @@ export const useStore = create((set, get) => ({
   setMLTrainingTaskId: (id) => set({ mlTrainingTaskId: id }),
   setMLTrainingProgress: (progress) => set({ mlTrainingProgress: progress }),
 
+  // ML Pipeline Visualization
+  mlPipelineStages: {
+    ingest:   { status: 'idle', data: null },
+    clean:    { status: 'idle', data: null },
+    features: { status: 'idle', data: null },
+    train:    { status: 'idle', data: null },
+    evaluate: { status: 'idle', data: null },
+    results:  { status: 'idle', data: null },
+  },
+  mlPipelineActiveStage: null,
+  updatePipelineStage: (stage, update) => set((s) => ({
+    mlPipelineStages: {
+      ...s.mlPipelineStages,
+      [stage]: { ...s.mlPipelineStages[stage], ...update },
+    },
+  })),
+  setMLPipelineActiveStage: (stage) => set({ mlPipelineActiveStage: stage }),
+  resetMLPipeline: () => set({
+    mlPipelineStages: {
+      ingest:   { status: 'idle', data: null },
+      clean:    { status: 'idle', data: null },
+      features: { status: 'idle', data: null },
+      train:    { status: 'idle', data: null },
+      evaluate: { status: 'idle', data: null },
+      results:  { status: 'idle', data: null },
+    },
+    mlPipelineActiveStage: null,
+  }),
+
   // ── Voice Slice ──────────────────────────────────────────────
   voiceActive: false,
   voiceConfig: { sttProvider: 'browser', ttsProvider: 'browser', voiceId: null, autoListen: true, speed: 1.0 },
@@ -285,6 +314,21 @@ export const useStore = create((set, get) => ({
     agentElapsedMs: 0,
     agentEstimatedMs: 0,
     agentVerification: null,
+  }),
+  softClearAgent: () => set({
+    agentSteps: [],
+    agentError: null,
+    agentWaiting: null,
+    agentWaitingOptions: null,
+    agentLoading: false,
+    agentChecklist: [],
+    agentPhase: null,
+    agentElapsedMs: 0,
+    agentEstimatedMs: 0,
+    agentVerification: null,
+    dualResponseActive: false,
+    cachedResultStep: null,
+    // NOTE: agentChatId intentionally NOT cleared — preserves conversation thread
   }),
   setDualResponseActive: (active) => set({ dualResponseActive: active }),
   setCachedResultStep: (step) => set({ cachedResultStep: step }),

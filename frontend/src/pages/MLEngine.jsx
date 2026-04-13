@@ -3,6 +3,7 @@ import { useStore } from "../store";
 import { api } from "../api";
 import AgentPanel from "../components/agent/AgentPanel";
 import DatabaseSwitcher from "../components/DatabaseSwitcher";
+import MLPipeline from "../components/ml/MLPipeline";
 import { TOKENS } from "../components/dashboard/tokens";
 
 /* ── Status badge helper ── */
@@ -183,15 +184,19 @@ export default function MLEngine() {
   const setAgentPanelOpen = useStore((s) => s.setAgentPanelOpen);
   const mlModels = useStore((s) => s.mlModels);
   const setMLModels = useStore((s) => s.setMLModels);
+  const resetMLPipeline = useStore((s) => s.resetMLPipeline);
 
   const connId = activeConnId;
   const turbo = turboStatus[connId];
 
-  /* Set agent context to ML on mount */
+  /* Set agent context to ML on mount, reset pipeline on unmount */
   useEffect(() => {
     setAgentContext("ml");
-    return () => setAgentContext("query");
-  }, [setAgentContext]);
+    return () => {
+      setAgentContext("query");
+      resetMLPipeline();
+    };
+  }, [setAgentContext, resetMLPipeline]);
 
   /* Open agent panel when connection is available */
   useEffect(() => {
@@ -321,6 +326,9 @@ export default function MLEngine() {
           </div>
           <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} liveConnIds={new Set(connections.map(c => c.conn_id))} />
         </div>
+
+        {/* ML Pipeline Visualization */}
+        <MLPipeline />
 
         {/* Models section */}
         {mlModels.length > 0 ? (
