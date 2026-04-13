@@ -138,3 +138,70 @@ def _scan_and_mask(value: str, mask_char: str) -> str:
     for pattern in PII_PATTERNS.values():
         result = pattern.sub(lambda m: _mask_value(m.group(), mask_char), result)
     return result
+
+
+def _is_sensitive_column_name(col_name_lower: str) -> bool:
+    """Check if a normalized-lowercase column name matches any sensitive pattern (substring)."""
+    return any(p in col_name_lower for p in SENSITIVE_COLUMN_PATTERNS)
+
+
+def mask_record_batch(batch, mask_char: str = "*", conn_id: str = None):
+    """Mask PII in an Arrow RecordBatch. Same logic as mask_dataframe but Arrow-native.
+
+    - Sensitive columns (by name pattern): mask all values via _mask_value()
+    - Non-sensitive string columns: scan values for PII regex patterns
+    - Non-sensitive non-string columns: pass through unchanged
+    - Nulls preserved as None
+    """
+    import pyarrow as pa  # Lazy import like pandas in mask_dataframe
+
+    if batch is None or batch.num_rows == 0:
+        return batch
+
+    suppressed = get_suppressed_set(conn_id)
+    new_columns = []
+
+    for i in range(batch.num_columns):
+        field = batch.schema.field(i)
+        col = batch.column(i)
+        col_lower = unicodedata.normalize("NFKC", field.name).lower().replace(" ", "_")
+        is_sensitive = _is_sensitive_column_name(col_lower) or col_lower in suppressed
+
+        if is_sensitive:
+            # Mask entire column values
+            if pa.types.is_string(field.type) or pa.types.is_large_string(field.type):
+                masked_vals = [
+                    _mask_value(v.as_py(), mask_char) if v.is_valid else None
+                    for v in col
+                ]
+            else:
+                # Non-string sensitive column: convert to string then mask
+                masked_vals = [
+                    _mask_value(str(v.as_py()), mask_char) if v.is_valid else None
+                    for v in col
+                ]
+            new_columns.append(pa.array(masked_vals, type=pa.string()))
+        elif pa.types.is_string(field.type) or pa.types.is_large_string(field.type):
+            # Non-sensitive string column: scan for PII patterns in values
+            scanned_vals = [
+                _scan_and_mask(v.as_py(), mask_char) if v.is_valid else None
+                for v in col
+            ]
+            new_columns.append(pa.array(scanned_vals, type=field.type))
+        else:
+            # Non-sensitive, non-string: pass through
+            new_columns.append(col)
+
+    # Build new schema: sensitive non-string columns become string type
+    new_fields = []
+    for i in range(batch.num_columns):
+        field = batch.schema.field(i)
+        col_lower = unicodedata.normalize("NFKC", field.name).lower().replace(" ", "_")
+        is_sensitive = _is_sensitive_column_name(col_lower) or col_lower in suppressed
+        if is_sensitive and not (pa.types.is_string(field.type) or pa.types.is_large_string(field.type)):
+            new_fields.append(pa.field(field.name, pa.string()))
+        else:
+            new_fields.append(field)
+
+    new_schema = pa.schema(new_fields)
+    return pa.RecordBatch.from_arrays(new_columns, schema=new_schema)
