@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS } from '../dashboard/tokens';
+import { useStore } from '../../store';
 
 /* ── Shared styles ─────────────────────────────────────────── */
 
@@ -29,7 +30,7 @@ const titleStyle = {
 
 const bodyStyle = {
   padding: '12px 14px',
-  maxHeight: 260,
+  maxHeight: 420,
   overflowY: 'auto',
 };
 
@@ -664,124 +665,364 @@ function FeaturesContent({ data, onApplyChanges, onRunStage }) {
   );
 }
 
-const MODEL_OPTIONS = ['XGBoost', 'LightGBM', 'Random Forest', 'Logistic Regression'];
+/* ── Training stage catalog & constants ────────────────────── */
 
+const MODEL_CATALOG = {
+  classification: [
+    { name: 'XGBoost', library: 'xgboost', desc: 'Gradient boosting — best for structured data', params: { n_estimators: 100, max_depth: 6, learning_rate: 0.1 } },
+    { name: 'LightGBM', library: 'lightgbm', desc: 'Fast gradient boosting — good with categoricals', params: { n_estimators: 100, max_depth: -1, learning_rate: 0.1 } },
+    { name: 'Random Forest', library: 'sklearn', desc: 'Ensemble — interpretable, robust baseline', params: { n_estimators: 100, max_depth: 10, min_samples_split: 2 } },
+    { name: 'Logistic Regression', library: 'sklearn', desc: 'Linear — fast, interpretable', params: { max_iter: 1000, C: 1.0 } },
+  ],
+  regression: [
+    { name: 'XGBoost', library: 'xgboost', desc: 'Gradient boosting regressor', params: { n_estimators: 100, max_depth: 6, learning_rate: 0.1 } },
+    { name: 'LightGBM', library: 'lightgbm', desc: 'Fast gradient boosting regressor', params: { n_estimators: 100, learning_rate: 0.1 } },
+    { name: 'Random Forest', library: 'sklearn', desc: 'Ensemble regressor', params: { n_estimators: 100, max_depth: 10 } },
+    { name: 'Linear Regression', library: 'sklearn', desc: 'Linear baseline', params: {} },
+  ],
+  clustering: [
+    { name: 'KMeans', library: 'sklearn', desc: 'Centroid-based clustering', params: { n_clusters: 5, n_init: 10 } },
+    { name: 'DBSCAN', library: 'sklearn', desc: 'Density-based — finds arbitrary shapes', params: { eps: 0.5, min_samples: 5 } },
+  ],
+  anomaly: [
+    { name: 'Isolation Forest', library: 'sklearn', desc: 'Tree-based anomaly detector', params: { n_estimators: 100, contamination: 0.1 } },
+    { name: 'Local Outlier Factor', library: 'sklearn', desc: 'Distance-based outlier detection', params: { n_neighbors: 20, contamination: 0.1 } },
+  ],
+};
+
+const TASK_TYPES = [
+  { key: 'classification', label: 'Classification', desc: 'Predict categories', color: '#a855f7' },
+  { key: 'regression', label: 'Regression', desc: 'Predict numbers', color: '#22c55e' },
+  { key: 'clustering', label: 'Clustering', desc: 'Find groups', color: '#06b6d4' },
+  { key: 'anomaly', label: 'Anomaly', desc: 'Detect outliers', color: '#f59e0b' },
+];
+
+const LIB_COLORS = {
+  xgboost: { bg: 'rgba(34,197,94,0.12)', color: '#22c55e' },
+  lightgbm: { bg: 'rgba(99,102,241,0.12)', color: '#818cf8' },
+  sklearn: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24' },
+};
+
+const TYPE_BADGE_COLORS = {
+  numeric: { bg: 'rgba(34,197,94,0.10)', color: '#22c55e' },
+  categorical: { bg: 'rgba(168,85,247,0.10)', color: '#a855f7' },
+  boolean: { bg: 'rgba(245,158,11,0.10)', color: '#f59e0b' },
+  text: { bg: 'rgba(6,182,212,0.10)', color: '#06b6d4' },
+  date: { bg: 'rgba(239,68,68,0.10)', color: '#ef4444' },
+  pii: { bg: 'rgba(239,68,68,0.10)', color: '#ef4444' },
+};
+
+// eslint-disable-next-line no-unused-vars
 function TrainContent({ data, onApplyChanges, onRunStage }) {
-  const models = data?.models || [];
-  const [targetCol, setTargetCol] = useState(data?.target_column || '');
-  const [selectedModels, setSelectedModels] = useState(
-    data?.models?.map(m => m.name) || ['XGBoost', 'Random Forest']
-  );
-  const [params, setParams] = useState(() =>
-    Object.fromEntries(
-      models.map((m) => [m.name, { learning_rate: m.learning_rate ?? 0.01, n_estimators: m.n_estimators ?? 100, max_depth: m.max_depth ?? 6 }])
-    )
+  const store = useStore.getState();
+  const ingestData = store.mlPipelineStages?.ingest?.data;
+  const availableColumns = useMemo(() =>
+    (ingestData?.preview || []).map(f => ({ name: f.name, type: f.type })),
+    [ingestData],
   );
 
-  const setParam = (model, key, val) => {
-    setParams((p) => ({ ...p, [model]: { ...p[model], [key]: val } }));
-  };
+  const [taskType, setTaskType] = useState(data?.task_type || 'classification');
+  const [targetCol, setTargetCol] = useState(data?.target_column || '');
+  const [selectedModels, setSelectedModels] = useState(new Set(data?.models?.map(m => m.name) || ['XGBoost']));
+  const [expandedModel, setExpandedModel] = useState(null);
+  const [paramOverrides, setParamOverrides] = useState({});
+
+  const models = MODEL_CATALOG[taskType] || [];
 
   const toggleModel = (name) => {
-    setSelectedModels((prev) =>
-      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
-    );
-  };
-
-  const handleApply = () => {
-    onApplyChanges?.({
-      models: models.map((m) => ({ ...m, ...params[m.name] })),
+    setSelectedModels(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
     });
   };
 
+  const getParams = (modelName) => {
+    const model = models.find(m => m.name === modelName);
+    const defaults = model?.params || {};
+    return { ...defaults, ...(paramOverrides[modelName] || {}) };
+  };
+
+  const setParam = (modelName, key, value) => {
+    setParamOverrides(prev => ({
+      ...prev,
+      [modelName]: { ...(prev[modelName] || {}), [key]: value },
+    }));
+  };
+
+  const canStart = targetCol && selectedModels.size > 0;
+
+  /* ── styles ── */
+  const sectionLabel = {
+    fontSize: 10,
+    fontWeight: 700,
+    color: TOKENS.text.muted,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    marginBottom: 6,
+  };
+
+  const selectStyle = {
+    ...inputStyle,
+    width: '100%',
+    cursor: 'pointer',
+    appearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 8px center',
+    paddingRight: 24,
+  };
+
+  const pillBase = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 2,
+    padding: '8px 14px',
+    borderRadius: TOKENS.radius.md,
+    border: `1px solid ${TOKENS.border.default}`,
+    background: TOKENS.bg.elevated,
+    cursor: 'pointer',
+    transition: TOKENS.transition,
+    flex: 1,
+    minWidth: 0,
+  };
+
+  const modelRow = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 10px',
+    borderRadius: TOKENS.radius.sm,
+    border: `1px solid ${TOKENS.border.default}`,
+    background: TOKENS.bg.elevated,
+    cursor: 'pointer',
+    transition: TOKENS.transition,
+  };
+
+  const paramRow = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    padding: '4px 0',
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* Target column input */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-          Target Column
-        </span>
-        <input
-          type="text"
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* ── A. Target Column ── */}
+      <div>
+        <div style={sectionLabel}>Target Column</div>
+        <select
           value={targetCol}
           onChange={(e) => setTargetCol(e.target.value)}
-          placeholder="e.g. churn, label, target"
-          style={{ ...inputStyle, width: '100%', flex: 1 }}
-        />
+          style={selectStyle}
+        >
+          <option value="">Select target column...</option>
+          {availableColumns.map((col) => {
+            const badge = col.type ? ` (${col.type})` : '';
+            return (
+              <option key={col.name} value={col.name}>
+                {col.name}{badge}
+              </option>
+            );
+          })}
+        </select>
+        {targetCol && availableColumns.length > 0 && (() => {
+          const col = availableColumns.find(c => c.name === targetCol);
+          const tc = TYPE_BADGE_COLORS[col?.type] || TYPE_BADGE_COLORS.text;
+          return (
+            <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11, color: TOKENS.text.secondary }}>{targetCol}</span>
+              {col?.type && (
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 600,
+                  padding: '1px 6px',
+                  borderRadius: 4,
+                  background: tc.bg,
+                  color: tc.color,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}>
+                  {col.type}
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
-      {/* Model selection */}
+      {/* ── B. Problem Type ── */}
       <div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 6 }}>
-          Models
-        </span>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {MODEL_OPTIONS.map((name) => (
-            <label key={name} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: TOKENS.text.primary, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={selectedModels.includes(name)}
-                onChange={() => toggleModel(name)}
-                style={{ accentColor: TOKENS.accent, cursor: 'pointer' }}
-              />
-              {name}
-            </label>
-          ))}
+        <div style={sectionLabel}>Problem Type</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {TASK_TYPES.map((t) => {
+            const active = taskType === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => {
+                  setTaskType(t.key);
+                  setSelectedModels(new Set());
+                  setExpandedModel(null);
+                  setParamOverrides({});
+                }}
+                style={{
+                  ...pillBase,
+                  background: active ? `${t.color}18` : TOKENS.bg.elevated,
+                  borderColor: active ? t.color : TOKENS.border.default,
+                  boxShadow: active ? `0 0 0 1px ${t.color}40` : 'none',
+                }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.borderColor = TOKENS.border.hover; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.borderColor = TOKENS.border.default; }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 700, color: active ? t.color : TOKENS.text.primary }}>{t.label}</span>
+                <span style={{ fontSize: 9, color: active ? t.color : TOKENS.text.muted, opacity: active ? 0.8 : 1 }}>{t.desc}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Hyperparameter table */}
-      <table style={tableStyle}>
-        <thead>
-          <tr>
-            <th style={thStyle}>Model</th>
-            <th style={thStyle}>Learning Rate</th>
-            <th style={thStyle}>Estimators</th>
-            <th style={thStyle}>Max Depth</th>
-          </tr>
-        </thead>
-        <tbody>
-          {models.map((m) => (
-            <tr key={m.name}>
-              <td style={{ ...tdStyle, fontWeight: 500, color: TOKENS.text.primary }}>{m.name}</td>
-              <td style={tdStyle}>
-                <input
-                  type="number"
-                  step="0.001"
-                  value={params[m.name]?.learning_rate ?? 0.01}
-                  onChange={(e) => setParam(m.name, 'learning_rate', parseFloat(e.target.value) || 0)}
-                  style={inputStyle}
-                />
-              </td>
-              <td style={tdStyle}>
-                <input
-                  type="number"
-                  step="10"
-                  value={params[m.name]?.n_estimators ?? 100}
-                  onChange={(e) => setParam(m.name, 'n_estimators', parseInt(e.target.value, 10) || 0)}
-                  style={inputStyle}
-                />
-              </td>
-              <td style={tdStyle}>
-                <input
-                  type="number"
-                  step="1"
-                  value={params[m.name]?.max_depth ?? 6}
-                  onChange={(e) => setParam(m.name, 'max_depth', parseInt(e.target.value, 10) || 0)}
-                  style={inputStyle}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button style={btnSecondary} onClick={handleApply}>Apply Changes</button>
-        <button style={btnPrimary} onClick={() => onRunStage?.('train', {
-          target_column: targetCol,
-          models: selectedModels,
-          params: params,
-        })}>
+      {/* ── C. Model Selection ── */}
+      <div>
+        <div style={sectionLabel}>
+          Models
+          <span style={{ fontWeight: 400, color: TOKENS.text.muted, marginLeft: 6, textTransform: 'none', letterSpacing: 0 }}>
+            {selectedModels.size} selected
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {models.map((m) => {
+            const checked = selectedModels.has(m.name);
+            const expanded = expandedModel === m.name;
+            const lc = LIB_COLORS[m.library] || LIB_COLORS.sklearn;
+            const mParams = getParams(m.name);
+            const paramEntries = Object.entries(mParams);
+
+            return (
+              <div key={m.name}>
+                {/* Model row */}
+                <div
+                  style={{
+                    ...modelRow,
+                    borderColor: checked ? `${TASK_TYPES.find(t => t.key === taskType)?.color || TOKENS.accent}50` : TOKENS.border.default,
+                    background: checked ? `${TASK_TYPES.find(t => t.key === taskType)?.color || TOKENS.accent}08` : TOKENS.bg.elevated,
+                  }}
+                  onClick={() => {
+                    if (checked) setExpandedModel(expanded ? null : m.name);
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = TOKENS.border.hover; }}
+                  onMouseLeave={(e) => {
+                    const tc = TASK_TYPES.find(t => t.key === taskType)?.color || TOKENS.accent;
+                    e.currentTarget.style.borderColor = checked ? `${tc}50` : TOKENS.border.default;
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      toggleModel(m.name);
+                      if (!checked) setExpandedModel(m.name);
+                      else if (expanded) setExpandedModel(null);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ accentColor: TASK_TYPES.find(t => t.key === taskType)?.color || TOKENS.accent, cursor: 'pointer', flexShrink: 0 }}
+                  />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: TOKENS.text.primary, whiteSpace: 'nowrap' }}>{m.name}</span>
+                  <span style={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    padding: '1px 6px',
+                    borderRadius: 4,
+                    background: lc.bg,
+                    color: lc.color,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    flexShrink: 0,
+                  }}>
+                    {m.library}
+                  </span>
+                  <span style={{ fontSize: 11, color: TOKENS.text.muted, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {m.desc}
+                  </span>
+                  {checked && paramEntries.length > 0 && (
+                    <svg
+                      width={12} height={12} viewBox="0 0 12 12"
+                      style={{ flexShrink: 0, transition: 'transform 200ms', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', color: TOKENS.text.muted }}
+                    >
+                      <path d="M3 4.5l3 3 3-3" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </svg>
+                  )}
+                </div>
+
+                {/* D. Hyperparameter accordion */}
+                {checked && expanded && paramEntries.length > 0 && (
+                  <div style={{
+                    margin: '0 0 2px 28px',
+                    padding: '8px 12px',
+                    borderRadius: `0 0 ${TOKENS.radius.sm} ${TOKENS.radius.sm}`,
+                    background: TOKENS.bg.base,
+                    border: `1px solid ${TOKENS.border.default}`,
+                    borderTop: 'none',
+                  }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: TOKENS.text.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                      Hyperparameters
+                    </div>
+                    {paramEntries.map(([key, val]) => (
+                      <div key={key} style={paramRow}>
+                        <span style={{ fontSize: 11, color: TOKENS.text.secondary, fontFamily: "'JetBrains Mono', monospace", minWidth: 110 }}>
+                          {key}
+                        </span>
+                        <input
+                          type="number"
+                          step={typeof val === 'number' && val % 1 !== 0 ? 0.01 : 1}
+                          value={val}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const parsed = raw.includes('.') ? parseFloat(raw) : parseInt(raw, 10);
+                            setParam(m.name, key, isNaN(parsed) ? raw : parsed);
+                          }}
+                          style={{
+                            ...inputStyle,
+                            width: 80,
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: 11,
+                            textAlign: 'right',
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── E. Start Training ── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
+        <button
+          style={{
+            ...btnPrimary,
+            opacity: canStart ? 1 : 0.45,
+            pointerEvents: canStart ? 'auto' : 'none',
+            padding: '8px 20px',
+            fontSize: 12,
+          }}
+          disabled={!canStart}
+          onClick={() => onRunStage?.('train', {
+            target_column: targetCol,
+            task_type: taskType,
+            models: [...selectedModels],
+            params: Object.fromEntries(
+              [...selectedModels].map(name => [name, getParams(name)])
+            ),
+          })}
+        >
           Start Training
         </button>
       </div>

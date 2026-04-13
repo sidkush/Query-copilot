@@ -195,6 +195,24 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
     return {}
 
 
+@router.get("/catalog")
+async def get_model_catalog(user=Depends(get_current_user)):
+    """Return the full model catalog with task types and default params."""
+    from ml_models import MODEL_CATALOG
+    catalog = {}
+    for task_type, models in MODEL_CATALOG.items():
+        catalog[task_type] = [
+            {
+                "name": m.name,
+                "library": m.library,
+                "description": m.description,
+                "default_params": m.default_params,
+            }
+            for m in models
+        ]
+    return {"catalog": catalog, "task_types": list(MODEL_CATALOG.keys())}
+
+
 # Standalone analyze endpoint (no workflow needed)
 @router.post("/analyze")
 async def analyze_data(req: AnalyzeRequest, user=Depends(get_current_user)):

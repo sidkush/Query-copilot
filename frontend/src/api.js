@@ -738,6 +738,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ conn_id: connId, tables: tables || [] }),
     }),
+  mlCatalog: () => request("/ml/pipelines/catalog"),
 
   // Health
   health: () => request("/health"),
