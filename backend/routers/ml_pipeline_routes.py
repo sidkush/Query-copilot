@@ -150,11 +150,16 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
 
             if connector:
                 sample_size = config.get("sample_size") if data_source == "sample" else None
+                logger.info(f"ML ingest: data_source={data_source}, sample_size={sample_size}, using live connector")
                 df = engine.ingest_from_source(connector, tables or [], sample_size=sample_size)
             else:
-                # Fallback to twin
-                df = engine.ingest_from_twin(conn_id, tables or [])
+                raise ValueError(
+                    f"No active database connection found for '{data_source}' mode. "
+                    "Go to Dashboard, reconnect your database, then try again. "
+                    "Or select 'Twin (Quick)' to use cached data."
+                )
         else:
+            logger.info(f"ML ingest: data_source=twin, using DuckDB twin")
             df = engine.ingest_from_twin(conn_id, tables or [])
 
         if isinstance(df, list):
@@ -233,8 +238,10 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
                     stratify_column=target_column
                 )
             else:
-                # Fallback to twin if connector unavailable
-                df = engine.ingest_from_twin(conn_id, tables or [])
+                raise ValueError(
+                    "No active database connection for full dataset training. "
+                    "Reconnect database on Dashboard first, or use Twin mode."
+                )
         else:
             # Default: use twin data
             df = engine.ingest_from_twin(conn_id, tables or [])
