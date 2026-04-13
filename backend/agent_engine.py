@@ -303,6 +303,68 @@ DASHBOARD_TOOL_DEFINITIONS = [
     },
 ]
 
+# ML agent tools — only included when ML_ENGINE_ENABLED is on
+ML_TOOL_DEFINITIONS = [
+    {
+        "name": "ml_analyze_features",
+        "description": (
+            "Analyze features in the dataset — auto-detect types, missing values, "
+            "correlations, PII columns. Call this first before training."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "tables": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Table names to analyze from the connected database twin",
+                },
+            },
+            "required": ["tables"],
+        },
+    },
+    {
+        "name": "ml_train",
+        "description": (
+            "Train ML models on the dataset. Runs synchronously for small datasets. "
+            "Returns model IDs and metrics."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "target_column": {
+                    "type": "string",
+                    "description": "Column to predict",
+                },
+                "tables": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Table names to use for training data",
+                },
+                "model_names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Model names to train (e.g. 'XGBoost', 'Random Forest'). Leave empty for auto-selection.",
+                },
+                "task_type": {
+                    "type": "string",
+                    "enum": ["classification", "regression", "clustering", "anomaly"],
+                    "description": "ML task type. Auto-detected if omitted.",
+                },
+            },
+            "required": ["target_column"],
+        },
+    },
+    {
+        "name": "ml_evaluate",
+        "description": "Get evaluation metrics and comparison for trained models.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+]
+
 
 # ── Data Classes ─────────────────────────────────────────────────
 
@@ -996,6 +1058,9 @@ class AgentEngine:
             "create_section": self._tool_create_section,
             "move_tile": self._tool_move_tile,
             "rename_section": self._tool_rename_section,
+            "ml_analyze_features": self._tool_ml_analyze_features,
+            "ml_train": self._tool_ml_train,
+            "ml_evaluate": self._tool_ml_evaluate,
         }
         handler = dispatch.get(name)
         if not handler:
@@ -1443,9 +1508,11 @@ class AgentEngine:
         active_tools = list(TOOL_DEFINITIONS)
         if settings.FEATURE_AGENT_DASHBOARD:
             active_tools.extend(DASHBOARD_TOOL_DEFINITIONS)
-        _logger.info("Agent tools for %s: %s (dashboard_flag=%s)",
+        if settings.ML_ENGINE_ENABLED:
+            active_tools.extend(ML_TOOL_DEFINITIONS)
+        _logger.info("Agent tools for %s: %s (dashboard_flag=%s, ml_flag=%s)",
                       self.email, [t["name"] for t in active_tools],
-                      settings.FEATURE_AGENT_DASHBOARD)
+                      settings.FEATURE_AGENT_DASHBOARD, settings.ML_ENGINE_ENABLED)
 
         # Add user question to memory
         self.memory.add_turn("user", question)
@@ -2410,6 +2477,79 @@ class AgentEngine:
         except Exception as e:
             _logger.exception("rename_section failed")
             return json.dumps({"error": str(e)[:100]})
+
+
+    # ── ML Tool Handlers ─────────────────────────────────────────
+
+    def _tool_ml_analyze_features(self, tables: list) -> str:
+        """Analyze features in tables from DuckDB twin."""
+        from ml_engine import MLEngine
+        from ml_feature_engine import analyze_features
+        engine = MLEngine()
+        conn_id = getattr(self.connection_entry, 'conn_id', '')
+        if not conn_id:
+            return json.dumps({"error": "No active connection"})
+        try:
+            df = engine.ingest_from_twin(conn_id, tables)
+            if isinstance(df, list):
+                df = df[0]
+            report = analyze_features(df)
+            return json.dumps(report, indent=2)
+        except Exception as e:
+            _logger.exception("ml_analyze_features failed")
+            return json.dumps({"error": str(e)[:200]})
+
+    def _tool_ml_train(self, target_column: str, tables: list = None,
+                       model_names: list = None, task_type: str = None) -> str:
+        """Train ML models on twin data."""
+        import hashlib
+        from ml_engine import MLEngine
+        engine = MLEngine()
+        conn_id = getattr(self.connection_entry, 'conn_id', '')
+        if not conn_id:
+            return json.dumps({"error": "No active connection"})
+        try:
+            df = engine.ingest_from_twin(conn_id, tables or [])
+            if isinstance(df, list):
+                df = df[0]
+            if not model_names:
+                from ml_models import get_models_for_task
+                detected_type = task_type or engine.detect_task_type(df, target_column)
+                model_names = [m.name for m in get_models_for_task(detected_type)]
+            result = engine.train_sync(df, target_column, model_names, task_type)
+            # Save models
+            user_hash = hashlib.sha256(self.email.encode()).hexdigest()[:8]
+            saved = []
+            for model_result in result["models"]:
+                model_id = engine.save_model(model_result, user_hash)
+                saved.append({
+                    "model_id": model_id,
+                    "name": model_result["model_name"],
+                    "metrics": model_result["metrics"],
+                })
+            return json.dumps({"task_type": result["task_type"], "models": saved}, indent=2)
+        except Exception as e:
+            _logger.exception("ml_train failed")
+            return json.dumps({"error": str(e)[:200]})
+
+    def _tool_ml_evaluate(self) -> str:
+        """List all trained models with metrics for current user."""
+        import hashlib
+        import os
+        user_hash = hashlib.sha256(self.email.encode()).hexdigest()[:8]
+        models_dir = os.path.join(settings.ML_MODELS_DIR, user_hash)
+        if not os.path.exists(models_dir):
+            return json.dumps({"models": []})
+        models = []
+        for entry in os.listdir(models_dir):
+            meta_path = os.path.join(models_dir, entry, "metadata.json")
+            if os.path.exists(meta_path):
+                try:
+                    with open(meta_path) as f:
+                        models.append(json.load(f))
+                except Exception:
+                    pass
+        return json.dumps({"models": models}, indent=2)
 
 
 # ── Exceptions ───────────────────────────────────────────────────
