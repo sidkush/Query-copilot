@@ -72,13 +72,30 @@ _MAX_SESSIONS = 100
 
 def _get_or_create_session(chat_id: str, owner_email: str) -> SessionMemory:
     """Get existing session or create new one. Evicts oldest if at capacity.
-    Validates ownership on existing sessions. Thread-safe via _sessions_lock."""
+    Validates ownership on existing sessions. Thread-safe via _sessions_lock.
+    Falls back to SQLite persistence for sessions evicted from memory."""
     with _sessions_lock:
         if chat_id in _sessions:
             session = _sessions[chat_id]
             if session.owner_email and session.owner_email != owner_email:
                 raise ValueError("Session belongs to a different user")
             session.last_used = time.monotonic()
+            return session
+
+        # Try loading from SQLite persistence before creating fresh
+        saved = session_store.load_session(chat_id, owner_email)
+        if saved:
+            session = SessionMemory(chat_id, owner_email=owner_email)
+            # Restore conversation history from saved steps
+            for step in saved.get("steps", []):
+                step_type = step.get("type", "")
+                content = step.get("content", "")
+                if step_type == "user_query" and content:
+                    session.add_turn("user", content)
+                elif step_type in ("result",) and content:
+                    session.add_turn("assistant", content)
+            _sessions[chat_id] = session
+            _logger.debug("Restored session %s from SQLite (%d steps)", chat_id, len(saved.get("steps", [])))
             return session
 
         # Evict oldest idle session if at capacity (skip sessions with active agent runs)
