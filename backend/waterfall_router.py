@@ -567,6 +567,10 @@ class LiveTier(BaseTier):
         # This tier exists to:
         # 1. Confirm the waterfall exhausted all faster tiers
         # 2. Provide decomposition hints if the query can be split
+        # 3. (NEW) Try DataFusion local execution if a DuckDB twin exists
+
+        import os
+        from config import settings
 
         can_decompose = False
         decomposition_info = None
@@ -575,6 +579,47 @@ class LiveTier(BaseTier):
         # Decomposition happens at execution time in the agent's run_sql tool.
         # This tier just signals "go to live DB".
 
+        # --- DataFusion local execution path ---
+        # When DataFusion is enabled and a DuckDB twin exists, attempt to
+        # plan and execute the question as SQL locally (<100ms vs 3-10s agent).
+        # The question *may* already be valid SQL forwarded from an upstream
+        # tier or the agent; if not, plan_query() will return None harmlessly.
+        if settings.DATAFUSION_ENABLED:
+            try:
+                from datafusion_engine import DataFusionEngine
+                twin_path = os.path.join(settings.TURBO_TWIN_DIR, f"{conn_id}.duckdb")
+                if os.path.exists(twin_path):
+                    df_engine = DataFusionEngine()
+                    df_engine.register_duckdb_twin(conn_id, twin_path)
+
+                    # Treat question as potential SQL — plan_query returns None
+                    # if it isn't valid SQL, so this is safe to try.
+                    plan = df_engine.plan_query(question)
+                    if plan and plan.is_optimizable:
+                        result_batch = df_engine.execute_sql(question)
+                        if result_batch is not None and result_batch.num_rows > 0:
+                            return TierResult(
+                                hit=True,
+                                tier_name="datafusion",
+                                data={
+                                    "record_batch": result_batch,
+                                    "columns": [f.name for f in result_batch.schema],
+                                    "rows": None,
+                                    "answer": "",
+                                    "confidence": 0.85,
+                                    "source": "datafusion_local",
+                                },
+                                metadata={
+                                    "strategy": plan.strategy,
+                                    "plan": plan.plan_str[:200],
+                                },
+                            )
+            except Exception as e:
+                logger.warning("DataFusion failed for %s, falling back: %s", conn_id, e)
+                if not settings.DATAFUSION_FALLBACK_TO_DECOMPOSER:
+                    raise
+
+        # --- Default fallback: signal agent to execute on live DB ---
         return TierResult(
             hit=True,
             tier_name="live",
