@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 import duckdb
 import pandas as pd
+import pyarrow as pa
 
 from config import settings
 
@@ -558,6 +559,40 @@ class DuckDBTwin:
             con = duckdb.connect(str(path), read_only=True)
             try:
                 result = con.execute(sql)
+
+                # Arrow-native path (zero-copy)
+                if settings.ARROW_BRIDGE_ENABLED:
+                    try:
+                        arrow_table = result.fetch_arrow_table()
+                        if arrow_table.num_rows > self._MAX_RESULT_ROWS:
+                            arrow_table = arrow_table.slice(0, self._MAX_RESULT_ROWS)
+                            truncated = True
+                        else:
+                            truncated = False
+
+                        if arrow_table.num_rows > 0:
+                            record_batch = arrow_table.to_batches()[0]
+                        else:
+                            schema = arrow_table.schema
+                            record_batch = pa.RecordBatch.from_pydict(
+                                {field.name: [] for field in schema}, schema=schema
+                            )
+
+                        elapsed = (time.monotonic() - t_start) * 1000
+                        return {
+                            "record_batch": record_batch,
+                            "columns": [field.name for field in record_batch.schema],
+                            "rows": None,  # Legacy callers use extract_columns_rows()
+                            "row_count": record_batch.num_rows,
+                            "query_ms": round(elapsed, 2),
+                            "truncated": truncated,
+                        }
+                    except Exception:
+                        if not settings.ARROW_FALLBACK_TO_PANDAS:
+                            raise
+                        # Fall through to legacy path below
+
+                # Legacy path — fetchmany
                 columns: List[str] = [desc[0] for desc in result.description]
                 # P1 fix: cap result size to prevent OOM on cross-joins
                 rows: List[List[Any]] = result.fetchmany(self._MAX_RESULT_ROWS + 1)
