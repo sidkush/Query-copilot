@@ -172,6 +172,18 @@ class DuckDBTwin:
         self._twin_dir.mkdir(parents=True, exist_ok=True)
         logger.debug("DuckDBTwin initialised — twin dir: %s", self._twin_dir)
 
+    # ── Smart Twin helpers ─────────────────────────────────────────────────────
+
+    def _should_full_copy(self, table_name: str, schema_profile) -> bool:
+        """Check if table is small enough for full copy (no sampling)."""
+        if not schema_profile:
+            return False
+        for tp in schema_profile.tables:
+            if tp.name == table_name:
+                row_count = getattr(tp, 'row_count_estimate', -1)
+                return 0 < row_count <= settings.SMART_TWIN_FULL_COPY_THRESHOLD
+        return False
+
     # ── Path helpers ───────────────────────────────────────────────────────────
 
     def _twin_path(self, conn_id: str) -> Path:
@@ -338,13 +350,21 @@ class DuckDBTwin:
                         break
 
                     # ── Build sampling SQL (Invariant-1: SELECT-only) ────────
-                    sample_sql = _build_sample_sql(
-                        table=table_name,
-                        supports_tablesample=supports_ts,
-                        sample_percent=resolved_percent,
-                        max_rows=_MAX_ROWS_PER_TABLE,
-                        use_rand=use_rand,
-                    )
+                    # Full copy for small tables (Smart Twin Layer 1)
+                    if self._should_full_copy(table_name, schema_profile):
+                        sample_sql = f'SELECT * FROM "{table_name}"'
+                        logger.debug(
+                            "create_twin(%s): table '%s' below %d rows — full copy.",
+                            conn_id, table_name, settings.SMART_TWIN_FULL_COPY_THRESHOLD,
+                        )
+                    else:
+                        sample_sql = _build_sample_sql(
+                            table=table_name,
+                            supports_tablesample=supports_ts,
+                            sample_percent=resolved_percent,
+                            max_rows=_MAX_ROWS_PER_TABLE,
+                            use_rand=use_rand,
+                        )
 
                     # ── Fetch sampled data from source DB ────────────────────
                     try:
