@@ -176,6 +176,12 @@ export const useStore = create((set, get) => ({
   setMLTrainingTaskId: (id) => set({ mlTrainingTaskId: id }),
   setMLTrainingProgress: (progress) => set({ mlTrainingProgress: progress }),
 
+  // ── Voice Slice ──────────────────────────────────────────────
+  voiceActive: false,
+  voiceConfig: { sttProvider: 'browser', ttsProvider: 'browser', voiceId: null, autoListen: true, speed: 1.0 },
+  setVoiceActive: (active) => set({ voiceActive: active }),
+  setVoiceConfig: (config) => set((s) => ({ voiceConfig: { ...s.voiceConfig, ...config } })),
+
   // ── Agent Slice ──────────────────────────────────────────────
   agentContext: 'query', // 'query' | 'dashboard' | 'ml'
   setAgentContext: (ctx) => set({ agentContext: ctx }),
