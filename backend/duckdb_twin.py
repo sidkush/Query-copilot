@@ -184,6 +184,36 @@ class DuckDBTwin:
                 return 0 < row_count <= settings.SMART_TWIN_FULL_COPY_THRESHOLD
         return False
 
+    def _build_aggregate_sqls(self, table_name: str, columns: list) -> list:
+        """Generate aggregate table creation SQL for tables with date + numeric columns."""
+        if not settings.SMART_TWIN_AGGREGATE_ENABLED:
+            return []
+
+        # Find date and numeric columns
+        date_types = {"DATE", "TIMESTAMP", "DATETIME", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE"}
+        numeric_types = {"INT", "INTEGER", "BIGINT", "SMALLINT", "FLOAT", "DOUBLE", "DECIMAL", "NUMERIC", "REAL", "TINYINT"}
+
+        date_cols = [c for c in columns if any(t in c.get("type", "").upper() for t in date_types)]
+        numeric_cols = [c for c in columns if any(t in c.get("type", "").upper() for t in numeric_types)]
+
+        if not date_cols or not numeric_cols:
+            return []
+
+        date_col = date_cols[0]["name"]
+        agg_parts = []
+        for nc in numeric_cols[:5]:  # Cap at 5
+            col = nc["name"]
+            agg_parts.append(f'COUNT("{col}") AS "{col}_count"')
+            agg_parts.append(f'SUM("{col}") AS "{col}_sum"')
+            agg_parts.append(f'AVG("{col}") AS "{col}_avg"')
+
+        agg_str = ", ".join(agg_parts)
+
+        return [{
+            "name": f"_agg_{table_name}_daily",
+            "sql": f'CREATE TABLE IF NOT EXISTS "_agg_{table_name}_daily" AS SELECT DATE_TRUNC(\'day\', "{date_col}") AS day, COUNT(*) AS row_count, {agg_str} FROM "{table_name}" GROUP BY 1',
+        }]
+
     # ── Path helpers ───────────────────────────────────────────────────────────
 
     def _twin_path(self, conn_id: str) -> Path:
@@ -330,6 +360,7 @@ class DuckDBTwin:
 
         t_start = time.monotonic()
         tables_synced = 0
+        synced_table_names: List[str] = []
         skipped_size_limit = False
 
         try:
@@ -428,6 +459,7 @@ class DuckDBTwin:
                         )
                         con.unregister("_src_df")
                         tables_synced += 1
+                        synced_table_names.append(table_name)
                         logger.debug(
                             "create_twin(%s): synced table '%s' (%d rows).",
                             conn_id, table_name, len(df),
@@ -443,6 +475,27 @@ class DuckDBTwin:
                         except Exception:
                             pass
                         continue
+
+                # ── Create materialized aggregates (Smart Twin Layer 2) ─────
+                if settings.SMART_TWIN_AGGREGATE_ENABLED:
+                    for tbl_name in synced_table_names:
+                        cols: List[Dict[str, Any]] = []
+                        for tp in (schema_profile.tables if schema_profile else []):
+                            if tp.name == tbl_name:
+                                cols = tp.columns if hasattr(tp, 'columns') else []
+                                break
+                        agg_sqls = self._build_aggregate_sqls(tbl_name, cols)
+                        for agg in agg_sqls:
+                            try:
+                                con.execute(agg["sql"])
+                                logger.debug(
+                                    "create_twin(%s): created aggregate table '%s'.",
+                                    conn_id, agg["name"],
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    "Failed to create aggregate %s: %s", agg["name"], e
+                                )
 
                 # ── Write metadata table ─────────────────────────────────────
                 sync_ts = _utcnow_iso()
