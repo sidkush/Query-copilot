@@ -389,8 +389,13 @@ export default function Dashboard() {
   };
 
   const handleDisconnectLive = async (saved) => {
+    // Normalize database name same as isLive() — BigQuery uses project, not database
+    const savedDbName = saved.database || saved.project || saved.host || "";
     const match = connections.find(
-      (c) => c.database_name === saved.database && c.db_type === saved.db_type
+      (c) => c.db_type === saved.db_type && (
+        c.database_name === savedDbName ||
+        c.conn_id === saved.id
+      )
     );
     if (match) {
       try { await api.disconnectDB(match.conn_id); } catch {}
