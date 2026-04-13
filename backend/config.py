@@ -176,6 +176,11 @@ class Settings(BaseSettings):
     WRITE_TIME_MASKING: bool = Field(default=False)                  # T3: PII mask at DuckDB write time (not read)
     BEHAVIOR_WARMING_ENABLED: bool = Field(default=False)            # T4: warm cache based on query patterns
 
+    # Arrow Data Bridge (Phase 1 — Global Comp)
+    ARROW_BRIDGE_ENABLED: bool = Field(default=True, description="Use Arrow RecordBatches in tier results instead of Python dicts")
+    ARROW_FALLBACK_TO_PANDAS: bool = Field(default=True, description="Fall back to pandas path if Arrow conversion fails")
+    PERFORMANCE_TRACKING_ENABLED: bool = Field(default=True, description="Track and expose query latency metrics")
+
     # ── Infrastructure ──────────────────────────────────────────────
     THREAD_POOL_MAX_WORKERS: int = Field(default=32, ge=4, le=256)    # M1: explicit thread pool (P2 NEMESIS: bounded 4-256)
 
