@@ -168,6 +168,14 @@ export const useStore = create((set, get) => ({
     return { prefetchCache: cache };
   }),
 
+  // ── ML Engine Slice ──────────────────────────────────────────
+  mlModels: [],
+  mlTrainingTaskId: null,
+  mlTrainingProgress: null,
+  setMLModels: (models) => set({ mlModels: models }),
+  setMLTrainingTaskId: (id) => set({ mlTrainingTaskId: id }),
+  setMLTrainingProgress: (progress) => set({ mlTrainingProgress: progress }),
+
   // ── Agent Slice ──────────────────────────────────────────────
   agentContext: 'query', // 'query' | 'dashboard' | 'ml'
   setAgentContext: (ctx) => set({ agentContext: ctx }),

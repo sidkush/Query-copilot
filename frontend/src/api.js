@@ -700,6 +700,17 @@ export const api = {
     return { close: () => controller.abort() };
   },
 
+  // ML Engine
+  mlTrain: (connId, tables, targetColumn, modelNames, taskType) =>
+    request("/v1/ml/train", {
+      method: "POST",
+      body: JSON.stringify({ conn_id: connId, tables, target_column: targetColumn, model_names: modelNames, task_type: taskType }),
+    }),
+  mlStatus: (taskId) => request(`/v1/ml/status/${taskId}`),
+  mlModels: () => request("/v1/ml/models"),
+  mlGetModel: (modelId) => request(`/v1/ml/models/${modelId}`),
+  mlDeleteModel: (modelId) => request(`/v1/ml/models/${modelId}`, { method: "DELETE" }),
+
   // Health
   health: () => request("/health"),
 };

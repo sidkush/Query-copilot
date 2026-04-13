@@ -24,6 +24,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const DashboardBuilder = lazy(() => import("./pages/DashboardBuilder"));
 const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const MLEngine = lazy(() => import("./pages/MLEngine"));
 
 function ProtectedRoute({ children }) {
   const token = useStore((s) => s.token);
@@ -98,6 +99,7 @@ function AnimatedRoutes() {
           <Route path="/account" element={<AppPage><PageTransition><Account /></PageTransition></AppPage>} />
           <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
           <Route path="/analytics" element={<AppPage><PageTransition><DashboardBuilder /></PageTransition></AppPage>} />
+          <Route path="/ml-engine" element={<AppPage><PageTransition><MLEngine /></PageTransition></AppPage>} />
 
           {/* Admin */}
           <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />

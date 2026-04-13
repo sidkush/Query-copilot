@@ -90,6 +90,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    id: "ml-engine",
+    path: "/ml-engine",
+    label: "ML Engine",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M5 14.5l-1.43 1.43a2.25 2.25 0 00-.32 2.817l.122.205a2.25 2.25 0 001.93 1.048h13.396a2.25 2.25 0 001.93-1.048l.122-.205a2.25 2.25 0 00-.32-2.817L19 14.5M5 14.5h14" />
+      </svg>
+    ),
+  },
+  {
     id: "billing",
     path: "/billing",
     label: "Billing",
