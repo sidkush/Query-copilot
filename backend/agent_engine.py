@@ -680,6 +680,9 @@ class AgentEngine:
         # Voice mode — conversational style for spoken output
         self._voice_mode = False
 
+        # Agent context — "query" | "dashboard" | "ml" — affects system prompt
+        self.agent_context = "query"
+
         # Collected during run
         self._steps: list[AgentStep] = []
         self._result = AgentResult()
@@ -1487,6 +1490,16 @@ class AgentEngine:
                 "Always end with a follow-up question to guide the conversation. "
                 "Numbers: say '2.4 million' not '$2,400,000'. "
                 "Avoid tables or code blocks — describe data verbally instead.\n"
+            )
+
+        # ── ML Engine context ─────────────────────────────────────
+        if self.agent_context == "ml":
+            system_prompt += (
+                "\n\nML ENGINE MODE (ACTIVE):\n"
+                "You are in ML Engine mode. The user wants to train machine learning models. "
+                "Use the ml_analyze_features tool to analyze their data first, then ml_train to train models. "
+                "Do NOT suggest creating dashboard tiles or running SQL queries directly — use the ML tools instead. "
+                "Available ML tools: ml_analyze_features (analyze data features), ml_train (train models), ml_evaluate (compare models).\n"
             )
 
         # ── Progress context for continue/resume (Task 5) ─────────

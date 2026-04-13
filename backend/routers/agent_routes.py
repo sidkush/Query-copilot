@@ -107,6 +107,7 @@ class AgentRunRequest(BaseModel):
     auto_execute: bool = True
     persona: Optional[str] = None  # explorer, auditor, storyteller
     permission_mode: Optional[str] = "supervised"  # "supervised" or "autonomous"
+    agent_context: Optional[str] = "query"  # "query" | "dashboard" | "ml"
 
     @pydantic.field_validator("question")
     @classmethod
@@ -194,6 +195,8 @@ async def agent_run(req: AgentRunRequest, request: Request,
     # Set persona if provided
     if req.persona:
         engine._persona = req.persona
+    # Set agent context for ML-specific system prompt
+    engine.agent_context = req.agent_context or "query"
 
     async def event_generator():
         """Yield SSE events from the agent loop."""
