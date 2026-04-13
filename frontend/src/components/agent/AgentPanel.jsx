@@ -4,6 +4,10 @@ import { useStore } from "../../store";
 import { api } from "../../api";
 import { TOKENS } from "../dashboard/tokens";
 import AgentStepFeed from "./AgentStepFeed";
+import VoiceButton from "../voice/VoiceButton";
+import VoiceIndicator from "../voice/VoiceIndicator";
+import useSpeechRecognition from "../../hooks/useSpeechRecognition";
+import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
 
 const DOCK_POSITIONS = ["float", "right", "bottom", "left"];
 const MIN_W = 280;
@@ -162,6 +166,15 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
   const [showHistory, setShowHistory] = useState(false);
   const [historyList, setHistoryList] = useState([]);
   const [inputFocused, setInputFocused] = useState(false);
+
+  // ── Voice mode hooks ──
+  const handleQuickActionRef = useRef(null);
+  const { isSpeaking, speak, stop: stopSpeaking, supported: ttsSupported } = useSpeechSynthesis();
+  const { isListening, interimTranscript, startListening, stopListening, supported: sttSupported } = useSpeechRecognition({
+    onTranscript: (text) => {
+      if (text.trim() && handleQuickActionRef.current) handleQuickActionRef.current(text.trim());
+    },
+  });
 
   // Initialize dock from saved/default on mount + load history + abort SSE on unmount
   useEffect(() => {
@@ -390,8 +403,11 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         // ONLY treat as final result when explicitly marked — NOT for any step with sql field.
         // Tool calls with sql (create_dashboard_tile, etc.) must flow to the else branch
         // so HIDDEN_TOOLS in AgentStepFeed can filter them properly.
-        addAgentStep({ type: "result", content: step.final_answer || step.content, sql: step.sql });
+        const resultText = step.final_answer || step.content;
+        addAgentStep({ type: "result", content: resultText, sql: step.sql });
         setAgentLoading(false);
+        // Auto-speak result when voice mode is active
+        if (resultText && ttsSupported) speak(resultText.slice(0, 500));
         // Reload dashboard after agent finishes (covers all tile modifications)
         const dashId = useStore.getState().activeDashboardId;
         if (dashId) api.getDashboard(dashId).then(fresh => {
@@ -402,7 +418,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       }
     }, { persona: agentPersona, permissionMode: agentPermissionMode });
     streamRef.current = stream;
-  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, clearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode]);
+  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, clearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, ttsSupported, speak]);
 
   // ── Quick action — same as handleSubmit but accepts text directly ──
   const handleQuickAction = useCallback((text) => {
@@ -430,8 +446,11 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         useStore.getState().clearAgentWaiting();
         setAgentLoading(false);
       } else if (step.final_answer || step.type === "result") {
-        addAgentStep({ type: "result", content: step.final_answer || step.content, sql: step.sql });
+        const resultText = step.final_answer || step.content;
+        addAgentStep({ type: "result", content: resultText, sql: step.sql });
         setAgentLoading(false);
+        // Auto-speak result when voice mode is active
+        if (resultText && ttsSupported) speak(resultText.slice(0, 500));
         const dashId = useStore.getState().activeDashboardId;
         if (dashId) api.getDashboard(dashId).then(fresh => {
           if (fresh) window.dispatchEvent(new CustomEvent('dashboard-reload', { detail: { dashboard: fresh } }));
@@ -441,7 +460,10 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       }
     }, { persona: agentPersona, permissionMode: agentPermissionMode });
     streamRef.current = stream;
-  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, clearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode]);
+  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, clearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, ttsSupported, speak]);
+
+  // Keep ref in sync so the speech recognition callback always calls the latest version
+  useEffect(() => { handleQuickActionRef.current = handleQuickAction; }, [handleQuickAction]);
 
   // Close handler — save history + abort stream + clear waiting + toggle panel off
   const handleClose = useCallback(() => {
@@ -786,8 +808,15 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
           </div>
         )}
 
-        {/* Secondary controls — dock, minimize, close */}
+        {/* Secondary controls — voice, dock, minimize, close */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 4 }}>
+          {/* Voice mode */}
+          <VoiceButton
+            isListening={isListening}
+            onToggle={() => { if (isListening) { stopListening(); stopSpeaking(); } else startListening(); }}
+            supported={sttSupported}
+            size="sm"
+          />
           {/* Dock buttons */}
           {DOCK_POSITIONS.map((d) => (
             <button
@@ -970,7 +999,10 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
               ))}
             </div>
           ) : (
-            <AgentStepFeed compact={panelWidth < 400} />
+            <>
+              <VoiceIndicator isListening={isListening} isSpeaking={isSpeaking} interimTranscript={interimTranscript} />
+              <AgentStepFeed compact={panelWidth < 400} />
+            </>
           )}
 
           {/* Quick-action buttons after agent completes a result */}

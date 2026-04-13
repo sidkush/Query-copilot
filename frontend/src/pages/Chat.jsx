@@ -22,6 +22,10 @@ import UserDropdown from "../components/UserDropdown";
 import DatabaseSwitcher from "../components/DatabaseSwitcher";
 import AskDBLogo from "../components/AskDBLogo";
 import behaviorEngine from "../lib/behaviorEngine";
+import VoiceButton from "../components/voice/VoiceButton";
+import VoiceIndicator from "../components/voice/VoiceIndicator";
+import useSpeechRecognition from "../hooks/useSpeechRecognition";
+import useSpeechSynthesis from "../hooks/useSpeechSynthesis";
 
 // ── Message timestamp formatting ──
 function formatMessageTime(ts) {
@@ -244,6 +248,25 @@ export default function Chat() {
   const bottomRef = useRef(null);
   const agentPersona = useStore((s) => s.agentPersona);
   const agentPermissionMode = useStore((s) => s.agentPermissionMode);
+
+  // ── Voice mode hooks ──
+  const chatFormRef = useRef(null);
+  const voiceInputRef = useRef(null); // stash voice text for handleAsk to pick up
+  const { isSpeaking, speak, stop: stopSpeaking, supported: ttsSupported } = useSpeechSynthesis();
+  const { isListening, interimTranscript, startListening, stopListening, supported: sttSupported } = useSpeechRecognition({
+    onTranscript: (text) => {
+      if (text.trim()) {
+        voiceInputRef.current = text.trim();
+        setInput(text.trim());
+        // Submit on next tick so the state has settled
+        setTimeout(() => {
+          if (chatFormRef.current) {
+            chatFormRef.current.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+          }
+        }, 50);
+      }
+    },
+  });
 
   // Sync connections from the backend on mount — track live vs saved
   const setConnections = useStore((s) => s.setConnections);
@@ -551,6 +574,8 @@ export default function Chat() {
                   chartSuggestion: step.chart_suggestion || null,
                 };
                 addMessage(ansMsg);
+                // Auto-speak agent answer when voice mode is active
+                if (step.final_answer && ttsSupported) speak(step.final_answer.slice(0, 500));
                 if (chatId) api.appendMessage(chatId, ansMsg).catch(() => {});
               }
             }
@@ -1732,7 +1757,9 @@ export default function Chat() {
 
         {/* Floating Minimalist Input Pill */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-3xl z-50">
+          <VoiceIndicator isListening={isListening} isSpeaking={isSpeaking} interimTranscript={interimTranscript} />
           <motion.form
+            ref={chatFormRef}
             onSubmit={handleAsk}
             className={`flex items-center gap-2 rounded-full p-2 transition-all duration-300 pointer-events-auto chat-input-pill${isInputFocused ? ' focused' : ''}`}
             initial={{ scale: 0.95, y: 20 }}
@@ -1779,6 +1806,12 @@ export default function Chat() {
                 </div>
               )}
             </div>
+            <VoiceButton
+              isListening={isListening}
+              onToggle={() => { if (isListening) { stopListening(); stopSpeaking(); } else startListening(); }}
+              supported={sttSupported}
+              size="md"
+            />
             <button
               type="submit"
               disabled={loading || !input.trim()}
