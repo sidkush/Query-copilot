@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
-import MotionButton from "../components/animation/MotionButton";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { api } from "../api";
 import { useStore } from "../store";
 import UserDropdown from "../components/UserDropdown";
+import SavedDbPill from "../components/SavedDbPill";
 import { GPUTierProvider } from "../lib/gpuDetect";
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
 class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
@@ -421,7 +422,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 glass-navbar sticky top-0 z-20">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Connect Database</h1>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Connect database</h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Choose a database engine to get started</p>
         </div>
         <UserDropdown />
@@ -512,7 +513,7 @@ export default function Dashboard() {
         {/* ── Saved connections ─────────────────────────────── */}
         {savedConnections.length > 0 && !selected && status === "idle" && (
           <div className="mb-8">
-            <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Saved Databases</h2>
+            <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Saved databases</h2>
             {error && (
               <motion.div
                 role="alert"
@@ -523,7 +524,7 @@ export default function Dashboard() {
                 {error}
               </motion.div>
             )}
-            <StaggerContainer className="space-y-2">
+            <StaggerContainer className="space-y-3">
               {savedConnections.map((saved) => {
                 const info = DB_LABELS[saved.db_type] || { name: saved.db_type };
                 const live = isLive(saved);
@@ -540,72 +541,27 @@ export default function Dashboard() {
                 const turboInfo = turbo?.twin_info || null;
 
                 return (
-                  <StaggerItem key={saved.id} className="flex items-center justify-between glass-card rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <DbIcon className={`w-5 h-5 flex-shrink-0 ${DB_MAP[saved.db_type]?.iconColor || "text-gray-400"}`} />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{saved.label || saved.database}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{info.name}</span>
-                          {turboEnabled && !turboSyncing && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded-full border border-cyan-700/40 flex-shrink-0 font-semibold">TURBO</span>
-                          )}
-                        </div>
-                        {saved.label && saved.database && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{saved.database}</p>}
-                        {turboEnabled && !turboSyncing && turboInfo && (
-                          <p className="text-[10px] text-cyan-600 mt-0.5">{turboInfo.tables} tables &middot; {turboInfo.size_mb?.toFixed(1) || "?"} MB &middot; &lt;100ms queries</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {live ? (
-                        <MotionButton onClick={() => handleDisconnectLive(saved)} className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-green-900/20 border border-green-800/50 text-green-400 hover:bg-green-900/40 transition cursor-pointer" aria-label={`Disconnect ${saved.label || saved.database}`}>
-                          <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" /></span>
-                          Connected
-                        </MotionButton>
-                      ) : (
-                        <MotionButton onClick={() => handleReconnect(saved)} disabled={isReconnecting} className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-red-900/20 border border-red-800/50 text-red-400 hover:bg-red-900/40 transition cursor-pointer disabled:opacity-50" aria-label={`Reconnect ${saved.label || saved.database}`}>
-                          {isReconnecting ? <div className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin" /> : <span className="relative flex h-2 w-2"><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" /></span>}
-                          {isReconnecting ? "Connecting..." : "Disconnected"}
-                        </MotionButton>
-                      )}
-                      {/* Turbo Mode toggle — only for live connections */}
-                      {live && liveConnId && (
-                        <button
-                          onClick={() => handleTurboToggle(liveConnId, turboEnabled)}
-                          disabled={turboSyncing}
-                          className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg transition cursor-pointer disabled:opacity-60 ${
-                            turboEnabled && !turboSyncing
-                              ? "bg-cyan-900/20 border border-cyan-700/50 text-cyan-400 hover:bg-cyan-900/40"
-                              : turboSyncing
-                              ? "bg-amber-900/20 border border-amber-700/50 text-amber-400"
-                              : "bg-gray-800/50 border border-gray-700/50 text-gray-500 hover:text-cyan-400 hover:border-cyan-700/50 hover:bg-cyan-900/20"
-                          }`}
-                          title={turboEnabled ? "Disable Turbo Mode" : turboSyncing ? "Syncing local replica..." : "Enable DuckDB Turbo Mode for <100ms queries"}
-                          aria-label={`${turboEnabled ? "Disable" : "Enable"} Turbo Mode`}
-                        >
-                          {turboSyncing ? (
-                            <div className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                            </svg>
-                          )}
-                          {turboSyncing ? "Syncing..." : turboEnabled ? "Turbo" : "Turbo"}
-                        </button>
-                      )}
-                      {deleteConfirm === saved.id ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Are you sure?</span>
-                          <button onClick={() => { handleDeleteSaved(saved.id); setDeleteConfirm(null); }} className="px-2 py-0.5 text-xs font-medium rounded-lg bg-red-900/30 border border-red-800/50 text-red-400 hover:bg-red-900/50 transition cursor-pointer" aria-label="Confirm delete connection">Yes</button>
-                          <button onClick={() => setDeleteConfirm(null)} className="px-2 py-0.5 text-xs font-medium rounded-lg glass text-gray-400 hover:text-white transition cursor-pointer" aria-label="Cancel delete connection">No</button>
-                        </div>
-                      ) : (
-                        <button onClick={() => setDeleteConfirm(saved.id)} className="p-1.5 text-gray-600 hover:text-red-400 transition cursor-pointer rounded-lg hover:bg-gray-800" title="Remove saved connection" aria-label="Delete saved connection">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                      )}
-                    </div>
+                  <StaggerItem key={saved.id}>
+                    <SavedDbPill
+                      saved={saved}
+                      dbName={info.name}
+                      icon={
+                        <DbIcon className={`w-5 h-5 ${DB_MAP[saved.db_type]?.iconColor || "text-gray-400"}`} />
+                      }
+                      live={live}
+                      isReconnecting={isReconnecting}
+                      turboEnabled={turboEnabled}
+                      turboSyncing={turboSyncing}
+                      turboInfo={turboInfo}
+                      liveConnId={liveConnId}
+                      onReconnect={handleReconnect}
+                      onDisconnect={handleDisconnectLive}
+                      onTurboToggle={handleTurboToggle}
+                      deleteConfirm={deleteConfirm === saved.id}
+                      onRequestDelete={() => setDeleteConfirm(saved.id)}
+                      onConfirmDelete={() => { handleDeleteSaved(saved.id); setDeleteConfirm(null); }}
+                      onCancelDelete={() => setDeleteConfirm(null)}
+                    />
                   </StaggerItem>
                 );
               })}
@@ -620,7 +576,7 @@ export default function Dashboard() {
         {/* ── Live-only connections (no saved) ─────────────── */}
         {connections.length > 0 && savedConnections.length === 0 && !selected && status === "idle" && (
           <div className="mb-8">
-            <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Connected Databases</h2>
+            <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Connected databases</h2>
             <div className="space-y-2">
               {connections.map((conn) => {
                 const lbl = DB_LABELS[conn.db_type] || { name: conn.db_type };
@@ -664,7 +620,7 @@ export default function Dashboard() {
                           </button>
                         );
                       })()}
-                      <MotionButton onClick={async () => { try { await api.disconnectDB(conn.conn_id); } catch {} removeConnection(conn.conn_id); }} className="px-3 py-1 text-xs font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg hover:bg-red-900/40 transition cursor-pointer" aria-label={`Disconnect ${conn.database_name}`}>Disconnect</MotionButton>
+                      <motion.button whileTap={{ scale: 0.96 }} transition={{ type: "spring", stiffness: 400, damping: 25 }} onClick={async () => { try { await api.disconnectDB(conn.conn_id); } catch { /* noop */ } removeConnection(conn.conn_id); }} className="px-3 py-1 text-xs font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-full hover:bg-red-900/40 ease-spring cursor-pointer" aria-label={`Disconnect ${conn.database_name}`}>Disconnect</motion.button>
                     </div>
                   </div>
                 );
@@ -746,7 +702,7 @@ export default function Dashboard() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Connection Label <span style={{ color: 'var(--text-muted)' }}>(optional)</span></label>
+                    <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Connection label <span style={{ color: 'var(--text-muted)' }}>(optional)</span></label>
                     <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Production DB, Staging Analytics" className="w-full glass-input rounded-lg px-4 py-2.5 placeholder-gray-600 focus:outline-none input-glow transition" style={{ color: 'var(--text-primary)' }} />
                   </div>
 
@@ -772,17 +728,33 @@ export default function Dashboard() {
                 )}
 
                 <div className="flex gap-3 mt-6">
-                  <MotionButton onClick={handleTestConnection} disabled={testResult === "testing"} className="flex-1 py-3 glass text-white font-bold rounded-xl hover:border-indigo-500/40 transition-all duration-300 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+                  <motion.button
+                    onClick={handleTestConnection}
+                    disabled={testResult === "testing"}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    className="flex-1 py-3 glass text-white font-semibold rounded-full hover:border-blue-500/40 ease-spring cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
                     {testResult === "testing" ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         Testing...
                       </>
-                    ) : "Test Connection"}
-                  </MotionButton>
-                  <MotionButton onClick={handleConnect} className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/35 transition-all duration-300 cursor-pointer btn-glow">
-                    Connect & Save
-                  </MotionButton>
+                    ) : "Test connection"}
+                  </motion.button>
+                  <motion.button
+                    onClick={handleConnect}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    className="group flex-1 flex items-center justify-between pl-6 pr-2 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-full shadow-lg shadow-blue-600/20 ease-spring cursor-pointer"
+                  >
+                    <span className="text-sm">Connect &amp; save</span>
+                    <span className="flex items-center justify-center w-9 h-9 rounded-full bg-white/15 ease-spring transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-[1px]">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M5 12h14M13 5l7 7-7 7" />
+                      </svg>
+                    </span>
+                  </motion.button>
                 </div>
               </div>
             </motion.div>
@@ -801,7 +773,7 @@ export default function Dashboard() {
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
                 <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </div>
-              <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Connection Failed</h3>
+              <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Connection failed</h3>
               <motion.p
                 animate={{ x: [0, -8, 8, -4, 4, 0] }}
                 transition={{ duration: 0.4 }}
@@ -811,8 +783,28 @@ export default function Dashboard() {
                 {error}
               </motion.p>
               <div className="flex items-center justify-center gap-3">
-                <MotionButton onClick={() => setStatus("idle")} className="px-5 py-2 glass text-white text-sm rounded-full hover:border-indigo-500/40 transition-all duration-200 cursor-pointer">Edit credentials</MotionButton>
-                <MotionButton onClick={handleConnect} className="px-5 py-2 bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-sm font-semibold rounded-full shadow-lg shadow-indigo-500/20 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer btn-glow">Retry</MotionButton>
+                <motion.button
+                  onClick={() => setStatus("idle")}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="px-5 py-2 glass text-white text-sm font-medium rounded-full hover:border-blue-500/30 ease-spring cursor-pointer"
+                >
+                  Edit credentials
+                </motion.button>
+                <motion.button
+                  onClick={handleConnect}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="group inline-flex items-center gap-2 pl-5 pr-2 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-full shadow-lg shadow-blue-600/15 ease-spring cursor-pointer"
+                >
+                  <span>Retry</span>
+                  <span className="flex items-center justify-center w-7 h-7 rounded-full bg-white/15 ease-spring transition-transform duration-300 group-hover:rotate-180">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M23 4v6h-6M1 20v-6h6" />
+                      <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                    </svg>
+                  </span>
+                </motion.button>
               </div>
             </div>
           </motion.div>

@@ -7,6 +7,9 @@ RUN npm install
 
 COPY . .
 
+RUN addgroup --system app && adduser --system --ingroup app app
+USER app
+
 EXPOSE 5173
 
 CMD ["npm", "run", "dev", "--", "--host"]

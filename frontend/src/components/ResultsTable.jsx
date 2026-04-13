@@ -135,31 +135,45 @@ export default function ResultsTable({ columns, rows }) {
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.12)]" style={{ background: 'var(--glass-bg-card)', border: '1px solid var(--glass-border)' }} role="region" aria-label={`Query results: ${rows.length} row${rows.length !== 1 ? "s" : ""}, ${columns.length} column${columns.length !== 1 ? "s" : ""}`}>
+    <div className="chat-artifact" role="region" aria-label={`Query results: ${rows.length} row${rows.length !== 1 ? "s" : ""}, ${columns.length} column${columns.length !== 1 ? "s" : ""}`}>
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-2.5" style={{ background: 'var(--bg-base)', borderBottom: '1px solid var(--border-default)' }}>
-        <span className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--text-primary)' }}>
-          <span className="px-2 py-0.5 rounded-md bg-blue-600/10 text-blue-400 text-xs font-semibold tabular-nums">{rows.length}</span>
-          row{rows.length !== 1 ? "s" : ""} returned
+      <div className="chat-artifact__header">
+        <span className="chat-artifact__label">
+          <span className="eyebrow-dot" aria-hidden="true" />
+          Data
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>Table</span>
         </span>
-        <div className="flex items-center gap-2">
+        <span className="chat-artifact__stat">
+          {rows.length.toLocaleString()} row{rows.length !== 1 ? 's' : ''} · {columns.length} col{columns.length !== 1 ? 's' : ''}
+        </span>
+        <div className="flex items-center gap-1.5 ml-auto">
           {/* Copy to clipboard */}
           <button
             onClick={handleCopyToClipboard}
-            className="flex items-center gap-1.5 text-xs transition-colors duration-200 cursor-pointer px-3 py-1.5 rounded-lg backdrop-blur-sm"
-            style={{ color: 'var(--text-secondary)', background: 'var(--overlay-faint)', border: '1px solid var(--overlay-light)' }}
+            className="ease-spring cursor-pointer inline-flex items-center gap-1.5"
+            style={{
+              padding: '0.35rem 0.85rem',
+              fontSize: 11,
+              fontWeight: 500,
+              borderRadius: 9999,
+              color: 'var(--text-secondary)',
+              background: 'var(--overlay-faint)',
+              border: '1px solid var(--border-default)',
+              transition: 'background 300ms cubic-bezier(0.32, 0.72, 0, 1), color 300ms cubic-bezier(0.32, 0.72, 0, 1), transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
+            }}
             aria-label="Copy visible table data to clipboard"
           >
             {copied ? (
               <>
-                <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-3 h-3" style={{ color: 'var(--status-success)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
-                <span className="text-emerald-400">Copied!</span>
+                <span style={{ color: 'var(--status-success)' }}>Copied</span>
               </>
             ) : (
               <>
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
                 </svg>
                 Copy
@@ -171,27 +185,42 @@ export default function ResultsTable({ columns, rows }) {
           <div className="relative" ref={exportRef}>
             <button
               onClick={() => setShowExport(!showExport)}
-              className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors duration-200 cursor-pointer px-3 py-1.5 rounded-lg"
-              style={{ '--tw-bg-opacity': 1 }}
+              className="ease-spring cursor-pointer inline-flex items-center gap-1.5"
+              style={{
+                padding: '0.35rem 0.85rem',
+                fontSize: 11,
+                fontWeight: 500,
+                borderRadius: 9999,
+                color: 'var(--accent)',
+                background: 'var(--accent-glow)',
+                border: '1px solid rgba(37, 99, 235, 0.22)',
+                transition: 'background 300ms cubic-bezier(0.32, 0.72, 0, 1), transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
+              }}
+              aria-expanded={showExport}
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
               Export
-              <svg className={`w-3 h-3 transition-transform duration-200 ${showExport ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              <svg className="w-2.5 h-2.5 ease-spring transition-transform duration-300" style={{ transform: showExport ? 'rotate(180deg)' : 'rotate(0)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
             </button>
             {showExport && (
-              <div className="absolute right-0 top-full mt-1 rounded-xl shadow-2xl z-50 overflow-hidden min-w-[140px]" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)' }}>
+              <div className="absolute right-0 top-full mt-2 rounded-2xl shadow-2xl z-50 overflow-hidden min-w-[160px] py-1.5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-hover)', boxShadow: '0 24px 60px -16px rgba(0,0,0,0.45)' }}>
                 {EXPORT_FORMATS.map((fmt) => (
                   <button
                     key={fmt.key}
                     onClick={() => handleExport(fmt.key)}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs transition-colors duration-200 cursor-pointer"
-                    style={{ color: 'var(--text-primary)' }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-xs ease-spring cursor-pointer"
+                    style={{
+                      color: 'var(--text-primary)',
+                      background: 'transparent',
+                      border: 'none',
+                      transition: 'background 200ms cubic-bezier(0.32, 0.72, 0, 1)',
+                    }}
                     onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
-                    <span className="font-mono w-8 text-right" style={{ color: 'var(--text-muted)' }}>{fmt.ext}</span>
+                    <span className="font-mono w-10 text-right" style={{ color: 'var(--text-muted)' }}>{fmt.ext}</span>
                     <span>{fmt.label}</span>
                   </button>
                 ))}

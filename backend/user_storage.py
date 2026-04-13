@@ -502,7 +502,7 @@ def save_api_key_to_profile(email: str, updates: dict):
         profile = _backend.read_json(_profile_key(email)) or {}
         profile.update(updates)
         _backend.write_json(_profile_key(email), profile, atomic=True)
-        logger.info("Saved API key config for user %s", email)
+        logger.info("Saved provider config for user %s", email)
 
 
 # ── Dashboards ─────────────────────────────────────────────────
@@ -1090,22 +1090,40 @@ def _save_versions(email: str, dashboard_id: str, versions: list):
     _backend.write_json(_versions_key(email, dashboard_id), versions, atomic=True)
 
 
+def _save_version_no_lock(email: str, dashboard_id: str, snapshot: dict, label: str = "") -> dict:
+    """Internal: snapshot a dashboard state as a version WITHOUT acquiring _lock.
+
+    Use this from inside an existing `with _lock:` block. Calling the public
+    `save_dashboard_version` from inside a locked section would try to
+    re-acquire the non-reentrant `_lock` on the same thread and deadlock.
+
+    Mirrors the `_auto_version_snapshot` pattern already used by
+    `update_dashboard`. See `restore_dashboard_version` for the reason this
+    helper exists.
+    """
+    versions = _load_versions(email, dashboard_id)
+    version = {
+        "id": uuid.uuid4().hex[:12],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "label": label[:200] if label else "",
+        "snapshot": snapshot,
+    }
+    versions.append(version)
+    # Trim to MAX_VERSIONS
+    if len(versions) > MAX_VERSIONS:
+        versions = versions[-MAX_VERSIONS:]
+    _save_versions(email, dashboard_id, versions)
+    return version
+
+
 def save_dashboard_version(email: str, dashboard_id: str, snapshot: dict, label: str = ""):
-    """Snapshot the current dashboard state as a version."""
+    """Snapshot the current dashboard state as a version.
+
+    Public API — acquires _lock. Must NOT be called from inside another
+    `with _lock:` block (use `_save_version_no_lock` instead).
+    """
     with _lock:
-        versions = _load_versions(email, dashboard_id)
-        version = {
-            "id": uuid.uuid4().hex[:12],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "label": label[:200] if label else "",
-            "snapshot": snapshot,
-        }
-        versions.append(version)
-        # Trim to MAX_VERSIONS
-        if len(versions) > MAX_VERSIONS:
-            versions = versions[-MAX_VERSIONS:]
-        _save_versions(email, dashboard_id, versions)
-        return version
+        return _save_version_no_lock(email, dashboard_id, snapshot, label)
 
 
 def list_dashboard_versions(email: str, dashboard_id: str) -> list:
@@ -1134,8 +1152,16 @@ def restore_dashboard_version(email: str, dashboard_id: str, version_id: str) ->
         dashboards = _load_dashboards(email)
         for d in dashboards:
             if d["id"] == dashboard_id:
-                # Save current state as a version before restoring
-                save_dashboard_version(email, dashboard_id, dict(d), label="Auto-save before restore")
+                # Save current state as a version before restoring.
+                # Must use the no-lock helper — we are already holding _lock
+                # and threading.Lock is NOT reentrant. Calling the public
+                # `save_dashboard_version` here would deadlock the thread
+                # (and, because the FastAPI endpoint is async def, freeze the
+                # entire event loop worker — making a subsequent page refresh
+                # also hang).
+                _save_version_no_lock(
+                    email, dashboard_id, dict(d), label="Auto-save before restore"
+                )
                 # Restore from snapshot
                 for key in ("name", "description", "tabs", "annotations", "customMetrics", "globalFilters", "themeConfig", "bookmarks"):
                     if key in snapshot:

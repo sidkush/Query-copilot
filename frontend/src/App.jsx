@@ -5,23 +5,24 @@ import { useStore } from "./store";
 import { api } from "./api";
 import behaviorEngine from "./lib/behaviorEngine";
 import useThemeInit from "./hooks/useThemeInit";
-import Landing from "./pages/Landing";
-import Login from "./pages/Login";
-import OAuthCallback from "./pages/OAuthCallback";
-import Tutorial from "./pages/Tutorial";
-import Dashboard from "./pages/Dashboard";
-import SchemaView from "./pages/SchemaView";
-import Chat from "./pages/Chat";
-import Profile from "./pages/Profile";
-import Account from "./pages/Account";
-import Billing from "./pages/Billing";
 import AppLayout from "./components/AppLayout";
-import AdminLogin from "./pages/AdminLogin";
-import AdminDashboard from "./pages/AdminDashboard";
-import DashboardBuilder from "./pages/DashboardBuilder";
-import SharedDashboard from "./pages/SharedDashboard";
 import PageTransition from "./components/animation/PageTransition";
 
+// Route-based code splitting — each page loads only when navigated to
+const Landing = lazy(() => import("./pages/Landing"));
+const Login = lazy(() => import("./pages/Login"));
+const OAuthCallback = lazy(() => import("./pages/OAuthCallback"));
+const Tutorial = lazy(() => import("./pages/Tutorial"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const SchemaView = lazy(() => import("./pages/SchemaView"));
+const Chat = lazy(() => import("./pages/Chat"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Account = lazy(() => import("./pages/Account"));
+const Billing = lazy(() => import("./pages/Billing"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const DashboardBuilder = lazy(() => import("./pages/DashboardBuilder"));
+const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 
 function ProtectedRoute({ children }) {
@@ -77,34 +78,36 @@ function AnimatedRoutes() {
   }, [location.pathname]);
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        {/* Public */}
-        <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
-        <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
-        <Route path="/auth/callback" element={<OAuthCallback />} />
-        <Route path="/shared/:token" element={<PageTransition><SharedDashboard /></PageTransition>} />
+    <Suspense fallback={<div className="min-h-screen" style={{ background: 'var(--bg-page)' }} />}>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          {/* Public */}
+          <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
+          <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
+          <Route path="/auth/callback" element={<OAuthCallback />} />
+          <Route path="/shared/:token" element={<PageTransition><SharedDashboard /></PageTransition>} />
 
-        {/* Protected — no sidebar */}
-        <Route path="/onboarding" element={<ProtectedRoute><Suspense fallback={<div className="flex-1" style={{ background: 'var(--bg-page)' }} />}><PageTransition><Onboarding /></PageTransition></Suspense></ProtectedRoute>} />
+          {/* Protected — no sidebar */}
+          <Route path="/onboarding" element={<ProtectedRoute><PageTransition><Onboarding /></PageTransition></ProtectedRoute>} />
 
-        {/* Protected — with sidebar */}
-        <Route path="/dashboard" element={<AppPage><PageTransition><Dashboard /></PageTransition></AppPage>} />
-        <Route path="/schema" element={<AppPage><PageTransition><SchemaView /></PageTransition></AppPage>} />
-        <Route path="/chat" element={<AppPage><PageTransition><Chat /></PageTransition></AppPage>} />
-        <Route path="/profile" element={<AppPage><PageTransition><Profile /></PageTransition></AppPage>} />
-        <Route path="/account" element={<AppPage><PageTransition><Account /></PageTransition></AppPage>} />
-        <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
-        <Route path="/analytics" element={<AppPage><PageTransition><DashboardBuilder /></PageTransition></AppPage>} />
+          {/* Protected — with sidebar */}
+          <Route path="/dashboard" element={<AppPage><PageTransition><Dashboard /></PageTransition></AppPage>} />
+          <Route path="/schema" element={<AppPage><PageTransition><SchemaView /></PageTransition></AppPage>} />
+          <Route path="/chat" element={<AppPage><PageTransition><Chat /></PageTransition></AppPage>} />
+          <Route path="/profile" element={<AppPage><PageTransition><Profile /></PageTransition></AppPage>} />
+          <Route path="/account" element={<AppPage><PageTransition><Account /></PageTransition></AppPage>} />
+          <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
+          <Route path="/analytics" element={<AppPage><PageTransition><DashboardBuilder /></PageTransition></AppPage>} />
 
-        {/* Admin */}
-        <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
-        <Route path="/admin" element={<PageTransition><AdminDashboard /></PageTransition>} />
+          {/* Admin */}
+          <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
+          <Route path="/admin" element={<PageTransition><AdminDashboard /></PageTransition>} />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AnimatePresence>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AnimatePresence>
+    </Suspense>
   );
 }
 

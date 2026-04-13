@@ -98,42 +98,65 @@ export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, 
   const displaySQL = formatted && !editing ? formatSQL(sqlCode) : sqlCode;
 
   return (
-    <div className="rounded-2xl overflow-hidden backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.12)]" style={{ background: 'var(--glass-bg-card)', border: '1px solid var(--glass-border)' }}>
-      <div className="flex items-center justify-between px-4 py-2.5" style={{ background: 'var(--bg-base)', borderBottom: '1px solid var(--border-default)' }}>
-        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Generated SQL</span>
-        <div className="flex items-center gap-2">
+    <div className="chat-artifact">
+      <div className="chat-artifact__header">
+        <span className="chat-artifact__label">
+          <span className="eyebrow-dot" aria-hidden="true" />
+          SQL
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>Generated</span>
+        </span>
+        {preview && (
+          <span className="chat-artifact__stat">
+            {preview.estimated_rows != null && <>~{preview.estimated_rows.toLocaleString()} rows</>}
+            {preview.column_count != null && <> · {preview.column_count} cols</>}
+          </span>
+        )}
+        <div className="flex items-center gap-1.5 ml-auto">
           {copied && (
-            <span className="text-xs text-emerald-400 font-medium animate-pulse">Copied!</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] chip-blink" style={{ color: 'var(--status-success)' }}>
+              Copied
+            </span>
           )}
           <button
             onClick={() => setFormatted(!formatted)}
             aria-label={formatted ? "Show raw SQL" : "Format SQL"}
-            className={`flex items-center justify-center px-2.5 h-8 rounded-lg text-xs font-medium backdrop-blur-sm border transition-colors duration-200 cursor-pointer ${
-              formatted
-                ? "text-blue-400 bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20"
-                : ""
-            }`}
-            style={!formatted ? { color: 'var(--text-secondary)', background: 'var(--overlay-faint)', borderColor: 'var(--overlay-light)' } : undefined}
+            aria-pressed={formatted}
+            className="ease-spring cursor-pointer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '0.35rem 0.7rem',
+              fontSize: 11,
+              fontWeight: 500,
+              borderRadius: 9999,
+              color: formatted ? 'var(--accent)' : 'var(--text-secondary)',
+              background: formatted ? 'var(--accent-glow)' : 'var(--overlay-faint)',
+              border: `1px solid ${formatted ? 'rgba(37, 99, 235, 0.25)' : 'var(--border-default)'}`,
+              transition: 'background 300ms cubic-bezier(0.32, 0.72, 0, 1), color 300ms cubic-bezier(0.32, 0.72, 0, 1), border-color 300ms cubic-bezier(0.32, 0.72, 0, 1), transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
+            }}
           >
-            {formatted ? "Raw" : "Format"}
+            {formatted ? 'Raw' : 'Format'}
           </button>
           <button
             onClick={handleCopySQL}
             aria-label="Copy SQL to clipboard"
-            className="flex items-center justify-center w-8 h-8 rounded-lg backdrop-blur-sm transition-colors duration-200 cursor-pointer"
-            style={{ color: 'var(--text-secondary)', background: 'var(--overlay-faint)', border: '1px solid var(--overlay-light)' }}
+            className="ease-spring cursor-pointer flex items-center justify-center"
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 9999,
+              color: 'var(--text-secondary)',
+              background: 'var(--overlay-faint)',
+              border: '1px solid var(--border-default)',
+              transition: 'background 300ms cubic-bezier(0.32, 0.72, 0, 1), color 300ms cubic-bezier(0.32, 0.72, 0, 1), transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
+            }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
             </svg>
           </button>
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Review before executing</span>
-          {preview && (
-            <span className="text-xs text-cyan-400 font-medium ml-1">
-              {preview.estimated_rows != null ? `~${preview.estimated_rows.toLocaleString()} rows` : ''}
-              {preview.column_count ? `${preview.estimated_rows != null ? ', ' : ''}${preview.column_count} cols` : ''}
-            </span>
-          )}
         </div>
       </div>
 
@@ -156,34 +179,75 @@ export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, 
         </SyntaxHighlighter>
       )}
 
-      <div className="flex items-center gap-2.5 px-4 py-3" style={{ background: 'var(--bg-surface)', borderTop: '1px solid var(--border-default)' }}>
+      <div className="chat-artifact__footer">
         <button
           onClick={() => onApprove(editing ? editedSQL : sqlCode, sqlCode)}
           disabled={loading}
           aria-label={loading ? "Query is running" : "Run query"}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors duration-200 cursor-pointer"
+          className="group inline-flex items-center gap-2 pl-5 pr-1.5 py-1.5 rounded-full text-sm font-semibold ease-spring cursor-pointer disabled:opacity-60"
+          style={{
+            background: '#10b981',
+            color: '#fff',
+            border: 'none',
+            boxShadow: '0 8px 24px -10px rgba(16, 185, 129, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset',
+          }}
         >
-          {loading && (
-            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          {loading ? (
+            <>
+              <span className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              <span>Running…</span>
+            </>
+          ) : (
+            <>
+              <span>Run query</span>
+              <span
+                className="flex items-center justify-center w-7 h-7 rounded-full ease-spring transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-[1px]"
+                style={{ background: 'rgba(255,255,255,0.2)' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 3l14 9-14 9V3z" />
+                </svg>
+              </span>
+            </>
           )}
-          {loading ? "Running..." : "Run Query"}
         </button>
         <button
           onClick={() => { setEditing(!editing); setEditedSQL(sqlCode); }}
           aria-label={editing ? "Cancel editing SQL" : "Edit SQL"}
-          className="px-4 py-2 text-sm rounded-lg transition-colors duration-200 cursor-pointer"
-          style={{ background: 'var(--bg-hover)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }}
+          className="ease-spring cursor-pointer"
+          style={{
+            padding: '0.5rem 1rem',
+            fontSize: 13,
+            fontWeight: 500,
+            borderRadius: 9999,
+            background: 'var(--overlay-faint)',
+            border: '1px solid var(--border-default)',
+            color: 'var(--text-primary)',
+            transition: 'background 300ms cubic-bezier(0.32, 0.72, 0, 1), transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
+          }}
         >
-          {editing ? "Cancel Edit" : "Edit SQL"}
+          {editing ? 'Cancel edit' : 'Edit SQL'}
         </button>
         <button
           onClick={onReject}
           aria-label="Reject generated SQL"
-          className="px-4 py-2 hover:text-red-400 text-sm rounded-lg transition-colors duration-200 cursor-pointer"
-          style={{ color: 'var(--text-muted)' }}
+          className="ease-spring cursor-pointer"
+          style={{
+            padding: '0.5rem 1rem',
+            fontSize: 13,
+            fontWeight: 500,
+            borderRadius: 9999,
+            background: 'transparent',
+            color: 'var(--text-muted)',
+            border: 'none',
+            transition: 'color 300ms cubic-bezier(0.32, 0.72, 0, 1)',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--status-danger)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
         >
           Reject
         </button>
+        <span className="chat-artifact__stat ml-auto">Review before executing</span>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useStore } from "../../store";
 import { api } from "../../api";
 import { TOKENS } from "../dashboard/tokens";
@@ -12,6 +13,27 @@ const MAX_H_RATIO = 0.7;
 const DEFAULT_W = 380;
 const DEFAULT_H = 500;
 const APP_SIDEBAR_W = 56;
+
+// ── Workspace protection ──
+// When the panel is docked left/right, the dashboard MUST keep at least this
+// many pixels of horizontal room. Otherwise tiles get squeezed under their
+// minimum-column width and the layout looks broken. Float mode bypasses this
+// because it overlays the dashboard instead of compressing it.
+const DASHBOARD_MIN_W = 720;
+// Threshold below which the header collapses secondary controls into a "..."
+// overflow popover. Picked empirically: at ~360px the inline controls start
+// clipping the close button.
+const HEADER_COLLAPSE_W = 380;
+
+/**
+ * Compute the maximum panel width that still leaves the dashboard with
+ * `DASHBOARD_MIN_W` pixels of usable space. Used for left/right docks.
+ * Float mode uses the looser MAX_W_RATIO ceiling because the panel overlays.
+ */
+function maxDockedWidth() {
+  const cap = Math.max(MIN_W, window.innerWidth - APP_SIDEBAR_W - DASHBOARD_MIN_W);
+  return Math.min(window.innerWidth * MAX_W_RATIO, cap);
+}
 
 // ── localStorage with schema migration ──
 function loadPanelState() {
@@ -38,10 +60,16 @@ function savePanelState(state) {
 }
 
 // ── Validation helpers ──
-function clampWidth(w) {
+// `dockMode` lets the clamp protect the dashboard's minimum width when
+// the panel is docked left/right. Float panels can extend further because
+// they overlay the dashboard rather than compressing it.
+function clampWidth(w, dockMode) {
   const n = Number(w);
   if (!Number.isFinite(n)) return DEFAULT_W;
-  return Math.max(MIN_W, Math.min(window.innerWidth * MAX_W_RATIO, n));
+  const max = (dockMode === "left" || dockMode === "right")
+    ? maxDockedWidth()
+    : window.innerWidth * MAX_W_RATIO;
+  return Math.max(MIN_W, Math.min(max, n));
 }
 function clampHeight(h) {
   const n = Number(h);
@@ -81,6 +109,34 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
   const [dragging, setDragging] = useState(false);
   const [edgeResizing, setEdgeResizing] = useState(null);
   const [floatResizing, setFloatResizing] = useState(false);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [overflowAnchor, setOverflowAnchor] = useState(null); // { top, right } in viewport coords
+  const overflowRef = useRef(null);
+  const overflowTriggerRef = useRef(null);
+
+  // Header collapses secondary controls into an overflow popover when narrow.
+  // Bottom dock is always wide so it doesn't need collapsing.
+  const headerCompact = dock !== "bottom" && panelWidth < HEADER_COLLAPSE_W;
+
+  // Re-anchor the portaled overflow popover when it opens or when the panel
+  // moves/resizes. The popover lives in document.body so it escapes the
+  // panel's stacking context — but that means we have to position it manually.
+  useEffect(() => {
+    if (!overflowOpen) { setOverflowAnchor(null); return; }
+    const update = () => {
+      const el = overflowTriggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setOverflowAnchor({ top: r.bottom + 8, right: window.innerWidth - r.right });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [overflowOpen, dock, panelWidth, panelHeight, pos]);
   const dragOffset = useRef({ x: 0, y: 0 });
   const resizeStart = useRef({ mousePos: 0, dim: 0 });
   const panelRef = useRef(null);
@@ -154,17 +210,37 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
     savePanelState({ dock, pos, width: panelWidth, height: panelHeight });
   }, [dock, pos, panelWidth, panelHeight]);
 
+  // Close the header overflow popover on outside click or Escape
+  useEffect(() => {
+    if (!overflowOpen) return;
+    const onClick = (e) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target)) {
+        setOverflowOpen(false);
+      }
+    };
+    const onKey = (e) => { if (e.key === "Escape") setOverflowOpen(false); };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [overflowOpen]);
+
   // Reactive viewport clamp — re-clamp on window resize
   useEffect(() => {
     const onResize = () => {
-      setPanelWidth((prev) => clampWidth(prev));
+      setPanelWidth((prev) => clampWidth(prev, dock));
       setPanelHeight((prev) => clampHeight(prev));
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [setPanelWidth, setPanelHeight]);
+  }, [setPanelWidth, setPanelHeight, dock]);
 
-  // Dock transition guard — reset minimized, clamp float pos on dock change
+  // Dock transition guard — reset minimized, clamp float pos on dock change.
+  // ALSO re-clamp width when switching INTO a docked mode, so a panel that
+  // was wider than the new max (e.g. floating at 900px) gets compressed
+  // before it can squish the dashboard.
   const prevDockRef = useRef(dock);
   useEffect(() => {
     if (prevDockRef.current !== dock) {
@@ -172,10 +248,13 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       if (dock === "float") {
         // Clamp float position to viewport
         setPos((p) => clampPos(p));
+      } else if (dock === "left" || dock === "right") {
+        // Protect dashboard min width: shrink panel if it's too wide for the new dock
+        setPanelWidth((prev) => clampWidth(prev, dock));
       }
       prevDockRef.current = dock;
     }
-  }, [dock]);
+  }, [dock, setPanelWidth]);
 
   // ── Float drag handlers ──
   const onDragStart = useCallback((e) => {
@@ -226,7 +305,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         const { mousePos, dim } = resizeStart.current;
         if (edgeResizing === "left" || edgeResizing === "right") {
           const delta = edgeResizing === "left" ? mousePos - e.clientX : e.clientX - mousePos;
-          setPanelWidth(Math.max(MIN_W, Math.min(window.innerWidth * MAX_W_RATIO, dim + delta)));
+          setPanelWidth(clampWidth(dim + delta, dock));
         } else if (edgeResizing === "top") {
           const delta = mousePos - e.clientY;
           setPanelHeight(Math.max(MIN_H, Math.min(window.innerHeight * MAX_H_RATIO, dim + delta)));
@@ -244,7 +323,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [edgeResizing, setPanelWidth, setPanelHeight]);
+  }, [edgeResizing, setPanelWidth, setPanelHeight, dock]);
 
   // ── Float corner resize (throttled via rAF, with upper bounds) ──
   useEffect(() => {
@@ -256,7 +335,9 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         rafId = null;
         const rect = panelRef.current?.getBoundingClientRect();
         if (!rect) return;
-        setPanelWidth(Math.max(MIN_W, Math.min(window.innerWidth * MAX_W_RATIO, e.clientX - rect.left)));
+        // Float panels overlay the dashboard, so they use the loose ratio
+        // ceiling — they don't need to protect dashboard width.
+        setPanelWidth(clampWidth(e.clientX - rect.left, "float"));
         setPanelHeight(Math.max(MIN_H, Math.min(window.innerHeight * MAX_H_RATIO, e.clientY - rect.top)));
       });
     };
@@ -388,7 +469,6 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
     const base = {
       display: "flex",
       flexDirection: "column",
-      background: TOKENS.bg.elevated,
       overflow: "hidden",
       transition: isActive ? "none" : "width 0.2s ease, height 0.2s ease",
     };
@@ -399,14 +479,13 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       return {
         ...base,
         position: "fixed",
-        zIndex: 9998,
+        zIndex: 1000,
         left: pos.x,
         top: pos.y,
         width: panelWidth,
         height: minimized ? 42 : panelHeight,
         borderRadius: TOKENS.radius.lg,
         border: `1px solid ${TOKENS.border.default}`,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
       };
     }
     if (validatedDock === "right") {
@@ -419,7 +498,6 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         height: "100vh",
         zIndex: 50,
         borderLeft: `1px solid ${TOKENS.border.default}`,
-        boxShadow: "-4px 0 24px rgba(0,0,0,0.3)",
       };
     }
     if (validatedDock === "left") {
@@ -432,7 +510,6 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         height: "100vh",
         zIndex: 50,
         borderRight: `1px solid ${TOKENS.border.default}`,
-        boxShadow: "4px 0 24px rgba(0,0,0,0.3)",
       };
     }
     // bottom
@@ -445,7 +522,6 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       height: minimized ? 42 : panelHeight,
       zIndex: 50,
       borderTop: `1px solid ${TOKENS.border.default}`,
-      boxShadow: "0 -4px 24px rgba(0,0,0,0.3)",
     };
   }, [dock, pos.x, pos.y, panelWidth, panelHeight, minimized, isActive]);
 
@@ -468,8 +544,9 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
     );
   };
 
+  const dockClass = dock === "float" ? "float" : "docked";
   return (
-    <div ref={panelRef} style={panelStyle} role="dialog" aria-label="Agent panel"
+    <div ref={panelRef} style={panelStyle} className={`agent-panel-shell ${dockClass}`} role="dialog" aria-label="Agent panel"
       onKeyDown={(e) => {
         if (e.key === "Escape" && !["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) handleClose();
       }}>
@@ -478,113 +555,239 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       {dock === "left" && edgeHandle("right")}
       {dock === "bottom" && !minimized && edgeHandle("top")}
 
-      {/* Header */}
+      {/* Header — premium editorial chrome */}
       <div
         onMouseDown={onDragStart}
         style={{
-          display: "flex", alignItems: "center", gap: "6px",
-          padding: "6px 10px", background: TOKENS.bg.surface,
+          display: "flex", alignItems: "center", gap: "10px",
+          padding: "10px 14px", background: "transparent",
           borderBottom: `1px solid ${TOKENS.border.default}`,
           cursor: dock === "float" ? "grab" : "default",
           userSelect: "none", flexShrink: 0,
         }}
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={TOKENS.accent} strokeWidth="2">
-          <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-        </svg>
-        <span style={{ fontSize: "12px", fontWeight: 600, color: TOKENS.text.primary }}>
-          Agent
-        </span>
+        <span className="eyebrow-dot" aria-hidden="true" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+          <span style={{
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--text-muted)',
+          }}>
+            Live agent
+          </span>
+          <span style={{
+            fontSize: 14,
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+            fontFamily: "'Outfit', system-ui, sans-serif",
+            letterSpacing: "-0.015em",
+            lineHeight: 1.1,
+          }}>
+            AskDB
+          </span>
+        </div>
 
         {/* Spacer pushes controls right */}
         <span style={{ flex: 1 }} />
 
-        {/* Primary controls — always visible */}
-        <div style={{ display: "flex", alignItems: "center", gap: "3px", flexShrink: 0 }}>
-          {/* History toggle */}
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            title={showHistory ? "Back to chat" : "Chat history"}
-            aria-pressed={showHistory}
-            style={{
-              width: 24, height: 24, borderRadius: "4px",
-              border: showHistory ? `1px solid ${TOKENS.accent}` : `1px solid ${TOKENS.border.default}`,
-              background: showHistory ? TOKENS.accentGlow : "transparent",
-              color: showHistory ? TOKENS.accent : TOKENS.text.muted,
-              fontSize: "10px", cursor: "pointer", display: "flex",
-              alignItems: "center", justifyContent: "center",
-            }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </button>
-
-          {/* Persona selector */}
-          <select
-            value={agentPersona || ""}
-            onChange={(e) => useStore.getState().setAgentPersona(e.target.value || null)}
-            title="Analyst persona"
-            aria-label="Analyst persona"
-            style={{
-              height: 24, borderRadius: "4px", fontSize: "9px", maxWidth: "62px",
-              border: `1px solid ${agentPersona ? TOKENS.accent : TOKENS.border.default}`,
-              background: agentPersona ? TOKENS.accentGlow : "transparent",
-              color: agentPersona ? TOKENS.accent : TOKENS.text.muted,
-              cursor: "pointer", padding: "0 2px", outline: "none",
-            }}
-          >
-            <option value="" style={{ background: "var(--bg-elevated)" }}>Mode</option>
-            <option value="explorer" style={{ background: "var(--bg-elevated)" }}>Explorer</option>
-            <option value="auditor" style={{ background: "var(--bg-elevated)" }}>Auditor</option>
-            <option value="storyteller" style={{ background: "var(--bg-elevated)" }}>Storyteller</option>
-          </select>
-
-          {/* Permission mode toggle */}
-          <button
-            onClick={() => useStore.getState().setAgentPermissionMode(agentPermissionMode === "supervised" ? "autonomous" : "supervised")}
-            title={agentPermissionMode === "supervised" ? "Supervised mode — asks before dashboard changes" : "Autonomous mode — creates freely, still asks before modify/delete"}
-            aria-label={`Permission: ${agentPermissionMode}`}
-            style={{
-              height: 24, borderRadius: "4px", fontSize: "9px", padding: "0 4px",
-              border: `1px solid ${agentPermissionMode === "autonomous" ? "#f59e0b" : TOKENS.border.default}`,
-              background: agentPermissionMode === "autonomous" ? "rgba(245,158,11,0.1)" : "transparent",
-              color: agentPermissionMode === "autonomous" ? "#f59e0b" : TOKENS.text.muted,
-              cursor: "pointer", display: "flex", alignItems: "center", gap: "2px",
-            }}
-          >
-            {agentPermissionMode === "supervised" ? (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-            ) : (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 019.9-1" /></svg>
+        {/* Primary controls — collapse into overflow popover when panel is narrow */}
+        {headerCompact ? (
+          /* ── Collapsed: single "···" button that opens a popover with all controls.
+              The popover is portaled to document.body to escape the panel's
+              stacking context (which would otherwise clip it behind the
+              dashboard when right-docked). ── */
+          <div style={{ flexShrink: 0 }}>
+            <button
+              ref={overflowTriggerRef}
+              onClick={() => setOverflowOpen((v) => !v)}
+              title="More controls"
+              aria-label="More controls"
+              aria-expanded={overflowOpen}
+              className="agent-dock-pill"
+              data-active={(overflowOpen || agentPersona || agentPermissionMode === "autonomous" || showHistory) || undefined}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" />
+              </svg>
+            </button>
+            {overflowOpen && overflowAnchor && createPortal(
+              <div
+                ref={overflowRef}
+                className="agent-overflow-popover"
+                role="menu"
+                style={{
+                  position: "fixed",
+                  top: overflowAnchor.top,
+                  right: overflowAnchor.right,
+                  // Override the absolute positioning from the CSS class
+                  left: "auto",
+                }}
+              >
+                <button
+                  className="agent-overflow-row"
+                  data-active={showHistory || undefined}
+                  onClick={() => { setShowHistory(!showHistory); setOverflowOpen(false); }}
+                >
+                  <span className="agent-overflow-row__icon">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </span>
+                  {showHistory ? "Back to chat" : "Chat history"}
+                </button>
+                <button
+                  className="agent-overflow-row"
+                  onClick={() => {
+                    if (streamRef.current?.close) streamRef.current.close();
+                    if (agentSteps.length > 0) saveAgentHistory();
+                    clearAgent();
+                    setShowHistory(false);
+                    setOverflowOpen(false);
+                  }}
+                >
+                  <span className="agent-overflow-row__icon">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </span>
+                  New conversation
+                </button>
+                <button
+                  className="agent-overflow-row"
+                  data-active={agentPermissionMode === "autonomous" || undefined}
+                  onClick={() => {
+                    useStore.getState().setAgentPermissionMode(agentPermissionMode === "supervised" ? "autonomous" : "supervised");
+                  }}
+                >
+                  <span className="agent-overflow-row__icon">
+                    {agentPermissionMode === "supervised" ? (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+                    ) : (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 019.9-1" /></svg>
+                    )}
+                  </span>
+                  {agentPermissionMode === "supervised" ? "Mode: Safe (supervised)" : "Mode: Auto (autonomous)"}
+                </button>
+                <div style={{ height: 1, background: "var(--border-default)", margin: "4px 6px" }} aria-hidden="true" />
+                <div style={{ padding: "6px 10px 4px", fontSize: 9, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+                  Persona
+                </div>
+                {[{ v: "", l: "None" }, { v: "explorer", l: "Explorer" }, { v: "auditor", l: "Auditor" }, { v: "storyteller", l: "Storyteller" }].map((opt) => (
+                  <button
+                    key={opt.v || "none"}
+                    className="agent-overflow-row"
+                    data-active={(agentPersona || "") === opt.v || undefined}
+                    onClick={() => {
+                      useStore.getState().setAgentPersona(opt.v || null);
+                    }}
+                  >
+                    <span className="agent-overflow-row__icon" />
+                    {opt.l}
+                  </button>
+                ))}
+              </div>,
+              document.body
             )}
-            {agentPermissionMode === "supervised" ? "Safe" : "Auto"}
-          </button>
+          </div>
+        ) : (
+          /* ── Expanded: full inline control rail ── */
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+            {/* History toggle */}
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              title={showHistory ? "Back to chat" : "Chat history"}
+              aria-pressed={showHistory}
+              className="agent-dock-pill"
+              data-active={showHistory || undefined}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
 
-          {/* New conversation */}
-          <button
-            onClick={() => {
-              if (streamRef.current?.close) streamRef.current.close();
-              if (agentSteps.length > 0) saveAgentHistory();
-              clearAgent();
-              setShowHistory(false);
-            }}
-            title="New conversation"
-            aria-label="New conversation"
-            style={{
-              width: 24, height: 24, borderRadius: "4px",
-              border: `1px solid ${TOKENS.border.default}`,
-              background: "transparent", color: TOKENS.text.muted,
-              fontSize: "13px", cursor: "pointer", display: "flex",
-              alignItems: "center", justifyContent: "center",
-            }}
-          >
-            +
-          </button>
-        </div>
+            {/* Persona selector */}
+            <select
+              value={agentPersona || ""}
+              onChange={(e) => useStore.getState().setAgentPersona(e.target.value || null)}
+              title="Analyst persona"
+              aria-label="Analyst persona"
+              className="ease-spring"
+              style={{
+                height: 26,
+                borderRadius: 7,
+                fontSize: 9,
+                maxWidth: 70,
+                border: `1px solid ${agentPersona ? 'rgba(37, 99, 235, 0.3)' : 'var(--border-default)'}`,
+                background: agentPersona ? 'var(--accent-glow)' : 'transparent',
+                color: agentPersona ? 'var(--accent)' : 'var(--text-muted)',
+                cursor: "pointer",
+                padding: "0 4px",
+                outline: "none",
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+                transition: 'background 300ms cubic-bezier(0.32,0.72,0,1), color 300ms cubic-bezier(0.32,0.72,0,1)',
+              }}
+            >
+              <option value="" style={{ background: "var(--bg-elevated)" }}>Mode</option>
+              <option value="explorer" style={{ background: "var(--bg-elevated)" }}>Explorer</option>
+              <option value="auditor" style={{ background: "var(--bg-elevated)" }}>Auditor</option>
+              <option value="storyteller" style={{ background: "var(--bg-elevated)" }}>Storyteller</option>
+            </select>
+
+            {/* Permission mode toggle */}
+            <button
+              onClick={() => useStore.getState().setAgentPermissionMode(agentPermissionMode === "supervised" ? "autonomous" : "supervised")}
+              title={agentPermissionMode === "supervised" ? "Supervised mode — asks before dashboard changes" : "Autonomous mode — creates freely, still asks before modify/delete"}
+              aria-label={`Permission: ${agentPermissionMode}`}
+              className="ease-spring"
+              style={{
+                height: 26,
+                borderRadius: 7,
+                fontSize: 9,
+                padding: '0 7px',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+                border: `1px solid ${agentPermissionMode === "autonomous" ? 'rgba(245, 158, 11, 0.32)' : 'var(--border-default)'}`,
+                background: agentPermissionMode === "autonomous" ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                color: agentPermissionMode === "autonomous" ? '#f59e0b' : 'var(--text-muted)',
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                transition: 'background 300ms cubic-bezier(0.32,0.72,0,1), color 300ms cubic-bezier(0.32,0.72,0,1)',
+              }}
+            >
+              {agentPermissionMode === "supervised" ? (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+              ) : (
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 019.9-1" /></svg>
+              )}
+              {agentPermissionMode === "supervised" ? "Safe" : "Auto"}
+            </button>
+
+            {/* New conversation */}
+            <button
+              onClick={() => {
+                if (streamRef.current?.close) streamRef.current.close();
+                if (agentSteps.length > 0) saveAgentHistory();
+                clearAgent();
+                setShowHistory(false);
+              }}
+              title="New conversation"
+              aria-label="New conversation"
+              className="agent-dock-pill"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* Secondary controls — dock, minimize, close */}
-        <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0, marginLeft: "3px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 4 }}>
           {/* Dock buttons */}
           {DOCK_POSITIONS.map((d) => (
             <button
@@ -593,14 +796,8 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
               title={`Dock ${d}`}
               aria-pressed={dock === d}
               aria-label={`Dock ${d}`}
-              style={{
-                width: 20, height: 20, borderRadius: "3px",
-                border: dock === d ? `1px solid ${TOKENS.accent}` : `1px solid ${TOKENS.border.default}`,
-                background: dock === d ? TOKENS.accentGlow : "transparent",
-                color: dock === d ? TOKENS.accent : TOKENS.text.muted,
-                fontSize: "8px", cursor: "pointer", display: "flex",
-                alignItems: "center", justifyContent: "center",
-              }}
+              className="agent-dock-pill"
+              data-active={dock === d || undefined}
             >
               {d[0].toUpperCase()}
             </button>
@@ -612,13 +809,8 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
               onClick={() => setMinimized(!minimized)}
               aria-expanded={!minimized}
               aria-label={minimized ? "Expand panel" : "Minimize panel"}
-              style={{
-                width: 20, height: 20, borderRadius: "3px",
-                border: `1px solid ${TOKENS.border.default}`,
-                background: "transparent", color: TOKENS.text.muted,
-                fontSize: "13px", cursor: "pointer", display: "flex",
-                alignItems: "center", justifyContent: "center",
-              }}
+              className="agent-dock-pill"
+              style={{ fontSize: 13, fontFamily: "system-ui, sans-serif" }}
             >
               {minimized ? "+" : "\u2013"}
             </button>
@@ -635,16 +827,19 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
                 setAgentLoading(false);
                 useStore.getState().clearAgentWaiting();
               }}
+              className="ease-spring"
               style={{
-                background: '#ef4444',
+                background: 'var(--status-danger)',
                 color: '#fff',
                 border: 'none',
-                borderRadius: 6,
-                padding: '4px 12px',
-                fontSize: 12,
+                borderRadius: 9999,
+                padding: '5px 14px',
+                fontSize: 11,
                 fontWeight: 600,
                 cursor: 'pointer',
-                marginRight: 8,
+                marginLeft: 4,
+                boxShadow: '0 6px 18px -8px rgba(239, 68, 68, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset',
+                transition: 'transform 300ms cubic-bezier(0.32,0.72,0,1)',
               }}
             >
               Cancel
@@ -655,15 +850,10 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
           <button
             onClick={handleClose}
             aria-label="Close agent panel"
-            style={{
-              width: 20, height: 20, borderRadius: "3px",
-              border: `1px solid ${TOKENS.border.default}`,
-              background: "transparent", color: TOKENS.text.muted,
-              fontSize: "13px", cursor: "pointer", display: "flex",
-              alignItems: "center", justifyContent: "center",
-            }}
+            className="agent-dock-pill"
+            style={{ fontSize: 13, fontFamily: "system-ui, sans-serif" }}
           >
-            x
+            ×
           </button>
         </div>
       </div>
@@ -787,73 +977,115 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
           {!agentLoading && !agentWaiting && agentSteps.length > 0 &&
            agentSteps[agentSteps.length - 1]?.type === 'result' && !showHistory && (
             <div style={{
-              display: 'flex', gap: 6, padding: '6px 12px',
+              display: 'flex',
+              gap: 6,
+              padding: '10px 14px',
               borderTop: `1px solid ${TOKENS.border.default}`,
               flexWrap: 'wrap',
+              alignItems: 'center',
             }}>
+              <span style={{
+                fontSize: 9,
+                fontWeight: 600,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                marginRight: 4,
+              }}>
+                Next
+              </span>
               {['Continue', 'Tell me more', 'Add to dashboard'].map(label => (
-                <button key={label} onClick={() => handleQuickAction(label)}
-                  style={{
-                    fontSize: 11, padding: '4px 12px', borderRadius: '20px',
-                    border: `1px solid ${TOKENS.border.default}`,
-                    background: 'transparent', color: TOKENS.text.secondary,
-                    cursor: 'pointer', transition: TOKENS.transition,
-                  }}
-                  onMouseEnter={e => { e.target.style.borderColor = TOKENS.accent; e.target.style.color = TOKENS.accentLight; }}
-                  onMouseLeave={e => { e.target.style.borderColor = TOKENS.border.default; e.target.style.color = TOKENS.text.secondary; }}
-                >{label}</button>
+                <button
+                  key={label}
+                  onClick={() => handleQuickAction(label)}
+                  className="agent-quick-chip"
+                >
+                  {label}
+                </button>
               ))}
             </div>
           )}
 
-          {/* Footer input */}
-          <form onSubmit={handleSubmit} style={{ padding: '8px 12px', borderTop: `1px solid ${TOKENS.border.default}`, flexShrink: 0 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '4px 4px 4px 14px',
-              borderRadius: '24px',
-              background: TOKENS.bg.base,
-              border: `1px solid ${inputFocused ? TOKENS.accent : TOKENS.border.default}`,
-              transition: TOKENS.transition,
-            }}>
+          {/* Footer input — premium glass composer */}
+          <form onSubmit={handleSubmit} style={{ padding: '12px 14px', borderTop: `1px solid ${TOKENS.border.default}`, flexShrink: 0 }}>
+            <div className="agent-composer" data-focused={inputFocused || undefined}>
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder={agentWaiting ? "Respond to the agent..." : "Ask the agent..."}
+                placeholder={agentWaiting ? "Respond to the agent…" : "Ask the agent anything…"}
                 disabled={agentLoading || !!agentWaiting}
                 style={{
-                  flex: 1, border: 'none', outline: 'none',
-                  background: 'transparent', color: TOKENS.text.primary,
-                  fontSize: '13px', padding: '6px 0',
+                  flex: 1,
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  color: TOKENS.text.primary,
+                  fontSize: 13,
+                  padding: '7px 0',
+                  fontFamily: "'Inter', system-ui, sans-serif",
                 }}
               />
               {agentLoading ? (
-                <button type="button" onClick={() => {
-                  if (streamRef.current?.close) streamRef.current.close();
-                  setAgentLoading(false);
-                  useStore.getState().clearAgentWaiting();
-                }} title="Stop agent" aria-label="Stop" style={{
-                  width: 32, height: 32, borderRadius: '50%',
-                  background: TOKENS.danger || '#ef4444', border: 'none',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', flexShrink: 0,
-                }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (streamRef.current?.close) streamRef.current.close();
+                    setAgentLoading(false);
+                    useStore.getState().clearAgentWaiting();
+                  }}
+                  title="Stop agent"
+                  aria-label="Stop"
+                  className="ease-spring"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: 'var(--status-danger)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    boxShadow: '0 8px 22px -8px rgba(239, 68, 68, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset',
+                    transition: 'transform 300ms cubic-bezier(0.32,0.72,0,1)',
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
                 </button>
               ) : (
-                <button type="submit" disabled={!input.trim() || !!agentWaiting} style={{
-                  width: 32, height: 32, borderRadius: '50%',
-                  background: input.trim() && !agentWaiting ? TOKENS.accent : TOKENS.bg.surface,
-                  border: 'none',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: input.trim() && !agentWaiting ? 'pointer' : 'default',
-                  flexShrink: 0, transition: TOKENS.transition,
-                  opacity: input.trim() && !agentWaiting ? 1 : 0.4,
-                }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+                <button
+                  type="submit"
+                  disabled={!input.trim() || !!agentWaiting}
+                  className="ease-spring group"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: input.trim() && !agentWaiting ? 'var(--accent)' : 'var(--bg-hover)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: input.trim() && !agentWaiting ? 'pointer' : 'default',
+                    flexShrink: 0,
+                    boxShadow: input.trim() && !agentWaiting
+                      ? '0 8px 22px -8px rgba(37, 99, 235, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset'
+                      : 'none',
+                    transition: 'transform 300ms cubic-bezier(0.32,0.72,0,1), background 300ms cubic-bezier(0.32,0.72,0,1)',
+                    opacity: input.trim() && !agentWaiting ? 1 : 0.4,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (input.trim() && !agentWaiting) {
+                      e.currentTarget.style.transform = 'scale(1.06) translateY(-1px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
                   </svg>
                 </button>

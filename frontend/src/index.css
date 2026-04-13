@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+/* Fonts loaded via index.html <link> — not imported here to avoid render-blocking */
 @import 'react-grid-layout/css/styles.css';
 @import 'react-resizable/css/styles.css';
 @import "tailwindcss";
@@ -6,7 +6,7 @@
 /* ══════════════════════════════════════════════════════════
    AskDB — Global Styles & Animations
    Corporate Design System: Navy/Slate + Trust Blue
-   Typography: Poppins (headings) + Open Sans (body)
+   Typography: Outfit (headings) + Inter (body)
    Theme: Dark default, Light via .light class on <html>
    ══════════════════════════════════════════════════════════ */
 
@@ -34,6 +34,25 @@
   --accent: #2563EB;
   --accent-light: #3B82F6;
   --accent-glow: rgba(37, 99, 235, 0.15);
+  /* Text color used ON the accent background (inside primary CTAs, the
+     Share button, etc). Kept as a single token so future tweaks touch one
+     place rather than scattered `#fff` literals. Both themes need this
+     to stay white because the accent is dark blue in either mode. */
+  --text-on-accent: #ffffff;
+  /* Semi-transparent accent tints — used for pill backgrounds, borders,
+     shadows that should follow the accent hue. */
+  --accent-tint-weak: rgba(37, 99, 235, 0.08);
+  --accent-tint-soft: rgba(37, 99, 235, 0.12);
+  --accent-tint-mid:  rgba(37, 99, 235, 0.25);
+  --accent-shadow:    rgba(37, 99, 235, 0.5);
+  /* White overlay used inside dark primary buttons for the inner icon bezel */
+  --on-accent-overlay: rgba(255, 255, 255, 0.18);
+
+  /* Warm accent — a deliberate contrast to the primary blue. Used sparingly
+     for editorial badges and "AI" callouts where the blue would collide. */
+  --accent-warm: #FBBF24;             /* amber-400 — bright, reads on dark */
+  --accent-warm-soft: #FDE68A;        /* amber-200 — for tinted bg */
+  --accent-warm-glow: rgba(251, 191, 36, 0.14);
 
   /* Status */
   --status-success: #22C55E;
@@ -108,6 +127,11 @@
 
   --accent-glow: rgba(37, 99, 235, 0.08);
 
+  /* Warm accent — darker in light mode so it stays readable on near-white */
+  --accent-warm: #B45309;             /* amber-700 — legible on cream */
+  --accent-warm-soft: #FEF3C7;        /* amber-100 — soft bg tint */
+  --accent-warm-glow: rgba(180, 83, 9, 0.1);
+
   --status-success: #16A34A;
   --status-warning: #D97706;
   --status-danger: #DC2626;
@@ -180,12 +204,20 @@
 /* ── Corporate typography ── */
 h1, h2, h3, h4, h5, h6,
 .font-heading {
-  font-family: 'Poppins', system-ui, sans-serif;
+  font-family: 'Outfit', system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 body, input, textarea, select, button,
 .font-body {
-  font-family: 'Open Sans', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
 }
+
+/* ── Typography refinements ── */
+h1, .text-5xl, .text-6xl { letter-spacing: -0.035em; line-height: 1.05; }
+h2, .text-4xl { letter-spacing: -0.025em; }
+h3, .text-3xl { letter-spacing: -0.02em; }
+.text-balance { text-wrap: balance; }
+.tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* ── Glassmorphism utility classes (theme-aware) ── */
 .glass {
@@ -205,13 +237,20 @@ body, input, textarea, select, button,
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  contain: paint;
+}
+:root.light .glass-card {
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .glass-card:hover {
   background: var(--glass-bg-card-hover);
   border-color: var(--glass-border-hover);
-  box-shadow: var(--glass-shadow-hover);
+  box-shadow: var(--glass-shadow-hover), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+:root.light .glass-card:hover {
+  box-shadow: var(--glass-shadow-hover), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 .glass-card-elevated {
   background: var(--glass-bg-card-elevated);
@@ -245,6 +284,168 @@ body, input, textarea, select, button,
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border-bottom: 1px solid var(--glass-border);
   box-shadow: var(--glass-navbar-shadow);
+  contain: layout paint;
+}
+
+/* ── Theme-aware chat input pill ── */
+.chat-input-pill {
+  background: var(--glass-bg-card-elevated);
+  backdrop-filter: blur(32px) saturate(1.8);
+  -webkit-backdrop-filter: blur(32px) saturate(1.8);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 24px 60px -24px rgba(0, 0, 0, 0.55),
+    0 8px 24px -12px rgba(37, 99, 235, 0.15);
+  transition:
+    box-shadow 400ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 400ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.chat-input-pill.focused {
+  border-color: var(--glass-border-hover);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 28px 72px -24px rgba(0, 0, 0, 0.6),
+    0 0 0 4px var(--accent-glow);
+}
+:root.light .chat-input-pill {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 18px 42px -22px rgba(15, 23, 42, 0.18),
+    0 6px 18px -10px rgba(37, 99, 235, 0.08);
+}
+:root.light .chat-input-pill.focused {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 20px 50px -20px rgba(15, 23, 42, 0.22),
+    0 0 0 4px var(--accent-glow);
+}
+
+/* ── Theme-aware autocomplete popup ── */
+.chat-autocomplete {
+  background: rgba(18, 18, 22, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5);
+}
+:root.light .chat-autocomplete {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Agent panel — premium glass shell ── */
+.agent-panel-shell {
+  background: var(--glass-bg-card-elevated);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  contain: paint;
+}
+.agent-panel-shell.float {
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.agent-panel-shell.docked {
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.25);
+}
+:root.light .agent-panel-shell.float {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+:root.light .agent-panel-shell.docked {
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Agent user bubble — subtle blue tint ── */
+.agent-bubble-user {
+  background: rgba(37, 99, 235, 0.09);
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 12px 28px -14px rgba(37, 99, 235, 0.25);
+}
+:root.light .agent-bubble-user {
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 22px -14px rgba(37, 99, 235, 0.18);
+}
+
+/* ── Agent assistant bubble ── */
+.agent-bubble-assistant {
+  background: var(--glass-bg-card);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 18px 36px -22px rgba(0, 0, 0, 0.35);
+}
+:root.light .agent-bubble-assistant {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 14px 30px -20px rgba(15, 23, 42, 0.12);
+}
+
+/* ── Agent plan card ── */
+.agent-plan-card {
+  background: rgba(37, 99, 235, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.15);
+}
+:root.light .agent-plan-card {
+  background: rgba(37, 99, 235, 0.04);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+/* ── Dashboard tile interaction states ── */
+/* Legacy .dashboard-tile rules moved to the premium block below (see "Dashboard Premium Primitives") */
+
+/* ── React-grid-layout drag/resize enhancements ── */
+.react-grid-item.react-draggable-dragging {
+  z-index: 100 !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(37, 99, 235, 0.15) !important;
+  opacity: 0.95;
+  transform-origin: center center;
+}
+:root.light .react-grid-item.react-draggable-dragging {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(37, 99, 235, 0.1) !important;
+}
+.react-grid-item.resizing {
+  z-index: 100 !important;
+  opacity: 0.9;
+}
+.react-grid-placeholder {
+  background: var(--accent) !important;
+  opacity: 0.08 !important;
+  border-radius: 14px !important;
+  border: 2px dashed var(--accent) !important;
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+:root.light .react-grid-placeholder {
+  opacity: 0.06 !important;
+}
+/* Smoother grid transitions when items reflow */
+.react-grid-item {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.react-grid-item.react-draggable-dragging {
+  transition: none !important;
+}
+
+/* ── Premium message bubble shadows (theme-aware) ── */
+.msg-shadow-user {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 18px 40px -20px rgba(0, 0, 0, 0.45);
+}
+.msg-shadow-assistant {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 18px 36px -22px rgba(0, 0, 0, 0.3);
+}
+:root.light .msg-shadow-user {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+:root.light .msg-shadow-assistant {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 /* ── Reveal animations (triggered by IntersectionObserver) ── */
@@ -653,6 +854,16 @@ html { scroll-behavior: smooth; }
   .tilt-card {
     transform: none !important;
   }
+  /* Dashboard tiles: disable hover lift */
+  .dashboard-tile:hover,
+  .dashboard-tile:active {
+    transform: none !important;
+    box-shadow: inherit !important;
+  }
+  /* Chat input pill: disable scale animation */
+  .chat-input-pill {
+    transform: none !important;
+  }
   /* Hide 3D canvases entirely — 2D fallback will show instead */
   .three-canvas-wrapper {
     display: none !important;
@@ -661,6 +872,1395 @@ html { scroll-behavior: smooth; }
   .cursor-glow, .scroll-progress-bar {
     display: none !important;
   }
+  /* Keep static focus indicators visible (accessibility) */
+  :focus-visible {
+    outline: 2px solid rgba(37, 99, 235, 0.5) !important;
+    outline-offset: 2px !important;
+  }
+}
+
+/* ── Premium spring-physics transitions (soft-skill tier) ── */
+.ease-spring {
+  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ── Nav pill — haptic button inside a nav island ──
+   Provides the "I can click this" feedback that was missing on plain links.
+   Hover: lifts 1px, brightens text, subtle glass background.
+   Active: scales down + drops — simulates a physical button press. */
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  cursor: pointer;
+  will-change: transform, background, color;
+  transition:
+    color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.nav-pill:hover {
+  color: var(--text-primary);
+  background: var(--overlay-light);
+  border-color: var(--border-default);
+  transform: translateY(-1px);
+}
+.nav-pill:focus-visible {
+  outline: none;
+  color: var(--text-primary);
+  background: var(--overlay-light);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.nav-pill:active {
+  transform: translateY(0) scale(0.96);
+}
+
+/* Warm variant of the eyebrow dot — for the hero "AI-powered" badge,
+   so it doesn't collide with the brand-blue section eyebrows below. */
+.eyebrow-dot--warm {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--accent-warm);
+  box-shadow: 0 0 0 0 var(--accent-warm-glow);
+  animation: eyebrowPulseWarm 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes eyebrowPulseWarm {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); }
+  50%      { box-shadow: 0 0 0 6px rgba(251, 191, 36, 0); }
+}
+:root.light .eyebrow-dot--warm {
+  animation-name: eyebrowPulseWarmLight;
+}
+@keyframes eyebrowPulseWarmLight {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(180, 83, 9, 0.5); }
+  50%      { box-shadow: 0 0 0 6px rgba(180, 83, 9, 0); }
+}
+
+/* Subtle idle float for the nav island — after the drop-in settles,
+   the island breathes gently to feel "alive". */
+@keyframes navIslandFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+.nav-island-float {
+  animation: navIslandFloat 5.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation-delay: 1.2s;
+}
+
+/* ── Fluid Island navbar — floating pill, not edge-to-edge sticky ── */
+.nav-island {
+  background: var(--glass-bg-card-elevated);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+:root.light .nav-island {
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* ── Double-Bezel architecture (nested shell + core) ── */
+.bezel-shell {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px;
+  border-radius: 2rem;
+}
+:root.light .bezel-shell {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+.bezel-core {
+  border-radius: calc(2rem - 6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+:root.light .bezel-core {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* ── Nested CTA button — arrow inside circular wrapper ── */
+.btn-nested {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.625rem 0.625rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.btn-nested:active {
+  transform: scale(0.98);
+}
+.btn-nested .btn-nested-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.15);
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.btn-nested:hover .btn-nested-arrow {
+  transform: translate(2px, -1px);
+}
+
+/* Secondary nested button — ghost variant */
+.btn-nested-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.625rem 0.625rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background: var(--glass-bg-card);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text-primary);
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1), background 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.btn-nested-ghost:hover {
+  background: var(--glass-bg-card-hover);
+}
+.btn-nested-ghost:active {
+  transform: scale(0.98);
+}
+.btn-nested-ghost .btn-nested-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--overlay-light);
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.btn-nested-ghost:hover .btn-nested-arrow {
+  transform: translate(2px, -1px);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DASHBOARD PREMIUM PRIMITIVES (soft-skill / BI-tier)
+   Engineered to feel like Linear + Arc + Tableau combined.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Dashboard Fluid Island — floating pill for header chrome ── */
+.dash-island {
+  background: var(--glass-bg-card-elevated);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border: 1px solid var(--glass-border);
+  border-radius: 9999px;
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.12) inset;
+}
+:root.light .dash-island {
+  box-shadow:
+    0 6px 24px rgba(15, 23, 42, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 -1px 0 rgba(15, 23, 42, 0.04) inset;
+}
+
+/* ── Dashboard action button (inside a Fluid Island) ── */
+.dash-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition:
+    color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.dash-action:hover {
+  color: var(--text-primary);
+  background: var(--overlay-light);
+}
+.dash-action:active {
+  transform: scale(0.96);
+}
+.dash-action[data-active="true"] {
+  color: var(--text-primary);
+  background: var(--overlay-medium);
+}
+
+/* Vertical rule between action groups inside the island */
+.dash-island-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border-default);
+  margin: 0 0.35rem;
+  opacity: 0.7;
+}
+
+/* ── Editorial eyebrow tag — "SECTION 01" / "DASHBOARD · LIVE" ── */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.eyebrow-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6);
+  animation: eyebrowPulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes eyebrowPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45); }
+  50%      { box-shadow: 0 0 0 5px rgba(37, 99, 235, 0); }
+}
+
+/* ── Pill-shaped tab (replaces underline tabs) ── */
+.tab-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  z-index: 1;
+}
+.tab-pill:hover {
+  color: var(--text-secondary);
+}
+.tab-pill[data-active="true"] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.tab-pill-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--overlay-medium);
+  border: 1px solid var(--border-default);
+  z-index: -1;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+:root.light .tab-pill-bg {
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+}
+
+/* ── Section eyebrow dash (the thin editorial line between number + title) ── */
+.section-dash {
+  display: inline-block;
+  width: 28px;
+  height: 1px;
+  background: var(--border-default);
+  transform-origin: left center;
+  transition: transform 400ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.section-header-group:hover .section-dash {
+  transform: scaleX(1.4);
+}
+
+/* ── Dashboard tile — premium hover lift (overrides the old hover) ── */
+.dashboard-tile {
+  transition:
+    box-shadow 400ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 400ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 400ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+}
+.dashboard-tile:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 48px -24px rgba(0, 0, 0, 0.45),
+    0 8px 20px -8px rgba(37, 99, 235, 0.08) !important;
+}
+:root.light .dashboard-tile:hover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 24px 48px -24px rgba(15, 23, 42, 0.18),
+    0 6px 18px -6px rgba(37, 99, 235, 0.1) !important;
+}
+.dashboard-tile:active {
+  transform: translateY(-1px) scale(0.998);
+}
+.dashboard-tile[data-selected="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ── Command palette overlay (⌘K) ── */
+.cmd-k-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 5, 8, 0.55);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+}
+:root.light .cmd-k-backdrop {
+  background: rgba(226, 232, 240, 0.55);
+}
+.cmd-k-panel {
+  width: min(640px, calc(100% - 2rem));
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hover);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  overflow: hidden;
+}
+:root.light .cmd-k-panel {
+  box-shadow:
+    0 32px 80px rgba(15, 23, 42, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
+.cmd-k-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 400;
+  padding: 1.1rem 1.25rem 1.1rem 3rem;
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+.cmd-k-input::placeholder { color: var(--text-muted); }
+.cmd-k-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  transition: background 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+.cmd-k-item[data-selected="true"],
+.cmd-k-item:hover {
+  background: var(--overlay-medium);
+  color: var(--text-primary);
+}
+.cmd-k-kbd {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.68rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+  background: var(--overlay-subtle);
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* ── Dashboard sidebar list item (premium nav-style) ── */
+.dash-side-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.65rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  user-select: none;
+}
+.dash-side-item:hover {
+  background: var(--overlay-light);
+  color: var(--text-primary);
+}
+.dash-side-item[data-active="true"] {
+  background: var(--overlay-medium);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.dash-side-item[data-active="true"]::before {
+  content: '';
+  display: block;
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin-right: 0.1rem;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHAT RESPONSE PRIMITIVES
+   Each assistant response artifact (SQL, Summary, Chart, Table)
+   wraps in a .chat-artifact for a cohesive premium feel.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Outer envelope for any single chat response artifact.
+   Uses the Double-Bezel concept: subtle outer frame + recessed inner card. */
+.chat-artifact {
+  position: relative;
+  border-radius: 1.25rem;
+  background: var(--glass-bg-card);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 20px 40px -20px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+:root.light .chat-artifact {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 18px 36px -22px rgba(15, 23, 42, 0.15);
+}
+.chat-artifact__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-base);
+}
+.chat-artifact__body {
+  padding: 0;
+}
+.chat-artifact__footer {
+  padding: 0.75rem 1.1rem;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Artifact eyebrow — "SQL · GENERATED" style micro-label */
+.chat-artifact__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Artifact numeric stat tail — e.g. "128 rows · 8 cols" */
+.chat-artifact__stat {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* ── Custom chart legend — horizontal scrollable chip strip ──
+   Replaces ECharts' native wrapped legend. No more measure clutter:
+   the strip scrolls horizontally with a fade mask at both ends. */
+.legend-scroller {
+  position: relative;
+  padding: 0.25rem 1.1rem 0.65rem;
+}
+.legend-scroller__track {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 2px 0;
+  mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+  scrollbar-width: none;
+}
+.legend-scroller__track::-webkit-scrollbar {
+  display: none;
+}
+
+.legend-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.32rem 0.85rem 0.32rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--overlay-faint);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.legend-chip:hover {
+  background: var(--overlay-light);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.legend-chip:active {
+  transform: translateY(0) scale(0.97);
+}
+.legend-chip[data-inactive="true"] {
+  opacity: 0.4;
+}
+.legend-chip[data-inactive="true"] .legend-chip__dot {
+  opacity: 0.35;
+  transform: scale(0.75);
+}
+.legend-chip__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1), opacity 300ms;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.02);
+}
+.legend-chip__label {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Chat input pill — premium floating composer ── */
+.chat-input-shell {
+  background: var(--glass-bg-card-elevated);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid var(--glass-border);
+  border-radius: 1.75rem;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 24px 60px -24px rgba(0, 0, 0, 0.5);
+  transition: border-color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+              box-shadow 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+:root.light .chat-input-shell {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 20px 40px -20px rgba(15, 23, 42, 0.18);
+}
+.chat-input-shell:focus-within {
+  border-color: var(--glass-border-hover);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 24px 60px -20px rgba(0, 0, 0, 0.55),
+    0 0 0 4px var(--accent-glow);
+}
+
+/* ── Chat user bubble premium — upgrades the subtle blue tint ── */
+.chat-bubble-user {
+  background: var(--accent-glow);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 12px 28px -14px rgba(37, 99, 235, 0.25);
+}
+:root.light .chat-bubble-user {
+  background: rgba(37, 99, 235, 0.07);
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 24px -16px rgba(37, 99, 235, 0.18);
+}
+
+/* ── Premium focus ring ──
+   Applied via :focus-visible to any keyboard-focusable element that doesn't
+   already have an explicit focus style. Uses the accent glow so focus always
+   matches the brand. */
+.section-header-group:focus-visible,
+[role="button"]:focus-visible:not(button):not(a) {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  border-radius: 10px;
+}
+
+/* Small helper used by SQLPreview / ResultsTable copy feedback */
+@keyframes chipBlink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.chip-blink {
+  animation: chipBlink 1.2s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SAVED DATABASE PILL — DOUBLE-BEZEL + TURBO WOW FACTOR
+   A premium "machined hardware" treatment for each saved DB.
+   Breathing idle state, magnetic hover, and a cinematic Turbo
+   reveal (shimmer sweep → snap-in badge → pulsing cyan aura).
+   ═══════════════════════════════════════════════════════════ */
+
+/* Outer shell — hairline frame for the Double-Bezel effect */
+.db-pill-shell {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1.1rem;
+  padding: 4px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 20px 36px -22px rgba(0, 0, 0, 0.4);
+  transition:
+    transform 400ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 400ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 400ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+:root.light .db-pill-shell {
+  background: rgba(0, 0, 0, 0.025);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 14px 28px -16px rgba(15, 23, 42, 0.14);
+}
+.db-pill-shell:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 28px 48px -20px rgba(0, 0, 0, 0.5),
+    0 0 40px -18px var(--accent);
+}
+:root.light .db-pill-shell:hover {
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 22px 40px -18px rgba(15, 23, 42, 0.22),
+    0 0 40px -18px var(--accent);
+}
+
+/* Inner core — the actual content container */
+.db-pill-core {
+  position: relative;
+  background: var(--glass-bg-card);
+  border-radius: calc(1.1rem - 4px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+}
+:root.light .db-pill-core {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Icon "well" — recessed hardware look for the DB type icon */
+.db-pill-icon-well {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--overlay-faint);
+  border: 1px solid var(--border-default);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+  transition: transform 400ms cubic-bezier(0.32, 0.72, 0, 1);
+  flex-shrink: 0;
+}
+:root.light .db-pill-icon-well {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.06);
+}
+.db-pill-shell:hover .db-pill-icon-well {
+  transform: rotate(-4deg) scale(1.06);
+}
+
+/* ═══════ TURBO WOW FACTOR ═══════ */
+
+/* Shimmer sweep — during the initial sync, a bright diagonal band
+   glides across the whole pill left→right on repeat. Emulates the
+   "supercharging" feel. GPU-safe (transform only). */
+.turbo-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.turbo-shimmer[data-active="true"] { opacity: 1; }
+.turbo-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 45%;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(6, 182, 212, 0.08) 20%,
+    rgba(6, 182, 212, 0.28) 50%,
+    rgba(6, 182, 212, 0.08) 80%,
+    transparent 100%
+  );
+  transform: skewX(-16deg);
+  animation: turboShimmerSweep 1.8s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+}
+:root.light .turbo-shimmer::before {
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(6, 182, 212, 0.04) 20%,
+    rgba(6, 182, 212, 0.16) 50%,
+    rgba(6, 182, 212, 0.04) 80%,
+    transparent 100%
+  );
+}
+@keyframes turboShimmerSweep {
+  0%   { transform: translateX(0) skewX(-16deg); }
+  100% { transform: translateX(340%) skewX(-16deg); }
+}
+
+/* Persistent aura — when turbo is ACTIVE (post-sync), the pill gains
+   a gentle pulsing cyan halo that breathes on a 3.2s cycle. */
+.db-pill-shell[data-turbo="active"] {
+  border-color: rgba(6, 182, 212, 0.28);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 20px 40px -22px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(6, 182, 212, 0.15),
+    0 0 30px -8px rgba(6, 182, 212, 0.28);
+  animation: turboPillBreathe 3.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+:root.light .db-pill-shell[data-turbo="active"] {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 18px 36px -20px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(6, 182, 212, 0.22),
+    0 0 28px -8px rgba(6, 182, 212, 0.24);
+}
+@keyframes turboPillBreathe {
+  0%, 100% {
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.05) inset,
+      0 20px 40px -22px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(6, 182, 212, 0.15),
+      0 0 20px -8px rgba(6, 182, 212, 0.20);
+  }
+  50% {
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.05) inset,
+      0 20px 40px -22px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(6, 182, 212, 0.35),
+      0 0 42px -8px rgba(6, 182, 212, 0.42);
+  }
+}
+
+/* Turbo badge — small "TURBO" pill that snaps in when sync completes.
+   Uses a spring entry via keyframes (no JS needed). */
+.turbo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #67e8f9;
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.32);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  animation: turboBadgeSnapIn 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center;
+}
+:root.light .turbo-badge {
+  color: #0e7490;
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+}
+@keyframes turboBadgeSnapIn {
+  0%   { opacity: 0; transform: scale(0) rotate(-12deg); }
+  60%  { opacity: 1; transform: scale(1.2) rotate(4deg); }
+  80%  { transform: scale(0.94) rotate(-2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+.turbo-badge__bolt {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  animation: turboBoltPulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes turboBoltPulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.25); }
+}
+
+/* Click shockwave — radial ripple from the Turbo button on click */
+.turbo-shockwave {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9999px;
+  border: 2px solid rgba(6, 182, 212, 0.55);
+  animation: turboShockwave 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center;
+}
+@keyframes turboShockwave {
+  0%   { opacity: 0.8; transform: scale(0); }
+  80%  { opacity: 0.2; }
+  100% { opacity: 0;   transform: scale(6); }
+}
+
+/* Stat wells — three recessed hardware buckets for tables/size/speed.
+   Slide up + fade in staggered when Turbo activates. */
+.stat-well {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--overlay-faint);
+  border: 1px solid var(--border-default);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  min-width: 0;
+  flex: 1;
+}
+:root.light .stat-well {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.04);
+}
+.stat-well__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.22);
+  color: #06b6d4;
+  flex-shrink: 0;
+}
+:root.light .stat-well__icon {
+  color: #0e7490;
+}
+.stat-well__label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.stat-well__value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  line-height: 1.2;
+}
+
+/* Turbo detail ribbon — expanding reveal beneath the pill body */
+.turbo-detail-ribbon {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 500ms cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+}
+.turbo-detail-ribbon[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+.turbo-detail-ribbon__inner {
+  min-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 400ms cubic-bezier(0.32, 0.72, 0, 1) 100ms,
+    transform 400ms cubic-bezier(0.32, 0.72, 0, 1) 100ms;
+}
+.turbo-detail-ribbon[data-open="true"] .turbo-detail-ribbon__inner {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AGENT PANEL — STEP FEED PRIMITIVES
+   The agent panel is the in-product chat with the multi-step
+   AI agent. It needs the same premium feel as the main chat,
+   but tighter (it lives inside a side panel).
+   ═══════════════════════════════════════════════════════════ */
+
+/* Outer wrapper for any rich agent step (tool_call, plan, result body).
+   Smaller padding than .chat-artifact since the panel is narrow. */
+.agent-step {
+  position: relative;
+  background: var(--glass-bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 14px 28px -18px rgba(0, 0, 0, 0.4);
+}
+:root.light .agent-step {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 12px 24px -16px rgba(15, 23, 42, 0.12);
+}
+.agent-step__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-base);
+}
+.agent-step__body {
+  padding: 0;
+}
+.agent-step__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.agent-step__stat {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* Tool tag — pill that shows a tool_name like "run_sql" inside the step head */
+.agent-tool-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  text-transform: lowercase;
+}
+
+/* Status pills (tier_routing / tier_hit / live_correction) */
+.agent-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+.agent-status-pill--routing {
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--accent-warm, #f59e0b);
+  border-color: rgba(245, 158, 11, 0.22);
+}
+.agent-status-pill--hit {
+  background: rgba(34, 197, 94, 0.10);
+  color: var(--status-success);
+  border-color: rgba(34, 197, 94, 0.22);
+}
+.agent-status-pill--info {
+  background: rgba(6, 182, 212, 0.08);
+  color: #06b6d4;
+  border-color: rgba(6, 182, 212, 0.22);
+}
+
+/* Animated thinking dots — three pulsing dots, spring stagger */
+.agent-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 9999px;
+  background: var(--overlay-faint);
+  border: 1px solid var(--border-default);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.agent-thinking__dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.agent-thinking__dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--text-muted);
+  animation: agentThinkingDot 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.agent-thinking__dots span:nth-child(2) { animation-delay: 0.18s; }
+.agent-thinking__dots span:nth-child(3) { animation-delay: 0.36s; }
+@keyframes agentThinkingDot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1);   opacity: 1; }
+}
+
+/* Agent progress bar — used for sub-query and elapsed/estimated */
+.agent-progress {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--overlay-faint);
+  overflow: hidden;
+  flex: 1;
+  max-width: 200px;
+}
+.agent-progress__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  transition: transform 600ms cubic-bezier(0.32, 0.72, 0, 1);
+  transform-origin: left center;
+}
+.agent-progress--success .agent-progress__fill {
+  background: linear-gradient(90deg, var(--status-success), #4ade80);
+}
+
+/* Agent dock toggle pills (used in panel header) */
+.agent-dock-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-size: 9px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.agent-dock-pill:hover {
+  color: var(--text-primary);
+  background: var(--overlay-light);
+  transform: translateY(-1px);
+}
+.agent-dock-pill:active {
+  transform: translateY(0) scale(0.94);
+}
+.agent-dock-pill[data-active="true"] {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+/* Premium quick-action chip used after results land */
+.agent-quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0.4rem 0.95rem;
+  border-radius: 9999px;
+  background: var(--overlay-faint);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.agent-quick-chip:hover {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: rgba(37, 99, 235, 0.25);
+  transform: translateY(-1px);
+}
+.agent-quick-chip:active {
+  transform: translateY(0) scale(0.96);
+}
+
+/* ── Workspace freeze overlay ──
+   Shown over the dashboard while the user is dragging/resizing the agent
+   panel. Visually communicates "I see what you're doing — I'll redraw on
+   release". Uses pointer-events: none so the dashboard underneath stays
+   reachable for things like the panel itself. */
+.dash-freeze-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0;
+  transition: opacity 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.dash-freeze-overlay[data-active="true"] {
+  opacity: 1;
+}
+.dash-freeze-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at top, var(--accent-glow) 0%, transparent 60%),
+    rgba(5, 5, 8, 0.04);
+  backdrop-filter: blur(0.5px);
+  -webkit-backdrop-filter: blur(0.5px);
+}
+:root.light .dash-freeze-overlay::before {
+  background:
+    radial-gradient(ellipse at top, var(--accent-glow) 0%, transparent 60%),
+    rgba(15, 23, 42, 0.02);
+}
+
+/* Floating "Adapting workspace" pill — appears at top center while resizing.
+   Uses the .eyebrow editorial pattern + pulsing accent dot. */
+.dash-resize-pill {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 9999px;
+  background: var(--glass-bg-card-elevated);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(28px) saturate(1.6);
+  -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: 'Outfit', system-ui, sans-serif;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 18px 40px -16px rgba(0, 0, 0, 0.45),
+    0 0 0 4px var(--accent-glow);
+  z-index: 40;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-12px);
+  opacity: 0;
+  transition:
+    transform 400ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+:root.light .dash-resize-pill {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 16px 32px -14px rgba(15, 23, 42, 0.22),
+    0 0 0 4px var(--accent-glow);
+}
+.dash-resize-pill[data-visible="true"] {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+.dash-resize-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5);
+  animation: dashResizePulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes dashResizePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.55); transform: scale(1); }
+  50%      { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); transform: scale(1.15); }
+}
+
+/* Agent panel header overflow popover — shown when the panel is too narrow
+   to fit all its controls inline. Portaled to document.body and positioned
+   via inline `top`/`right`, so it escapes the panel's stacking context and
+   never gets clipped behind the dashboard or right-docked panel. */
+.agent-overflow-popover {
+  position: fixed;
+  min-width: 220px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hover);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 24px 60px -18px rgba(0, 0, 0, 0.55);
+  /* Higher than the panel itself (which uses z-index up to ~60) and high
+     enough to clear any sticky dashboard chrome. */
+  z-index: 250;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: agentOverflowEnter 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes agentOverflowEnter {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+:root.light .agent-overflow-popover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 20px 50px -16px rgba(15, 23, 42, 0.22);
+}
+.agent-overflow-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  text-align: left;
+  transition: background 200ms cubic-bezier(0.32, 0.72, 0, 1), color 200ms;
+}
+.agent-overflow-row:hover {
+  background: var(--overlay-light);
+  color: var(--text-primary);
+}
+.agent-overflow-row[data-active="true"] {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+.agent-overflow-row__icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Agent composer pill — same look as Chat input pill but tighter */
+.agent-composer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 14px;
+  border-radius: 9999px;
+  background: var(--glass-bg-input);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 12px 28px -16px rgba(0, 0, 0, 0.4);
+  transition:
+    border-color 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+:root.light .agent-composer {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 22px -14px rgba(15, 23, 42, 0.12);
+}
+.agent-composer[data-focused="true"] {
+  border-color: var(--glass-border-hover);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 14px 32px -16px rgba(0, 0, 0, 0.45),
+    0 0 0 4px var(--accent-glow);
+}
+
+/* ── Carousel dot inactive — brightens on hover (replaces hardcoded gray-600) ── */
+.dot-inactive:hover {
+  background: var(--overlay-light) !important;
+}
+
+/* ── Footer link — muted default, primary on hover ── */
+.footer-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text-muted);
+  transition: color 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.footer-link:hover,
+.footer-link:focus-visible {
+  color: var(--text-primary);
+}
+
+/* ── Link hover underline animation ── */
+.link-hover {
+  position: relative;
+}
+.link-hover::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  transition: width 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.link-hover:hover::after {
+  width: 100%;
+}
+
+/* ── Smooth number counter transition (tabular-nums) ── */
+.counter-value {
+  font-variant-numeric: tabular-nums;
+  transition: color 200ms ease-out;
 }
 
 /* ── CTA button shine sweep ── */
@@ -703,7 +2303,7 @@ html { scroll-behavior: smooth; }
   inset: -1px;
   border-radius: inherit;
   padding: 1.5px;
-  background: conic-gradient(from var(--border-angle), #6366f1, #a855f7, #3b82f6, #6366f1);
+  background: conic-gradient(from var(--border-angle), #2563EB, #06b6d4, #3B82F6, #2563EB);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
   -webkit-mask-composite: xor;

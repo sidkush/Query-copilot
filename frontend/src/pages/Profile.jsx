@@ -5,7 +5,6 @@ import { api } from "../api";
 import behaviorEngine from "../lib/behaviorEngine";
 import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
-import MotionButton from "../components/animation/MotionButton";
 
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
@@ -131,10 +130,10 @@ export default function Profile() {
         <UserDropdown />
       </header>
 
-      <div className="max-w-xl mx-auto px-4 py-8 relative z-10">
+      <div className="max-w-xl mx-auto px-4 py-16 relative z-10">
         {loading ? (
           <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-            <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             Loading profile...
           </div>
         ) : (
@@ -165,29 +164,32 @@ export default function Profile() {
               )}
             </AnimatePresence>
 
-            {/* Avatar + Color Picker */}
+            {/* Avatar + Color Picker — Double-Bezel hero card */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
-                <div className="flex items-center gap-6">
-                  <motion.div
-                    layout
-                    className={`w-20 h-20 rounded-full ${avatarBg} flex items-center justify-center text-white text-2xl font-bold shadow-lg`}
-                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  >
-                    {initials}
-                  </motion.div>
-                  <div>
-                    <label className="block text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Avatar Color</label>
-                    <div className="flex gap-2">
-                      {AVATAR_COLORS.map((c) => (
-                        <motion.button
-                          key={c.id}
-                          onClick={() => setAvatarColor(c.id)}
-                          whileHover={{ scale: 1.15 }}
-                          whileTap={{ scale: 0.9 }}
-                          className={`w-7 h-7 rounded-full ${c.bg} cursor-pointer transition-all ${avatarColor === c.id ? `ring-2 ${c.ring} ring-offset-2 ring-offset-[var(--bg-page)] scale-110` : "opacity-70"}`}
-                        />
-                      ))}
+              <div className="bezel-shell">
+                <div className="bezel-core glass-card p-8" style={{ borderRadius: 'calc(2rem - 6px)' }}>
+                  <div className="flex items-center gap-6">
+                    <motion.div
+                      layout
+                      className={`w-20 h-20 rounded-full ${avatarBg} flex items-center justify-center text-white text-2xl font-bold shadow-lg`}
+                      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    >
+                      {initials}
+                    </motion.div>
+                    <div>
+                      <label className="block text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Avatar color</label>
+                      <div className="flex gap-2">
+                        {AVATAR_COLORS.map((c) => (
+                          <motion.button
+                            key={c.id}
+                            onClick={() => setAvatarColor(c.id)}
+                            whileHover={{ scale: 1.15 }}
+                            whileTap={{ scale: 0.9 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                            className={`w-7 h-7 rounded-full ${c.bg} cursor-pointer ease-spring ${avatarColor === c.id ? `ring-2 ${c.ring} ring-offset-2 ring-offset-[var(--bg-page)] scale-110` : "opacity-70"}`}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -197,7 +199,7 @@ export default function Profile() {
             {/* Personal Info */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6 space-y-5">
-                <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Personal Information</h2>
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Personal information</h2>
 
                 <div>
                   <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Display Name</label>
@@ -226,12 +228,12 @@ export default function Profile() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Company</label>
-                    <input type="text" value={company} onChange={(e) => setCompany(e.target.value)}
+                    <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} aria-label="Company"
                       className="w-full glass-input rounded-lg px-4 py-2.5 placeholder-gray-600 input-glow transition" style={{ color: 'var(--text-primary)' }} placeholder="Your company" />
                   </div>
                   <div>
                     <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Role</label>
-                    <input type="text" value={role} onChange={(e) => setRole(e.target.value)}
+                    <input type="text" value={role} onChange={(e) => setRole(e.target.value)} aria-label="Role"
                       className="w-full glass-input rounded-lg px-4 py-2.5 placeholder-gray-600 input-glow transition" style={{ color: 'var(--text-primary)' }} placeholder="e.g. Data Analyst" />
                   </div>
                 </div>
@@ -254,7 +256,7 @@ export default function Profile() {
             {/* Auth & Meta */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6 space-y-4">
-                <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Account Details</h2>
+                <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Account details</h2>
                 <div>
                   <label className="block text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Authentication Method</label>
                   {authBadge(profile?.oauth_provider || "email")}
@@ -271,7 +273,7 @@ export default function Profile() {
             {/* Notifications */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6">
-                <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Notification Preferences</h2>
+                <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Notification preferences</h2>
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
                     <p className="text-sm" style={{ color: 'var(--text-primary)' }}>Email Notifications</p>
@@ -279,7 +281,7 @@ export default function Profile() {
                   </div>
                   <div className="relative">
                     <input type="checkbox" checked={emailNotifications} onChange={(e) => setEmailNotifications(e.target.checked)} className="sr-only peer" />
-                    <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600" style={{ background: 'var(--bg-hover)' }} />
+                    <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" style={{ background: 'var(--bg-hover)' }} />
                   </div>
                 </label>
               </div>
@@ -289,7 +291,7 @@ export default function Profile() {
             {consentFeatureEnabled && (
               <StaggerItem>
                 <div className="glass-card rounded-2xl p-6">
-                  <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Predictive Intelligence</h2>
+                  <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Predictive intelligence</h2>
                   <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Control how AskDB learns from your usage to improve suggestions. Raw interaction data never leaves your browser — only abstract patterns are stored.</p>
 
                   <div className="space-y-3">
@@ -308,7 +310,7 @@ export default function Profile() {
                             }).catch(() => {});
                           }}
                           className="sr-only peer" />
-                        <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600" style={{ background: 'var(--bg-hover)' }} />
+                        <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" style={{ background: 'var(--bg-hover)' }} />
                       </div>
                     </label>
 
@@ -327,7 +329,7 @@ export default function Profile() {
                             }).catch(() => {});
                           }}
                           className="sr-only peer" />
-                        <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600" style={{ background: 'var(--bg-hover)' }} />
+                        <div className="w-11 h-6 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" style={{ background: 'var(--bg-hover)' }} />
                       </div>
                     </label>
                   </div>
@@ -354,10 +356,21 @@ export default function Profile() {
               )}
             </AnimatePresence>
             <StaggerItem>
-              <MotionButton onClick={handleSave} disabled={saving || !isDirty}
-                className={`w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 transition cursor-pointer btn-glow ${!isDirty && !saving ? "opacity-50 cursor-not-allowed" : ""} disabled:opacity-50`}>
-                {saving ? "Saving..." : isDirty ? "Save Changes" : "No Changes"}
-              </MotionButton>
+              <motion.button
+                onClick={handleSave}
+                disabled={saving || !isDirty}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className={`group w-full flex items-center justify-between py-3 pl-6 pr-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-full shadow-lg shadow-blue-600/20 ease-spring cursor-pointer ${!isDirty && !saving ? "opacity-50 cursor-not-allowed" : ""}`}
+                aria-label={saving ? "Saving profile" : isDirty ? "Save profile changes" : "No changes to save"}
+              >
+                <span className="text-sm">{saving ? "Saving..." : isDirty ? "Save changes" : "No changes"}</span>
+                <span className="flex items-center justify-center w-9 h-9 rounded-full bg-white/15 ease-spring transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-[1px]">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 12h14M13 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </motion.button>
             </StaggerItem>
           </StaggerContainer>
         )}

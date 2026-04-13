@@ -25,7 +25,7 @@ export default function AgentQuestion({ question, options, chatId }) {
       setResponded(true);
       clearAgentWaiting();
     } catch (err) {
-      console.error("Agent respond failed:", err);
+      void err;
       setSending(false);
       setError("Failed to send response. Click to retry.");
     }
@@ -35,11 +35,12 @@ export default function AgentQuestion({ question, options, chatId }) {
     <div
       role="status"
       aria-live="polite"
+      className="agent-bubble-assistant"
       style={{
-        background: "rgba(245, 158, 11, 0.08)",
-        border: `1px solid rgba(245, 158, 11, 0.25)`,
         borderRadius: TOKENS.radius.md,
-        padding: "12px 16px",
+        padding: "14px 16px",
+        border: `1px solid ${TOKENS.accent}`,
+        background: 'rgba(37, 99, 235, 0.04)',
       }}
     >
       <div style={{ color: TOKENS.text.primary, fontSize: "13px", marginBottom: "10px", lineHeight: 1.5 }}>
@@ -48,7 +49,7 @@ export default function AgentQuestion({ question, options, chatId }) {
           h2: ({children}) => <div style={{ fontSize: 14, fontWeight: 600, marginTop: 5, marginBottom: 2 }}>{children}</div>,
           h3: ({children}) => <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, marginBottom: 2 }}>{children}</div>,
           p: ({children}) => <div style={{ marginBottom: 4 }}>{children}</div>,
-          strong: ({children}) => <span style={{ fontWeight: 600, color: "#f59e0b" }}>{children}</span>,
+          strong: ({children}) => <span style={{ fontWeight: 600, color: TOKENS.accent }}>{children}</span>,
           ul: ({children}) => <ul style={{ paddingLeft: 16, margin: "3px 0" }}>{children}</ul>,
           ol: ({children}) => <ol style={{ paddingLeft: 16, margin: "3px 0" }}>{children}</ol>,
           li: ({children}) => <li style={{ marginBottom: 2, fontSize: 12 }}>{children}</li>,
@@ -69,13 +70,13 @@ export default function AgentQuestion({ question, options, chatId }) {
               onClick={() => handleRespond(opt)}
               disabled={responded || sending}
               style={{
-                padding: "4px 12px",
+                padding: "5px 14px",
                 fontSize: "12px",
                 fontWeight: 500,
                 borderRadius: "9999px",
-                border: "1px solid rgba(245, 158, 11, 0.3)",
-                background: responded ? "transparent" : "rgba(245, 158, 11, 0.1)",
-                color: responded ? TOKENS.text.muted : "#f59e0b",
+                border: `1px solid ${responded ? TOKENS.border.default : 'rgba(37, 99, 235, 0.25)'}`,
+                background: responded ? "transparent" : "rgba(37, 99, 235, 0.08)",
+                color: responded ? TOKENS.text.muted : TOKENS.accent,
                 cursor: responded || sending ? "default" : "pointer",
                 opacity: sending ? 0.6 : 1,
                 transition: TOKENS.transition,
@@ -93,9 +94,9 @@ export default function AgentQuestion({ question, options, chatId }) {
               fontSize: "12px",
               fontWeight: 500,
               borderRadius: "9999px",
-              border: `1px dashed rgba(245, 158, 11, 0.25)`,
+              border: `1px dashed ${responded ? TOKENS.border.default : 'rgba(37, 99, 235, 0.20)'}`,
               background: "transparent",
-              color: responded ? TOKENS.text.muted : "rgba(245, 158, 11, 0.6)",
+              color: responded ? TOKENS.text.muted : TOKENS.text.secondary,
               cursor: responded || sending ? "default" : "pointer",
               opacity: sending ? 0.6 : 1,
               transition: TOKENS.transition,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Suspense, Component, lazy } from "react";
 import { useSearchParams } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 
@@ -21,6 +22,7 @@ import Section from "../components/dashboard/Section";
 import GlobalFilterBar from "../components/dashboard/GlobalFilterBar";
 import FloatingToolbar from "../components/dashboard/FloatingToolbar";
 import CrossFilterBadge from "../components/dashboard/CrossFilterBadge";
+import CommandPalette from "../components/dashboard/CommandPalette";
 import { evaluateVisibilityRule } from "../lib/visibilityRules";
 import { classifyColumns } from "../lib/fieldClassification";
 
@@ -52,17 +54,6 @@ const undoToastVariants = {
     scale: 0.9,
     transition: { duration: 0.25, ease: "easeIn" },
   },
-};
-
-const sidebarItemStyle = {
-  padding: "10px 14px",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontSize: 14,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  transition: "background 0.15s",
 };
 
 /* ════════════════════════════════════════════════════════════════
@@ -105,9 +96,49 @@ export default function DashboardBuilder() {
   const [selectedTileId, setSelectedTileId] = useState(null);
   const [crossFilter, setCrossFilter] = useState(null); // { field, value }
   const [fullscreenMode, setFullscreenMode] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return JSON.parse(localStorage.getItem("qc_sidebar_collapsed")) === true; } catch { return false; }
   });
+  // Viewport-aware state — drives responsive collapse of the sidebar and
+  // the "desktop recommended" hint when the window is narrower than the
+  // dashboard builder comfortably supports.
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1920
+  );
+  useEffect(() => {
+    let rafId = null;
+    const onResize = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        setViewportWidth(window.innerWidth);
+      });
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+  // Auto-collapse the sidebar when the viewport is too narrow to comfortably
+  // show it alongside the dashboard. User can still manually expand via the
+  // « button — the auto-logic only kicks in once per crossover.
+  const autoCollapsedRef = useRef(false);
+  useEffect(() => {
+    if (viewportWidth < 900 && !sidebarCollapsed && !autoCollapsedRef.current) {
+      setSidebarCollapsed(true);
+      autoCollapsedRef.current = true;
+    } else if (viewportWidth >= 1100 && autoCollapsedRef.current) {
+      // When the user grows the viewport past the safe point, remember
+      // their previous manual preference from localStorage if set.
+      autoCollapsedRef.current = false;
+    }
+  }, [viewportWidth, sidebarCollapsed]);
+  // Ultra-narrow viewports — show a "desktop recommended" notice since the
+  // builder is a power-user tool and a touch-optimized layout would require
+  // a completely different UX.
+  const showNarrowViewportHint = viewportWidth < 700 && !fullscreenMode;
   const [aiCommandLoading, setAiCommandLoading] = useState(false);
   const [aiCommandError, setAiCommandError] = useState(null);
   const [filterError, setFilterError] = useState(null);
@@ -160,7 +191,7 @@ export default function DashboardBuilder() {
           if (full.tabs?.length > 0) setActiveTabId(full.tabs[0].id);
         }
       } catch (err) {
-        console.error("Failed to load dashboards:", err);
+        void err;
       } finally {
         setLoading(false);
       }
@@ -258,7 +289,7 @@ export default function DashboardBuilder() {
             };
           });
         } catch (err) {
-          console.error(`Auto-refresh tile ${tileId} failed:`, err);
+          void 0;
         }
       }
     })();
@@ -308,7 +339,7 @@ export default function DashboardBuilder() {
             };
           });
         } catch (err) {
-          console.error(`Auto-refresh dataless tile ${tileId} failed:`, err);
+          void 0;
         } finally {
           refreshingTilesRef.current.delete(tileId);
         }
@@ -387,7 +418,7 @@ export default function DashboardBuilder() {
             // globalFilters excluded — filters are session-only, not persisted across sessions
           });
         } catch (err) {
-          console.error("Auto-save failed:", err);
+          void 0;
         } finally {
           setSaving(false);
         }
@@ -418,7 +449,7 @@ export default function DashboardBuilder() {
         setShowCreatePrompt(false);
         setNewDashName("");
       } catch (err) {
-        console.error("Failed to create dashboard:", err);
+        void 0;
       }
     },
     [setActiveDashboardId]
@@ -444,7 +475,7 @@ export default function DashboardBuilder() {
         if (full.tabs?.length > 0) setActiveTabId(full.tabs[0].id);
         else setActiveTabId(null);
       } catch (err) {
-        console.error("Failed to load dashboard:", err);
+        void 0;
       }
     },
     [setActiveDashboardId, applyGlobalFilters]
@@ -462,7 +493,7 @@ export default function DashboardBuilder() {
           setActiveTabId(null);
         }
       } catch (err) {
-        console.error("Failed to delete dashboard:", err);
+        void 0;
       }
     },
     [setActiveDashboardId]
@@ -498,7 +529,7 @@ export default function DashboardBuilder() {
       const newTab = res.tabs[res.tabs.length - 1];
       if (newTab) setActiveTabId(newTab.id);
     } catch (err) {
-      console.error("Failed to add tab:", err);
+      void 0;
     }
   }, []);
 
@@ -510,9 +541,7 @@ export default function DashboardBuilder() {
           t.id === tabId ? { ...t, name: newName } : t
         );
         const updated = { ...prev, tabs };
-        api.updateDashboard(prev.id, { tabs }).catch((err) =>
-          console.error("Failed to rename tab:", err)
-        );
+        api.updateDashboard(prev.id, { tabs }).catch(() => {});
         return updated;
       });
     },
@@ -528,7 +557,7 @@ export default function DashboardBuilder() {
         setActiveDashboard(res);
         setActiveTabId((prev) => (prev === tabId ? (res.tabs?.[0]?.id || null) : prev));
       } catch (err) {
-        console.error("Failed to delete tab:", err);
+        void 0;
       }
     },
     []
@@ -664,7 +693,7 @@ export default function DashboardBuilder() {
         const res = await api.addSection(dash.id, tabId, name);
         setActiveDashboard(res);
       } catch (err) {
-        console.error("Failed to add section:", err);
+        void 0;
       }
     },
     []
@@ -758,6 +787,24 @@ export default function DashboardBuilder() {
     setFullscreenMode(true);
   }, []);
 
+  // ── ⌘K / Ctrl+K — open the command palette from anywhere in the builder ──
+  useEffect(() => {
+    const handler = (e) => {
+      const isCmd = e.metaKey || e.ctrlKey;
+      if (isCmd && (e.key === 'k' || e.key === 'K')) {
+        // Don't hijack when the user is typing in an input/textarea (except our own palette trigger)
+        const t = e.target;
+        const tag = t?.tagName;
+        const inField = tag === 'INPUT' || tag === 'TEXTAREA' || t?.isContentEditable;
+        if (inField && !t?.classList?.contains('cmd-k-input')) return;
+        e.preventDefault();
+        setCommandPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   // ── Tile operations ──
   const handleTileEdit = useCallback(
     (tile) => {
@@ -790,7 +837,7 @@ export default function DashboardBuilder() {
           };
         });
       } catch (err) {
-        console.error("Failed to change chart type:", err);
+        void 0;
       }
     },
     []
@@ -851,7 +898,7 @@ export default function DashboardBuilder() {
           undoTimers.current.push(timer);
         }
       } catch (err) {
-        console.error("Failed to remove tile:", err);
+        void 0;
       }
     },
     []
@@ -870,7 +917,7 @@ export default function DashboardBuilder() {
         if (res) setActiveDashboard(res);
         setUndoStack((prev) => prev.filter((u) => u.id !== undoEntry.id));
       } catch (err) {
-        console.error("Undo failed:", err);
+        void 0;
       }
     },
     []
@@ -884,7 +931,7 @@ export default function DashboardBuilder() {
         const result = await api.moveTile(dash.id, tileId, targetTabId, targetSectionId);
         if (result) setActiveDashboard(result);
       } catch (err) {
-        console.error("Move tile failed:", err);
+        void 0;
       }
     },
     []
@@ -898,7 +945,7 @@ export default function DashboardBuilder() {
         const result = await api.copyTile(dash.id, tileId, targetTabId, targetSectionId);
         if (result) setActiveDashboard(result);
       } catch (err) {
-        console.error("Copy tile failed:", err);
+        void 0;
       }
     },
     []
@@ -985,7 +1032,7 @@ export default function DashboardBuilder() {
           const fresh = await api.getDashboard(dash.id);
           if (fresh) setActiveDashboard(fresh);
         } catch (e) {
-          console.error("[filter] failed to fetch fresh dashboard:", e);
+          void 0;
         }
       }
 
@@ -997,7 +1044,6 @@ export default function DashboardBuilder() {
   }, [activeConnId]);
 
   const handleGlobalFiltersChange = useCallback((newFilters) => {
-    console.log("[filter] applying global filters:", newFilters);
     clearPrefetchCache(dashboardRef.current?.id);
     applyGlobalFilters(newFilters);
     const dash = dashboardRef.current;
@@ -1118,7 +1164,7 @@ export default function DashboardBuilder() {
         setEditingTile(null);
         bumpTileEditVersion();
       } catch (err) {
-        console.error("Failed to save tile:", err);
+        void 0;
       }
     },
     [bumpTileEditVersion]
@@ -1191,7 +1237,7 @@ export default function DashboardBuilder() {
       const fresh = await api.getDashboard(activeDashboard.id);
       if (fresh) setActiveDashboard(fresh);
     } catch (err) {
-      console.error('Quick update failed:', err);
+      void 0;
     }
   }, [activeDashboard]);
 
@@ -1219,7 +1265,7 @@ export default function DashboardBuilder() {
         );
         setActiveDashboard(res);
       } catch (err) {
-        console.error("Failed to add tile:", err);
+        void 0;
       }
     },
     []
@@ -1240,7 +1286,7 @@ export default function DashboardBuilder() {
           ],
         }));
       } catch (err) {
-        console.error("Failed to add annotation:", err);
+        void 0;
       }
     },
     []
@@ -1346,7 +1392,7 @@ export default function DashboardBuilder() {
       const fresh = await api.getDashboard(dash.id);
       if (fresh) setActiveDashboard(fresh);
     } catch (err) {
-      console.error("AI command failed:", err);
+      void 0;
       // Rollback to snapshot on partial failure — also revert backend [ADV-FIX H9, H4]
       setActiveDashboard(snapshot);
       dashboardRef.current = snapshot;
@@ -1374,7 +1420,7 @@ export default function DashboardBuilder() {
       await api.updateDashboard(dash.id, { settings: newSettings });
       setActiveDashboard(prev => prev ? { ...prev, settings: newSettings } : prev);
     } catch (err) {
-      console.error("Failed to save settings:", err);
+      void 0;
     }
   }, []);
 
@@ -1394,7 +1440,7 @@ export default function DashboardBuilder() {
       <div
         style={{
           background: TOKENS.bg.deep,
-          minHeight: "100vh",
+          minHeight: "100dvh",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -1421,7 +1467,7 @@ export default function DashboardBuilder() {
       <div
         style={{
           background: TOKENS.bg.deep,
-          minHeight: "100vh",
+          minHeight: "100dvh",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -1456,8 +1502,8 @@ export default function DashboardBuilder() {
             />
           </svg>
         </div>
-        <p style={{ color: TOKENS.text.secondary, fontSize: 18 }}>
-          No dashboards yet
+        <p style={{ color: TOKENS.text.primary, fontSize: 20, fontWeight: 600, fontFamily: "'Outfit', system-ui, sans-serif" }}>
+          Create your first dashboard
         </p>
         <p
           style={{
@@ -1465,10 +1511,10 @@ export default function DashboardBuilder() {
             fontSize: 14,
             maxWidth: 400,
             textAlign: "center",
+            lineHeight: 1.6,
           }}
         >
-          Create a dashboard to start building visual analytics from your
-          queries.
+          Pin query results, add KPI cards, and build visual analytics that update in real time.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", marginTop: 8 }}>
           <input
@@ -1573,11 +1619,71 @@ export default function DashboardBuilder() {
     );
   }
 
+  // ── Build command palette entries from live state ──
+  // Commands are a flat list, ordered: global actions → dashboards → tabs → sections.
+  // Each entry closes the palette on execution via CommandPalette's onClose.
+  const commandList = [];
+  if (activeDashboard) {
+    commandList.push(
+      { id: 'act-share', label: 'Share dashboard', kind: 'Action', hint: 'Generate a link', action: () => openModal('share') },
+      { id: 'act-present', label: 'Enter presentation mode', kind: 'Action', hint: 'Fullscreen slides', action: enterFullscreen },
+      { id: 'act-theme', label: 'Change theme', kind: 'Action', hint: 'Colors & typography', action: () => openModal('theme') },
+      { id: 'act-metrics', label: 'Edit custom metrics', kind: 'Action', hint: 'Define formulas', action: () => openModal('metrics') },
+      { id: 'act-bookmarks', label: 'Saved views', kind: 'Action', hint: 'Bookmarked filter states', action: () => openModal('bookmarks') },
+      { id: 'act-alerts', label: 'Manage alerts', kind: 'Action', hint: 'Notify on thresholds', action: () => openModal('alerts') },
+      { id: 'act-versions', label: 'Version history', kind: 'Action', hint: 'View & restore', action: () => openModal('versions') },
+      { id: 'act-settings', label: 'Dashboard settings', kind: 'Action', action: () => openModal('settings') },
+      { id: 'act-new-tab', label: 'Create new tab', kind: 'Action', action: () => handleTabAdd() },
+      { id: 'act-new-section', label: 'Add new section', kind: 'Action', action: () => handleAddSection() },
+      { id: 'act-toggle-sidebar', label: sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', kind: 'View', action: () => toggleSidebar() },
+      { id: 'act-toggle-agent', label: agentPanelOpen ? 'Hide AI agent panel' : 'Show AI agent panel', kind: 'View', action: () => setAgentPanelOpen(!agentPanelOpen) },
+    );
+  }
+  // All dashboards (quick-switch)
+  (dashboards || []).forEach((d) => {
+    if (d.id !== activeDashboard?.id) {
+      commandList.push({
+        id: `dash-${d.id}`,
+        label: d.name || 'Untitled dashboard',
+        kind: 'Dashboard',
+        hint: 'Open',
+        action: () => handleSelectDashboard(d.id),
+      });
+    }
+  });
+  // Tabs in the active dashboard
+  (activeDashboard?.tabs || []).forEach((t) => {
+    if (t.id !== activeTabId) {
+      commandList.push({
+        id: `tab-${t.id}`,
+        label: t.name || 'Untitled tab',
+        kind: 'Tab',
+        hint: 'Jump to tab',
+        action: () => handleTabSelect(t.id),
+      });
+    }
+  });
+  // Sections in the active tab
+  sections.forEach((s) => {
+    commandList.push({
+      id: `sec-${s.id}`,
+      label: s.name || 'Untitled section',
+      kind: 'Section',
+      hint: `${(s.tiles || []).length} tiles`,
+      action: () => {
+        const el = document.querySelector(`[data-section-id="${s.id}"]`);
+        if (el && typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      },
+    });
+  });
+
   return (
     <div
       style={{
         background: TOKENS.bg.deep,
-        minHeight: agentPanelOpen && agentDock === "bottom" && !fullscreenMode ? `calc(100vh - ${agentPanelHeight}px)` : "100vh",
+        minHeight: agentPanelOpen && agentDock === "bottom" && !fullscreenMode ? `calc(100dvh - ${agentPanelHeight}px)` : "100dvh",
         display: "flex",
         position: "relative",
         marginLeft: agentPanelOpen && agentDock === "left" && !fullscreenMode ? agentPanelWidth : 0,
@@ -1670,35 +1776,44 @@ export default function DashboardBuilder() {
                 >
                   «
                 </button>
-                <span
-                  style={{
-                    color: TOKENS.text.primary,
-                    fontWeight: 600,
-                    fontSize: 15,
-                  }}
-                >
-                  Dashboards
-                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  <span className="eyebrow" style={{ fontSize: 9, letterSpacing: "0.2em" }}>Workspace</span>
+                  <span
+                    style={{
+                      color: TOKENS.text.primary,
+                      fontWeight: 700,
+                      fontSize: 15,
+                      letterSpacing: "-0.01em",
+                      fontFamily: TOKENS.tile.headerFont,
+                    }}
+                  >
+                    Dashboards
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setShowCreatePrompt(true)}
+                className="ease-spring cursor-pointer flex items-center justify-center"
                 style={{
                   background: TOKENS.accent,
                   color: "#fff",
                   border: "none",
-                  borderRadius: 6,
+                  borderRadius: 9999,
                   width: 28,
                   height: 28,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  fontSize: 18,
+                  fontSize: 16,
                   lineHeight: 1,
+                  boxShadow: "0 6px 18px -6px rgba(37, 99, 235, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset",
+                  transition: "transform 300ms cubic-bezier(0.32,0.72,0,1)",
                 }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
                 title="Create dashboard"
+                aria-label="Create dashboard"
               >
-                +
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
               </button>
             </div>
 
@@ -1734,100 +1849,111 @@ export default function DashboardBuilder() {
             )}
 
             {/* Dashboard list */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
-              {dashboards.map((d) => (
-                <div
-                  key={d.id}
-                  onClick={() => handleSelectDashboard(d.id)}
-                  style={{
-                    ...sidebarItemStyle,
-                    background:
-                      activeDashboard?.id === d.id
-                        ? TOKENS.bg.elevated
-                        : "transparent",
-                    color:
-                      activeDashboard?.id === d.id
-                        ? TOKENS.text.primary
-                        : TOKENS.text.secondary,
-                    marginBottom: 2,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (activeDashboard?.id !== d.id) {
-                      e.currentTarget.style.background = TOKENS.bg.elevated + "80";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (activeDashboard?.id !== d.id) {
-                      e.currentTarget.style.background = "transparent";
-                    }
-                  }}
-                >
-                  <span
-                    style={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      flex: 1,
-                    }}
+            <div style={{ flex: 1, overflowY: "auto", padding: "10px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
+              {dashboards.map((d) => {
+                const active = activeDashboard?.id === d.id;
+                return (
+                  <div
+                    key={d.id}
+                    onClick={() => handleSelectDashboard(d.id)}
+                    className="dash-side-item group"
+                    data-active={active || undefined}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectDashboard(d.id); } }}
                   >
-                    {d.name}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteDashboard(d.id);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: TOKENS.text.muted,
-                      cursor: "pointer",
-                      padding: 4,
-                      borderRadius: 4,
-                      display: "flex",
-                      alignItems: "center",
-                      opacity: 0.5,
-                      transition: "opacity 0.15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = "1";
-                      e.currentTarget.style.color = "#ef4444";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = "0.5";
-                      e.currentTarget.style.color = TOKENS.text.muted;
-                    }}
-                    title="Delete dashboard"
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        flex: 1,
+                      }}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                      {d.name}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteDashboard(d.id);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: TOKENS.text.muted,
+                        cursor: "pointer",
+                        padding: 4,
+                        borderRadius: 999,
+                        display: "flex",
+                        alignItems: "center",
+                        opacity: 0,
+                        transition: "opacity 300ms cubic-bezier(0.32,0.72,0,1), color 200ms ease",
+                      }}
+                      className="group-hover:!opacity-60 hover:!opacity-100"
+                      onMouseEnter={(e) => { e.currentTarget.style.color = TOKENS.danger; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = TOKENS.text.muted; }}
+                      title="Delete dashboard"
+                      aria-label={`Delete ${d.name}`}
+                    >
+                      <svg
+                        width="13"
+                        height="13"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.8}
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Sidebar footer with count */}
+            {/* Sidebar footer — count + ⌘K hint */}
             <div
               style={{
-                padding: "10px 16px",
+                padding: "12px 16px",
                 borderTop: `1px solid ${TOKENS.border.default}`,
                 color: TOKENS.text.muted,
-                fontSize: 12,
+                fontSize: 11,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                letterSpacing: "0.02em",
               }}
             >
-              {dashboards.length} dashboard{dashboards.length !== 1 ? "s" : ""}
+              <span>
+                {dashboards.length} {dashboards.length === 1 ? "dashboard" : "dashboards"}
+              </span>
+              <button
+                onClick={() => setCommandPaletteOpen(true)}
+                className="ease-spring cursor-pointer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  background: TOKENS.bg.hover,
+                  border: `1px solid ${TOKENS.border.default}`,
+                  color: TOKENS.text.muted,
+                  fontSize: 10,
+                  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                  transition: "color 300ms cubic-bezier(0.32,0.72,0,1), background 300ms cubic-bezier(0.32,0.72,0,1)",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = TOKENS.text.primary; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = TOKENS.text.muted; }}
+                title="Open command palette"
+              >
+                ⌘K
+              </button>
             </div>
           </>
         )}
@@ -1845,9 +1971,14 @@ export default function DashboardBuilder() {
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          minWidth: 200,
-          minHeight: agentPanelOpen && agentDock === "bottom" && !fullscreenMode ? `calc(100vh - ${agentPanelHeight}px)` : "100vh",
-          maxHeight: agentPanelOpen && agentDock === "bottom" && !fullscreenMode ? `calc(100vh - ${agentPanelHeight}px)` : undefined,
+          minWidth: 0,                // ← critical: lets the flex item shrink below its intrinsic content width
+          minHeight: agentPanelOpen && agentDock === "bottom" && !fullscreenMode ? `calc(100dvh - ${agentPanelHeight}px)` : "100dvh",
+          maxHeight: agentPanelOpen && agentDock === "bottom" && !fullscreenMode ? `calc(100dvh - ${agentPanelHeight}px)` : undefined,
+          // Explicit "hidden auto" — vertical scrolls, horizontal NEVER scrolls.
+          // Without this, CSS spec promotes overflow-x to "auto" when overflow-y is "auto",
+          // which causes a phantom horizontal scrollbar that visually clips the rightmost
+          // tile column behind it.
+          overflowX: "hidden",
           overflowY: "auto",
           position: "relative",
           zIndex: 10,
@@ -1859,13 +1990,104 @@ export default function DashboardBuilder() {
             style={{
               flex: 1,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              color: TOKENS.text.muted,
-              fontSize: 15,
+              padding: "0 32px",
+              gap: 20,
+              minHeight: "70vh",
             }}
           >
-            Select a dashboard from the sidebar
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 20,
+                background: `radial-gradient(ellipse at center, ${TOKENS.accentGlow} 0%, transparent 70%)`,
+                border: `1px solid ${TOKENS.border.default}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+              }}
+            >
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={TOKENS.accent} strokeWidth="1.4" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="9" rx="1.5" />
+                <rect x="14" y="3" width="7" height="5" rx="1.5" />
+                <rect x="14" y="12" width="7" height="9" rx="1.5" />
+                <rect x="3" y="16" width="7" height="5" rx="1.5" />
+              </svg>
+            </div>
+            <div className="eyebrow"><span className="eyebrow-dot" /> Workspace ready</div>
+            <h1
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                letterSpacing: "-0.03em",
+                color: TOKENS.text.primary,
+                fontFamily: TOKENS.tile.headerFont,
+                textAlign: "center",
+                margin: 0,
+                lineHeight: 1.1,
+                maxWidth: 520,
+              }}
+            >
+              Pick a dashboard or make a new one.
+            </h1>
+            <p
+              style={{
+                fontSize: 14,
+                color: TOKENS.text.secondary,
+                lineHeight: 1.6,
+                maxWidth: 460,
+                textAlign: "center",
+                margin: 0,
+              }}
+            >
+              Build, connect, and orchestrate data stories for any team — finance, healthcare,
+              e‑commerce, product. Press{" "}
+              <span className="cmd-k-kbd" style={{ margin: 0 }}>⌘K</span> anytime to jump anywhere.
+            </p>
+            <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
+              <button
+                onClick={() => setShowCreatePrompt(true)}
+                className="group inline-flex items-center gap-2 pl-5 pr-1.5 py-2 rounded-full ease-spring cursor-pointer"
+                style={{
+                  background: TOKENS.accent,
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  boxShadow: "0 10px 28px -10px rgba(37, 99, 235, 0.6), 0 1px 0 rgba(255,255,255,0.18) inset",
+                  border: "none",
+                }}
+              >
+                <span>New dashboard</span>
+                <span className="flex items-center justify-center w-7 h-7 rounded-full ease-spring transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-[1px]" style={{ background: "rgba(255,255,255,0.18)" }}>
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </span>
+              </button>
+              <button
+                onClick={() => setCommandPaletteOpen(true)}
+                className="ease-spring cursor-pointer"
+                style={{
+                  background: "transparent",
+                  color: TOKENS.text.secondary,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  padding: "0.5rem 1rem",
+                  borderRadius: 9999,
+                  border: `1px solid ${TOKENS.border.default}`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                Browse all
+                <span className="cmd-k-kbd" style={{ margin: 0 }}>⌘K</span>
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -1885,6 +2107,7 @@ export default function DashboardBuilder() {
                 onOpenAlerts={() => openModal('alerts')}
                 onOpenSettings={() => openModal('settings')}
                 onToggleFullscreen={enterFullscreen}
+                onOpenCommandPalette={() => setCommandPaletteOpen(true)}
               />
             )}
 
@@ -1925,7 +2148,7 @@ export default function DashboardBuilder() {
             {/* Layout auto-saves on drag/resize — no Apply button needed */}
 
             {/* Sections */}
-            <div id="dashboard-content" key={activeTabId} style={{ flex: 1, padding: "16px 24px", background: activeDashboard?.themeConfig?.background?.dashboard || 'transparent' }}>
+            <div id="dashboard-content" key={activeTabId} style={{ flex: 1, padding: "16px 0 48px", background: activeDashboard?.themeConfig?.background?.dashboard || 'transparent' }}>
               {sections.length === 0 ? (
                 <div
                   style={{
@@ -1933,27 +2156,46 @@ export default function DashboardBuilder() {
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    padding: "64px 0",
-                    gap: 12,
+                    padding: "96px 24px",
+                    gap: 16,
                   }}
                 >
-                  <p style={{ color: TOKENS.text.muted, fontSize: 14 }}>
-                    This tab has no sections yet.
+                  <div className="eyebrow"><span className="eyebrow-dot" /> Empty tab</div>
+                  <h2
+                    style={{
+                      fontSize: 24,
+                      fontWeight: 700,
+                      letterSpacing: "-0.02em",
+                      color: TOKENS.text.primary,
+                      fontFamily: TOKENS.tile.headerFont,
+                      margin: 0,
+                      textAlign: "center",
+                    }}
+                  >
+                    A blank canvas awaits.
+                  </h2>
+                  <p style={{ fontSize: 13, color: TOKENS.text.secondary, maxWidth: 380, textAlign: "center", margin: 0, lineHeight: 1.6 }}>
+                    Organize your tiles into sections — overview, deep‑dive, cohort splits.
+                    Each section can have its own layout mode.
                   </p>
                   <button
                     onClick={() => handleAddSection()}
+                    className="group inline-flex items-center gap-2 pl-5 pr-1.5 py-2 rounded-full ease-spring cursor-pointer"
                     style={{
                       background: TOKENS.accent,
                       color: "#fff",
                       border: "none",
-                      borderRadius: 8,
-                      padding: "8px 20px",
                       fontSize: 13,
                       fontWeight: 600,
-                      cursor: "pointer",
+                      boxShadow: "0 10px 28px -10px rgba(37, 99, 235, 0.6), 0 1px 0 rgba(255,255,255,0.18) inset",
                     }}
                   >
-                    Add Section
+                    <span>Add first section</span>
+                    <span className="flex items-center justify-center w-7 h-7 rounded-full ease-spring transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-[1px]" style={{ background: "rgba(255,255,255,0.18)" }}>
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                    </span>
                   </button>
                 </div>
               ) : (
@@ -1964,12 +2206,15 @@ export default function DashboardBuilder() {
                     .map((section, idx) => (
                       <motion.div
                         key={section.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: idx * 0.05, ease: "easeOut" }}
+                        data-section-id={section.id}
+                        initial={{ opacity: 0, y: 20, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        transition={{ duration: 0.6, delay: idx * 0.08, ease: [0.32, 0.72, 0, 1] }}
+                        style={{ scrollMarginTop: 96 }}
                       >
                         <Section
                           section={section}
+                          sectionNumber={idx + 1}
                           connId={activeConnId}
                           onLayoutChange={handleLayoutChange}
                           onTileEdit={handleTileEdit}
@@ -2002,18 +2247,20 @@ export default function DashboardBuilder() {
               )}
 
               {sections.length > 0 && !fullscreenMode && (
-                <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <div style={{ textAlign: "center", padding: "24px 0 8px" }}>
                   <button
                     onClick={() => handleAddSection()}
+                    className="ease-spring cursor-pointer inline-flex items-center gap-2"
                     style={{
                       background: "transparent",
                       color: TOKENS.text.muted,
                       border: `1px dashed ${TOKENS.border.default}`,
-                      borderRadius: 8,
-                      padding: "8px 20px",
-                      fontSize: 13,
-                      cursor: "pointer",
-                      transition: "color 0.15s, border-color 0.15s",
+                      borderRadius: 9999,
+                      padding: "10px 22px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      letterSpacing: "0.02em",
+                      transition: "color 300ms cubic-bezier(0.32,0.72,0,1), border-color 300ms cubic-bezier(0.32,0.72,0,1), background 300ms cubic-bezier(0.32,0.72,0,1)",
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.color = TOKENS.accent;
@@ -2024,7 +2271,10 @@ export default function DashboardBuilder() {
                       e.currentTarget.style.borderColor = TOKENS.border.default;
                     }}
                   >
-                    + Add Section
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Add section
                   </button>
                 </div>
               )}
@@ -2053,7 +2303,7 @@ export default function DashboardBuilder() {
                   const updated = await api.deleteDashboardAnnotation(activeDashboard.id, annotationId);
                   if (updated) setActiveDashboard(updated);
                 } catch (err) {
-                  console.error("Failed to delete annotation:", err);
+                  void 0;
                 }
               }}
             />}
@@ -2284,7 +2534,7 @@ export default function DashboardBuilder() {
               display: "flex",
               alignItems: "center",
               gap: 12,
-              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
             }}
             role="alert"
             variants={undoToastVariants}
@@ -2369,6 +2619,60 @@ export default function DashboardBuilder() {
           onExit={() => setFullscreenMode(false)}
         />
       )}
+
+      {/* ── Command Palette (⌘K) ── */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        commands={commandList}
+      />
+
+      {/* "Adapting workspace" floating pill — visible only while the agent
+          panel is being dragged or resized. Tells the user the dashboard is
+          intentionally frozen and will redraw when they release. */}
+      <div className="dash-resize-pill" data-visible={agentResizing || undefined} aria-live="polite">
+        <span className="dash-resize-pill__dot" aria-hidden="true" />
+        Adapting workspace
+      </div>
+
+      {/* Desktop-recommended notice for ultra-narrow viewports (< 700px).
+          The builder is a power-user tool; below this width we'd need a
+          completely separate mobile UX. Better to notify the user clearly
+          than to show a broken layout. */}
+      {showNarrowViewportHint && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 60,
+            maxWidth: 'calc(100% - 2rem)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '10px 16px',
+            borderRadius: 9999,
+            background: 'var(--glass-bg-card-elevated)',
+            border: '1px solid var(--glass-border)',
+            backdropFilter: 'blur(24px) saturate(1.6)',
+            WebkitBackdropFilter: 'blur(24px) saturate(1.6)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.06) inset, 0 18px 40px -16px rgba(0,0,0,0.45)',
+            color: 'var(--text-primary)',
+          }}
+        >
+          <span className="eyebrow-dot" style={{ background: 'var(--accent-warm, #FBBF24)' }} aria-hidden="true" />
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            Desktop recommended
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>
+            Builder works best on screens ≥ 1100&thinsp;px
+          </span>
+        </div>
+      )}
+
       {/* Agent floating progress overlay */}
       {agentLoading && (
         <div style={{
@@ -2377,7 +2681,7 @@ export default function DashboardBuilder() {
           border: `1px solid ${TOKENS.border.default}`,
           borderRadius: TOKENS.radius.lg, padding: '8px 20px',
           display: 'flex', alignItems: 'center', gap: 10,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
         }}>
           <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke={TOKENS.accent} strokeWidth="2.5">

@@ -205,7 +205,7 @@ const MIN_SCORE = 35;
 function exportChart(echartsRef, format = "png") {
   const instance = echartsRef.current?.getEchartsInstance?.();
   if (!instance) {
-    console.warn("Chart not ready for export — try again in a moment.");
+    return false;
     return false;
   }
   const exportBg = getComputedStyle(document.documentElement).getPropertyValue('--chart-export-bg').trim() || '#111827';
@@ -502,7 +502,10 @@ export default function ResultsChart({
       trigger: ['pie', 'donut', 'treemap', 'scatter'].includes(chartType) ? 'item' : 'axis',
       backgroundColor: chartColors.tooltipBg,
       borderColor: chartColors.tooltipBorder,
-      textStyle: { color: chartColors.tooltipText, fontSize: 12 },
+      borderRadius: 8,
+      padding: [10, 14],
+      textStyle: { color: chartColors.tooltipText, fontSize: 12, fontFamily: "'Inter', system-ui, sans-serif" },
+      extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.12);',
       ...(fmt.tooltip.template ? {
         formatter: (params) => {
           const row = Array.isArray(params) ? params[0]?.data : params.data;
@@ -514,7 +517,12 @@ export default function ResultsChart({
       } : {}),
     } : { show: false };
 
-    const legendCfg = (showLegend && fmt.legend.show && displayMeasures.length > 1) ? {
+    // Native ECharts legend is disabled in full (non-embedded) mode — the
+    // custom <LegendChipStrip> below the toolbar handles that. This was the
+    // biggest UX pain point: ECharts' native legend wraps uncontrollably
+    // when there are many measures. The chip strip scrolls horizontally
+    // and each chip is clickable to toggle visibility.
+    const legendCfg = (embedded && showLegend && fmt.legend.show && displayMeasures.length > 1) ? {
       show: true,
       textStyle: { color: fmt.legend.color || chartColors.legendText, fontSize: fmt.legend.fontSize || 11 },
       ...(fmt.legend.position === 'top' ? { top: 0 } : fmt.legend.position === 'left' ? { left: 0, orient: 'vertical' } : fmt.legend.position === 'right' ? { right: 0, orient: 'vertical' } : { bottom: 0 }),
@@ -591,11 +599,15 @@ export default function ResultsChart({
               }),
               label: dataLabelCfg,
               markLine: i === 0 && markLineData.length ? { data: markLineData, silent: true, symbol: 'none' } : undefined,
-              emphasis: isLine || isArea ? { focus: 'series' } : { itemStyle: { opacity: 0.85 } },
+              emphasis: isLine || isArea
+                ? { focus: 'series', lineStyle: { width: 3 } }
+                : { itemStyle: { opacity: 0.85, shadowBlur: 8, shadowColor: 'rgba(0,0,0,0.15)' } },
             };
           }),
-          animationDuration: 800,
+          animationDuration: 600,
           animationEasing: 'cubicOut',
+          animationDurationUpdate: 400,
+          animationEasingUpdate: 'cubicInOut',
         };
       }
 
@@ -645,7 +657,7 @@ export default function ResultsChart({
               markLine: i === 0 && markLineData.length ? { data: markLineData.map((ml) => ({ ...ml, xAxis: ml.yAxis, yAxis: undefined })), silent: true, symbol: 'none' } : undefined,
             };
           }),
-          animationDuration: 800,
+          animationDuration: 600, animationDurationUpdate: 400, animationEasingUpdate: 'cubicInOut',
         };
       }
 
@@ -780,7 +792,7 @@ export default function ResultsChart({
             itemStyle: chartType === 'donut' ? { borderRadius: 4 } : {},
             emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.3)' } },
           }],
-          animationDuration: 800,
+          animationDuration: 600, animationDurationUpdate: 400, animationEasingUpdate: 'cubicInOut',
         };
 
       case "radar":
@@ -811,7 +823,7 @@ export default function ResultsChart({
               };
             }),
           }],
-          animationDuration: 800,
+          animationDuration: 600, animationDurationUpdate: 400, animationEasingUpdate: 'cubicInOut',
         };
 
       case "treemap":
@@ -834,7 +846,7 @@ export default function ResultsChart({
             breadcrumb: { show: false },
             itemStyle: { borderRadius: 4, gapWidth: 2 },
           }],
-          animationDuration: 800,
+          animationDuration: 600, animationDurationUpdate: 400, animationEasingUpdate: 'cubicInOut',
         };
 
       case "scatter": {
@@ -872,7 +884,7 @@ export default function ResultsChart({
             itemStyle: { color: resolveColor(labelCol, null, 0, fmt.colors, dashboardPalette), opacity: 0.7 },
             emphasis: { itemStyle: { opacity: 1, borderColor: '#fff', borderWidth: 1 } },
           }],
-          animationDuration: 800,
+          animationDuration: 600, animationDurationUpdate: 400, animationEasingUpdate: 'cubicInOut',
         };
       }
 
@@ -905,7 +917,7 @@ export default function ResultsChart({
             data: chartData.map((row) => row[col]),
             itemStyle: { color: resolveColor(col, null, i, fmt.colors, dashboardPalette), borderRadius: [6, 6, 0, 0] },
           })),
-          animationDuration: 800,
+          animationDuration: 600, animationDurationUpdate: 400, animationEasingUpdate: 'cubicInOut',
         };
       }
     }
@@ -998,7 +1010,20 @@ export default function ResultsChart({
 
   /* ── Full mode with toolbar ── */
   return (
-    <div className="rounded-2xl overflow-hidden backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.12)]" style={{ background: 'var(--glass-bg-card)', border: '1px solid var(--glass-border)' }}>
+    <div className="chat-artifact">
+      {/* Eyebrow label bar — "Visualization · live" */}
+      <div className="chat-artifact__header">
+        <span className="chat-artifact__label">
+          <span className="eyebrow-dot" aria-hidden="true" />
+          Visualization
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{rankedCharts[0]?.label || chartType}</span>
+        </span>
+        <span className="chat-artifact__stat ml-auto">
+          {data.length.toLocaleString()} pts · {numericCols.length} metric{numericCols.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between px-4 py-3 gap-2" style={{ borderBottom: '1px solid var(--border-default)', background: 'var(--bg-base)' }}>
         {/* Chart type selector */}
@@ -1172,6 +1197,37 @@ export default function ResultsChart({
             <input type="checkbox" checked={showLegend} onChange={() => setShowLegend(!showLegend)} className="w-3.5 h-3.5 rounded text-blue-500 focus:ring-0 cursor-pointer" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-surface)' }} />
             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Legend</span>
           </label>
+        </div>
+      )}
+
+      {/* ── Custom legend chip strip (replaces ECharts native legend) ──
+          Horizontal scrollable pills, one per numeric measure. Active
+          measures are solid; inactive are faded. Click to toggle. Scales
+          cleanly to 20+ measures without ever clipping the chart. */}
+      {!embedded && numericCols.length > 1 && isMultiMeasureChart && showLegend && (
+        <div className="legend-scroller" aria-label="Chart series legend">
+          <div className="legend-scroller__track" role="list">
+            {numericCols.map((col, i) => {
+              const active = displayMeasures.includes(col);
+              const chipColor = resolveColor(col, null, i, fmt.colors, dashboardPalette);
+              return (
+                <button
+                  key={col}
+                  type="button"
+                  role="listitem"
+                  className="legend-chip"
+                  data-inactive={!active || undefined}
+                  onClick={() => handleMultiToggle(col)}
+                  title={active ? `Hide ${col}` : `Show ${col}`}
+                  aria-pressed={active}
+                  aria-label={`${active ? "Hide" : "Show"} ${col}`}
+                >
+                  <span className="legend-chip__dot" style={{ background: chipColor }} />
+                  <span className="legend-chip__label">{col}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

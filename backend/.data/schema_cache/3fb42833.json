@@ -1,0 +1,510 @@
+{
+  "conn_id": "3fb42833",
+  "schema_hash": "249da15d25f62519c4e542b40ab6890c",
+  "cached_at": "2026-04-10T13:34:26.233392+00:00",
+  "tables": [
+    {
+      "name": "customers",
+      "row_count_estimate": 50,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR(100)",
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "type": "VARCHAR(150)",
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "type": "VARCHAR(20)",
+          "nullable": true
+        },
+        {
+          "name": "city",
+          "type": "VARCHAR(50)",
+          "nullable": true
+        },
+        {
+          "name": "state",
+          "type": "VARCHAR(30)",
+          "nullable": true
+        },
+        {
+          "name": "age_group",
+          "type": "VARCHAR(20)",
+          "nullable": true
+        },
+        {
+          "name": "acquisition_channel",
+          "type": "VARCHAR(50)",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "nullable": true
+        },
+        {
+          "name": "last_login",
+          "type": "TIMESTAMP",
+          "nullable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "customers_email_key",
+          "unique": true,
+          "column_names": [
+            "email"
+          ],
+          "duplicates_constraint": "customers_email_key",
+          "include_columns": [],
+          "dialect_options": {
+            "postgresql_include": []
+          }
+        }
+      ],
+      "partitions": [],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "orders",
+      "row_count_estimate": 75,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "total_amount",
+          "type": "NUMERIC(10, 2)",
+          "nullable": false
+        },
+        {
+          "name": "discount_amount",
+          "type": "NUMERIC(10, 2)",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(20)",
+          "nullable": true
+        },
+        {
+          "name": "payment_method",
+          "type": "VARCHAR(30)",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "nullable": true
+        }
+      ],
+      "indexes": [],
+      "partitions": [],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "customer_id"
+          ],
+          "referred_table": "customers",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "order_items",
+      "row_count_estimate": 66,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "order_id",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "product_id",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "quantity",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "unit_price",
+          "type": "NUMERIC(10, 2)",
+          "nullable": false
+        }
+      ],
+      "indexes": [],
+      "partitions": [],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "order_id"
+          ],
+          "referred_table": "orders",
+          "referred_columns": [
+            "id"
+          ]
+        },
+        {
+          "columns": [
+            "product_id"
+          ],
+          "referred_table": "products",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "products",
+      "row_count_estimate": 20,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR(150)",
+          "nullable": false
+        },
+        {
+          "name": "category",
+          "type": "VARCHAR(50)",
+          "nullable": false
+        },
+        {
+          "name": "subcategory",
+          "type": "VARCHAR(50)",
+          "nullable": true
+        },
+        {
+          "name": "price",
+          "type": "NUMERIC(10, 2)",
+          "nullable": false
+        },
+        {
+          "name": "cost",
+          "type": "NUMERIC(10, 2)",
+          "nullable": false
+        },
+        {
+          "name": "stock_quantity",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "nullable": true
+        }
+      ],
+      "indexes": [],
+      "partitions": [],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "campaigns",
+      "row_count_estimate": 15,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR(200)",
+          "nullable": false
+        },
+        {
+          "name": "channel",
+          "type": "VARCHAR(50)",
+          "nullable": false
+        },
+        {
+          "name": "campaign_type",
+          "type": "VARCHAR(50)",
+          "nullable": true
+        },
+        {
+          "name": "budget",
+          "type": "NUMERIC(10, 2)",
+          "nullable": true
+        },
+        {
+          "name": "spend",
+          "type": "NUMERIC(10, 2)",
+          "nullable": true
+        },
+        {
+          "name": "impressions",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "clicks",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "conversions",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "revenue_attributed",
+          "type": "NUMERIC(10, 2)",
+          "nullable": true
+        },
+        {
+          "name": "start_date",
+          "type": "DATE",
+          "nullable": false
+        },
+        {
+          "name": "end_date",
+          "type": "DATE",
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(20)",
+          "nullable": true
+        }
+      ],
+      "indexes": [],
+      "partitions": [],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "email_campaigns",
+      "row_count_estimate": 10,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "campaign_id",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "subject_line",
+          "type": "VARCHAR(300)",
+          "nullable": true
+        },
+        {
+          "name": "sent_count",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "open_count",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "click_count",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "unsubscribe_count",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "bounce_count",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "sent_at",
+          "type": "TIMESTAMP",
+          "nullable": true
+        }
+      ],
+      "indexes": [],
+      "partitions": [],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "campaign_id"
+          ],
+          "referred_table": "campaigns",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "website_traffic",
+      "row_count_estimate": 30,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "visit_date",
+          "type": "DATE",
+          "nullable": false
+        },
+        {
+          "name": "source",
+          "type": "VARCHAR(50)",
+          "nullable": false
+        },
+        {
+          "name": "medium",
+          "type": "VARCHAR(50)",
+          "nullable": true
+        },
+        {
+          "name": "sessions",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "page_views",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "bounce_rate",
+          "type": "NUMERIC(5, 2)",
+          "nullable": true
+        },
+        {
+          "name": "avg_session_duration_sec",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "new_users",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "returning_users",
+          "type": "INTEGER",
+          "nullable": true
+        }
+      ],
+      "indexes": [],
+      "partitions": [],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "customer_segments",
+      "row_count_estimate": 28,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "segment_name",
+          "type": "VARCHAR(50)",
+          "nullable": false
+        },
+        {
+          "name": "rfm_score",
+          "type": "INTEGER",
+          "nullable": true
+        },
+        {
+          "name": "lifetime_value",
+          "type": "NUMERIC(10, 2)",
+          "nullable": true
+        },
+        {
+          "name": "assigned_at",
+          "type": "TIMESTAMP",
+          "nullable": true
+        }
+      ],
+      "indexes": [],
+      "partitions": [],
+      "primary_keys": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "customer_id"
+          ],
+          "referred_table": "customers",
+          "referred_columns": [
+            "id"
+          ]
+        }
+      ]
+    }
+  ]
+}

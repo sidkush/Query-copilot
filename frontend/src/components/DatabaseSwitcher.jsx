@@ -37,7 +37,7 @@ function StatusDot({ isLive }) {
 }
 
 function DbIcon({ dbType, size = 14 }) {
-  const color = DB_COLORS[dbType] || '#6366f1';
+  const color = DB_COLORS[dbType] || '#2563EB';
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -217,7 +217,7 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch, 
             onMouseEnter={() => setFocusIdx(connections.length)}
             onMouseLeave={() => setFocusIdx(-1)}
           >
-            <svg style={{ width: 14, height: 14, color: '#6366f1', flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg style={{ width: 14, height: 14, color: '#2563EB', flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
             <span style={{ fontSize: 12, color: '#818cf8', fontWeight: 500 }}>Connect New Database</span>

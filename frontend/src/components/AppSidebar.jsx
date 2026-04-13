@@ -123,7 +123,7 @@ export default function AppSidebar() {
   return (
     <div className="w-14 h-full flex-shrink-0 flex flex-col items-center py-3 gap-1 relative" style={{ background: 'var(--bg-page)', borderRight: '1px solid var(--border-default)' }}>
       {/* Subtle gradient glow at top */}
-      <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-indigo-500/5 to-transparent pointer-events-none" />
+      <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
 
       {/* Logo */}
       <Tooltip text="AskDB Home">
@@ -134,31 +134,24 @@ export default function AppSidebar() {
             whileTap={{ scale: 0.95 }}
             animate={{
               boxShadow: [
-                "0 0 0 0px rgba(99,102,241,0.4)",
-                "0 0 0 7px rgba(99,102,241,0)",
-                "0 0 0 0px rgba(99,102,241,0)",
+                "0 0 0 0px rgba(37,99,235,0.35)",
+                "0 0 0 7px rgba(37,99,235,0)",
+                "0 0 0 0px rgba(37,99,235,0)",
               ],
             }}
             transition={{
               boxShadow: { duration: 2.4, repeat: Infinity, ease: "easeOut" },
               scale: { type: "spring", stiffness: 400, damping: 17 },
             }}
-            className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center mb-4 hover:from-indigo-500 hover:to-violet-500 transition-colors duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 relative z-10"
+            className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center mb-4 hover:bg-blue-500 transition-colors duration-300 cursor-pointer shadow-lg shadow-blue-600/20 relative z-10"
             aria-label="AskDB Home"
             {...tooltipProps}
           >
-            {/* AskDB logo — speech bubble + database cylinder */}
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              {/* Database cylinder (bottom) */}
-              <ellipse cx="12" cy="17" rx="6" ry="2" fill="white" opacity="0.3" />
-              <rect x="6" y="12" width="12" height="5" fill="white" opacity="0.5" />
-              <ellipse cx="12" cy="12" rx="6" ry="2" fill="white" opacity="0.7" />
-              {/* Speech bubble (top) */}
-              <path d="M5 4C5 3.44772 5.44772 3 6 3H18C18.5523 3 19 3.44772 19 4V10C19 10.5523 18.5523 11 18 11H9L6 14V11H6C5.44772 11 5 10.5523 5 10V4Z" fill="white" />
-              {/* Query dots inside bubble */}
-              <circle cx="9" cy="7" r="1" fill="#6366f1" />
-              <circle cx="12" cy="7" r="1" fill="#6366f1" />
-              <circle cx="15" cy="7" r="1" fill="#6366f1" />
+            {/* AskDB — The Loop logo (round "A" = circle + crossbar + stem) */}
+            <svg className="w-5 h-5" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <circle cx="16" cy="16" r="12" stroke="white" strokeWidth="2.5" fill="none"/>
+              <path d="M9.5 19 H22.5" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M16 4 V14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
             </svg>
           </motion.button>
         )}
@@ -176,7 +169,7 @@ export default function AppSidebar() {
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer relative z-10"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-300 ease-spring cursor-pointer relative z-10"
                   style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}
                   aria-label={item.label}
                   aria-current={isActive ? "page" : undefined}
@@ -193,7 +186,7 @@ export default function AppSidebar() {
                   {isActive && (
                     <motion.div
                       layoutId="sidebar-bar"
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-indigo-500 rounded-r-full"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-500 rounded-r-full"
                       transition={{ type: "spring", stiffness: 350, damping: 30 }}
                       aria-hidden="true"
                     />
@@ -213,7 +206,7 @@ export default function AppSidebar() {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer relative z-10"
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-300 ease-spring cursor-pointer relative z-10"
             style={{ color: agentPanelOpen ? 'var(--text-primary)' : 'var(--text-muted)' }}
             aria-label={agentPanelOpen ? "Hide Agent" : "Show Agent"}
             {...tooltipProps}
@@ -243,7 +236,7 @@ export default function AppSidebar() {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors duration-200 cursor-pointer relative z-10 mb-1"
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors duration-300 ease-spring cursor-pointer relative z-10 mb-1"
             style={{ color: 'var(--text-muted)' }}
             aria-label={`Theme: ${theme}`}
             {...tooltipProps}
@@ -261,7 +254,7 @@ export default function AppSidebar() {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500/60 to-violet-500/60 flex items-center justify-center text-white text-xs font-bold hover:from-indigo-500 hover:to-violet-500 transition-colors duration-300 cursor-pointer shadow-lg shadow-indigo-500/10 relative z-10"
+            className="w-9 h-9 rounded-full bg-blue-600/70 flex items-center justify-center text-white text-xs font-bold hover:bg-blue-500 transition-colors duration-300 cursor-pointer shadow-lg shadow-blue-600/10 relative z-10"
             aria-label={`Profile: ${user?.name || "User"}`}
             {...tooltipProps}
           >

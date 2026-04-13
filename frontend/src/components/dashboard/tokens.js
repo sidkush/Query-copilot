@@ -27,8 +27,15 @@ export const TOKENS = {
   success: 'var(--status-success)',
   warning: 'var(--status-warning)',
   danger: 'var(--status-danger)',
+  info: '#06b6d4',
   radius: { sm: '6px', md: '10px', lg: '14px', xl: '18px' },
   transition: '200ms cubic-bezier(0.16,1,0.3,1)',
+  // Premium tile defaults
+  tile: {
+    shadow: '0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04)',
+    shadowHover: '0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06)',
+    headerFont: "'Outfit', system-ui, sans-serif",
+  },
 };
 
 export const KPI_ACCENTS = [
@@ -47,4 +54,56 @@ export const CHART_PALETTES = {
   forest: ['#22C55E', '#16A34A', '#15803D', '#4ADE80', '#86EFAC', '#166534', '#14532D', '#052E16'],
   mono: ['#F8FAFC', '#CBD5E1', '#94A3B8', '#64748B', '#475569', '#334155', '#1E293B', '#0F172A'],
   colorblind: ['#0077BB', '#33BBEE', '#009988', '#EE7733', '#CC3311', '#EE3377', '#BBBBBB', '#000000'],
+};
+
+/**
+ * Dashboard theme presets — adaptive personality for different user types.
+ * Applied via themeConfig on the dashboard object. The agent or user can switch presets.
+ * Each preset overrides: background, tile styling, typography, spacing, and chart palette.
+ */
+export const DASHBOARD_PRESETS = {
+  creative_dark: {
+    id: 'creative_dark',
+    name: 'Creative Dark',
+    description: 'Bold colors on dark canvas. Ideal for data visualization, heatmaps, and creative analytics.',
+    background: { dashboard: '#0a0a0f', tile: '#141419', section: 'transparent' },
+    spacing: { tileGap: 14, tileRadius: 16, sectionGap: 28 },
+    typography: { headingFont: "'Outfit', system-ui, sans-serif", bodyFont: "'Inter', system-ui, sans-serif" },
+    palette: 'default',
+    tile: { borderWidth: 0, shadow: true, shadowBlur: 16 },
+    accent: '#2563EB',
+  },
+  corporate_light: {
+    id: 'corporate_light',
+    name: 'Corporate Light',
+    description: 'Clean professional layout. Suitable for boardroom presentations and executive reports.',
+    background: { dashboard: '#FAFBFC', tile: '#FFFFFF', section: 'transparent' },
+    spacing: { tileGap: 16, tileRadius: 12, sectionGap: 32 },
+    typography: { headingFont: "'Inter', system-ui, sans-serif", bodyFont: "'Inter', system-ui, sans-serif" },
+    palette: 'default',
+    tile: { borderWidth: 1, shadow: false, shadowBlur: 0 },
+    accent: '#1d4ed8',
+  },
+  finance_pro: {
+    id: 'finance_pro',
+    name: 'Finance Pro',
+    description: 'High-density data display with strong contrast. Built for stock analysis and financial metrics.',
+    background: { dashboard: '#080b12', tile: '#0f1219', section: 'transparent' },
+    spacing: { tileGap: 10, tileRadius: 8, sectionGap: 20 },
+    typography: { headingFont: "'JetBrains Mono', monospace", bodyFont: "'Inter', system-ui, sans-serif" },
+    palette: 'ocean',
+    tile: { borderWidth: 1, shadow: false, shadowBlur: 0 },
+    accent: '#06b6d4',
+  },
+  minimal: {
+    id: 'minimal',
+    name: 'Minimal',
+    description: 'Maximum whitespace, zero clutter. Data speaks for itself.',
+    background: { dashboard: 'transparent', tile: 'transparent', section: 'transparent' },
+    spacing: { tileGap: 20, tileRadius: 14, sectionGap: 36 },
+    typography: { headingFont: "'Outfit', system-ui, sans-serif", bodyFont: "'Inter', system-ui, sans-serif" },
+    palette: 'mono',
+    tile: { borderWidth: 0, shadow: false, shadowBlur: 0 },
+    accent: '#2563EB',
+  },
 };

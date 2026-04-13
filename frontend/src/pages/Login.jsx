@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import { useStore } from "../store";
 import MotionButton from "../components/animation/MotionButton";
+import AskDBLogo from "../components/AskDBLogo";
 
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
@@ -210,11 +211,11 @@ function CountrySelect({ value, onChange }) {
       <button
         type="button"
         onClick={() => { setOpen(!open); setSearch(""); }}
-        className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 hover:border-indigo-500/30 transition-all duration-200 cursor-pointer min-w-[140px]"
+        className="flex items-center gap-2 glass-input rounded-lg px-3 py-2.5 hover:border-blue-500/30 transition-all duration-200 cursor-pointer min-w-[140px]"
         style={{ color: 'var(--text-primary)' }}
       >
         <span className="text-lg leading-none">{selected.flag}</span>
-        <span className="text-sm font-mono text-indigo-400">{selected.dial}</span>
+        <span className="text-sm font-mono text-blue-400">{selected.dial}</span>
         <span className="text-xs truncate max-w-[60px]" style={{ color: 'var(--text-secondary)' }}>{selected.name}</span>
         <svg className={`w-3 h-3 ml-auto transition-transform ${open ? "rotate-180" : ""}`} style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -240,12 +241,12 @@ function CountrySelect({ value, onChange }) {
                 key={`${c.code}-${c.dial}`}
                 type="button"
                 onClick={() => { onChange(c.code); setOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition cursor-pointer ${c.code === value ? "bg-indigo-600/20" : ""
+                className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition cursor-pointer ${c.code === value ? "bg-blue-600/20" : ""
                   }`}
                 style={{ color: c.code === value ? 'var(--text-primary)' : 'var(--text-secondary)' }}
               >
                 <span className="text-lg leading-none">{c.flag}</span>
-                <span className="font-mono text-indigo-400 w-14 text-right">{c.dial}</span>
+                <span className="font-mono text-blue-400 w-14 text-right">{c.dial}</span>
                 <span className="flex-1 text-left">{c.name}</span>
                 <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{c.code}</span>
               </button>
@@ -337,6 +338,8 @@ export default function Login() {
   const passwordsMismatch = confirmPassword && password !== confirmPassword;
 
   /* ─── Login handler (email only) ─────────────────────────── */
+  const [loginSuccess, setLoginSuccess] = useState(false);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
@@ -348,8 +351,8 @@ export default function Login() {
         setOnboardingComplete(true);
         setTutorialComplete(true);
       }
-      // ProtectedRoute will redirect to /onboarding if needed
-      navigate("/dashboard");
+      setLoginSuccess(true);
+      setTimeout(() => navigate("/dashboard"), 600);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -532,14 +535,44 @@ export default function Login() {
       </button>
 
       <div className="w-full max-w-md relative z-10 fade-scale-in">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold tracking-tight font-poppins" style={{ color: 'var(--text-primary)' }}>
-            Ask<span style={{ color: '#A855F7' }}>DB</span>
-          </h1>
-          <p className="mt-2" style={{ color: 'var(--text-secondary)' }}>The agentic data intelligence platform</p>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <div style={{ color: 'var(--text-primary)' }}>
+            <AskDBLogo size="lg" />
+          </div>
+          <p className="mt-3" style={{ color: 'var(--text-secondary)' }}>The agentic data intelligence platform</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-8">
+        <div className="glass-card rounded-2xl p-8 relative overflow-hidden">
+          {/* Login success overlay */}
+          <AnimatePresence>
+            {loginSuccess && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-2xl"
+                style={{ background: 'var(--glass-bg-card-elevated)', backdropFilter: 'blur(8px)' }}
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                  className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+                  style={{ background: 'rgba(34,197,94,0.1)', border: '2px solid #22c55e' }}
+                >
+                  <svg className="w-8 h-8 text-green-400 check-draw" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                </motion.div>
+                <motion.p
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-sm font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >Welcome back</motion.p>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
             {isRegister ? "Create Account" : "Sign In"}
           </h2>
@@ -554,7 +587,7 @@ export default function Login() {
                       className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${i < regStep
                           ? "bg-green-500 text-white shadow-lg shadow-green-500/30"
                           : i === regStep
-                            ? "bg-gradient-to-br from-indigo-500 to-violet-500 text-white ring-2 ring-indigo-400/30 shadow-lg shadow-indigo-500/30"
+                            ? "bg-blue-600 text-white ring-2 ring-blue-400/30 shadow-lg shadow-blue-600/20"
                             : "glass"
                         }`}
                       style={i >= regStep ? { color: 'var(--text-muted)' } : undefined}
@@ -567,7 +600,7 @@ export default function Login() {
                         i + 1
                       )}
                     </div>
-                    <span className={`text-[10px] mt-1 ${i === regStep ? "text-indigo-400" : ""}`} style={i !== regStep ? { color: 'var(--text-muted)' } : undefined}>
+                    <span className={`text-[10px] mt-1 ${i === regStep ? "text-blue-400" : ""}`} style={i !== regStep ? { color: 'var(--text-muted)' } : undefined}>
                       {s.label}
                     </span>
                   </div>
@@ -645,13 +678,18 @@ export default function Login() {
                   </motion.div>
 
                   <motion.div variants={fieldItem}>
-                    <MotionButton
+                    <button
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white font-semibold rounded-lg py-2.5 transition-all duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 btn-glow"
+                      className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-full py-3 pl-6 pr-2 cursor-pointer ease-spring transition flex items-center justify-between group"
                     >
-                      {loading ? "Signing in..." : "Sign In"}
-                    </MotionButton>
+                      <span className="ml-auto">{loading ? "Signing in..." : "Sign in"}</span>
+                      <span className="btn-nested-arrow ml-auto">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                        </svg>
+                      </span>
+                    </button>
                   </motion.div>
                 </motion.div>
               </motion.form>
@@ -674,7 +712,7 @@ export default function Login() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="w-full glass-input rounded-lg px-4 py-2.5 focus:outline-none input-glow transition" style={{ color: 'var(--text-primary)' }}
-                      placeholder="John Doe"
+                      placeholder="Your full name"
                     />
                   </motion.div>
                   <motion.div variants={fieldItem}>
@@ -704,12 +742,17 @@ export default function Login() {
                     </p>
                   </motion.div>
                   <motion.div variants={fieldItem}>
-                    <MotionButton
+                    <button
                       onClick={handleNext}
-                      className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold rounded-lg py-2.5 transition-all duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 btn-glow"
+                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-full py-3 pl-6 pr-2 cursor-pointer ease-spring transition flex items-center justify-between group"
                     >
-                      Continue
-                    </MotionButton>
+                      <span className="ml-auto">Continue</span>
+                      <span className="btn-nested-arrow ml-auto">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                        </svg>
+                      </span>
+                    </button>
                   </motion.div>
                 </motion.div>
               </motion.div>
@@ -816,7 +859,7 @@ export default function Login() {
                     <MotionButton
                       onClick={handleNext}
                       disabled={!passwordsMatch}
-                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-medium rounded-lg py-2.5 transition cursor-pointer"
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-medium rounded-lg py-2.5 transition cursor-pointer"
                     >
                       Continue
                     </MotionButton>
@@ -836,14 +879,14 @@ export default function Login() {
                 className="space-y-5"
               >
                 <div className="text-center">
-                  <div className="w-14 h-14 rounded-full bg-indigo-600/20 flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-7 h-7 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-14 h-14 rounded-full bg-blue-600/20 flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-7 h-7 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <h3 className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Verify Your Email</h3>
                   <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                    We sent a 6-digit code to <span className="text-indigo-400 font-medium">{email}</span>
+                    We sent a 6-digit code to <span className="text-blue-400 font-medium">{email}</span>
                   </p>
                 </div>
 
@@ -856,7 +899,7 @@ export default function Login() {
                     </div>
                     <p className="text-green-400 font-medium">Email Verified</p>
                     <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Creating your account...</p>
-                    <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mt-3" />
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mt-3" />
                   </div>
                 ) : emailOtpExpired ? (
                   <div className="text-center py-4 space-y-3">
@@ -868,7 +911,7 @@ export default function Login() {
                     <p className="text-red-400 font-medium">OTP Expired</p>
                     <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Your verification code has expired.</p>
                     <MotionButton onClick={handleSendEmailOTP} disabled={loading}
-                      className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-40 text-white font-semibold rounded-lg py-2.5 transition-all duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 btn-glow">
+                      className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold rounded-lg py-2.5 transition-all duration-300 cursor-pointer shadow-lg shadow-blue-600/15 btn-glow">
                       {loading ? "Sending..." : "Send New OTP"}
                     </MotionButton>
                   </div>
@@ -887,15 +930,15 @@ export default function Login() {
                     )}
                     <OTPInput value={emailOTP} onChange={setEmailOTP} />
                     <MotionButton onClick={handleVerifyEmailOTP} disabled={loading || emailOTP.length !== 6}
-                      className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-40 text-white font-semibold rounded-lg py-2.5 transition-all duration-300 cursor-pointer shadow-lg shadow-indigo-500/20 btn-glow">
+                      className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold rounded-lg py-2.5 transition-all duration-300 cursor-pointer shadow-lg shadow-blue-600/15 btn-glow">
                       {loading ? "Verifying..." : "Verify Email"}
                     </MotionButton>
                     <p className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                       {otpCountdown > 0 ? (
-                        <>Resend in <span className="text-indigo-400 font-mono">{otpCountdown}s</span></>
+                        <>Resend in <span className="text-blue-400 font-mono">{otpCountdown}s</span></>
                       ) : (
                         <button onClick={handleSendEmailOTP} disabled={loading}
-                          className="text-indigo-400 hover:text-indigo-300 cursor-pointer">Resend OTP</button>
+                          className="text-blue-400 hover:text-blue-300 cursor-pointer">Resend OTP</button>
                       )}
                     </p>
                   </>
@@ -965,7 +1008,7 @@ export default function Login() {
             <button
               type="button"
               onClick={() => switchMode(!isRegister)}
-              className="text-indigo-400 hover:text-indigo-300 cursor-pointer"
+              className="text-blue-400 hover:text-blue-300 cursor-pointer"
             >
               {isRegister ? "Sign In" : "Register"}
             </button>

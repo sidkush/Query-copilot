@@ -40,7 +40,7 @@ const slideMessage = {
   transition: { duration: 0.2, ease: "easeOut" },
 };
 
-function StatCard({ value, label, icon, color = "from-indigo-400 to-violet-400", onClick }) {
+function StatCard({ value, label, icon, color = "from-blue-400 to-cyan-400", onClick }) {
   return (
     <motion.div
       onClick={onClick}
@@ -375,7 +375,7 @@ export default function AdminDashboard() {
               className="mb-4 glass rounded-lg p-3 text-sm text-gray-300 flex justify-between"
             >
               {actionMsg}
-              <button onClick={() => setActionMsg("")} className="text-gray-500 hover:text-white cursor-pointer">x</button>
+              <button onClick={() => setActionMsg("")} className="text-gray-500 hover:text-white cursor-pointer" aria-label="Dismiss">x</button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -441,7 +441,7 @@ export default function AdminDashboard() {
                       >
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-bold text-white">{overviewPopup.title}</h3>
-                          <button onClick={() => setOverviewPopup(null)} className="text-gray-500 hover:text-white text-xl cursor-pointer px-2">x</button>
+                          <button onClick={() => setOverviewPopup(null)} className="text-gray-500 hover:text-white text-xl cursor-pointer px-2" aria-label="Close">x</button>
                         </div>
                         <div className="overflow-auto flex-1">
                           {overviewPopup.rows.length === 0 ? (
@@ -654,7 +654,7 @@ export default function AdminDashboard() {
                                     if (p === currentPlan) { unstageChange(userDetail.email); } // revert to original
                                     else { stagePlanChange(userDetail.email, p); }
                                   }}
-                                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition cursor-pointer ${isActive ? "bg-indigo-600 border-indigo-500 text-white" : "border-gray-700 text-gray-400 hover:bg-gray-800"}`}>
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition cursor-pointer ${isActive ? "bg-blue-600 border-blue-500 text-white" : "border-gray-700 text-gray-400 hover:bg-gray-800"}`}>
                                     {p}
                                   </MotionButton>
                                 );
@@ -836,7 +836,7 @@ export default function AdminDashboard() {
                                 className="flex-1 glass-input rounded-lg px-3 py-1.5 text-sm text-white input-glow"
                                 onKeyDown={(e) => { if (e.key === "Enter") handleReplyTicket(t.id); }}
                               />
-                              <MotionButton onClick={() => handleReplyTicket(t.id)} className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition cursor-pointer">Reply</MotionButton>
+                              <MotionButton onClick={() => handleReplyTicket(t.id)} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition cursor-pointer">Reply</MotionButton>
                               <MotionButton onClick={() => handleCloseTicket(t.id)} className="px-3 py-1.5 text-xs bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition cursor-pointer">Close</MotionButton>
                             </div>
                           )}

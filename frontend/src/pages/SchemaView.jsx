@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import ERDiagram from "../components/ERDiagram";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
-import MotionButton from "../components/animation/MotionButton";
 import { ChartSkeleton } from "../components/animation/SkeletonLoader";
 
 export default function SchemaView() {
@@ -65,24 +64,31 @@ export default function SchemaView() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Schema Explorer</h1>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Schema explorer</h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Drag tables to rearrange &middot; {tables.length} tables discovered</p>
         </motion.div>
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-500" />PK</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500" />FK</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500" />FK</span>
             <span className="flex items-center gap-1.5">
-              <svg className="w-3 h-2" viewBox="0 0 12 8"><path d="M0 4 L8 4" stroke="#6366f1" strokeWidth="1.5" /><polygon points="8 1, 12 4, 8 7" fill="#6366f1" /></svg>
+              <svg className="w-3 h-2" viewBox="0 0 12 8"><path d="M0 4 L8 4" stroke="#2563EB" strokeWidth="1.5" /><polygon points="8 1, 12 4, 8 7" fill="#2563EB" /></svg>
               Relation
             </span>
           </div>
-          <MotionButton
+          <motion.button
             onClick={() => navigate("/chat")}
-            className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-medium rounded-lg transition cursor-pointer btn-glow shadow-lg shadow-indigo-500/20"
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="group inline-flex items-center gap-2 pl-5 pr-2 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-full shadow-lg shadow-blue-600/15 ease-spring cursor-pointer"
           >
-            Start Querying
-          </MotionButton>
+            <span>Start querying</span>
+            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-white/15 ease-spring transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-[1px]">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
+            </span>
+          </motion.button>
         </div>
       </div>
 
@@ -96,8 +102,8 @@ export default function SchemaView() {
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <span className="w-2 h-2 bg-indigo-500 rounded-full" aria-hidden="true" />
-              Entity Relationship Diagram
+              <span className="w-2 h-2 bg-blue-500 rounded-full" aria-hidden="true" />
+              Entity relationship diagram
             </h2>
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -171,12 +177,12 @@ export default function SchemaView() {
           transition={{ delay: 0.3, duration: 0.4 }}
         >
           <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <span className="w-2 h-2 bg-violet-500 rounded-full" />
-            Suggested Questions
+            <span className="w-2 h-2 bg-blue-400 rounded-full" />
+            Suggested questions
           </h2>
           {loadingSuggestions ? (
             <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-              <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
               AI is analyzing your schema for smart suggestions...
             </div>
           ) : suggestions.length > 0 ? (
@@ -185,18 +191,19 @@ export default function SchemaView() {
                 <StaggerItem key={i}>
                   <motion.button
                     onClick={() => navigate("/chat", { state: { prefill: q } })}
-                    whileHover={{ y: -3, transition: { duration: 0.2 } }}
-                    className="w-full text-left glass-card rounded-xl px-5 py-4 text-sm hover:border-indigo-500/50 transition-all duration-200 cursor-pointer group"
+                    whileHover={{ y: -3 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    className="w-full text-left glass-card rounded-2xl px-5 py-4 text-sm hover:border-blue-500/50 ease-spring cursor-pointer group"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    <span className="text-indigo-400 mr-2 group-hover:text-indigo-300">?</span>
+                    <span className="text-blue-400 mr-2 group-hover:text-blue-300">?</span>
                     {q}
                   </motion.button>
                 </StaggerItem>
               ))}
             </StaggerContainer>
           ) : (
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Connect a database to get AI-powered query suggestions.</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Connect a database to see smart query suggestions.</p>
           )}
         </motion.div>
       </div>

@@ -91,7 +91,7 @@ export default function UserDropdown() {
         aria-haspopup="menu"
         aria-label={`User menu for ${displayName}`}
       >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" aria-hidden="true">
+        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0" aria-hidden="true">
           {initials}
         </div>
         <span className="text-sm font-medium hidden sm:inline max-w-[120px] truncate" style={{ color: 'var(--text-secondary)' }}>

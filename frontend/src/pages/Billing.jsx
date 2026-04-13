@@ -1,10 +1,10 @@
 import { useState, useEffect, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
-import MotionButton from "../components/animation/MotionButton";
 
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
@@ -69,13 +69,13 @@ export default function Billing() {
       </GPUTierProvider>
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Plans & Billing</h1>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Plans &amp; billing</h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Scale your data intelligence</p>
         </div>
         <UserDropdown />
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 relative z-10">
+      <div className="max-w-4xl mx-auto px-4 py-16 relative z-10">
         {loading ? (
           <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
             <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -93,11 +93,12 @@ export default function Billing() {
           </motion.div>
         ) : (
           <StaggerContainer className="space-y-8">
-            {/* Current plan */}
+            {/* Current plan — Double-Bezel hero card */}
             <StaggerItem>
-              <div className="glass-card rounded-2xl p-6">
+              <div className="bezel-shell">
+                <div className="bezel-core glass-card p-8" style={{ borderRadius: 'calc(2rem - 6px)' }}>
                 <div className="flex items-center gap-3 mb-4">
-                  <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Current Plan</h2>
+                  <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Current plan</h2>
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -111,7 +112,7 @@ export default function Billing() {
                 {billing?.daily_limit != null && (
                   <div className="mb-4">
                     <div className="flex items-center justify-between text-sm mb-1.5">
-                      <span style={{ color: 'var(--text-secondary)' }}>Today&apos;s Usage</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>Today&apos;s usage</span>
                       <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{billing.queries_today ?? 0} / {billing.daily_limit} queries</span>
                     </div>
                     <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--overlay-medium)' }}>
@@ -146,13 +147,14 @@ export default function Billing() {
                     ))}
                   </ul>
                 )}
+                </div>
               </div>
             </StaggerItem>
 
             {/* Future plans */}
             <StaggerItem>
               <div>
-                <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Upgrade Options</h2>
+                <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Upgrade options</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {futurePlans.map((plan, idx) => (
                     <motion.div
@@ -184,18 +186,25 @@ export default function Billing() {
                         ))}
                       </ul>
 
-                      <MotionButton
+                      <motion.button
                         onClick={() => setWaitlistJoined((p) => ({ ...p, [plan.name]: true }))}
                         disabled={waitlistJoined[plan.name]}
-                        className={`w-full py-2.5 text-sm font-semibold rounded-full transition cursor-pointer ${
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        className={`group w-full flex items-center justify-between pl-5 pr-2 py-2 text-sm font-semibold rounded-full ease-spring cursor-pointer ${
                           waitlistJoined[plan.name]
                             ? "glass text-green-400 border-green-700/50"
-                            : "glass text-indigo-400 hover:bg-white/5 hover:text-indigo-300"
+                            : "glass text-blue-400 hover:bg-white/5 hover:text-blue-300"
                         }`}
                         aria-disabled={waitlistJoined[plan.name]}
                       >
-                        {waitlistJoined[plan.name] ? "On Waitlist" : "Join Waitlist"}
-                      </MotionButton>
+                        <span>{waitlistJoined[plan.name] ? "On waitlist" : "Join waitlist"}</span>
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 ease-spring transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-[1px]">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M5 12h14M13 5l7 7-7 7" />
+                          </svg>
+                        </span>
+                      </motion.button>
                       </div>
                     </motion.div>
                   ))}

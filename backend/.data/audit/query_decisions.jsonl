@@ -281,3 +281,15 @@
 {"timestamp": "2026-04-07T09:20:47.230968+00:00", "conn_id": "c", "email_hash": "", "question_hash": "9f86d081884c", "tiers_checked": ["schema", "memory", "turbo", "live"], "tier_hit": "live", "schema_hash": "h", "cache_age_s": 0, "reason": "hit"}
 {"timestamp": "2026-04-07T09:21:41.604481+00:00", "conn_id": "conn1", "email_hash": "", "question_hash": "7f1ea51d453f", "tiers_checked": ["schema"], "tier_hit": "schema", "schema_hash": "abc", "cache_age_s": 0, "reason": "hit"}
 {"timestamp": "2026-04-07T09:21:41.613277+00:00", "conn_id": "conn1", "email_hash": "", "question_hash": "6cec62356b33", "tiers_checked": ["schema", "memory", "turbo", "live"], "tier_hit": "live", "schema_hash": "abc", "cache_age_s": 0, "reason": "hit"}
+{"timestamp": "2026-04-09T00:22:33.053082+00:00", "event_type": "test_event", "session_id": "test_session", "test": true}
+{"timestamp": "2026-04-09T00:26:57.745776+00:00", "event_type": "integration_test", "session_id": "test_session", "verified": true}
+{"timestamp": "2026-04-10T13:23:48.109653+00:00", "conn_id": "8941d664", "event_type": "sync_started", "details": {"email_hash": "2d6713bebcdf"}}
+{"timestamp": "2026-04-10T13:23:48.933983+00:00", "conn_id": "8941d664", "event_type": "sync_completed", "details": {"status": "created", "tables_synced": 0, "size_mb": 0.512, "elapsed_seconds": 0.815}}
+{"timestamp": "2026-04-10T13:24:48.412470+00:00", "conn_id": "8941d664", "event_type": "sync_started", "details": {"type": "refresh"}}
+{"timestamp": "2026-04-10T13:24:49.227574+00:00", "conn_id": "8941d664", "event_type": "sync_completed", "details": {"status": "created", "tables_synced": 0, "size_mb": 0.512, "elapsed_seconds": 0.8}}
+{"timestamp": "2026-04-10T13:29:41.773271+00:00", "conn_id": "2d2ddc1f", "event_type": "sync_started", "details": {"email_hash": "2d6713bebcdf"}}
+{"timestamp": "2026-04-10T13:29:42.507477+00:00", "conn_id": "2d2ddc1f", "event_type": "sync_completed", "details": {"status": "created", "tables_synced": 0, "size_mb": 0.512, "elapsed_seconds": 0.721}}
+{"timestamp": "2026-04-10T13:31:49.026101+00:00", "conn_id": "325a6730", "event_type": "sync_started", "details": {"email_hash": "2d6713bebcdf"}}
+{"timestamp": "2026-04-10T13:31:49.645638+00:00", "conn_id": "325a6730", "event_type": "sync_completed", "details": {"status": "created", "tables_synced": 0, "size_mb": 0.512, "elapsed_seconds": 0.607}}
+{"timestamp": "2026-04-10T13:34:28.129224+00:00", "conn_id": "3fb42833", "event_type": "sync_started", "details": {"email_hash": "2d6713bebcdf"}}
+{"timestamp": "2026-04-10T13:34:28.761920+00:00", "conn_id": "3fb42833", "event_type": "sync_completed", "details": {"status": "created", "tables_synced": 0, "size_mb": 0.512, "elapsed_seconds": 0.624}}

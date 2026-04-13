@@ -28,6 +28,9 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
   const [chartPickerOpen, setChartPickerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [moveMenuOpen, setMoveMenuOpen] = useState(null); // null | "move" | "copy"
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const titleInputRef = useRef(null);
   const moveMenuRef = useRef(null);
   const [showComments, setShowComments] = useState(false);
   const [anomalyExplanation, setAnomalyExplanation] = useState(null);
@@ -152,19 +155,20 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
   const isKPI = tile?.chartType === 'kpi';
 
   return (
-    <div className="relative overflow-visible group h-full flex flex-col"
+    <div className="relative overflow-visible group h-full flex flex-col dashboard-tile"
+      data-selected={selectedTileId === tile?.id ? "true" : undefined}
       onClick={() => onSelect?.()}
       style={{
         background: fmt.style.background || themeConfig?.background?.tile || TOKENS.bg.elevated,
         border: `${fmt.style.borderWidth ?? 1}px ${fmt.style.borderStyle || 'solid'} ${fmt.style.borderColor || TOKENS.border.default}`,
-        borderRadius: `${fmt.style.radius ?? themeConfig?.spacing?.tileRadius ?? 14}px`,
-        boxShadow: fmt.style.shadow ? `0 4px ${fmt.style.shadowBlur ?? 8}px rgba(0,0,0,0.4)` : 'none',
-        outline: selectedTileId === tile?.id ? '2px solid #2563EB' : 'none',
-        outlineOffset: selectedTileId === tile?.id ? '2px' : '0',
-        transition: `all ${TOKENS.transition}`,
+        borderRadius: `${fmt.style.radius ?? themeConfig?.spacing?.tileRadius ?? 16}px`,
+        boxShadow: fmt.style.shadow
+          ? `0 8px ${fmt.style.shadowBlur ?? 24}px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.04) inset`
+          : TOKENS.tile.shadow,
+        // Outline handled by .dashboard-tile[data-selected="true"] CSS rule — keep inline off to avoid double-ring
       }}>
       {/* Drag handle */}
-      <div className="absolute top-3.5 left-2 w-3 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 cursor-grab"
+      <div className="absolute top-3 left-1.5 w-4 flex flex-col gap-0.5 opacity-0 group-hover:opacity-70 cursor-grab rounded p-0.5 hover:opacity-100"
         style={{ transition: `opacity ${TOKENS.transition}` }}>
         <span className="block w-full h-0.5 rounded" style={{ background: TOKENS.text.muted }}/>
         <span className="block w-full h-0.5 rounded" style={{ background: TOKENS.text.muted }}/>
@@ -173,11 +177,47 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
       {/* Header */}
       <div className="flex items-center justify-between px-[14px] pt-[10px]">
         <div className="flex items-center gap-2">
-          <span style={{
-            fontSize: `${fmt.typography.titleFontSize}px`,
-            fontWeight: fmt.typography.titleFontWeight,
-            color: fmt.typography.titleColor,
-          }}>{tile?.title || 'Untitled'}</span>
+          {titleEditing ? (
+            <input
+              ref={titleInputRef}
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={() => {
+                setTitleEditing(false);
+                if (titleDraft.trim() && titleDraft.trim() !== tile?.title) {
+                  api.updateTile(dashboardId, tile.id, { title: titleDraft.trim() }).catch(() => {});
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.target.blur();
+                if (e.key === 'Escape') { setTitleEditing(false); }
+              }}
+              autoFocus
+              className="bg-transparent outline-none border-b"
+              style={{
+                fontSize: `${fmt.typography.titleFontSize}px`,
+                fontWeight: fmt.typography.titleFontWeight,
+                color: fmt.typography.titleColor,
+                fontFamily: TOKENS.tile.headerFont,
+                letterSpacing: '-0.01em',
+                borderColor: TOKENS.accent,
+                width: Math.max(80, titleDraft.length * 8 + 20),
+              }}
+            />
+          ) : (
+            <span
+              onDoubleClick={(e) => { e.stopPropagation(); setTitleDraft(tile?.title || ''); setTitleEditing(true); }}
+              title="Double-click to rename"
+              style={{
+                fontSize: `${fmt.typography.titleFontSize}px`,
+                fontWeight: fmt.typography.titleFontWeight,
+                color: fmt.typography.titleColor,
+                fontFamily: TOKENS.tile.headerFont,
+                letterSpacing: '-0.01em',
+                cursor: 'text',
+              }}
+            >{tile?.title || 'Untitled'}</span>
+          )}
           {tile?.subtitle && <span style={{
             fontSize: `${fmt.typography.subtitleFontSize}px`,
             color: fmt.typography.subtitleColor,
@@ -185,7 +225,7 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
           {trend && (
             <span style={{
               fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
-              color: trend === 'up' ? '#22c55e' : '#ef4444',
+              color: trend === 'up' ? TOKENS.success : TOKENS.danger,
               background: trend === 'up' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
             }}>
               {trend === 'up' ? '↑ Trending up' : '↓ Trending down'}
@@ -195,7 +235,7 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
             <span title={anomalyExplanation || formatAnomalyBadge(anomaly)}
               style={{
                 fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
-                color: anomaly.direction === 'high' ? '#f59e0b' : '#ef4444',
+                color: anomaly.direction === 'high' ? TOKENS.warning : TOKENS.danger,
                 background: anomaly.direction === 'high' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
                 whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
               }}>

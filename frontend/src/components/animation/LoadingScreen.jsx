@@ -9,7 +9,7 @@ export default function LoadingScreen({ visible }) {
     <AnimatePresence>
       {visible && (
         <motion.div
-          className="fixed inset-0 z-[10000] flex flex-col items-center justify-center"
+          className="fixed inset-0 z-[200] flex flex-col items-center justify-center"
           style={{ background: 'var(--bg-page)' }}
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -17,13 +17,13 @@ export default function LoadingScreen({ visible }) {
         >
           {/* Pulsing logo */}
           <motion.div
-            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-2xl shadow-indigo-500/30"
+            className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center shadow-2xl shadow-blue-600/25"
             animate={{
               scale: [1, 1.08, 1],
               boxShadow: [
-                "0 0 0 0px rgba(99,102,241,0.3)",
-                "0 0 0 20px rgba(99,102,241,0)",
-                "0 0 0 0px rgba(99,102,241,0.3)",
+                "0 0 0 0px rgba(37,99,235,0.3)",
+                "0 0 0 20px rgba(37,99,235,0)",
+                "0 0 0 0px rgba(37,99,235,0.3)",
               ],
             }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -43,7 +43,7 @@ export default function LoadingScreen({ visible }) {
 
           {/* Thin progress bar */}
           <motion.div
-            className="mt-4 h-[2px] rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+            className="mt-4 h-[2px] rounded-full bg-blue-500"
             initial={{ width: 0 }}
             animate={{ width: 120 }}
             transition={{ duration: 2, ease: "easeOut" }}

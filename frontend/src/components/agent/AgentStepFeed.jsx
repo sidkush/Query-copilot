@@ -13,16 +13,16 @@ function ChecklistPanel({ checklist, elapsedMs, estimatedMs }) {
   return (
     <div style={{ padding: '12px 16px', borderBottom: `1px solid ${TOKENS.border.default}`, background: 'var(--overlay-faint)' }}>
       <div style={{ height: 3, borderRadius: 2, background: 'var(--overlay-light)', marginBottom: 10, overflow: 'hidden' }}>
-        <div style={{ height: '100%', borderRadius: 2, background: '#22c55e', width: `${pct}%`, transition: 'width 0.5s ease' }} />
+        <div style={{ height: '100%', borderRadius: 2, background: TOKENS.success, width: `${pct}%`, transition: 'width 0.5s ease' }} />
       </div>
       {checklist.map((item, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 13 }}>
-          {item.status === 'done' && <span style={{ color: '#22c55e', fontSize: 14 }}>&#10003;</span>}
-          {item.status === 'active' && <span className="animate-pulse" style={{ color: '#f59e0b', fontSize: 10 }}>&#9679;</span>}
+          {item.status === 'done' && <span style={{ color: TOKENS.success, fontSize: 14 }}>&#10003;</span>}
+          {item.status === 'active' && <span className="animate-pulse" style={{ color: TOKENS.warning, fontSize: 10 }}>&#9679;</span>}
           {item.status === 'pending' && <span style={{ color: 'var(--overlay-medium)', fontSize: 10 }}>&#9675;</span>}
           <span style={{
             color: item.status === 'done' ? TOKENS.text.muted :
-                   item.status === 'active' ? '#f59e0b' : TOKENS.text.muted,
+                   item.status === 'active' ? TOKENS.warning : TOKENS.text.muted,
             textDecoration: item.status === 'done' ? 'line-through' : 'none',
             opacity: item.status === 'pending' ? 0.7 : 1,
           }}>{item.label}</span>
@@ -37,7 +37,7 @@ function ChecklistPanel({ checklist, elapsedMs, estimatedMs }) {
 
 function VerificationBadge({ verification }) {
   if (!verification) return null;
-  const colors = { HIGH: '#22c55e', MEDIUM: '#f59e0b', LOW: '#ef4444' };
+  const colors = { HIGH: TOKENS.success, MEDIUM: TOKENS.warning, LOW: TOKENS.danger };
   const icons = { HIGH: '\u2713', MEDIUM: '\u2139', LOW: '\u26A0' };
   const labels = {
     HIGH: 'Verified against data',
@@ -138,7 +138,7 @@ function StepIcon({ type }) {
   }
   if (type === "tier_routing") {
     return (
-      <span style={{ display: "inline-block", width: 16, height: 16, color: "#f59e0b" }}>
+      <span style={{ display: "inline-block", width: 16, height: 16, color: TOKENS.warning }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
         </svg>
@@ -166,7 +166,7 @@ function StepIcon({ type }) {
   }
   if (type === "cached_result") {
     return (
-      <span style={{ display: "inline-block", width: 16, height: 16, color: "#06b6d4" }}>
+      <span style={{ display: "inline-block", width: 16, height: 16, color: TOKENS.info }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
         </svg>
@@ -185,7 +185,7 @@ function StepIcon({ type }) {
   }
   if (type === "plan") {
     return (
-      <span style={{ display: "inline-block", width: 16, height: 16, color: "#a78bfa" }}>
+      <span style={{ display: "inline-block", width: 16, height: 16, color: "#3B82F6" }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
           <rect x="9" y="3" width="6" height="4" rx="1" />
@@ -196,7 +196,7 @@ function StepIcon({ type }) {
   }
   if (type === "budget_extension") {
     return (
-      <span style={{ display: "inline-block", width: 16, height: 16, color: "#f59e0b" }}>
+      <span style={{ display: "inline-block", width: 16, height: 16, color: TOKENS.warning }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 2v20M2 12h20" />
         </svg>
@@ -220,23 +220,23 @@ function ChatBubble({ align = 'left', color, timestamp, compact = false, childre
       alignItems: isUser ? 'flex-end' : 'flex-start',
       width: '100%',
     }}>
-      <div style={{
-        maxWidth: compact ? '85%' : '92%',
-        padding: compact ? '4px 10px' : '8px 12px',
-        borderRadius: '12px',
-        borderTopRightRadius: isUser ? '4px' : '12px',
-        borderTopLeftRadius: isUser ? '12px' : '4px',
-        background: 'var(--glass-bg-card)',
-        border: `1px solid ${isUser ? TOKENS.accent + '30' : 'var(--glass-border)'}`,
-        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-        wordBreak: 'break-word',
-      }}>
+      <div
+        className={isUser ? 'agent-bubble-user' : 'agent-bubble-assistant'}
+        style={{
+          maxWidth: compact ? '85%' : '92%',
+          padding: compact ? '5px 11px' : '10px 14px',
+          borderRadius: '14px',
+          borderTopRightRadius: isUser ? '4px' : '14px',
+          borderTopLeftRadius: isUser ? '14px' : '4px',
+          wordBreak: 'break-word',
+        }}
+      >
         {children}
       </div>
       {timestamp && (
         <span style={{
           fontSize: '9px', color: TOKENS.text.muted,
-          marginTop: '2px', padding: '0 4px',
+          marginTop: '3px', padding: '0 4px',
         }}>
           {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
@@ -306,36 +306,53 @@ function RunSqlStepRenderer({ step }) {
         columns: parsed.columns, rows,
       });
       setAdded(true);
-    } catch (e) { console.error("Add to dashboard failed:", e); }
+    } catch (e) { void e; }
   };
 
-  const btnStyle = (active) => ({
-    fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-    border: `1px solid ${active ? TOKENS.accent + '60' : TOKENS.border.default}`,
-    background: active ? TOKENS.accentGlow : "transparent",
-    color: active ? TOKENS.accentLight : TOKENS.text.muted,
+  // Pill toggle style — used for Chart/Table/Hide
+  const pillStyle = (active) => ({
+    fontSize: 10,
+    fontWeight: 500,
+    padding: "3px 10px",
+    borderRadius: 9999,
+    cursor: "pointer",
+    border: `1px solid ${active ? "rgba(37, 99, 235, 0.3)" : "var(--border-default)"}`,
+    background: active ? "var(--accent-glow)" : "transparent",
+    color: active ? "var(--accent)" : "var(--text-muted)",
+    transition: "background 300ms cubic-bezier(0.32,0.72,0,1), color 300ms cubic-bezier(0.32,0.72,0,1), border-color 300ms cubic-bezier(0.32,0.72,0,1), transform 300ms cubic-bezier(0.32,0.72,0,1)",
   });
 
   return (
-    <div style={{ background: TOKENS.bg.base, borderRadius: 8, overflow: "hidden", border: `1px solid ${TOKENS.border.default}` }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderBottom: `1px solid ${TOKENS.border.default}` }}>
-        <span style={{ fontSize: 11, color: TOKENS.text.secondary }}>
-          {rowCount} row{rowCount !== 1 ? "s" : ""} · {parsed.columns.length} col{parsed.columns.length !== 1 ? "s" : ""}
+    <div className="agent-step">
+      {/* Premium head bar — eyebrow + tool tag + stat */}
+      <div className="agent-step__head">
+        <span className="agent-step__label">
+          <span className="eyebrow-dot" aria-hidden="true" />
+          Tool
         </span>
-        <div style={{ display: "flex", gap: 4 }}>
-          <button onClick={() => setViewMode("chart")} style={btnStyle(viewMode === "chart")}>Chart</button>
-          <button onClick={() => setViewMode("table")} style={btnStyle(viewMode === "table")}>Table</button>
-          <button onClick={() => setViewMode(v => v === "hidden" ? "chart" : "hidden")} style={btnStyle(false)}>
+        <span className="agent-tool-tag">run_sql</span>
+        <span className="agent-step__stat">
+          {rowCount.toLocaleString()} row{rowCount !== 1 ? "s" : ""} · {parsed.columns.length} col{parsed.columns.length !== 1 ? "s" : ""}
+        </span>
+        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          <button onClick={() => setViewMode("chart")} style={pillStyle(viewMode === "chart")} className="ease-spring">Chart</button>
+          <button onClick={() => setViewMode("table")} style={pillStyle(viewMode === "table")} className="ease-spring">Table</button>
+          <button onClick={() => setViewMode(v => v === "hidden" ? "chart" : "hidden")} style={pillStyle(false)} className="ease-spring">
             {viewMode === "hidden" ? "Show" : "Hide"}
           </button>
           {activeDashboardId && (
-            <button onClick={handleAddToDashboard} disabled={added} style={{
-              ...btnStyle(false),
-              background: added ? "transparent" : TOKENS.accentGlow,
-              color: added ? TOKENS.text.muted : TOKENS.accentLight,
-              border: `1px solid ${added ? TOKENS.border.default : TOKENS.accent + '60'}`,
-              fontWeight: 600, opacity: added ? 0.5 : 1,
+            <button onClick={handleAddToDashboard} disabled={added} className="ease-spring" style={{
+              fontSize: 10,
+              fontWeight: 600,
+              padding: "3px 10px",
+              borderRadius: 9999,
+              cursor: added ? "default" : "pointer",
+              background: added ? "transparent" : "var(--accent)",
+              color: added ? "var(--text-muted)" : "#fff",
+              border: added ? "1px solid var(--border-default)" : "none",
+              boxShadow: added ? "none" : "0 6px 18px -8px rgba(37, 99, 235, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset",
+              opacity: added ? 0.55 : 1,
+              transition: "transform 300ms cubic-bezier(0.32,0.72,0,1), background 300ms cubic-bezier(0.32,0.72,0,1)",
             }}>
               {added ? "Added" : "+ Dashboard"}
             </button>
@@ -354,33 +371,107 @@ function RunSqlStepRenderer({ step }) {
 
       {/* Table view */}
       {viewMode === "table" && (
-        <div style={{ maxHeight: 220, overflowY: "auto", overflowX: "auto" }}>
+        <div style={{ maxHeight: 240, overflowY: "auto", overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
             <thead>
               <tr>
                 {parsed.columns.map(col => (
-                  <th key={col} style={{ padding: "4px 8px", textAlign: "left", color: TOKENS.text.secondary, fontWeight: 600, borderBottom: `1px solid ${TOKENS.border.default}`, whiteSpace: "nowrap", position: "sticky", top: 0, background: TOKENS.bg.base }}>{col}</th>
+                  <th
+                    key={col}
+                    style={{
+                      padding: "8px 12px",
+                      textAlign: "left",
+                      color: "var(--text-muted)",
+                      fontWeight: 600,
+                      fontSize: 9,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      borderBottom: "1px solid var(--border-default)",
+                      whiteSpace: "nowrap",
+                      position: "sticky",
+                      top: 0,
+                      background: "var(--bg-base)",
+                    }}
+                  >
+                    {col}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.slice(0, 50).map((row, i) => (
-                <tr key={i} style={{ borderBottom: `1px solid ${TOKENS.border.default}10` }}>
+                <tr
+                  key={i}
+                  style={{
+                    borderBottom: "1px solid var(--overlay-faint)",
+                    background: i % 2 === 1 ? "var(--overlay-faint)" : undefined,
+                    transition: "background 200ms cubic-bezier(0.32,0.72,0,1)",
+                  }}
+                >
                   {parsed.columns.map(col => (
-                    <td key={col} style={{ padding: "3px 8px", color: TOKENS.text.primary, whiteSpace: "nowrap" }}>{row[col] != null ? String(row[col]) : ""}</td>
+                    <td
+                      key={col}
+                      style={{
+                        padding: "6px 12px",
+                        color: "var(--text-primary)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {row[col] != null ? String(row[col]) : ""}
+                    </td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </table>
+          {rows.length > 50 && (
+            <div style={{
+              padding: "6px 12px",
+              fontSize: 10,
+              color: "var(--text-muted)",
+              fontStyle: "italic",
+              borderTop: "1px solid var(--border-default)",
+              background: "var(--bg-surface)",
+              textAlign: "center",
+            }}>
+              Showing first 50 of {rows.length.toLocaleString()} rows
+            </div>
+          )}
         </div>
       )}
 
-      {/* SQL collapsible */}
+      {/* SQL collapsible — premium pill chrome */}
       {sql && (
-        <details style={{ padding: "4px 10px 6px", borderTop: `1px solid ${TOKENS.border.default}` }}>
-          <summary style={{ fontSize: 9, color: TOKENS.text.muted, cursor: "pointer" }}>SQL</summary>
-          <pre style={{ fontSize: 9, color: TOKENS.accentLight, marginTop: 2, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{sql}</pre>
+        <details style={{ padding: "8px 12px", borderTop: "1px solid var(--border-default)", background: "var(--bg-surface)" }}>
+          <summary style={{
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            listStyle: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            userSelect: "none",
+          }}>
+            <span style={{ display: "inline-block", width: 4, height: 4, borderRadius: 9999, background: "var(--text-muted)" }} />
+            View SQL
+          </summary>
+          <pre style={{
+            fontSize: 10,
+            color: "var(--accent-light)",
+            marginTop: 6,
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: "var(--bg-base)",
+            border: "1px solid var(--border-default)",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            lineHeight: 1.5,
+          }}>{sql}</pre>
         </details>
       )}
     </div>
@@ -435,10 +526,26 @@ function AgentStepFeedInner() {
   if (!steps.length && !waiting) {
     return (
       <div style={{
-        flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-        color: TOKENS.text.muted, fontSize: "13px",
+        flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        gap: "10px", padding: "24px 16px",
       }}>
-        Ask a question to start the agent
+        <div style={{
+          width: 40, height: 40, borderRadius: 12,
+          background: TOKENS.accentGlow,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={TOKENS.accent} strokeWidth="1.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "14px", fontWeight: 600, color: TOKENS.text.primary, fontFamily: "'Outfit', system-ui, sans-serif", marginBottom: 4 }}>
+            Ready to help
+          </div>
+          <div style={{ fontSize: "12px", color: TOKENS.text.muted, maxWidth: 220, lineHeight: 1.5 }}>
+            Ask about your data, build dashboards, or explore insights
+          </div>
+        </div>
       </div>
     );
   }
@@ -446,9 +553,11 @@ function AgentStepFeedInner() {
   return (
     <div
       ref={scrollRef}
+      aria-live="polite"
+      aria-label="Agent execution steps"
       style={{
-        flex: 1, overflowY: "auto", padding: "8px 12px",
-        display: "flex", flexDirection: "column", gap: "10px",
+        flex: 1, overflowY: "auto", padding: "12px 14px",
+        display: "flex", flexDirection: "column", gap: "12px",
       }}
     >
       {agentLoading && agentChecklist.length > 0 && (
@@ -481,15 +590,31 @@ function AgentStepFeedInner() {
           );
         }
 
-        // Thinking: compact left bubble
+        // Thinking: animated while working, static checkmark once done
         if (step.type === 'thinking') {
+          const isActivePulse = agentLoading && i === steps.length - 1;
           return (
-            <ChatBubble key={step.tool_use_id || `${step.type}-${i}`} align="left" color={TOKENS.bg.base} timestamp={null} compact>
-              <span style={{ fontSize: '12px', color: TOKENS.text.muted, fontStyle: 'italic' }}>
-                {step.content || 'Analyzing...'}
-                <span className="animate-pulse"> ...</span>
-              </span>
-            </ChatBubble>
+            <div key={step.tool_use_id || `${step.type}-${i}`} style={{ display: 'flex' }}>
+              {isActivePulse ? (
+                <span className="agent-thinking">
+                  <span className="agent-thinking__dots" aria-hidden="true">
+                    <span /><span /><span />
+                  </span>
+                  {step.content || 'Analyzing'}
+                </span>
+              ) : (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                  padding: '0.35rem 0.75rem', borderRadius: 9999,
+                  fontSize: 12, color: 'var(--text-muted)',
+                }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--text-muted)', opacity: 0.5, flexShrink: 0 }}>
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  {step.content || 'Analyzed'}
+                </span>
+              )}
+            </div>
           );
         }
 
@@ -521,20 +646,33 @@ function AgentStepFeedInner() {
 
           return (
             <div key={step.tool_use_id || `${step.type}-${i}`} style={{ width: '100%' }}>
-              <details style={{ width: '100%' }}>
+              <details style={{ width: '100%' }} open>
                 <summary style={{
-                  fontSize: 11, color: TOKENS.text.muted, cursor: 'pointer',
-                  padding: '3px 8px', borderRadius: TOKENS.radius.sm,
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  listStyle: 'none', userSelect: 'none',
+                  fontSize: 9,
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px 0 6px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  listStyle: 'none',
+                  userSelect: 'none',
+                  fontWeight: 600,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
                 }}>
                   <StepIcon type="tool_call" />
-                  <span>Used: <strong style={{ color: TOKENS.text.secondary }}>{toolName}</strong>{rowHint}</span>
+                  Tool call
+                  <span style={{ opacity: 0.4 }}>·</span>
+                  <span className="agent-tool-tag">{toolName}</span>
+                  {rowHint && (
+                    <span style={{ letterSpacing: '0.04em', textTransform: 'none', color: 'var(--text-muted)', fontWeight: 500 }}>
+                      {rowHint}
+                    </span>
+                  )}
                 </summary>
-                <div style={{ marginTop: 4 }}>
-                  <ChatBubble align="left" color={TOKENS.bg.base} timestamp={ts} compact>
-                    <RunSqlStepRenderer step={step} />
-                  </ChatBubble>
+                <div style={{ marginTop: 0 }}>
+                  <RunSqlStepRenderer step={step} />
                 </div>
               </details>
             </div>
@@ -567,60 +705,105 @@ function AgentStepFeedInner() {
                   <VerificationBadge verification={agentVerification} />
                 )}
 
-                {step.type === "tier_routing" && (
-                  <div style={{
-                    fontSize: "12px", color: "#f59e0b", fontWeight: 500,
-                    padding: "4px 8px", borderRadius: TOKENS.radius.sm,
-                    background: "rgba(245, 158, 11, 0.08)",
-                    display: "inline-flex", alignItems: "center", gap: "6px",
-                  }}>
-                    <span>{step.content || "Checking intelligence tiers..."}</span>
-                    <span className="animate-pulse" style={{ fontSize: "10px" }}>...</span>
-                  </div>
-                )}
+                {step.type === "tier_routing" && (() => {
+                  const isActivePulse = agentLoading && i === steps.length - 1;
+                  return (
+                    <span className="agent-status-pill agent-status-pill--routing">
+                      {isActivePulse ? (
+                        <span className="agent-thinking__dots" aria-hidden="true">
+                          <span /><span /><span />
+                        </span>
+                      ) : (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ opacity: 0.6 }}>
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                      )}
+                      {step.content || "Checked tiers"}
+                    </span>
+                  );
+                })()}
 
                 {step.type === "plan" && (
-                  <div style={{
-                    fontSize: "12px", padding: "8px 10px", borderRadius: TOKENS.radius.sm,
-                    background: "rgba(167, 139, 250, 0.08)", border: "1px solid rgba(167, 139, 250, 0.2)",
+                  <div className="agent-plan-card" style={{
+                    fontSize: "12px",
+                    padding: "12px 14px",
+                    borderRadius: 12,
                   }}>
-                    <div style={{ color: "#a78bfa", fontWeight: 600, marginBottom: "4px" }}>
-                      Execution Plan
+                    <div className="agent-step__label" style={{ marginBottom: 8 }}>
+                      <span className="eyebrow-dot" aria-hidden="true" />
+                      Plan
+                      {Array.isArray(step.tool_input) && (
+                        <>
+                          <span style={{ opacity: 0.4 }}>·</span>
+                          <span style={{ letterSpacing: '0.04em', textTransform: 'none', fontWeight: 500 }}>
+                            {step.tool_input.length} step{step.tool_input.length !== 1 ? "s" : ""}
+                          </span>
+                        </>
+                      )}
                     </div>
-                    <div style={{ color: TOKENS.text.secondary, marginBottom: "6px" }}>
-                      {step.content}
-                    </div>
+                    {step.content && (
+                      <div style={{
+                        color: 'var(--text-secondary)',
+                        marginBottom: 10,
+                        fontSize: 12,
+                        lineHeight: 1.55,
+                      }}>
+                        {step.content}
+                      </div>
+                    )}
                     {step.tool_input && Array.isArray(step.tool_input) && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                      <ol style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 5,
+                        margin: 0,
+                        padding: 0,
+                        listStyle: "none",
+                      }}>
                         {step.tool_input.map((task, j) => (
-                          <div key={j} style={{
-                            display: "flex", alignItems: "center", gap: "6px",
-                            fontSize: "11px", padding: "2px 0",
+                          <li key={j} style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 9,
+                            fontSize: 11.5,
+                            padding: "3px 0",
                           }}>
-                            <span style={{ color: TOKENS.text.muted, flexShrink: 0 }}>
-                              {j + 1}.
+                            <span style={{
+                              flexShrink: 0,
+                              width: 18,
+                              height: 18,
+                              borderRadius: 9999,
+                              background: 'var(--accent-glow)',
+                              border: '1px solid rgba(37, 99, 235, 0.25)',
+                              color: 'var(--accent)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 9,
+                              fontWeight: 700,
+                              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                              fontVariantNumeric: 'tabular-nums',
+                            }}>
+                              {String(j + 1).padStart(2, '0')}
                             </span>
-                            <span style={{ color: TOKENS.text.primary }}>
+                            <span style={{ color: 'var(--text-primary)', flex: 1, lineHeight: 1.45 }}>
                               {task.title || task}
                             </span>
                             {task.chart_type && (
-                              <span style={{
-                                fontSize: "9px", color: TOKENS.text.muted, padding: "1px 4px",
-                                borderRadius: "3px", background: TOKENS.bg.base,
-                              }}>
+                              <span className="agent-tool-tag" style={{ flexShrink: 0 }}>
                                 {task.chart_type}
                               </span>
                             )}
-                          </div>
+                          </li>
                         ))}
-                      </div>
+                      </ol>
                     )}
                   </div>
                 )}
 
                 {step.type === "budget_extension" && (
                   <div style={{
-                    fontSize: "11px", color: "#f59e0b", fontStyle: "italic",
+                    fontSize: "11px", color: TOKENS.warning, fontStyle: "italic",
                     padding: "3px 8px", borderRadius: TOKENS.radius.sm,
                     background: "rgba(245, 158, 11, 0.06)",
                   }}>
@@ -629,39 +812,34 @@ function AgentStepFeedInner() {
                 )}
 
                 {step.type === "progress" && (
-                  <div style={{ fontSize: "12px", color: TOKENS.text.secondary }}>
-                    <div style={{ marginBottom: "4px" }}>{step.content || "Processing..."}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <div style={{ marginBottom: 6, fontStyle: 'italic' }}>{step.content || "Processing"}</div>
                     {/* Decomposition sub-query progress */}
                     {step.total_sub_queries > 0 ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <div style={{
-                          height: "3px", borderRadius: "2px", background: TOKENS.bg.base,
-                          overflow: "hidden", flex: 1, maxWidth: "180px",
-                        }}>
-                          <div style={{
-                            height: "100%", borderRadius: "2px", background: TOKENS.success,
-                            transition: "width 0.3s ease",
-                            width: `${Math.min(100, (((step.sub_query_index || 0) + 1) / step.total_sub_queries) * 100)}%`,
-                          }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div className="agent-progress agent-progress--success">
+                          <div
+                            className="agent-progress__fill"
+                            style={{
+                              transform: `scaleX(${Math.min(1, ((step.sub_query_index || 0) + 1) / step.total_sub_queries)})`,
+                            }}
+                          />
                         </div>
-                        <span style={{ fontSize: "10px", color: TOKENS.text.muted }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>
                           {(step.sub_query_index || 0) + 1}/{step.total_sub_queries}
                         </span>
                       </div>
                     ) : step.estimated_total_ms > 0 ? (
-                      /* Standard elapsed/estimated progress bar */
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <div style={{
-                          height: "3px", borderRadius: "2px", background: TOKENS.bg.base,
-                          overflow: "hidden", flex: 1, maxWidth: "180px",
-                        }}>
-                          <div style={{
-                            height: "100%", borderRadius: "2px", background: TOKENS.accent,
-                            transition: "width 0.5s ease",
-                            width: `${Math.min(100, ((step.elapsed_ms || 0) / step.estimated_total_ms) * 100)}%`,
-                          }} />
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div className="agent-progress">
+                          <div
+                            className="agent-progress__fill"
+                            style={{
+                              transform: `scaleX(${Math.min(1, (step.elapsed_ms || 0) / step.estimated_total_ms)})`,
+                            }}
+                          />
                         </div>
-                        <span style={{ fontSize: "10px", color: TOKENS.text.muted }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>
                           {Math.round((step.elapsed_ms || 0) / 1000)}s / ~{Math.round(step.estimated_total_ms / 1000)}s
                         </span>
                       </div>
@@ -670,62 +848,67 @@ function AgentStepFeedInner() {
                 )}
 
                 {step.type === "tier_hit" && (
-                  <div style={{
-                    fontSize: "11px", color: TOKENS.success, fontWeight: 500,
-                    padding: "3px 8px", borderRadius: "10px",
-                    background: "rgba(34, 197, 94, 0.1)",
-                    display: "inline-flex", alignItems: "center", gap: "4px",
-                  }}>
-                    {step.tier === "schema" && "Answered from schema cache"}
+                  <span className="agent-status-pill agent-status-pill--hit">
+                    {step.tier === "schema" && (
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12l5 5L20 7" /></svg>
+                        Answered from schema cache
+                      </>
+                    )}
                     {step.tier === "memory" && (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" opacity="0.3"/>
                           <circle cx="12" cy="12" r="3"/>
                         </svg>
                         Answered from team knowledge
-                      </span>
+                      </>
                     )}
                     {step.tier === "turbo" && (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
                           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                         </svg>
                         Answered from Turbo Mode
-                      </span>
+                      </>
                     )}
-                    {step.tier === "live" && "Querying live database"}
+                    {step.tier === "live" && (
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                        Querying live database
+                      </>
+                    )}
                     {step.cache_age_seconds > 0 && (
-                      <span style={{ color: TOKENS.text.muted, fontWeight: 400 }}>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 4 }}>
                         ({step.cache_age_seconds < 60 ? `${step.cache_age_seconds}s ago` :
                           step.cache_age_seconds < 3600 ? `${Math.round(step.cache_age_seconds / 60)}m ago` :
                           `${Math.round(step.cache_age_seconds / 3600)}h ago`})
                       </span>
                     )}
-                  </div>
+                  </span>
                 )}
 
                 {step.type === "cached_result" && (
                   <div style={{
                     fontSize: "13px", color: TOKENS.text.primary,
-                    padding: "8px 12px", borderRadius: TOKENS.radius.sm,
+                    padding: "10px 14px", borderRadius: TOKENS.radius.sm,
                     background: "rgba(6, 182, 212, 0.06)",
-                    borderLeft: "3px solid #06b6d4",
+                    border: "1px solid rgba(6, 182, 212, 0.35)",
                   }}>
-                    <div style={{ fontSize: "11px", color: "#06b6d4", fontWeight: 600, marginBottom: "6px",
+                    <div style={{ fontSize: "11px", color: TOKENS.info, fontWeight: 600, marginBottom: "6px",
                       display: "flex", alignItems: "center", gap: "6px" }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                       </svg>
-                      Instant Answer
+                      Instant answer
                       {step.cache_age_seconds != null && (() => {
                         const age = step.cache_age_seconds;
-                        const color = age < 60 ? TOKENS.success : age < 300 ? "#f59e0b" : TOKENS.danger;
+                        const color = age < 60 ? TOKENS.success : age < 300 ? TOKENS.warning : TOKENS.danger;
                         const label = age < 60 ? `Fresh (${Math.round(age)}s ago)` : age < 300 ? `Cached (${Math.round(age / 60)}m ago)` : `Stale (${Math.round(age / 60)}m ago)`;
                         return (
                           <span style={{ fontWeight: 500, color, fontSize: "10px",
                             padding: "1px 6px", borderRadius: "8px",
-                            background: color === TOKENS.success ? "rgba(34,197,94,0.1)" : color === "#f59e0b" ? "rgba(245,158,11,0.1)" : "rgba(239,68,68,0.1)" }}>
+                            background: color === TOKENS.success ? "rgba(34,197,94,0.1)" : color === TOKENS.warning ? "rgba(245,158,11,0.1)" : "rgba(239,68,68,0.1)" }}>
                             {label}
                           </span>
                         );
@@ -734,9 +917,20 @@ function AgentStepFeedInner() {
                     <div style={{ wordBreak: "break-word" }}>{step.content}</div>
                     <div style={{ fontSize: "10px", color: TOKENS.text.muted, marginTop: "6px",
                       display: "flex", alignItems: "center", gap: "4px" }}>
-                      <span className="animate-pulse" style={{ width: 6, height: 6, borderRadius: "50%",
-                        background: "#06b6d4", display: "inline-block" }}/>
-                      Live verification in progress...
+                      {agentLoading ? (
+                        <>
+                          <span className="animate-pulse" style={{ width: 6, height: 6, borderRadius: "50%",
+                            background: TOKENS.info, display: "inline-block" }}/>
+                          Verifying with live data…
+                        </>
+                      ) : (
+                        <>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={TOKENS.success} strokeWidth="2.5">
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                          Verified
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -744,15 +938,15 @@ function AgentStepFeedInner() {
                 {step.type === "live_correction" && (
                   <div style={{
                     fontSize: "13px", color: TOKENS.text.primary,
-                    padding: "8px 12px", borderRadius: TOKENS.radius.sm,
+                    padding: "10px 14px", borderRadius: TOKENS.radius.sm,
                     background: step.diff_summary && step.diff_summary.toLowerCase().startsWith("confirmed")
                       ? "rgba(34, 197, 94, 0.06)" : "rgba(245, 158, 11, 0.06)",
-                    borderLeft: `3px solid ${step.diff_summary && step.diff_summary.toLowerCase().startsWith("confirmed")
-                      ? TOKENS.success : "#f59e0b"}`,
+                    border: `1px solid ${step.diff_summary && step.diff_summary.toLowerCase().startsWith("confirmed")
+                      ? "rgba(34, 197, 94, 0.35)" : "rgba(245, 158, 11, 0.35)"}`,
                   }}>
                     <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "4px",
                       color: step.diff_summary && step.diff_summary.toLowerCase().startsWith("confirmed")
-                        ? TOKENS.success : "#f59e0b",
+                        ? TOKENS.success : TOKENS.warning,
                       display: "flex", alignItems: "center", gap: "6px" }}>
                       {step.diff_summary && step.diff_summary.toLowerCase().startsWith("confirmed") ? (
                         <>

@@ -61,7 +61,7 @@ function Starfield({ count = 600, isLight = false }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.05} color={isLight ? "#818cf8" : "#4f46e5"} transparent opacity={isLight ? 0.3 : 0.4} sizeAttenuation depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
+      <pointsMaterial size={0.05} color={isLight ? "#3B82F6" : "#4f46e5"} transparent opacity={isLight ? 0.3 : 0.4} sizeAttenuation depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
     </points>
   );
 }
@@ -102,22 +102,22 @@ function DashboardScreen({ enableMouseTracking = true, isLight = false }) {
     <group ref={groupRef} position={[0, 0, -10]}>
       <mesh>
         <planeGeometry args={[8, 5]} />
-        <meshBasicMaterial color={isLight ? "#818cf8" : "#6366f1"} wireframe transparent opacity={isLight ? 0.08 : 0.06} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
+        <meshBasicMaterial color={isLight ? "#3B82F6" : "#2563EB"} wireframe transparent opacity={isLight ? 0.08 : 0.06} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
       </mesh>
       <mesh ref={glowRef} position={[0, 0, -0.1]}>
         <planeGeometry args={[9, 6]} />
-        <meshBasicMaterial color={isLight ? "#818cf8" : "#6366f1"} transparent opacity={isLight ? 0.05 : 0.03} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
+        <meshBasicMaterial color={isLight ? "#3B82F6" : "#2563EB"} transparent opacity={isLight ? 0.05 : 0.03} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
       </mesh>
       {bars.map((bar, i) => (
         <mesh key={i} position={[bar.x, -1.5 + bar.height / 2, 0.01]}>
           <planeGeometry args={[0.4, bar.height]} />
-          <meshBasicMaterial color={i % 2 === 0 ? (isLight ? "#818cf8" : "#818cf8") : (isLight ? "#a78bfa" : "#a78bfa")} transparent opacity={isLight ? 0.10 : 0.07} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
+          <meshBasicMaterial color={i % 2 === 0 ? (isLight ? "#3B82F6" : "#3B82F6") : (isLight ? "#a78bfa" : "#a78bfa")} transparent opacity={isLight ? 0.10 : 0.07} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
         </mesh>
       ))}
       {[-0.5, 0.5, 1.5].map((y, i) => (
         <mesh key={`h${i}`} position={[0, y, 0.01]}>
           <planeGeometry args={[7, 0.005]} />
-          <meshBasicMaterial color={isLight ? "#818cf8" : "#6366f1"} transparent opacity={isLight ? 0.08 : 0.08} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
+          <meshBasicMaterial color={isLight ? "#3B82F6" : "#2563EB"} transparent opacity={isLight ? 0.08 : 0.08} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
         </mesh>
       ))}
     </group>
@@ -273,7 +273,7 @@ function OrbitalRings({ isLight = false }) {
     <group position={[0, 0, -8]}>
       <mesh ref={ring1}>
         <torusGeometry args={[11, 0.015, 8, 100]} />
-        <meshBasicMaterial color={isLight ? "#818cf8" : "#6366f1"} transparent opacity={isLight ? 0.12 : 0.1} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={isLight ? "#3B82F6" : "#2563EB"} transparent opacity={isLight ? 0.12 : 0.1} depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} side={THREE.DoubleSide} />
       </mesh>
       <mesh ref={ring2}>
         <torusGeometry args={[14, 0.01, 8, 120]} />
@@ -292,7 +292,7 @@ function GridFloor({ isLight = false }) {
 
   return (
     <group ref={ref} position={[0, -10, -10]} rotation={[-Math.PI / 3, 0, 0]}>
-      <gridHelper args={[60, 40, isLight ? "#818cf8" : "#6366f1", isLight ? "#c7d2fe" : "#1e1b4b"]} material-transparent material-opacity={isLight ? 0.10 : 0.08} material-depthWrite={false} />
+      <gridHelper args={[60, 40, isLight ? "#3B82F6" : "#2563EB", isLight ? "#c7d2fe" : "#1e1b4b"]} material-transparent material-opacity={isLight ? 0.10 : 0.08} material-depthWrite={false} />
     </group>
   );
 }
@@ -358,7 +358,7 @@ function MagneticParticles({ count = 200, isLight = false }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.06} color={isLight ? "#6366f1" : "#818cf8"} transparent opacity={isLight ? 0.25 : 0.35} sizeAttenuation depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
+      <pointsMaterial size={0.06} color={isLight ? "#2563EB" : "#3B82F6"} transparent opacity={isLight ? 0.25 : 0.35} sizeAttenuation depthWrite={false} blending={isLight ? THREE.NormalBlending : THREE.AdditiveBlending} />
     </points>
   );
 }

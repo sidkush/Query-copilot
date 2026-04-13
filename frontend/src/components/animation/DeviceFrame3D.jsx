@@ -60,7 +60,7 @@ function MonitorFrame({ imageSrc }) {
       {/* Bezel (frame) wireframe */}
       <lineSegments>
         <edgesGeometry args={[new THREE.BoxGeometry(bezelW, bezelH, bezelD)]} />
-        <lineBasicMaterial color="#6366f1" transparent opacity={0.3} />
+        <lineBasicMaterial color="#2563EB" transparent opacity={0.3} />
       </lineSegments>
 
       {/* Screen content */}
@@ -76,19 +76,19 @@ function MonitorFrame({ imageSrc }) {
       {/* Screen glow */}
       <mesh position={[0, 0, -bezelD / 2 - 0.1]}>
         <planeGeometry args={[bezelW + 1, bezelH + 0.5]} />
-        <meshBasicMaterial color="#6366f1" transparent opacity={0.02} depthWrite={false} blending={THREE.AdditiveBlending} />
+        <meshBasicMaterial color="#2563EB" transparent opacity={0.02} depthWrite={false} blending={THREE.AdditiveBlending} />
       </mesh>
 
       {/* Stand */}
       <lineSegments position={[0, -bezelH / 2 - 0.5, 0]}>
         <edgesGeometry args={[new THREE.BoxGeometry(0.3, 1, 0.1)]} />
-        <lineBasicMaterial color="#6366f1" transparent opacity={0.2} />
+        <lineBasicMaterial color="#2563EB" transparent opacity={0.2} />
       </lineSegments>
 
       {/* Base */}
       <lineSegments position={[0, -bezelH / 2 - 1, 0.2]}>
         <edgesGeometry args={[new THREE.BoxGeometry(2.5, 0.08, 1.2)]} />
-        <lineBasicMaterial color="#6366f1" transparent opacity={0.2} />
+        <lineBasicMaterial color="#2563EB" transparent opacity={0.2} />
       </lineSegments>
     </group>
   );

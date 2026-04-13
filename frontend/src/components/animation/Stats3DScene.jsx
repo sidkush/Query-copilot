@@ -9,7 +9,7 @@ import { useGPUTier } from "../../lib/gpuDetect";
    ═══════════════════════════════════════════════════════════════ */
 
 const STAT_CONFIGS = [
-  { value: 18, suffix: "+", label: "Database engines supported", color: "#6366f1", targetAngle: 0.9 },
+  { value: 18, suffix: "+", label: "Database engines supported", color: "#2563EB", targetAngle: 0.9 },
   { value: 6, suffix: " layers", label: "SQL security validation", color: "#a855f7", targetAngle: 0.75 },
   { value: 100, suffix: "%", label: "Read-only data guarantee", color: "#3b82f6", targetAngle: 1.0 },
   { value: 0, suffix: " breaches", label: "By design, not by promise", color: "#818cf8", targetAngle: 0.0 },
@@ -71,7 +71,7 @@ function ParticleDust({ count = 80 }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.04} color="#6366f1" transparent opacity={0.3} sizeAttenuation depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial size={0.04} color="#2563EB" transparent opacity={0.3} sizeAttenuation depthWrite={false} blending={THREE.AdditiveBlending} />
     </points>
   );
 }

@@ -2,16 +2,16 @@ import { motion } from "framer-motion";
 import AnimatedCounter from "./animation/AnimatedCounter";
 
 const GRADIENTS = {
-  indigo: "from-indigo-600/20 to-blue-600/20",
+  indigo: "from-blue-600/20 to-blue-500/20",
   emerald: "from-emerald-600/20 to-teal-600/20",
   amber: "from-amber-600/20 to-orange-600/20",
-  violet: "from-violet-600/20 to-purple-600/20",
+  violet: "from-blue-500/20 to-cyan-600/20",
   rose: "from-rose-600/20 to-pink-600/20",
   cyan: "from-cyan-600/20 to-sky-600/20",
 };
 
 const ICON_COLORS = {
-  indigo: "text-indigo-400",
+  indigo: "text-blue-400",
   emerald: "text-emerald-400",
   amber: "text-amber-400",
   violet: "text-violet-400",
@@ -105,8 +105,8 @@ export default function StatSummaryCard({
                       : color === "amber"
                       ? "from-amber-500/60 to-amber-400/30"
                       : color === "violet"
-                      ? "from-violet-500/60 to-violet-400/30"
-                      : "from-indigo-500/60 to-indigo-400/30"
+                      ? "from-blue-500/60 to-cyan-400/30"
+                      : "from-blue-500/60 to-blue-400/30"
                   } transition-all duration-300`}
                   style={{ height: `${Math.max(pct, 4)}%` }}
                 />

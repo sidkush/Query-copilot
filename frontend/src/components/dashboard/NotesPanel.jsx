@@ -59,7 +59,7 @@ export default function NotesPanel({ annotations = [], userName, onAdd, onDelete
       ))}
       <div className="flex gap-2.5 items-center mt-3 pt-3" style={{ borderTop: `1px solid ${TOKENS.border.default}` }}>
         <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold text-white shrink-0"
-          style={{ background: 'linear-gradient(135deg, #22c55e, #4ade80)' }}>You</div>
+          style={{ background: TOKENS.success }}>You</div>
         <input value={text} onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSubmit()}
           placeholder="Add a note or @mention a collaborator..."

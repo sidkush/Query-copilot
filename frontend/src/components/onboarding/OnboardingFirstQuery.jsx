@@ -89,7 +89,7 @@ export default function OnboardingFirstQuery({ onNext, onSkip }) {
           </p>
           <button
             onClick={() => { window.location.href = "/schema"; }}
-            className="px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition"
+            className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition"
           >
             Connect Database
           </button>
@@ -136,7 +136,7 @@ export default function OnboardingFirstQuery({ onNext, onSkip }) {
           <button
             onClick={handleSubmit}
             disabled={loading || !question.trim()}
-            className="px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium transition flex-shrink-0"
+            className="px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium transition flex-shrink-0"
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -185,7 +185,7 @@ export default function OnboardingFirstQuery({ onNext, onSkip }) {
           >
             <button
               onClick={onNext}
-              className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-medium transition"
+              className="px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition"
             >
               Go to Dashboard
             </button>

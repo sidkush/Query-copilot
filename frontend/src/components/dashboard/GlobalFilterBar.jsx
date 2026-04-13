@@ -198,20 +198,21 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
 
   return (
     <div style={{
-      borderBottom: `1px solid ${TOKENS.border.default}`,
-      background: TOKENS.bg.surface,
-      padding: '8px 24px',
+      margin: '0 24px 14px',
+      padding: '10px 16px',
+      borderRadius: 18,
+      background: 'var(--glass-bg-card)',
+      border: `1px solid ${TOKENS.border.default}`,
+      boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset, 0 6px 20px -8px rgba(0,0,0,0.18)',
+      backdropFilter: 'blur(14px) saturate(1.3)',
+      WebkitBackdropFilter: 'blur(14px) saturate(1.3)',
     }}>
       <div className="flex flex-col gap-2">
         {/* ── Date Filters Section ── */}
         <div className="flex items-start gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 flex-shrink-0 pt-1">
-            <svg className="w-3.5 h-3.5" style={{ color: hasActiveFilters ? TOKENS.accent : TOKENS.text.muted }}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-            </svg>
-            <span className="text-[11px] font-semibold uppercase tracking-wider flex-shrink-0"
-              style={{ color: hasActiveFilters ? TOKENS.accent : TOKENS.text.muted }}>
+          <div className="flex items-center gap-2 flex-shrink-0 pt-1">
+            {hasActiveFilters && <span className="eyebrow-dot" style={{ background: TOKENS.accent }} aria-hidden="true" />}
+            <span className="eyebrow" style={{ color: hasActiveFilters ? TOKENS.accent : TOKENS.text.muted }}>
               Filters
             </span>
           </div>
@@ -229,6 +230,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                       style={{ ...inputStyle, width: 150, paddingRight: 28, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
                       value={df.dateColumn}
                       onChange={e => updateDateFilter(df.id, { dateColumn: e.target.value })}
+                      aria-label="Date filter column"
                     >
                       <option value="">Date column…</option>
                       {detectedDateCols.map(c => <option key={c} value={c}>{c}</option>)}
@@ -239,11 +241,12 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                       placeholder="Date column…"
                       value={df.dateColumn}
                       onChange={e => updateDateFilter(df.id, { dateColumn: e.target.value })}
+                      aria-label="Date filter column"
                     />
                   )}
                   {detectedDateCols.length > 0 && (
                     <svg className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                      style={{ color: TOKENS.text.muted }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      style={{ color: TOKENS.text.muted }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                     </svg>
                   )}
@@ -255,11 +258,12 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                     style={{ ...inputStyle, paddingRight: 28, cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
                     value={df.range}
                     onChange={e => updateDateFilter(df.id, { range: e.target.value })}
+                    aria-label="Date range"
                   >
                     {RANGES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
                   </select>
                   <svg className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                    style={{ color: TOKENS.text.muted }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    style={{ color: TOKENS.text.muted }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                   </svg>
                 </div>
@@ -268,10 +272,12 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                 {df.range === 'custom' && (
                   <>
                     <input type="date" style={inputStyle}
-                      value={df.dateStart} onChange={e => updateDateFilter(df.id, { dateStart: e.target.value })} />
+                      value={df.dateStart} onChange={e => updateDateFilter(df.id, { dateStart: e.target.value })}
+                      aria-label="Date range start" />
                     <span style={{ color: TOKENS.text.muted, fontSize: 12 }}>to</span>
                     <input type="date" style={inputStyle}
-                      value={df.dateEnd} onChange={e => updateDateFilter(df.id, { dateEnd: e.target.value })} />
+                      value={df.dateEnd} onChange={e => updateDateFilter(df.id, { dateEnd: e.target.value })}
+                      aria-label="Date range end" />
                   </>
                 )}
 
@@ -279,7 +285,8 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                 <button onClick={() => removeDateFilter(df.id)}
                   className="flex items-center justify-center w-6 h-6 rounded-md cursor-pointer"
                   style={{ color: TOKENS.text.muted, border: `1px solid ${TOKENS.border.default}`, background: 'transparent', fontSize: 14, lineHeight: 1 }}
-                  title="Remove date filter">
+                  title="Remove date filter"
+                  aria-label="Remove date filter">
                   ×
                 </button>
               </div>
@@ -291,27 +298,37 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
         {/* ── Field Filters Row ── */}
         {(fields.length > 0 || showFieldPicker) && (
           <div className="flex items-center gap-2 flex-wrap pl-[72px]">
-            {fields.map((f, i) => (
-              <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs flex-shrink-0 cursor-pointer"
-                style={{ background: TOKENS.accentGlow, border: `1px solid ${TOKENS.accent}30`, color: TOKENS.text.primary }}
-                onClick={() => {
-                  setNewFilter({ column: f.column, operator: f.operator, value: f.value, tileIds: f.tileIds || [] });
-                  setColSearch(f.column);
-                  setEditingFilterIdx(i);
-                  setShowFieldPicker(true);
-                }}>
-                <span style={{ color: TOKENS.accentLight }}>{f.column}</span>
-                <span style={{ color: TOKENS.text.muted }}>{f.operator}</span>
-                <span>{f.value}</span>
-                {f.tileIds && f.tileIds.length > 0 && (
-                  <span style={{ color: TOKENS.text.muted, fontSize: 10, marginLeft: 2 }}
-                    title={f.tileIds.map(tid => allTiles.find(t => t.id === tid)?.title || tid).join(', ')}>
-                    ({f.tileIds.length} tiles)
-                  </span>
-                )}
-                <button onClick={(e) => { e.stopPropagation(); removeField(i); }} style={{ color: TOKENS.text.muted, marginLeft: 2, cursor: 'pointer', lineHeight: 1 }}>×</button>
-              </div>
-            ))}
+            {fields.map((f, i) => {
+              const editFilter = () => {
+                setNewFilter({ column: f.column, operator: f.operator, value: f.value, tileIds: f.tileIds || [] });
+                setColSearch(f.column);
+                setEditingFilterIdx(i);
+                setShowFieldPicker(true);
+              };
+              return (
+                <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs flex-shrink-0 cursor-pointer"
+                  style={{ background: TOKENS.accentGlow, border: `1px solid ${TOKENS.accent}30`, color: TOKENS.text.primary }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Edit filter: ${f.column} ${f.operator} ${f.value}`}
+                  onClick={editFilter}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editFilter(); } }}
+                >
+                  <span style={{ color: TOKENS.accentLight }}>{f.column}</span>
+                  <span style={{ color: TOKENS.text.muted }}>{f.operator}</span>
+                  <span>{f.value}</span>
+                  {f.tileIds && f.tileIds.length > 0 && (
+                    <span style={{ color: TOKENS.text.muted, fontSize: 10, marginLeft: 2 }}
+                      title={f.tileIds.map(tid => allTiles.find(t => t.id === tid)?.title || tid).join(', ')}>
+                      ({f.tileIds.length} tiles)
+                    </span>
+                  )}
+                  <button onClick={(e) => { e.stopPropagation(); removeField(i); }}
+                    aria-label={`Remove ${f.column} filter`}
+                    style={{ color: TOKENS.text.muted, marginLeft: 2, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -366,6 +383,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                   value={colSearch}
                   onChange={e => { setColSearch(e.target.value); setNewFilter(f => ({ ...f, column: e.target.value })); }}
                   autoFocus
+                  aria-label="Search columns"
                 />
 
                 {loadingCols ? (
@@ -394,7 +412,8 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                   <select
                     style={{ ...inputStyle, flex: '0 0 80px', appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}
                     value={newFilter.operator}
-                    onChange={e => setNewFilter(f => ({ ...f, operator: e.target.value }))}>
+                    onChange={e => setNewFilter(f => ({ ...f, operator: e.target.value }))}
+                    aria-label="Filter operator">
                     {OPERATORS.map(op => <option key={op} value={op}>{op}</option>)}
                   </select>
                   <input
@@ -403,6 +422,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                     value={newFilter.value}
                     onChange={e => setNewFilter(f => ({ ...f, value: e.target.value }))}
                     onKeyDown={e => e.key === 'Enter' && addField()}
+                    aria-label="Filter value"
                   />
                 </div>
 
@@ -444,8 +464,8 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
                   disabled={!newFilter.column || !newFilter.value}
                   style={{
                     width: '100%',
-                    background: (!newFilter.column || !newFilter.value) ? TOKENS.bg.surface : TOKENS.accent,
-                    color: (!newFilter.column || !newFilter.value) ? TOKENS.text.muted : '#fff',
+                    background: (!newFilter.column || !newFilter.value) ? TOKENS.bg.surface : 'var(--accent)',
+                    color: (!newFilter.column || !newFilter.value) ? TOKENS.text.muted : 'var(--text-on-accent)',
                     border: 'none',
                     borderRadius: TOKENS.radius.md,
                     padding: '7px 0',
@@ -465,7 +485,7 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
           {dirty && (
             <button onClick={applyFilters}
               style={{
-                background: TOKENS.accent, color: '#fff', border: 'none',
+                background: 'var(--accent)', color: 'var(--text-on-accent)', border: 'none',
                 borderRadius: TOKENS.radius.md, padding: '5px 16px',
                 fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
               }}>

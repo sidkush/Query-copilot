@@ -68,10 +68,10 @@ export default function KPICard({ tile, index = 0, onEdit, formatting }) {
   const valueFontSize = vc.typography?.titleFontSize || 32;
 
   return (
-    <div className="relative overflow-hidden p-[18px_20px] flex flex-col h-full">
+    <div className="relative overflow-hidden p-[20px_22px] flex flex-col h-full">
 
-      {/* Top accent line */}
-      <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: accentColor }} />
+      {/* Top accent bar */}
+      <div className="absolute top-0 left-0 right-0 h-[4px]" style={{ background: accentColor }} />
 
       {/* Label */}
       <div className="flex items-center justify-between mb-2 mt-1">
@@ -82,17 +82,17 @@ export default function KPICard({ tile, index = 0, onEdit, formatting }) {
       <div className="flex items-end justify-between flex-1">
         <div>
           {/* Main KPI Value */}
-          <div className="font-bold tracking-tight mb-2" style={{ color: valueColor, fontSize: valueFontSize, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
+          <div className="font-bold tracking-tight mb-2" style={{ color: valueColor, fontSize: valueFontSize, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', fontFamily: TOKENS.tile.headerFont }}>
             {tile?.subtitle?.startsWith('$') || String(currentVal).startsWith('$') ? '$' : ''}{formatValue(currentVal).replace('$', '')}
           </div>
 
           {/* Trend Indicator */}
           <div className="flex items-center gap-2">
             {trendPct && (
-              <span className="flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md" 
-                style={{ 
-                  color: isPositive ? '#22c55e' : '#ef4444', 
-                  backgroundColor: isPositive ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)' 
+              <span className="flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md"
+                style={{
+                  color: isPositive ? TOKENS.success : TOKENS.danger,
+                  backgroundColor: isPositive ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'
                 }}>
                 <svg className="w-3 h-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d={isPositive ? "M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" : "M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"} />

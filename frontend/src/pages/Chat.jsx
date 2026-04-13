@@ -20,6 +20,7 @@ import SchemaExplorer from "../components/SchemaExplorer";
 import ERDiagram from "../components/ERDiagram";
 import UserDropdown from "../components/UserDropdown";
 import DatabaseSwitcher from "../components/DatabaseSwitcher";
+import AskDBLogo from "../components/AskDBLogo";
 import behaviorEngine from "../lib/behaviorEngine";
 
 // ── Message timestamp formatting ──
@@ -63,6 +64,30 @@ function ToastContainer({ toasts, onDismiss }) {
 }
 
 const DASHBOARD_RE = /\b(create|build|make|generate|design|set\s*up)\b.{0,30}\bdashboard\b/i;
+
+// Live timer shown inside the agent step card while working.
+// Ticks once per second; freezes automatically when active=false.
+function AgentElapsedTimer({ startTime, active }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!active || !startTime) return;
+    const tick = () => setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [startTime, active]);
+  if (!active) return null;
+  return (
+    <span className="tabular-nums" style={{ color: 'var(--text-muted)', fontSize: '10px', fontVariantNumeric: 'tabular-nums' }}>
+      {elapsed}s
+      {elapsed >= 20 && (
+        <span style={{ color: 'rgba(245,158,11,0.7)', marginLeft: 6 }}>
+          complex query…
+        </span>
+      )}
+    </span>
+  );
+}
 
 const DB_ICONS = {
   postgresql: <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" /></svg>,
@@ -252,14 +277,14 @@ export default function Chat() {
     // Fetch saved configs for showing disconnected badges
     api.getSavedConnections()
       .then((data) => setSavedDbs(data.configs || data.connections || []))
-      .catch((e) => console.error("appendMessage failed:", e));
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch chat list on mount
   useEffect(() => {
     api.listChats()
       .then((data) => setChats(data.chats || []))
-      .catch((e) => console.error("appendMessage failed:", e));
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load tables and saved positions for ER diagram when panel opens
@@ -274,7 +299,7 @@ export default function Chat() {
               .catch(() => {});
           }
         })
-        .catch((e) => console.error("loadERTables failed:", e));
+        .catch((e) => void e);
     }
   }, [showER, erTables.length, activeConnId]);
 
@@ -396,7 +421,7 @@ export default function Chat() {
         chatId = chatData.chat_id;
         setActiveChatId(chatId);
         // Refresh chat list
-        api.listChats().then((d) => setChats(d.chats || [])).catch((e) => console.error("appendMessage failed:", e));
+        api.listChats().then((d) => setChats(d.chats || [])).catch(() => {});
       } catch {
         // Non-critical: continue without persistence
       }
@@ -404,14 +429,17 @@ export default function Chat() {
 
     // Append user message in background
     if (chatId) {
-      api.appendMessage(chatId, { type: "user", content: question }).catch((e) => console.error("appendMessage failed:", e));
+      api.appendMessage(chatId, { type: "user", content: question }).catch(() => {});
     }
 
     // ── Agent streaming flow ──
     try {
       let agentFailed = false;
       let agentChatId = chatId;
-      const agentStepMsg = { type: "agent_steps", steps: [], status: "running" };
+      // When turbo/memory tier answers instantly, we resolve early and skip the
+      // redundant final_answer message that the backend may still emit.
+      let resolvedViaTurbo = false;
+      const agentStepMsg = { type: "agent_steps", steps: [], status: "running", startTime: Date.now() };
       addMessage(agentStepMsg);
 
       await new Promise((resolve, reject) => {
@@ -435,9 +463,12 @@ export default function Chat() {
             });
           }
 
-          // Turbo Mode instant answer — show as a prominent separate message
+          // Turbo Mode instant answer — show immediately and stop the spinner.
+          // The DuckDB twin answered sub-100ms; don't make the user wait for the
+          // live-verification pass before seeing the result.
           if (step.type === "cached_result" && step.content) {
-            setLoading(false); // Hide "Generating SQL..." immediately
+            resolvedViaTurbo = true;
+            setLoading(false);
             addMessage({
               type: "assistant",
               content: step.content,
@@ -445,15 +476,37 @@ export default function Chat() {
               cacheAge: step.cache_age_seconds,
               timestamp: Date.now(),
             });
+            // Mark the step block done so its spinner stops immediately
+            agentStepMsg.status = "done";
+            setMessages((prev) => {
+              const updated = [...prev];
+              const idx = updated.findIndex((m) => m === agentStepMsg);
+              if (idx >= 0) updated[idx] = { ...agentStepMsg, status: "done" };
+              return updated;
+            });
+            resolve();
           }
 
-          // Live correction — update the turbo answer
-          if (step.type === "live_correction" && step.content) {
-            addMessage({
-              type: "assistant",
-              content: step.content,
-              liveCorrection: true,
-              timestamp: Date.now(),
+          // Live correction — update the existing turboInstant message in-place
+          // instead of adding a second near-identical message.
+          if (step.type === "live_correction") {
+            setMessages((prev) => {
+              const updated = [...prev];
+              // Find the most recent turboInstant message and update it
+              for (let i = updated.length - 1; i >= 0; i--) {
+                if (updated[i].turboInstant) {
+                  const isConfirmed = step.diff_summary?.toLowerCase().startsWith("confirmed");
+                  updated[i] = {
+                    ...updated[i],
+                    turboInstant: false,          // remove pulsing "verifying" dot
+                    turboVerified: isConfirmed,   // show ✓ badge
+                    // Only overwrite content when live query returned different data
+                    ...((!isConfirmed && step.content) ? { content: step.content, turboUpdated: true } : {}),
+                  };
+                  break;
+                }
+              }
+              return updated;
             });
           }
 
@@ -467,7 +520,7 @@ export default function Chat() {
             addMessage(askMsg);
           }
 
-          // Final result with SQL/data
+          // Final result with SQL/data — skip if turbo already answered
           if (step.final_answer || step.sql) {
             agentStepMsg.status = "done";
             setMessages((prev) => {
@@ -477,27 +530,29 @@ export default function Chat() {
               return updated;
             });
 
-            if (step.sql) {
-              const sqlMsg = {
-                type: "sql_preview",
-                question,
-                sql: step.sql,
-                rawSQL: step.sql,
-                model: "agent",
-                connId: resolvedConnId,
-              };
-              addMessage(sqlMsg);
-              if (chatId) api.appendMessage(chatId, sqlMsg).catch(() => {});
-            }
-            if (step.final_answer) {
-              const ansMsg = {
-                type: "assistant",
-                content: step.final_answer,
-                rowCount: step.rows?.length || 0,
-                chartSuggestion: step.chart_suggestion || null,
-              };
-              addMessage(ansMsg);
-              if (chatId) api.appendMessage(chatId, ansMsg).catch(() => {});
+            if (!resolvedViaTurbo) {
+              if (step.sql) {
+                const sqlMsg = {
+                  type: "sql_preview",
+                  question,
+                  sql: step.sql,
+                  rawSQL: step.sql,
+                  model: "agent",
+                  connId: resolvedConnId,
+                };
+                addMessage(sqlMsg);
+                if (chatId) api.appendMessage(chatId, sqlMsg).catch(() => {});
+              }
+              if (step.final_answer) {
+                const ansMsg = {
+                  type: "assistant",
+                  content: step.final_answer,
+                  rowCount: step.rows?.length || 0,
+                  chartSuggestion: step.chart_suggestion || null,
+                };
+                addMessage(ansMsg);
+                if (chatId) api.appendMessage(chatId, ansMsg).catch(() => {});
+              }
             }
             // Note: No pre-execution "result" message here — chart + table
             // only render after the user clicks Execute on the SQL preview.
@@ -506,17 +561,33 @@ export default function Chat() {
           }
 
           if (step.type === "result" && !step.final_answer && !step.sql) {
+            agentStepMsg.status = "done";
+            setMessages((prev) => {
+              const updated = [...prev];
+              const idx = updated.findIndex((m) => m === agentStepMsg);
+              if (idx >= 0) updated[idx] = { ...agentStepMsg, status: "done" };
+              return updated;
+            });
             resolve();
           }
         }, { persona: agentPersona, permissionMode: agentPermissionMode });
 
         // Timeout fallback
         setTimeout(() => {
-          if (!agentFailed) resolve();
+          if (!agentFailed) {
+            agentStepMsg.status = "done";
+            setMessages((prev) => {
+              const updated = [...prev];
+              const idx = updated.findIndex((m) => m === agentStepMsg);
+              if (idx >= 0) updated[idx] = { ...agentStepMsg, status: "done" };
+              return updated;
+            });
+            resolve();
+          }
         }, 35000);
       }).catch(async (err) => {
         // Fallback to single-shot generate if agent fails
-        console.warn("Agent failed, falling back to generateSQL:", err.message);
+        // Fallback to single-shot SQL generation
         try {
           const result = await api.generateSQL(question, resolvedConnId);
           if (result.error) {
@@ -545,6 +616,15 @@ export default function Chat() {
       if (chatId) api.appendMessage(chatId, errMsg).catch(() => {});
     } finally {
       setLoading(false);
+      // Safety net: any path that didn't explicitly set done still stops the spinner
+      setMessages((prev) => {
+        const updated = [...prev];
+        const idx = updated.findIndex((m) => m === agentStepMsg);
+        if (idx >= 0 && updated[idx].status !== "done") {
+          updated[idx] = { ...updated[idx], status: "done" };
+        }
+        return updated;
+      });
     }
   };
 
@@ -681,7 +761,7 @@ export default function Chat() {
       
       const successMsg = {
         type: "system",
-        content: `Dashboard "${dashName}" successfully created!`
+        content: `Dashboard "${dashName}" created`
       };
       addMessage(successMsg);
       if (ensureChatId.current) api.appendMessage(ensureChatId.current, successMsg).catch(() => {});
@@ -767,7 +847,7 @@ export default function Chat() {
       if (result.error) {
         const errMsg = { type: "error", content: result.error };
         addMessage(errMsg);
-        if (ensureChatId.current) api.appendMessage(ensureChatId.current, errMsg).catch((e) => console.error("appendMessage failed:", e));
+        if (ensureChatId.current) api.appendMessage(ensureChatId.current, errMsg).catch(() => {});
       } else {
         const resMsg = {
           type: "result",
@@ -783,7 +863,7 @@ export default function Chat() {
           dailyUsage: result.daily_usage || null,
         };
         addMessage(resMsg);
-        if (ensureChatId.current) api.appendMessage(ensureChatId.current, resMsg).catch((e) => console.error("appendMessage failed:", e));
+        if (ensureChatId.current) api.appendMessage(ensureChatId.current, resMsg).catch(() => {});
         // Track query for behavior engine
         behaviorEngine.trackQuery(question, [], result.conn_id || "");
         // Fetch predictive next-action suggestions
@@ -792,7 +872,7 @@ export default function Chat() {
     } catch (err) {
       const errMsg = { type: "error", content: err.message };
       addMessage(errMsg);
-      if (ensureChatId.current) api.appendMessage(ensureChatId.current, errMsg).catch((e) => console.error("appendMessage failed:", e));
+      if (ensureChatId.current) api.appendMessage(ensureChatId.current, errMsg).catch(() => {});
     } finally {
       setExecuting(false);
     }
@@ -827,7 +907,7 @@ export default function Chat() {
       });
       setShowDashboardPicker(false);
       setPendingTileData(null);
-      addMessage({ type: "system", text: "Chart added to dashboard!" });
+      addMessage({ type: "system", text: "Chart added to dashboard" });
     } catch (err) {
       addMessage({ type: "system", text: "Failed to add to dashboard: " + err.message });
     } finally {
@@ -855,7 +935,7 @@ export default function Chat() {
       setShowDashboardPicker(false);
       setPendingTileData(null);
       setNewDashboardName("");
-      addMessage({ type: "system", text: `Chart added to "${d.name}"!` });
+      addMessage({ type: "system", text: `Chart added to "${d.name}"` });
     } catch (err) {
       addMessage({ type: "system", text: "Failed: " + err.message });
     } finally {
@@ -898,7 +978,7 @@ export default function Chat() {
       setMessages(normalized);
       setShowSidebar(false);
     } catch (err) {
-      console.error("Failed to load chat:", err);
+      // Silent — chat load failure is recoverable
     }
   };
 
@@ -914,7 +994,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-1 h-full font-sans selection:bg-indigo-500/30" style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}>
+    <div className="flex flex-1 h-full font-sans selection:bg-blue-500/30" style={{ background: 'var(--bg-page)', color: 'var(--text-primary)' }}>
       {/* Chat history sidebar */}
       <AnimatePresence>
       {showSidebar && (
@@ -925,15 +1005,17 @@ export default function Chat() {
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className="w-72 flex-shrink-0 flex flex-col overflow-hidden relative z-30 shadow-2xl" style={{ background: 'var(--bg-base)', borderRight: '1px solid var(--border-default)' }}>
           <div className="p-3 space-y-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-default)' }}>
-            <button
+            <motion.button
               onClick={handleNewChat}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 cursor-pointer" style={{ background: 'var(--overlay-subtle)', color: 'var(--text-primary)' }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-full ease-spring cursor-pointer" style={{ background: 'var(--overlay-subtle)', color: 'var(--text-primary)' }}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              New Chat
-            </button>
+              New chat
+            </motion.button>
             <div className="relative">
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -943,7 +1025,8 @@ export default function Chat() {
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
                 placeholder="Search chats..."
-                className="w-full rounded-lg pl-8 pr-3 py-2 text-xs placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all duration-200" style={{ background: 'var(--overlay-subtle)', color: 'var(--text-primary)' }}
+                aria-label="Search chat history"
+                className="w-full rounded-lg pl-8 pr-3 py-2 text-xs placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all duration-200" style={{ background: 'var(--overlay-subtle)', color: 'var(--text-primary)' }}
               />
             </div>
           </div>
@@ -978,7 +1061,10 @@ export default function Chat() {
                       ? "bg-white/10 border border-[var(--border-default)]"
                       : "hover:bg-white/5 border border-transparent"
                   }`}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleLoadChat(chat.chat_id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLoadChat(chat.chat_id); } }}
                   onMouseEnter={() => setHoveredChatId(chat.chat_id)}
                   onMouseLeave={() => setHoveredChatId(null)}
                 >
@@ -1049,7 +1135,9 @@ export default function Chat() {
               </svg>
             </button>
 
-            <h1 className="text-lg font-semibold tracking-tight font-poppins" style={{ color: 'var(--text-primary)' }}>Ask<span style={{ color: '#A855F7' }}>DB</span></h1>
+            <div className="flex items-center" style={{ color: 'var(--text-primary)' }}>
+              <AskDBLogo size="sm" />
+            </div>
 
             <DatabaseSwitcher
               connections={connections}
@@ -1107,9 +1195,14 @@ export default function Chat() {
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 relative z-10 pb-32">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Your AI agent is ready</h2>
-              <p className="max-w-md" style={{ color: 'var(--text-muted)' }}>
-                Describe what you need in plain English. The agent will find the right tables, write validated SQL, and suggest the best visualization — autonomously.
+              <div className="w-16 h-16 rounded-2xl bg-blue-600/10 flex items-center justify-center mb-5">
+                <svg className="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold mb-2 font-heading" style={{ color: 'var(--text-primary)' }}>What would you like to know?</h2>
+              <p className="max-w-md text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Describe what you need in plain English. The agent finds tables, writes SQL, and builds visualizations.
               </p>
               <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full">
                 {suggestionsLoading ? (
@@ -1131,9 +1224,12 @@ export default function Chat() {
                     <button
                       key={q}
                       onClick={() => { setInput(q); }}
-                      className="text-left text-sm text-[var(--text-secondary)] hover:bg-white/[0.06] border hover:border-white/[0.1] rounded-2xl px-5 py-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md" style={{ background: 'var(--overlay-faint)', borderColor: 'var(--border-default)' }}
+                      className="group text-left text-sm rounded-2xl px-5 py-4 transition-all duration-300 cursor-pointer glass-card hover:translate-y-[-2px]"
                     >
-                      {q}
+                      <span style={{ color: 'var(--text-secondary)' }}>{q}</span>
+                      <svg className="w-4 h-4 mt-2 opacity-0 group-hover:opacity-60 transition-opacity duration-200" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                      </svg>
                     </button>
                   ))
                 )}
@@ -1151,10 +1247,10 @@ export default function Chat() {
             >
               {msg.type === "user" && (
                 <div className="flex flex-col items-end">
-                  <div className="backdrop-blur-md border shadow-[0_4px_24px_rgba(0,0,0,0.4)] rounded-2xl rounded-tr-sm px-5 py-3 max-w-xl text-[15px] font-medium leading-relaxed" style={{ background: 'var(--overlay-subtle)', borderColor: 'var(--border-default)', color: 'var(--text-primary)' }}>
+                  <div className="chat-bubble-user rounded-2xl rounded-tr-md px-5 py-3 max-w-xl text-[15px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                     {msg.content}
                   </div>
-                  {msg.timestamp && <span className="text-[10px] text-[var(--text-muted)] mt-1 mr-1">{formatMessageTime(msg.timestamp)}</span>}
+                  {msg.timestamp && <span className="text-[10px] mt-1 mr-1" style={{ color: 'var(--text-muted)' }}>{formatMessageTime(msg.timestamp)}</span>}
                 </div>
               )}
 
@@ -1174,7 +1270,7 @@ export default function Chat() {
                     onApprove={(sql, origSql) => handleApprove(sql, msg.question, msg.connId, origSql)}
                     onReject={() => addMessage({ type: "system", content: "Query rejected." })}
                     loading={executing}
-                    onCopySQL={() => showToast("Copied to clipboard!")}
+                    onCopySQL={() => showToast("Copied to clipboard")}
                   />
                   {msg.timestamp && <span className="text-[10px] text-[var(--text-muted)]">{formatMessageTime(msg.timestamp)}</span>}
                 </motion.div>
@@ -1186,32 +1282,57 @@ export default function Chat() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 >
-                  <div className="backdrop-blur-md border rounded-2xl rounded-tl-sm px-5 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.15)]" style={{
-                    background: 'var(--glass-bg-card)',
-                    borderColor: msg.turboInstant ? '#06b6d4' : msg.liveCorrection ? '#f59e0b' : 'var(--glass-border)',
-                    borderLeftWidth: (msg.turboInstant || msg.liveCorrection) ? 3 : undefined,
+                  <div className="backdrop-blur-md border rounded-2xl rounded-tl-sm px-5 py-4 msg-shadow-assistant" style={{
+                    background: msg.turboInstant
+                      ? 'rgba(6, 182, 212, 0.06)'
+                      : msg.turboUpdated
+                      ? 'rgba(245, 158, 11, 0.05)'
+                      : msg.turboVerified
+                      ? 'rgba(34, 197, 94, 0.04)'
+                      : 'var(--glass-bg-card)',
+                    borderColor: msg.turboInstant
+                      ? 'rgba(6, 182, 212, 0.35)'
+                      : msg.turboUpdated
+                      ? 'rgba(245, 158, 11, 0.28)'
+                      : msg.turboVerified
+                      ? 'rgba(34, 197, 94, 0.2)'
+                      : 'var(--glass-border)',
                   }}>
+                    {/* Verifying state — pulsing dot while live query runs */}
                     {msg.turboInstant && (
                       <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold text-cyan-400">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                        Instant Answer (Turbo Mode)
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        Turbo
                         {msg.cacheAge != null && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">
-                            {msg.cacheAge < 60 ? `${Math.round(msg.cacheAge)}s` : `${Math.round(msg.cacheAge / 60)}m`}
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 font-normal">
+                            {msg.cacheAge < 60 ? `${Math.round(msg.cacheAge)}s ago` : `${Math.round(msg.cacheAge / 60)}m ago`}
                           </span>
                         )}
-                        <span className="ml-auto animate-pulse w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" title="Live verification running..." />
+                        <span className="ml-auto animate-pulse w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block" title="Verifying with live data…" />
                       </div>
                     )}
-                    {msg.liveCorrection && (
-                      <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold text-amber-400">
+                    {/* Live verification confirmed — same data */}
+                    {msg.turboVerified && (
+                      <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold text-emerald-400">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                        Verified &amp; Updated
+                        Verified live
+                        {msg.cacheAge != null && (
+                          <span className="text-[9px] font-normal text-emerald-500/70 ml-1">
+                            {msg.cacheAge < 60 ? `(${Math.round(msg.cacheAge)}s ago)` : `(${Math.round(msg.cacheAge / 60)}m ago)`}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {/* Live query returned fresher data — show updated badge */}
+                    {msg.turboUpdated && (
+                      <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold text-amber-400">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                        Refreshed
                       </div>
                     )}
                     <ReactMarkdown
                       components={{
-                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{children}</h1>,
+                        h1: ({ children }) => <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{children}</h2>,
                         h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3" style={{ color: 'var(--text-primary)' }}>{children}</h2>,
                         h3: ({ children }) => <h3 className="text-sm font-semibold mb-1.5 mt-2" style={{ color: 'var(--text-primary)' }}>{children}</h3>,
                         p: ({ children }) => <p className="text-[15px] leading-relaxed mb-2 last:mb-0 font-medium" style={{ color: 'var(--text-primary)' }}>{children}</p>,
@@ -1221,7 +1342,7 @@ export default function Chat() {
                         strong: ({ children }) => <strong className="font-bold" style={{ color: 'var(--text-primary)' }}>{children}</strong>,
                         em: ({ children }) => <em className="italic" style={{ color: 'var(--text-secondary)' }}>{children}</em>,
                         code: ({ children }) => <code className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: 'var(--code-bg)', color: 'var(--code-text)' }}>{children}</code>,
-                        blockquote: ({ children }) => <blockquote className="border-l-2 border-blue-500/40 pl-3 my-2 italic" style={{ color: 'var(--text-secondary)' }}>{children}</blockquote>,
+                        blockquote: ({ children }) => <blockquote className="pl-3 my-2 italic rounded" style={{ color: 'var(--text-secondary)', background: 'rgba(37, 99, 235, 0.06)', padding: '8px 12px' }}>{children}</blockquote>,
                         table: ({ children }) => <div className="overflow-x-auto my-2"><table className="text-xs border-collapse w-full">{children}</table></div>,
                         th: ({ children }) => <th className="text-left px-2 py-1 font-medium" style={{ borderBottom: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>{children}</th>,
                         td: ({ children }) => <td className="px-2 py-1" style={{ borderBottom: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>{children}</td>,
@@ -1246,58 +1367,123 @@ export default function Chat() {
 
               {msg.type === "result" && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  className="space-y-3"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 26 }}
+                  className="space-y-5"
                 >
                   {msg.summary && (
-                    <div className="backdrop-blur-md border rounded-2xl rounded-tl-sm px-5 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.15)]" style={{ background: 'var(--glass-bg-card)', borderColor: 'var(--glass-border)' }}>
-                      {msg.dbLabel && <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>[{msg.dbLabel}]</p>}
-                      <ReactMarkdown
-                        components={{
-                          p: ({ children }) => <p className="text-[15px] leading-relaxed mb-1 last:mb-0 font-medium" style={{ color: 'var(--text-primary)' }}>{children}</p>,
-                          strong: ({ children }) => <strong className="font-bold" style={{ color: 'var(--text-primary)' }}>{children}</strong>,
-                          ul: ({ children }) => <ul className="list-disc list-outside ml-4 mb-1 space-y-0.5">{children}</ul>,
-                          li: ({ children }) => <li className="text-[14px] font-medium" style={{ color: 'var(--text-primary)' }}>{children}</li>,
-                        }}
-                      >
-                        {msg.summary}
-                      </ReactMarkdown>
-                      <p className="text-[11px] text-[var(--text-muted)] mt-2">
-                        {msg.rowCount} rows in {Math.round(msg.latency)}ms
-                      </p>
-                    </div>
+                    <motion.div
+                      className="chat-artifact"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0 }}
+                    >
+                      <div className="chat-artifact__header">
+                        <span className="chat-artifact__label">
+                          <span className="eyebrow-dot" aria-hidden="true" />
+                          Summary
+                          {msg.dbLabel && (
+                            <>
+                              <span style={{ opacity: 0.4 }}>·</span>
+                              <span>{msg.dbLabel}</span>
+                            </>
+                          )}
+                        </span>
+                        <span className="chat-artifact__stat ml-auto">
+                          {msg.rowCount.toLocaleString()} row{msg.rowCount !== 1 ? 's' : ''} · {Math.round(msg.latency)}ms
+                        </span>
+                      </div>
+                      <div className="px-5 py-4">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className="text-[15px] leading-[1.65] mb-2 last:mb-0" style={{ color: 'var(--text-primary)' }}>{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold" style={{ color: 'var(--text-primary)' }}>{children}</strong>,
+                            ul: ({ children }) => <ul className="list-disc list-outside ml-5 mb-2 space-y-1">{children}</ul>,
+                            li: ({ children }) => <li className="text-[14px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{children}</li>,
+                          }}
+                        >
+                          {msg.summary}
+                        </ReactMarkdown>
+                      </div>
+                    </motion.div>
                   )}
                   {msg.rows?.length > 0 && (
                     <>
-                      <ResultsChart
-                        columns={msg.columns}
-                        rows={msg.rows}
-                        onAddToDashboard={handleAddToDashboard}
-                        question={msg.question}
-                        sql={msg.sql}
-                      />
-                      <ResultsTable columns={msg.columns} rows={msg.rows} />
+                      <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0.08 }}
+                      >
+                        <ResultsChart
+                          columns={msg.columns}
+                          rows={msg.rows}
+                          onAddToDashboard={handleAddToDashboard}
+                          question={msg.question}
+                          sql={msg.sql}
+                        />
+                      </motion.div>
+                      <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0.16 }}
+                      >
+                        <ResultsTable columns={msg.columns} rows={msg.rows} />
+                      </motion.div>
                     </>
                   )}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-[var(--text-muted)]">Was this correct?</span>
+                  <motion.div
+                    className="flex items-center gap-2 pt-1"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.28 }}
+                  >
+                    <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: 'var(--text-muted)' }}>Helpful?</span>
                     <button
                       onClick={() => handleFeedback(msg.question, msg.sql, true)}
-                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-emerald-900/30 text-[var(--text-secondary)] hover:text-green-400 transition-all duration-200 cursor-pointer"
+                      className="ease-spring cursor-pointer inline-flex items-center gap-1.5"
+                      style={{
+                        padding: '0.35rem 0.85rem',
+                        fontSize: 11,
+                        fontWeight: 500,
+                        borderRadius: 9999,
+                        color: 'var(--text-secondary)',
+                        background: 'var(--overlay-faint)',
+                        border: '1px solid var(--border-default)',
+                        transition: 'background 300ms cubic-bezier(0.32,0.72,0,1), color 300ms cubic-bezier(0.32,0.72,0,1), transform 300ms cubic-bezier(0.32,0.72,0,1)',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--status-success)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                       aria-label="Query result was correct"
                     >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
                       Yes
                     </button>
                     <button
                       onClick={() => handleFeedback(msg.question, msg.sql, false)}
-                      className="text-xs px-2.5 py-1 rounded-lg glass hover:bg-red-900/30 text-[var(--text-secondary)] hover:text-red-400 transition-all duration-200 cursor-pointer"
+                      className="ease-spring cursor-pointer inline-flex items-center gap-1.5"
+                      style={{
+                        padding: '0.35rem 0.85rem',
+                        fontSize: 11,
+                        fontWeight: 500,
+                        borderRadius: 9999,
+                        color: 'var(--text-secondary)',
+                        background: 'var(--overlay-faint)',
+                        border: '1px solid var(--border-default)',
+                        transition: 'background 300ms cubic-bezier(0.32,0.72,0,1), color 300ms cubic-bezier(0.32,0.72,0,1), transform 300ms cubic-bezier(0.32,0.72,0,1)',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--status-danger)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                       aria-label="Query result was incorrect"
                     >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                       No
                     </button>
-                  </div>
+                  </motion.div>
                   {msg.timestamp && <span className="text-[10px] text-[var(--text-muted)]">{formatMessageTime(msg.timestamp)}</span>}
                   {/* Daily usage remaining */}
                   {msg.dailyUsage && !msg.dailyUsage.unlimited && (
@@ -1324,15 +1510,35 @@ export default function Chat() {
 
               {msg.type === "agent_steps" && (
                 <div className="border rounded-xl p-3 space-y-1.5" style={{ background: 'color-mix(in srgb, var(--bg-elevated) 70%, transparent)', borderColor: 'var(--border-default)' }}>
-                  <div className="flex items-center gap-2 text-xs text-blue-400 font-medium mb-1">
-                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    {msg.status === "done" ? "Agent completed" : "Agent working..."}
+                  <div className="flex items-center gap-2 text-xs font-medium mb-1" style={{ color: msg.status === "done" ? "var(--text-muted)" : "rgb(96 165 250)" }}>
+                    {msg.status === "done" ? (
+                      <svg className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    )}
+                    {msg.status === "done" ? "Done" : (
+                      <span className="flex items-center gap-1.5">
+                        Working…
+                        <AgentElapsedTimer startTime={msg.startTime} active={msg.status !== "done"} />
+                      </span>
+                    )}
                   </div>
                   {(msg.steps || []).map((step, si) => (
                     <div key={si} className="text-xs pl-4 flex items-start gap-1.5">
-                      {step.type === "thinking" && <span className="italic" style={{ color: 'var(--text-muted)' }}>Analyzing...</span>}
+                      {step.type === "thinking" && (
+                        msg.status === "done" || si < (msg.steps || []).length - 1
+                          ? <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                              <svg style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4, opacity: 0.5 }} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5" /></svg>
+                              {step.content || 'Analyzed'}
+                            </span>
+                          : <span className="italic" style={{ color: 'var(--text-muted)' }}>
+                              {step.content || 'Analyzing…'}
+                            </span>
+                      )}
                       {step.type === "tool_call" && (
                         <span>
                           <span className="text-blue-400/70">{step.tool_name}</span>
@@ -1343,10 +1549,10 @@ export default function Chat() {
                         <span className="text-amber-400/80 font-medium">{step.content || "Checking intelligence tiers..."}</span>
                       )}
                       {step.type === "cached_result" && (
-                        <div className="w-full rounded-lg p-3 mt-1 mb-1" style={{ background: 'rgba(6, 182, 212, 0.06)', borderLeft: '3px solid #06b6d4' }}>
+                        <div className="w-full rounded-lg p-3 mt-1 mb-1" style={{ background: 'rgba(6, 182, 212, 0.06)', border: '1px solid rgba(6, 182, 212, 0.35)' }}>
                           <div className="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-400 mb-1.5">
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                            Instant Answer (Turbo Mode)
+                            Instant answer (Turbo mode)
                             {step.cache_age_seconds != null && (
                               <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
                                 {step.cache_age_seconds < 60 ? `${Math.round(step.cache_age_seconds)}s ago` : `${Math.round(step.cache_age_seconds / 60)}m ago`}
@@ -1361,7 +1567,7 @@ export default function Chat() {
                         </div>
                       )}
                       {step.type === "live_correction" && (
-                        <div className="w-full rounded-lg p-2 mt-1" style={{ background: 'rgba(245, 158, 11, 0.06)', borderLeft: '3px solid #f59e0b' }}>
+                        <div className="w-full rounded-lg p-2 mt-1" style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.35)' }}>
                           <span className="text-[11px] font-semibold text-amber-400">Updated</span>
                           <div className="text-[12px] mt-1" style={{ color: 'var(--text-secondary)' }}>{step.content}</div>
                         </div>
@@ -1526,16 +1732,9 @@ export default function Chat() {
 
         {/* Floating Minimalist Input Pill */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-3xl z-50">
-          <motion.form 
-            onSubmit={handleAsk} 
-            className="flex items-center gap-2 rounded-full p-2 shadow-2xl transition-all duration-300 pointer-events-auto"
-            style={{ 
-              background: 'rgba(20, 20, 22, 0.4)', 
-              backdropFilter: 'blur(40px) saturate(1.8)', 
-              WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: isInputFocused ? '0 20px 40px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.15)' : '0 10px 30px rgba(0,0,0,0.6)'
-            }}
+          <motion.form
+            onSubmit={handleAsk}
+            className={`flex items-center gap-2 rounded-full p-2 transition-all duration-300 pointer-events-auto chat-input-pill${isInputFocused ? ' focused' : ''}`}
             initial={{ scale: 0.95, y: 20 }}
             animate={{ scale: isInputFocused ? 1.02 : 1, y: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -1550,21 +1749,15 @@ export default function Chat() {
                 onBlur={() => { setIsInputFocused(false); setTimeout(() => setAutocompleteVisible(false), 200); }}
                 placeholder="Ask anything..."
                 aria-label="Ask a question about your data"
-                className="w-full bg-transparent px-5 py-2.5 text-[15px] focus:outline-none transition-all duration-200" style={{ color: 'var(--text-primary)' }}
+                className="w-full bg-transparent px-5 py-2.5 text-[15px] focus:outline-none transition-all duration-200"
                 disabled={loading}
-                style={{ paddingLeft: '24px' }}
+                style={{ color: 'var(--text-primary)', paddingLeft: '24px' }}
                 autoComplete="off"
               />
               {/* Autocomplete dropdown */}
               {autocompleteVisible && autocompleteSuggestions.length > 0 && (
                 <div
-                  className="absolute bottom-full left-0 right-0 mb-2 rounded-xl overflow-hidden"
-                  style={{
-                    background: 'rgba(18, 18, 22, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    boxShadow: '0 -8px 30px rgba(0,0,0,0.5)',
-                  }}
+                  className="absolute bottom-full left-0 right-0 mb-2 rounded-xl overflow-hidden chat-autocomplete"
                 >
                   {autocompleteSuggestions.map((s, idx) => (
                     <button
@@ -1589,10 +1782,28 @@ export default function Chat() {
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className="flex items-center justify-center w-[42px] h-[42px] shrink-0 rounded-full bg-white text-black hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 transition-all duration-300 cursor-pointer"
+              className="flex items-center justify-center w-[44px] h-[44px] shrink-0 rounded-full text-white disabled:opacity-30 ease-spring cursor-pointer group"
+              style={{
+                background: 'var(--accent)',
+                boxShadow: '0 10px 28px -10px rgba(37, 99, 235, 0.6), 0 1px 0 rgba(255,255,255,0.18) inset',
+                transition: 'transform 300ms cubic-bezier(0.32,0.72,0,1), box-shadow 300ms cubic-bezier(0.32,0.72,0,1), background 300ms cubic-bezier(0.32,0.72,0,1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--accent-light)';
+                e.currentTarget.style.transform = 'scale(1.05) translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--accent)';
+                e.currentTarget.style.transform = 'scale(1) translateY(0)';
+              }}
               aria-label="Send question"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="w-5 h-5 ease-spring transition-transform duration-300 group-hover:translate-x-0.5"
+              >
                 <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
               </svg>
             </button>
@@ -1694,7 +1905,7 @@ export default function Chat() {
                 <button
                   onClick={handleCreateAndAdd}
                   disabled={!newDashboardName.trim() || addingTile}
-                  className="px-3 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm rounded-lg hover:from-indigo-500 hover:to-violet-500 transition-all duration-200 disabled:opacity-40 cursor-pointer shadow-lg shadow-indigo-500/20 btn-glow"
+                  className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-500 transition-all duration-200 disabled:opacity-40 cursor-pointer shadow-lg shadow-blue-600/15 btn-glow"
                 >
                   {addingTile ? "..." : "Create"}
                 </button>

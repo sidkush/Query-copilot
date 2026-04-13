@@ -131,7 +131,7 @@ export default function ExportModal({ show, onClose, dashboardName, onExport }) 
       onExport?.();
       onClose?.();
     } catch (err) {
-      console.error('Export failed:', err);
+      void err;
       setError('Export failed. Please try again.');
     } finally {
       setExporting(false);

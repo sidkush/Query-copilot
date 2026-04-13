@@ -28,7 +28,7 @@ export default function BookmarkManager({ dashboardId, currentState, onApply, on
       setBookmarks(prev => [...prev, bm]);
       setName('');
     } catch (err) {
-      console.error('Save bookmark failed:', err);
+      void err;
     } finally {
       setSaving(false);
     }
@@ -39,7 +39,7 @@ export default function BookmarkManager({ dashboardId, currentState, onApply, on
       await api.deleteBookmark(dashboardId, bmId);
       setBookmarks(prev => prev.filter(b => b.id !== bmId));
     } catch (err) {
-      console.error('Delete bookmark failed:', err);
+      void err;
     }
   }, [dashboardId]);
 

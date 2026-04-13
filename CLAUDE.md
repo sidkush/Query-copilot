@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**AskDB** (formerly QueryCopilot) — a natural language-to-SQL analytics SaaS. Users connect their own database, ask questions in plain English, and receive generated SQL (shown for review before execution), results, auto-generated charts, and a natural-language summary. Includes an agentic multi-step query mode, NL-defined alerts, scheduled email digests, and a dashboard presentation engine.
+**AskDB** (formerly QueryCopilot) — natural language-to-SQL analytics SaaS. User connect own DB, ask plain English, get generated SQL (shown for review before run), results, auto-charts, NL summary. Include agentic multi-step query mode, NL-defined alerts, scheduled email digests, dashboard presentation engine.
 
 ## Setup & Running
 
@@ -37,9 +37,9 @@ python -m pytest tests/test_bug_*.py -v # backlog bug fix tests only
 python -m pytest tests/test_adv_otp_hash.py -v  # single test file
 ```
 
-112 automated tests across 31 test files in `backend/tests/`. All security-focused — adversarial testing regression guards covering OTP hashing, PII masking, SQL anonymization, file permissions, rate limiting, connection limits, and more. Run the full suite after any security-related change.
+100+ auto tests across 30+ files in `backend/tests/`. All security-focused — adversarial regression guards for OTP hashing, PII masking, SQL anonymization, file permissions, rate limiting, connection limits, more. Run full suite after any security change. Naming: `test_adv_*` = adversarial hardening, `test_bug_{round}_{number}_*` = backlog bug fixes (round 1–4, numbered).
 
-**Manual test scripts** (not pytest — run individually from `backend/`):
+**Manual test scripts** (not pytest — run one-by-one from `backend/`):
 ```bash
 python test_registration.py       # auth flow smoke test
 python test_waterfall.py          # waterfall routing tiers
@@ -54,46 +54,46 @@ python regression_test.py         # broad regression checks
 ```bash
 docker-compose up --build    # backend on :8000, frontend on :5173
 ```
-Note: Docker maps backend to port 8000, not 8002. For local dev without Docker, always use port 8002 to match the Vite proxy target in `vite.config.js`.
+Note: Docker map backend to 8000, not 8002. Local dev without Docker always use 8002 to match Vite proxy in `vite.config.js`. Both containers run as non-root `app` user. ChromaDB data persist via `chroma_data` named volume mapped to `/app/.chroma`. No CI/CD pipeline.
 
 ## Architecture
 
-Two independently running services: FastAPI backend on port 8002, React frontend on port 5173 (Vite proxies `/api` to backend).
+Two independent services: FastAPI backend on 8002, React frontend on 5173 (Vite proxies `/api` to backend).
 
 ### Backend — FastAPI (`/backend`)
 
-**Entry point:** `main.py` — registers routers under `/api`, initializes `app.state.connections = {}`, starts digest scheduler on lifespan startup.
+**Entry point:** `main.py` — register routers under `/api`, init `app.state.connections = {}`, start digest scheduler on lifespan startup.
 
 **Core query pipeline (`query_engine.py`):**
-1. Embed user question → ChromaDB RAG retrieval (per-connection namespaced collections for schema + few-shot examples)
-2. Build prompt → Claude API (Haiku primary, Sonnet fallback on validation failure)
+1. Embed question → ChromaDB RAG retrieval (per-connection namespaced collections for schema + few-shot)
+2. Build prompt → Claude API (Haiku primary, Sonnet fallback on validation fail)
 3. SQL cleaned → 6-layer validation (`sql_validator.py`) → optional execution → PII masking → NL summary
-4. Positive user feedback stored back into ChromaDB to improve future queries
+4. Positive feedback stored back to ChromaDB for future queries
 
-**Two-step query flow by design:** `/api/queries/generate` (returns SQL for user review) → `/api/queries/execute` (user-approved execution). Do not collapse these into one step.
+**Two-step query flow by design:** `/api/queries/generate` (returns SQL for review) → `/api/queries/execute` (user-approved run). Never collapse.
 
 **Agent system (`agent_engine.py`):**
-- `AgentEngine` — multi-step tool-use loop using Anthropic's native tool-use API with SSE streaming
-- 6 core tools + 5 dashboard tools: `find_relevant_tables` (ChromaDB vector search), `inspect_schema` (live DDL + samples), `run_sql` (validated execution), `suggest_chart`, `ask_user` (interactive pauses), `summarize_results`, `list_dashboards`, `get_dashboard_tiles`, `create_dashboard_tile`, `update_dashboard_tile`, `delete_dashboard_tile`
-- `SessionMemory` with auto-compaction at ~8K tokens
-- **Dynamic tool budget**: heuristic initial (dashboard=20, complex=15, simple=8) with auto-extension in increments of 10, safety cap at 100. Extensions logged to audit trail.
-- **Lightweight planning**: Complex/dashboard queries trigger a Sonnet planning call that generates a task list. Plan emitted as `AgentStep(type="plan")` shown as checklist in UI. Auto-executes without user gate.
-- **Structured progress tracker**: `_progress` dict tracks `{goal, completed, pending, total_tool_calls}`. Updated after each tool call. Used by `/continue` endpoint for session resume.
-- **Dialect-aware SQL hints**: BigQuery, Snowflake, MySQL, MSSQL, PostgreSQL hints injected into system prompt based on `connection_entry.db_type`.
-- **Sliding context compaction**: Every 6 tool calls, old tool_result content is summarized to 1-line summaries. Keeps context under ~15K tokens for long dashboard builds.
+- `AgentEngine` — multi-step tool-use loop using Anthropic native tool-use API with SSE streaming
+- 6 core tools + 5 dashboard tools: `find_relevant_tables` (ChromaDB vector search), `inspect_schema` (live DDL + samples), `run_sql` (validated run), `suggest_chart`, `ask_user` (interactive pause), `summarize_results`, `list_dashboards`, `get_dashboard_tiles`, `create_dashboard_tile`, `update_dashboard_tile`, `delete_dashboard_tile`
+- `SessionMemory` auto-compacts at ~8K tokens
+- **Dynamic tool budget**: heuristic initial (dashboard=20, complex=15, simple=8), auto-extend in increments of 10, safety cap 100. Extensions logged to audit trail.
+- **Lightweight planning**: Complex/dashboard queries trigger Sonnet planning call that generates task list. Plan emitted as `AgentStep(type="plan")` shown as checklist in UI. Auto-executes, no user gate.
+- **Structured progress tracker**: `_progress` dict tracks `{goal, completed, pending, total_tool_calls}`. Updated after each tool call. Used by `/continue` endpoint for resume.
+- **Dialect-aware SQL hints**: BigQuery, Snowflake, MySQL, MSSQL, PostgreSQL hints injected into system prompt from `connection_entry.db_type`.
+- **Sliding context compaction**: Every 6 tool calls, old tool_result content summarized to 1-line. Keep context under ~15K tokens for long dashboard builds.
 - Guardrails: dynamic budget (up to 100 tool calls), phase-aware timeouts (planning 30s, schema 60s, SQL gen 30s, DB exec 300s, verify 30s), 1800s session hard cap, max 3 SQL retries, Haiku primary + Sonnet fallback
-- **Session persistence** (`agent_session_store.py`): SQLite at `.data/agent_sessions.db` (WAL mode). Sessions auto-saved on SSE completion and on disconnect. 50 sessions per user cap with auto-purge.
-- Endpoints: `/api/v1/agent/run` (SSE stream), `/api/v1/agent/respond` (user response to `ask_user`), `/api/v1/agent/continue` (resume interrupted session), `/api/v1/agent/sessions` (list), `/api/v1/agent/sessions/{chat_id}` (load/delete)
+- **Session persistence** (`agent_session_store.py`): SQLite at `.data/agent_sessions.db` (WAL mode). Sessions auto-saved on SSE complete and on disconnect. 50 sessions per user cap with auto-purge.
+- Endpoints: `/api/v1/agent/run` (SSE stream), `/api/v1/agent/respond` (user response to `ask_user`), `/api/v1/agent/continue` (resume), `/api/v1/agent/sessions` (list), `/api/v1/agent/sessions/{chat_id}` (load/delete)
 
-**Connection model:** `app.state.connections[email][conn_id]` → `ConnectionEntry` (models.py) holding a `DatabaseConnector` + `QueryEngine`. Connections are lazy (no DB connection on startup), gracefully disconnected on shutdown.
+**Connection model:** `app.state.connections[email][conn_id]` → `ConnectionEntry` (models.py) hold `DatabaseConnector` + `QueryEngine`. Connections lazy (no DB connect on startup), disconnect gracefully on shutdown.
 
 **Behavior Intelligence (`behavior_engine.py`):**
-- Predictive next-action suggestions from query history, schema context, and compacted behavioral profiles
-- Detects user skill level (basic/intermediate/advanced) from SQL pattern analysis
-- Consent-gated: users control tracking level via `/api/v1/behavior` routes
+- Predictive next-action suggestions from query history, schema context, compacted behavior profiles
+- Detect user skill level (basic/intermediate/advanced) from SQL pattern analysis
+- Consent-gated: user control tracking level via `/api/v1/behavior` routes
 - Profile stored in `.data/user_data/{hash}/behavior_profile.json`
 
-**Routers (`backend/routers/`):** `auth_routes` (OTP + OAuth), `connection_routes` (DB connect/disconnect/save/load), `query_routes` (generate/execute/feedback/suggestions/dashboard-gen), `schema_routes` (table listing/DDL/ER positions), `chat_routes` (session CRUD), `user_routes` (profile/account/billing/tickets), `dashboard_routes` (tile CRUD + layout), `admin_routes` (separate JWT, user/ticket management), `alert_routes` (NL-defined alert CRUD with webhook support), `behavior_routes` (behavior tracking deltas + consent management), `agent_routes` (SSE agent streaming + waterfall router singleton).
+**Routers (`backend/routers/`):** `auth_routes` (OTP + OAuth), `connection_routes` (DB connect/disconnect/save/load), `query_routes` (generate/execute/feedback/suggestions/dashboard-gen), `schema_routes` (table listing/DDL/ER positions), `chat_routes` (session CRUD), `user_routes` (profile/account/billing/tickets), `dashboard_routes` (tile CRUD + layout), `admin_routes` (separate JWT, user/ticket management), `alert_routes` (NL alert CRUD with webhook support), `behavior_routes` (behavior tracking deltas + consent), `agent_routes` (SSE agent streaming + waterfall router singleton).
 
 **Alert system (`routers/alert_routes.py`):**
 - NL condition text parsed into SQL + column + operator + threshold
@@ -101,52 +101,64 @@ Two independently running services: FastAPI backend on port 8002, React frontend
 - Per-alert Slack/Teams webhook URLs
 
 **Email digest service (`digest.py`):**
-- APScheduler-based; per-user daily/weekly/none frequency (stored in `notification_preferences.digest_frequency`)
-- Collects query metrics (total, success rate, avg latency) and sends styled HTML email
+- APScheduler-based; per-user daily/weekly/none frequency (in `notification_preferences.digest_frequency`)
+- Collect query metrics (total, success rate, avg latency), send styled HTML email
 - `start_digest_scheduler()` / `stop_digest_scheduler()` called in app lifespan
 
 **Redis client (`redis_client.py`):**
-- Singleton connection pool via `get_redis()`; graceful degradation (returns `None` if unavailable, callers fall back to in-memory)
-- 30s TTL-based retry backoff after connection failure
+- Singleton connection pool via `get_redis()`; graceful degradation (returns `None` if down, callers fall back to in-memory)
+- 30s TTL-based retry backoff after connection fail
 
-**Security — three independent layers, never remove any:**
+**Security — three independent layers, never remove:**
 1. `db_connector.py` — driver-level read-only (`SET TRANSACTION READ ONLY`)
-2. `sql_validator.py` — 6 layers: multi-statement → keyword blocklist → sqlglot AST (15+ dialects) → SELECT-only → LIMIT enforcement (negative values clamped to 0) → dangerous-function detection
+2. `sql_validator.py` — 6 layers: multi-statement → keyword blocklist → sqlglot AST (15+ dialects) → SELECT-only → LIMIT enforce (negatives clamped to 0) → dangerous-function detect
 3. Connector re-validates before execution
 
-**PII masking** (`pii_masking.py`) — substring-based column-name pattern matching (catches compound names like `employee_ssn`) + Unicode NFKC normalization (prevents fullwidth bypass) + regex value scanning. Must always run via `mask_dataframe()` before any data is returned to users or the LLM.
+**PII masking** (`pii_masking.py`) — substring-based column-name pattern match (catch compound like `employee_ssn`) + Unicode NFKC normalize (prevent fullwidth bypass) + regex value scan. Must run via `mask_dataframe()` before data returns to user or LLM.
 
-**OTP security** (`otp.py`) — OTP codes stored as HMAC-SHA256 hashes (`hmac.new(JWT_SECRET_KEY, code, sha256)`), never plaintext. Verification uses `hmac.compare_digest()` for constant-time comparison. In-memory rate limiting via `collections.defaultdict(list)` with TTL eviction (survives log file deletion).
+**OTP security** (`otp.py`) — OTP codes stored as HMAC-SHA256 hashes (`hmac.new(JWT_SECRET_KEY, code, sha256)`), never plaintext. Verify use `hmac.compare_digest()` for constant-time compare. In-memory rate limit via `collections.defaultdict(list)` with TTL eviction (survives log file deletion).
 
 **JWT hardening** (`config.py`) — `JWT_ALGORITHM` restricted to `_SAFE_JWT_ALGORITHMS = {"HS256", "HS384", "HS512"}` allowlist enforced at startup. Rejects `none` algorithm (CVE-2015-9235).
 
-**Fernet encryption** (`user_storage.py`) — Key derivation uses PBKDF2-HMAC-SHA256 with 480K iterations (upgraded from bare SHA-256). Derives the Fernet key from `JWT_SECRET_KEY`.
+**Fernet encryption** (`user_storage.py`) — Key derivation use PBKDF2-HMAC-SHA256 with 480K iterations (upgraded from bare SHA-256). Derives Fernet key from `JWT_SECRET_KEY`.
 
-**Input sanitization** (`auth.py`) — `_sanitize_text()` strips HTML tags, HTML entities (`&lt;`, `&#60;`, `&#x3c;`), javascript/data/vbscript URIs, and event handler attributes.
+**Input sanitization** (`auth.py`) — `_sanitize_text()` strips HTML tags, HTML entities (`&lt;`, `&#60;`, `&#x3c;`), javascript/data/vbscript URIs, event handler attributes.
 
-**18 supported database engines** (defined as `DBType` enum in `config.py`):
-PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*, Redshift, Databricks\*, ClickHouse, DuckDB, Trino, Oracle, SAP HANA\*, IBM Db2\*, Supabase. (\* = driver commented out in `requirements.txt`; install manually.) Note: Supabase is a virtual type — connects via the PostgreSQL driver.
+**18 supported database engines** (as `DBType` enum in `config.py`):
+PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*, Redshift, Databricks\*, ClickHouse, DuckDB, Trino, Oracle, SAP HANA\*, IBM Db2\*, Supabase. (\* = driver commented in `requirements.txt`; install manually.) Note: Supabase virtual type — connects via PostgreSQL driver.
 
-**Data persistence (file-based, no application database):**
+**Data persistence (file-based, no app database):**
 - `.data/users.json` — user accounts (bcrypt hashed passwords), thread-locked
-- `.data/pending_verifications.json` — temporary OTP verification state (email/phone must be OTP-verified before account creation completes)
-- `.data/oauth_states.json` — short-lived OAuth CSRF state tokens (10-min TTL, auto-purged)
+- `.data/pending_verifications.json` — temp OTP verification state (email/phone must OTP-verify before account creation completes)
+- `.data/oauth_states.json` — short-lived OAuth CSRF state tokens (10-min TTL, auto-purge)
 - `.data/user_data/{sha256_prefix}/` — per-user: `connections.json` (Fernet-encrypted passwords), `chat_history/`, `query_stats.json`, `er_positions/`, `dashboards.json`, `profile.json`
-- `.chroma/querycopilot/` — ChromaDB vector store. Deleting it loses all trained context; re-seed only by reconnecting.
-- Atomic file writes (write-then-rename) are used intentionally for crash safety; preserve this pattern.
-- `.data/` and `.chroma/` are gitignored — all runtime state lives there. Never commit these directories.
+- `.chroma/querycopilot/` — ChromaDB vector store. Delete loses all trained context; re-seed only by reconnecting.
+- Atomic file writes (write-then-rename) used intentionally for crash safety; preserve.
+- `.data/audit/query_decisions.jsonl` — waterfall routing audit log (auto-rotate at 50MB)
+- `.data/schema_cache/{conn_id}.json` — cached schema profiles per connection
+- `.data/turbo_twins/{conn_id}.duckdb` — DuckDB replicas for Turbo Mode
+- `.data/agent_sessions.db` — SQLite (WAL mode) for agent session persistence
+- `.data/` and `.chroma/` gitignored — all runtime state lives there. Never commit.
 
 **BYOK (Bring Your Own Key) provider system:**
 - `model_provider.py` — `ModelProvider` ABC that all LLM adapters implement. Defines `ProviderResponse`, `ContentBlock`, `ProviderToolResponse` data classes.
-- `anthropic_provider.py` — Anthropic SDK adapter (the ONLY file that should `import anthropic`). Supports prompt caching, native tool-use, token streaming, circuit breaker (5 failures → 30s cooldown with jitter, per-API-key isolation).
-- `provider_registry.py` — resolves the correct provider + API key per user. Demo user (`demo@askdb.dev`) gets the platform key; all others must supply their own. Model catalog in `ANTHROPIC_MODELS` dict.
+- `anthropic_provider.py` — Anthropic SDK adapter (ONLY file that should `import anthropic`). Supports prompt caching, native tool-use, token streaming, circuit breaker (5 failures → 30s cooldown with jitter, per-API-key isolation).
+- `provider_registry.py` — resolves correct provider + API key per user. Demo user (`demo@askdb.dev`) gets platform key; all others must supply own. Model catalog in `ANTHROPIC_MODELS` dict.
 - User API keys stored Fernet-encrypted in per-user profile via `user_storage.py`. Key validation and status tracked through `user_routes.py` endpoints.
 
-**Config:** `config.py` — Pydantic `BaseSettings` singleton (`settings`). All config from `backend/.env`. `.env` path resolved relative to `config.py`, not the working directory. Model defaults: `claude-haiku-4-5-20251001` (primary), `claude-sonnet-4-5-20250514` (fallback). Note `.env.example` lists `claude-sonnet-4-6` as fallback — reconcile if updating models.
+**Config:** `config.py` — Pydantic `BaseSettings` singleton (`settings`). All config from `backend/.env`. `.env` path resolved relative to `config.py`, not cwd. Model defaults: `claude-haiku-4-5-20251001` (primary), `claude-sonnet-4-5-20250514` (fallback). Note `.env.example` lists `claude-sonnet-4-6` as fallback — reconcile if updating models. Key config not obvious from `.env.example`:
+- `ADMIN_JWT_SECRET_KEY` — separate admin JWT secret; falls back to `JWT_SECRET_KEY` if empty (collapses admin/user auth boundary, logged as warning)
+- `FERNET_SECRET_KEY` — dedicated Fernet key; falls back to PBKDF2(JWT_SECRET_KEY) if empty
+- `DEMO_ENABLED` (default False) — must be explicitly enabled for demo login (`demo@askdb.dev`)
+- `ASKDB_ENV` / `QUERYCOPILOT_ENV` — set to `production`/`staging` to force hard exit on default JWT key
+- `WATERFALL_CAN_ANSWER_BUDGET_MS` (200ms, min 10ms) / `WATERFALL_ANSWER_BUDGET_MS` (1000ms, min 50ms) — tier routing speed budgets with floor to prevent accidental disable
+- `OTP_EXPIRY_SECONDS` (default 600 = 10 min)
 
-**Storage abstraction:** `user_storage.py` defines a `StorageBackend` ABC with pluggable backends (file, S3, SQLite, Postgres). Default is file-based. All per-user data I/O goes through this module.
+**Storage abstraction:** `user_storage.py` defines `StorageBackend` ABC with pluggable backends (file, S3, SQLite, Postgres). Default file-based. All per-user data I/O goes through this module.
 
 ### Frontend — React 19 + Vite 8 (`/frontend`)
+
+**Pure JavaScript** — no TypeScript. No frontend test suite (no Vitest/Jest).
 
 **State:** Zustand store (`store.js`) — auth, connections, chat, profile, agent, theme. Token persisted to localStorage. Agent slice properties:
 - Core: `agentSteps`, `agentLoading`, `agentError`, `agentWaiting`, `agentWaitingOptions`, `agentAutoExecute`, `agentChatId`
@@ -156,45 +168,47 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 - Dual-response: `dualResponseActive`, `cachedResultStep`
 - Intelligence: `agentTierInfo`, `turboStatus`, `queryIntelligence`
 
-**API layer:** `api.js` — injects JWT `Authorization` header. 401 responses redirect to `/login`. Admin API uses separate `admin_token` in localStorage.
+**API layer:** `api.js` — injects JWT `Authorization` header. 401 redirects to `/login`. Admin API use separate `admin_token` in localStorage.
 
-**Routing:** `App.jsx` — React Router v7 with `ProtectedRoute` HOC and `AnimatePresence` page transitions. `ProtectedRoute` gates on `apiKeyStatus` — BYOK users without a valid key are redirected to set one up. Route map:
+**Routing:** `App.jsx` — React Router v7 with `ProtectedRoute` HOC and `AnimatePresence` page transitions. `ProtectedRoute` gates on `apiKeyStatus` — BYOK users without valid key redirected to setup. Route map:
 - Public: `/` (Landing), `/login`, `/auth/callback`, `/admin/login`, `/admin`, `/shared/:id` (SharedDashboard)
 - Protected (no sidebar): `/tutorial`, `/onboarding`
 - Protected (with `AppLayout` sidebar): `/dashboard`, `/schema`, `/chat`, `/profile`, `/account`, `/billing`, `/analytics`
 - `/dashboard` → `Dashboard.jsx` (view-only, query result tiles); `/analytics` → `DashboardBuilder.jsx` (full drag-resize builder with TileEditor)
 
-**Top-level shared components** (`src/components/`): `AppLayout.jsx` (sidebar + main content wrapper), `AppSidebar.jsx`, `DatabaseSwitcher.jsx` (connection picker), `ERDiagram.jsx` (schema visualization), `ResultsChart.jsx` + `ResultsTable.jsx` (query result rendering), `SQLPreview.jsx`, `SchemaExplorer.jsx`, `StatSummaryCard.jsx`, `AskDBLogo.jsx`, `UserDropdown.jsx`.
+**Top-level shared components** (`src/components/`): `AppLayout.jsx` (sidebar + main content wrap), `AppSidebar.jsx`, `DatabaseSwitcher.jsx` (connection picker), `ERDiagram.jsx` (schema viz), `ResultsChart.jsx` + `ResultsTable.jsx` (query result render), `SQLPreview.jsx`, `SchemaExplorer.jsx`, `StatSummaryCard.jsx`, `AskDBLogo.jsx`, `UserDropdown.jsx`.
 
 **Agent UI** (`src/components/agent/`):
-- `AgentPanel.jsx` — draggable/resizable dockable panel (float/right/bottom/left positions)
+- `AgentPanel.jsx` — draggable/resizable dockable panel (float/right/bottom/left)
 - `AgentStepFeed.jsx` — renders agent thinking, tool calls, user questions, results in real-time
 - `AgentQuestion.jsx` — inline question UI (buttons or text input) for `ask_user` tool responses
-- Integrated into Chat page (streaming steps) and Dashboard (floating progress overlay + dockable panel)
+- Wired into Chat page (streaming steps) and Dashboard (floating progress overlay + dockable panel)
 
-**Animation system** (`src/components/animation/`): Three.js 3D backgrounds (`Background3D`, `SectionBackground3D`, `FrostedBackground3D`, `NeonBackground3D`) lazy-loaded with a `WebGLErrorBoundary` fallback to `AnimatedBackground` (2D). Also: `PageTransition`, `StaggerContainer`, `MotionButton`, `AnimatedCounter`, `SkeletonLoader`, `useScrollReveal` hook.
+**Animation system** (`src/components/animation/`): Three.js 3D backgrounds (`Background3D`, `SectionBackground3D`, `FrostedBackground3D`, `NeonBackground3D`) lazy-loaded with `WebGLErrorBoundary` fallback to `AnimatedBackground` (2D). Also: `PageTransition`, `StaggerContainer`, `MotionButton`, `AnimatedCounter`, `SkeletonLoader`, `useScrollReveal` hook.
 
 **Dashboard subsystem** (`src/components/dashboard/`):
-- `tokens.js` (`src/components/dashboard/tokens.js`) — single source of truth for design tokens (colors, radii, transitions, chart palettes). Import `TOKENS` and `CHART_PALETTES` from here; don't hardcode hex values in dashboard components.
+- `tokens.js` (`src/components/dashboard/tokens.js`) — single source of truth for design tokens (colors, radii, transitions, chart palettes). Import `TOKENS` and `CHART_PALETTES` from here; never hardcode hex in dashboard components.
 - Uses `react-grid-layout` for drag-resize tiles, `html2canvas` + `jspdf` for export.
 - `PresentationEngine.jsx` — importance-scored tile bin-packing into 16:9 slides with animated transitions (KPI > chart > table > SQL-only scoring).
-- `AlertManager.jsx` — NL alert creation/testing/listing UI with webhook config.
+- `AlertManager.jsx` — NL alert create/test/list UI with webhook config.
 
-**Onboarding flow** (`src/components/onboarding/`, `src/pages/Onboarding.jsx`): Multi-step wizard — Welcome → Tour → API Key setup → DB Connect → First Query. Guides new users through BYOK key entry and first connection. Has a Skip button for users who want to explore first.
+**Onboarding flow** (`src/components/onboarding/`, `src/pages/Onboarding.jsx`): Multi-step wizard — Welcome → Tour → API Key setup → DB Connect → First Query. Guide new users through BYOK key entry and first connection. Has Skip button for users who want to explore first.
 
-**SharedDashboard** (`src/pages/SharedDashboard.jsx`): Public read-only dashboard view at `/shared/:id`. No auth required. Uses `TOKENS` and `CHART_PALETTES` from `tokens.js`.
+**SharedDashboard** (`src/pages/SharedDashboard.jsx`): Public read-only dashboard at `/shared/:id`. No auth. Uses `TOKENS` and `CHART_PALETTES` from `tokens.js`.
 
-**Dashboard lib utilities** (`src/lib/`): `dataBlender.js` — client-side left-join across multiple query result sets; `metricEvaluator.js` — KPI threshold/conditional logic; `visibilityRules.js` — tile show/hide rule engine; `formatUtils.js` — number/date formatting helpers; `anomalyDetector.js` — client-side anomaly detection; `formulaSandbox.js` + `formulaWorker.js` — sandboxed formula evaluation (Web Worker); `exportUtils.js` — dashboard export helpers; `gpuDetect.jsx` — `GPUTierProvider` context for conditional 3D rendering; `behaviorEngine.js` — client-side behavior tracking utilities; `fieldClassification.js` — column type classification for auto chart suggestions.
+**Dashboard lib utilities** (`src/lib/`): `dataBlender.js` — client-side left-join across multiple query result sets; `metricEvaluator.js` — KPI threshold/conditional logic; `visibilityRules.js` — tile show/hide rule engine; `formatUtils.js` — number/date formatting; `anomalyDetector.js` — client-side anomaly detection; `formulaSandbox.js` + `formulaWorker.js` — sandboxed formula eval (Web Worker); `exportUtils.js` — dashboard export helpers; `gpuDetect.jsx` — `GPUTierProvider` context for conditional 3D rendering; `behaviorEngine.js` — client-side behavior tracking utils; `fieldClassification.js` — column type classification for auto chart suggestions.
 
-**Charts:** ECharts only (`echarts-for-react`). Used in `ResultsChart.jsx` and `CanvasChart.jsx`. Do not introduce a second chart library.
+**Charts:** ECharts only (`echarts-for-react`). Used in `ResultsChart.jsx` and `CanvasChart.jsx`. Never introduce second chart library.
 
-**Theme system:** Light/dark/system preference stored in Zustand (`theme`/`resolvedTheme`), persisted to `localStorage("askdb-theme")`. `useThemeInit` hook in `App.jsx` toggles `.light` class on `<html>`. CSS variables in `index.css` handle both modes. Dashboard tokens in `tokens.js` adapt to resolved theme.
+**Theme system:** Light/dark/system preference in Zustand (`theme`/`resolvedTheme`), persisted to `localStorage("askdb-theme")`. `useThemeInit` hook in `App.jsx` toggles `.light` class on `<html>`. CSS variables in `index.css` handle both modes. Dashboard tokens in `tokens.js` adapt to resolved theme.
 
-**Styling:** Tailwind CSS 4.2 + custom glassmorphism classes in `index.css`. Dark theme default (`#06060e` bg). Fonts: Poppins (headings) + Open Sans (body). Animations: Framer Motion + GSAP. Three.js for 3D landing backgrounds.
+**Styling:** Tailwind CSS 4.2 + custom glassmorphism classes in `index.css`. Dark theme default (`#06060e` bg). Fonts: Outfit (headings) + Inter (body). Animations: Framer Motion + GSAP. Three.js for 3D landing backgrounds.
+
+**Linting:** ESLint flat config (`eslint.config.js`) — `@eslint/js` recommended + React Hooks + React Refresh plugins. `no-unused-vars` ignores names matching `^[A-Z_]` (allows unused component imports and `_` prefixed vars). No Prettier; no backend linter (no ruff/flake8/pyproject.toml).
 
 ### Query Intelligence System (`/backend` — 6 modules)
 
-Four-tier waterfall that makes the agent/chat/dashboard feel instant on large datasets. Each query routes through tiers in order; the first hit wins.
+Four-tier waterfall makes agent/chat/dashboard feel instant on big datasets. Each query routes through tiers in order; first hit wins.
 
 ```
 User question
@@ -223,9 +237,9 @@ User question
       Uses sqlglot for SQL parsing. Max 10 sub-queries.
 ```
 
-**Routing logic** (`waterfall_router.py`): Strategy pattern — `WaterfallRouter` holds ordered `BaseTier` subclasses. `route_sync()` is the sync-safe entry point (avoids event loop conflicts with FastAPI). `ValidationGate` checks schema hash before serving cached results; rejects empty hashes for data-returning tiers (memory/turbo).
+**Routing logic** (`waterfall_router.py`): Strategy pattern — `WaterfallRouter` holds ordered `BaseTier` subclasses. `route_sync()` is sync-safe entry point (avoid event loop conflicts with FastAPI). `ValidationGate` checks schema hash before serving cached results; rejects empty hashes for data-returning tiers (memory/turbo).
 
-**Module-level singleton**: `_waterfall_router` in `agent_routes.py` — do NOT create per-request. This prevents ChromaDB client proliferation.
+**Module-level singleton**: `_waterfall_router` in `agent_routes.py` — never create per-request. Prevents ChromaDB client proliferation.
 
 **Audit trail** (`audit_trail.py`): Append-only JSONL at `.data/audit/query_decisions.jsonl`. Logs every routing decision with conn_id, question hash, tiers checked, tier hit, schema hash. Thread-safe with buffered writes (flush, no per-entry fsync), auto-rotates at 50MB.
 
@@ -242,126 +256,105 @@ User question
 
 ### Dual-Response System (Progressive Dual-Response Data Acceleration)
 
-When a waterfall tier (memory/turbo) answers a query, the system can simultaneously stream a cached answer and fire a live query to verify freshness. Controlled by 4 config flags:
+When waterfall tier (memory/turbo) answers a query, system can simultaneously stream cached answer and fire live query to verify freshness. Controlled by 4 config flags:
 - `DUAL_RESPONSE_ENABLED` (default True) — master toggle
-- `DUAL_RESPONSE_STALENESS_TTL_SECONDS` (default 300) — cache age threshold; older than this = stale
-- `DUAL_RESPONSE_ALWAYS_CORRECT` (default True) — always fire live correction even when cache is fresh
+- `DUAL_RESPONSE_STALENESS_TTL_SECONDS` (default 300) — cache age threshold; older = stale
+- `DUAL_RESPONSE_ALWAYS_CORRECT` (default True) — always fire live correction even when cache fresh
 - `WRITE_TIME_MASKING` (default False) — PII mask at DuckDB write time instead of read time
-- `BEHAVIOR_WARMING_ENABLED` (default False) — pre-warm cache based on predicted query patterns
+- `BEHAVIOR_WARMING_ENABLED` (default False) — pre-warm cache from predicted query patterns
 
 ### Feature Flags (`config.py`)
 
-20+ feature flags control predictive intelligence. Enabled by default: `FEATURE_PREDICTIONS` (suggestions), `FEATURE_ADAPTIVE_COMPLEXITY` (skill detection), `FEATURE_INTENT_DISAMBIGUATION`, `FEATURE_ANALYST_TONE`, `FEATURE_TIME_PATTERNS`, `FEATURE_AGENT_DASHBOARD` (agent tile control), `FEATURE_PERMISSION_SYSTEM` (supervised/autonomous). Disabled by default: session tracking, consent flow, autocomplete, personas, insight chains, collaborative predictions, style matching, data prep, workflow templates, skill gaps, anomaly alerts, auto-switch, smart preload. Check `config.py` for the full list — flags are grouped with numbered comments referencing their design doc origins.
+20+ feature flags control predictive intelligence. Enabled by default: `FEATURE_PREDICTIONS` (suggestions), `FEATURE_ADAPTIVE_COMPLEXITY` (skill detect), `FEATURE_INTENT_DISAMBIGUATION`, `FEATURE_ANALYST_TONE`, `FEATURE_TIME_PATTERNS`, `FEATURE_AGENT_DASHBOARD` (agent tile control), `FEATURE_PERMISSION_SYSTEM` (supervised/autonomous). Disabled by default: session tracking, consent flow, autocomplete, personas, insight chains, collaborative predictions, style matching, data prep, workflow templates, skill gaps, anomaly alerts, auto-switch, smart preload. Check `config.py` for full list — flags grouped with numbered comments referencing design doc origins.
 
 ### Reference Documents (`/docs`)
 
-`PROJECT_JOURNAL.md` — full engineering history (architecture decisions, blockers, resolutions). `DASHBOARD_DEEP_DIVE.md` — detailed dashboard subsystem design. `docs/journal-2026-04-11-adversarial-hardening.md` — adversarial testing journal with root cause analysis, prevention playbook, and test coverage map. `docs/ultraflow/specs/UFSD-2026-04-10-adversarial-testing.md` — adversarial testing spec with all findings and verdicts. `docs/` — session journals, design brainstorms, and audit reports. These are read-only reference material, not configuration.
+`PROJECT_JOURNAL.md` — full engineering history (architecture decisions, blockers, resolutions). `DASHBOARD_DEEP_DIVE.md` — detailed dashboard subsystem design. `docs/journal-2026-04-11-adversarial-hardening.md` — adversarial testing journal with root cause analysis, prevention playbook, test coverage map. `docs/ultraflow/specs/UFSD-2026-04-10-adversarial-testing.md` — adversarial testing spec with all findings and verdicts. `docs/` — session journals, design brainstorms, audit reports. Read-only reference, not config.
 
 ## Key Constraints
 
-- **Read-only enforcement** — driver, SQL validator, and connector layers. Never weaken any.
-- **PII masking** — `mask_dataframe()` must run before any data reaches users or the LLM.
-- **Two-step query flow** — `/generate` then `/execute`. Don't collapse.
-- **Agent guardrails** — dynamic tool budget (heuristic 8/15/20, auto-extends to 100), phase-aware timeouts (planning 30s, schema 60s, SQL gen 30s, DB exec 300s, verify 30s), 600s per-segment soft cap, 1800s session hard cap, max 3 SQL retries, per-user concurrency cap (2 active sessions). Smart verification pass on complex queries (JOINs, aggregations, 3+ tool calls) with HIGH/MEDIUM/LOW confidence scoring. Claude Code-style progress checklist with phase badges and ETA. First-class cancel button wired to backend cancel endpoint. Agent's `run_sql` tool uses the same validator + read-only enforcement as the main pipeline. Sessions persisted to SQLite (`.data/agent_sessions.db`).
+### Security Invariants (never weaken)
+
+- **Read-only enforcement** — driver, SQL validator, connector layers. All three must agree.
+- **PII masking** — `mask_dataframe()` must run before data reaches user or LLM.
+- **Two-step query flow** — `/generate` then `/execute`. Never collapse.
+- **Config safety rails** — `MAX_ROWS` capped at 50,000 even if `.env` sets higher. Mandatory blocked keywords (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `GRANT`, `REVOKE`, `MERGE`) force-appended if missing from `BLOCKED_KEYWORDS`. JWT default key causes `CRITICAL` log and hard exit in production/staging.
+- **OTP-first registration** — email (and optionally phone) must OTP-verify before `create_user()` called. `pending_verifications.json` tracks state.
+- **Tile SQL validation** — `dashboard_routes.py` validates SQL through `SQLValidator` at write time (create/update tile), not just execution.
+- **`query_twin()` validates SQL** through `SQLValidator` before execution and caps results at 10K rows. Prevents filesystem-reading DuckDB functions and OOM.
+- **Query memory stores anonymized SQL intents** — `anonymize_sql()` strips all literals (integers, decimals, floats, scientific, hex, dollar-quoted, escaped quotes). Sensitive column names masked to `[MASKED]` via alpha-only lookarounds (`(?<![a-zA-Z])`) and substring match before ChromaDB storage. Never store raw query results or column values in ChromaDB.
+- **Dependencies** — critical packages pinned to exact versions (`==`) in `requirements.txt` to prevent supply chain attacks.
+
+### Agent System
+
+- **Guardrails** — dynamic tool budget (heuristic 8/15/20, auto-extends to 100), phase-aware timeouts (planning 30s, schema 60s, SQL gen 30s, DB exec 300s, verify 30s), 600s per-segment soft cap, 1800s session hard cap, max 3 SQL retries, per-user concurrency cap (2 active sessions). Agent `run_sql` uses same validator + read-only as main pipeline.
+- **Collected steps cap** — `MAX_COLLECTED_STEPS = 200` in `agent_routes.py`. Oldest evicted when cap reached.
+- **Waterfall early-return must store in memory** — if tier answers and agent returns early, call `memory.add_turn()` for both question and answer BEFORE returning. Else session history lost.
+- **ValidationGate rejects empty hashes** for memory/turbo tiers. Only schema/live tiers pass through without hash.
+- **Turbo Mode opt-in per connection** — privacy-sensitive customers can skip. Twin + turbo_status cleaned on disconnect.
+- **`cleanup_stale()` on QueryMemory** — auto-scheduled every 6 hours in `main.py` lifespan. `QueryMemory()` instantiated once before loop (not per-iteration) to prevent ChromaDB client proliferation.
+
+### Auth & Access Control
+
+- **`JWT_SECRET_KEY`** — also derives Fernet key for saved DB passwords. Changing invalidates all saved connection configs.
+- **Admin auth** is separate JWT flow (`admin_token` in localStorage), not same as user auth.
+- **User deletion** is soft-delete — archived in `deleted_users.json`. `create_user()` checks before allowing re-registration.
 - **Daily query limits** enforced in `query_routes.py`. Plans: free=10, weekly=50, monthly=200, yearly=500, pro=1000, enterprise=unlimited.
-- **`JWT_SECRET_KEY`** — also derives the Fernet key for saved DB passwords. Changing it invalidates all saved connection configs.
-- **Vite proxy** → `http://localhost:8002`. Backend must run on port 8002 during development. `vite.config.js` has manual chunk splitting for echarts, framer-motion, three.js, and export libs (html2canvas/jspdf) — keep this when adding large dependencies.
-- **Admin auth** is a separate JWT flow (`admin_token` in localStorage), not the same as user auth.
-- **User deletion** is soft-delete — archived in `deleted_users.json`.
-- **Config safety rails** — `MAX_ROWS` capped at 50,000 even if `.env` sets higher. Mandatory blocked keywords (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `CREATE`, `GRANT`, `REVOKE`, `MERGE`) are force-appended if missing from `BLOCKED_KEYWORDS`. JWT default key causes `CRITICAL` log and hard exit in production/staging (`ASKDB_ENV` or `QUERYCOPILOT_ENV`).
-- **CORS** configured for `localhost:5173`, `localhost:3000`, and `FRONTEND_URL`. Update for production.
+- **Per-user connection limit** — `MAX_CONNECTIONS_PER_USER` (default 10) in `connection_routes.py`. Returns 429 when exceeded.
+- **Per-user share token quota** — plan-based limits in `dashboard_routes.py`. Free=3, weekly=5, monthly=10, yearly=20, pro=50, enterprise=unlimited.
+- **Share tokens** — dashboard sharing uses time-limited tokens (`SHARE_TOKEN_EXPIRE_HOURS`, default 7 days). Auto-pruned on startup.
+
+### Infrastructure & Config
+
+- **Vite proxy** → `http://localhost:8002`. Backend must run on 8002 during dev. `vite.config.js` has manual chunk splitting for echarts, framer-motion, three.js, export libs — keep when adding large deps.
+- **CORS** configured for `localhost:5173`, `localhost:3000`, `FRONTEND_URL`. Update for production.
 - **OAuth redirect URI** defaults to `http://localhost:5173/auth/callback` (configurable via `OAUTH_REDIRECT_URI`).
-- **OTP-first registration** — email (and optionally phone) must be OTP-verified before `create_user()` is called. The `pending_verifications.json` file tracks this state; do not skip verification in the registration flow.
-- **Redis is optional** — `redis_client.py` degrades gracefully. Features using Redis must have in-memory fallbacks.
-- **Waterfall router is a module-level singleton** in `agent_routes.py`. Never create per-request (`build_default_router()` instantiates ChromaDB clients).
-- **`route_sync()`** — always use this instead of `route()` from sync code. Avoids `asyncio.new_event_loop()` conflicts with FastAPI's running loop.
-- **Waterfall early-return must store in memory** — if a tier answers and the agent returns early, call `memory.add_turn()` for both question and answer BEFORE returning. Otherwise session history is lost.
-- **ValidationGate rejects empty hashes** for memory/turbo tiers. Only schema/live tiers (which read live data) pass through without a hash.
-- **Turbo Mode is opt-in per connection** — privacy-sensitive customers can skip it. Twin + turbo_status cleaned up on disconnect.
-- **Query memory stores anonymized SQL intents** — `anonymize_sql()` strips all literals including integers, decimals, leading-dot floats (`.5`), trailing-dot floats (`1.`), scientific notation (`1e5`, `1.e5`), hex (`0xFF`), dollar-quoted strings (`$$...$$`), and SQL-standard escaped quotes (`''`). Sensitive column names (`ssn`, `salary`, etc.) are masked to `[MASKED]` via alpha-only lookarounds (`(?<![a-zA-Z])`) in `sql_intent` and substring matching in `columns` metadata before ChromaDB storage. Never use `\b` word boundary for SQL identifiers — it treats `_` as a word character, so `employee_ssn` won't match `\bssn\b`. Never store raw query results or column values in ChromaDB.
-- **`query_twin()` validates SQL** through `sql_validator.SQLValidator` before execution and caps results at 10K rows (P1 fix 2026-04-06). This prevents filesystem-reading DuckDB functions and OOM from unbounded fetchall.
-- **`cleanup_stale()` on QueryMemory** — auto-scheduled every 6 hours via `_periodic_cleanup_stale()` in `main.py` lifespan. `QueryMemory()` is instantiated once before the loop (not per-iteration) to prevent ChromaDB client proliferation.
-- **Share tokens** — dashboard sharing uses time-limited tokens (`SHARE_TOKEN_EXPIRE_HOURS`, default 7 days). Expired/revoked tokens auto-pruned on startup via `prune_expired_share_tokens()`.
-- **SQL Allowlist mode** — `SQL_ALLOWLIST_MODE` (default False) + `SQL_ALLOWED_TABLES` restricts queries to an explicit table list. Off by default; enable for tightly scoped deployments.
-- **Thread pool** — explicit `ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS)` set in lifespan startup (default 32, bounded 4–256). Replaces the default 8–12 thread pool to prevent agent concurrency bottlenecks.
-- **Per-user connection limit** — `MAX_CONNECTIONS_PER_USER` (default 10) enforced in `connection_routes.py`. Returns 429 when exceeded.
-- **Per-user share token quota** — plan-based limits in `dashboard_routes.py` (`SHARE_TOKEN_LIMITS`). Free=3, weekly=5, monthly=10, yearly=20, pro=50, enterprise=unlimited.
-- **Collected steps cap** — `MAX_COLLECTED_STEPS = 200` in `agent_routes.py`. Prevents memory bloat on long agent sessions. Oldest steps evicted when cap reached.
-- **Health endpoint** — returns aggregate counts only (`healthy_connections`, `unhealthy_connections`). Never expose connection IDs or internal identifiers in unauthenticated endpoints.
-- **Soft-delete re-registration** — `create_user()` in `auth.py` checks `deleted_users.json` before allowing registration with a previously-deleted email.
-- **Tile SQL validation** — `dashboard_routes.py` validates SQL through `SQLValidator` at write time (create/update tile), not just execution time.
-- **Schema profiling** — `profile_connection()` runs in a background thread (`threading.Thread`) to avoid blocking the connect endpoint on slow databases.
-- **Atomic twin refresh** — `refresh_twin()` in `duckdb_twin.py` uses create-then-rename (no delete step) to eliminate unavailability windows during refresh.
-- **Audit trail** — buffered writes with `flush()` instead of per-entry `os.fsync()` to avoid serializing concurrent routing decisions.
-- **Dependencies** — critical packages (`fastapi`, `pydantic`, `anthropic`, `sqlglot`, `python-jose`, `bcrypt`, `sqlalchemy`) pinned to exact versions (`==`) in `requirements.txt` to prevent supply chain attacks.
-- **`ask_user` uses `threading.Event.wait()`** — never `time.sleep()` polling in a thread pool. `/respond` and `/cancel` signal the event.
+- **Redis optional** — `redis_client.py` degrades gracefully. Redis features must have in-memory fallbacks.
+- **Thread pool** — explicit `ThreadPoolExecutor(max_workers=THREAD_POOL_MAX_WORKERS)` in lifespan startup (default 32, bounded 4–256).
+- **SQL Allowlist mode** — `SQL_ALLOWLIST_MODE` (default False) + `SQL_ALLOWED_TABLES` restricts queries to explicit table list.
+- **Schema profiling** — `profile_connection()` runs in background thread to avoid blocking connect endpoint on slow DBs.
 
 ## Security Hardening Status
 
-Two rounds of 20-analyst adversarial testing (2026-04-10/11) identified 33 findings. All P0/P1 fixed with rebreak verification. 112 regression tests added. Full journal: `docs/journal-2026-04-11-adversarial-hardening.md`.
+Two rounds of 20-analyst adversarial testing (2026-04-10/11) found 33 findings. All P0/P1 fixed with rebreak verification. 112 regression tests guard against regressions. Full journal: `docs/journal-2026-04-11-adversarial-hardening.md`.
 
-### Resolved Items
+**Deferred items:**
 
-| # | Fix | Status |
-|---|-----|--------|
-| 1 | OTP hash storage (HMAC-SHA256) | **RESOLVED 2026-04-11** — `otp.py` |
-| 2 | In-memory OTP rate limiter (TTL eviction) | **RESOLVED 2026-04-11** — `otp.py` |
-| 3 | PII column-name masking (substring + NFKC) | **RESOLVED 2026-04-11** — `pii_masking.py`, `query_memory.py` |
-| 4 | Async ask_user (Event.wait) | **RESOLVED 2026-04-10** — `agent_engine.py` |
-| 6 | Auto-schedule cleanup_stale (6h interval) | **RESOLVED 2026-04-11** — `main.py` |
-| 7 | Schema profiling async (background thread) | **RESOLVED 2026-04-11** — `connection_routes.py` |
-| 8 | anonymize_sql coverage (hex/sci/dollar/dots) | **RESOLVED 2026-04-11** — `query_memory.py` |
-| 9 | refresh_twin atomic swap (create-then-rename) | **RESOLVED 2026-04-11** — `duckdb_twin.py` |
-| 10 | Audit trail buffered writes (no per-entry fsync) | **RESOLVED 2026-04-11** — `audit_trail.py` |
-| 11 | Waterfall cache query limits | **RESOLVED 2026-04-10** — `agent_engine.py` |
-
-### Remaining Deferred Items
-
-| # | Fix | File(s) | Milestone Trigger | Risk if Skipped |
-|---|-----|---------|-------------------|-----------------|
-| 5 | **DuckDB twin encryption at rest** — encrypt `.duckdb` twin files or restrict to encrypted volumes | `duckdb_twin.py` | Pre-launch for healthcare/finance customers | Sampled rows (potentially PHI/PII) stored in plaintext on disk; `TURBO_TWIN_WARN_UNENCRYPTED` flag logs warning |
-| 12 | **PII substring false positives** — `business` matches `sin`, `adobe` matches `dob` | `pii_masking.py`, `query_memory.py` | When false positive complaints arrive | Over-masking only (data hidden, not leaked); acceptable security tradeoff |
-| 13 | **Per-request QueryMemory proliferation** — `query_routes.py` and `agent_engine.py` create `QueryMemory()` per request | `query_memory.py` | Module-level singleton refactor | Bounded by query rate; scheduler leak fixed |
-
+| # | Issue | Trigger | Risk |
+|---|-------|---------|------|
+| 5 | DuckDB twin encryption at rest (`duckdb_twin.py`) | Pre-launch for healthcare/finance | PHI/PII in plaintext on disk; `TURBO_TWIN_WARN_UNENCRYPTED` logs warning |
+| 12 | PII substring false positives — `business`→`sin`, `adobe`→`dob` | When complaints arrive | Over-masking only (safe tradeoff) |
+| 13 | Per-request QueryMemory proliferation | Singleton refactor | Bounded by query rate; scheduler leak fixed |
 
 ## Security Coding Rules (from adversarial testing)
 
-These rules were established after 33 security findings across two rounds of adversarial testing. See `docs/journal-2026-04-11-adversarial-hardening.md` for full root cause analysis.
+Established after 33 findings. See `docs/journal-2026-04-11-adversarial-hardening.md` for root cause analysis.
 
-- **Never use `\b` for SQL/code identifiers** — `\b` treats `_` as a word character, so `\bssn\b` won't match `employee_ssn`. Use `(?<![a-zA-Z])` / `(?![a-zA-Z])` lookarounds instead.
-- **PII matching must be substring-based** — exact set membership misses compound names. Over-masking is acceptable; under-masking is not.
-- **Normalize Unicode before security checks** — `unicodedata.normalize("NFKC", text)` before pattern matching. Prevents fullwidth character bypasses.
-- **Multi-value returns must use NamedTuple** — bare tuple unpacking silently breaks when return signatures change. All callers must be audited when changing a return type.
-- **Fast paths must preserve side effects** — when adding cache hits or early returns that bypass the normal flow, audit for mandatory operations (rate limiting, stats, audit logging) that the fast path must still run.
-- **File state writes must be atomic** — write to `{path}.tmp`, flush, then `os.replace(tmp, path)`. Never write directly to the target file.
-- **Config values are untrusted input** — validate security-critical config at startup against explicit allowlists (not blocklists).
-- **Never use `time.sleep()` polling in a thread pool** — use `threading.Event.wait()`, `Queue.get()`, or async primitives.
-- **Health endpoints must not leak identifiers** — return aggregate counts, never connection IDs or internal state.
-- **Every config flag must be consumed** — dead flags mislead users into thinking features work. Test that flags are read.
-- **New endpoints must inherit guards** — when adding endpoints that parallel existing ones, extract shared security logic into decorators or middleware.
+- **Never use `\b` for SQL/code identifiers** — treats `_` as word char, so `\bssn\b` won't match `employee_ssn`. Use `(?<![a-zA-Z])` / `(?![a-zA-Z])` lookarounds.
+- **PII matching must be substring-based** — exact set membership misses compound names. Over-masking > under-masking.
+- **Normalize Unicode before security checks** — `unicodedata.normalize("NFKC", text)` before pattern match.
+- **Multi-value returns must use NamedTuple** — bare tuple unpacking silently breaks when return signatures change.
+- **Fast paths must preserve side effects** — cache hits/early returns must still run rate limiting, stats, audit logging.
+- **File state writes must be atomic** — write to `{path}.tmp`, flush, then `os.replace(tmp, path)`.
+- **Config values are untrusted input** — validate at startup against explicit allowlists (not blocklists).
+- **Never use `time.sleep()` polling in thread pool** — use `threading.Event.wait()`, `Queue.get()`, or async primitives.
+- **Health endpoints must not leak identifiers** — aggregate counts only.
+- **Every config flag must be consumed** — dead flags mislead users. Test that flags are read.
+- **New endpoints must inherit guards** — extract shared security logic into decorators or middleware.
 
-## Debugging & Bug Fixes
+## Development Notes
 
-When fixing bugs, always verify the fix actually works before reporting success. Run the app/tests and confirm the issue is resolved end-to-end — don't just check that the code looks correct.
-
-## Refactoring Guidelines
-
-When renaming/rebranding across the codebase, account for string splits across JSX tags (e.g., `Data<span>Lens</span>`), template literals, and dynamic string construction — don't rely solely on grep-based find-and-replace.
-
-## Development Environment
-
-Before starting server processes or builds, check for zombie processes on required ports (e.g., `lsof -i :8002`) and kill them. Always verify dependencies are installed for the current Python/Node version before assuming they work.
-
-## General Rules
-
-- When creating or saving files, always confirm the target directory with the user before writing. Default to the project root unless explicitly told otherwise.
-- This is a full-stack SaaS app. Primary languages: JavaScript (frontend, React + Vite), Python (backend, FastAPI). When making changes, check both frontend and backend impact.
+- **Adding new router:** create in `routers/`, register via `app.include_router()` in `main.py`, inherit shared security guards (auth dependency, rate limiting).
+- When fixing bugs, verify fix end-to-end (run app/tests) — never just check code looks correct.
+- When renaming/rebranding, account for string splits across JSX tags (e.g., `Data<span>Lens</span>`), template literals, dynamic string construction.
+- Before starting servers, check zombie processes on required ports (e.g., `lsof -i :8002`).
+- Full-stack SaaS app (JS frontend + Python backend). Check both sides when changing.
 
 ## graphify
 
-A curated knowledge graph exists at `C:/Users/sid23/knowledge/graphify-out/graph.json` (external to this repo). It captures architecture decisions, security model, data flow, and design constraints.
+Curated knowledge graph at `C:/Users/sid23/knowledge/graphify-out/graph.json` (external to repo). Captures architecture decisions, security model, data flow, design constraints.
 
 Rules:
-- If `graphify-out/` exists in this repo, read `graphify-out/GRAPH_REPORT.md` for god nodes and community structure before answering architecture questions
-- If `graphify-out/wiki/index.md` exists, navigate it instead of reading raw files
-- Source knowledge docs are at `C:/Users/sid23/knowledge/*.md` — run `/graphify` to rebuild after edits
+- If `graphify-out/` exists in repo, read `graphify-out/GRAPH_REPORT.md` for god nodes and community structure before answering architecture questions
+- If `graphify-out/wiki/index.md` exists, navigate it instead of raw files
+- Source knowledge docs at `C:/Users/sid23/knowledge/*.md` — run `/graphify` to rebuild after edits

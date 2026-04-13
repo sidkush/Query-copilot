@@ -7,7 +7,6 @@ import { useStore } from "../store";
 import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import AnimatedCounter from "../components/animation/AnimatedCounter";
-import MotionButton from "../components/animation/MotionButton";
 
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import { GPUTierProvider } from "../lib/gpuDetect";
@@ -30,7 +29,7 @@ const DB_COLORS = {
   mssql: "bg-red-500/20 text-red-400 border-red-700/40",
   cockroachdb: "bg-purple-500/20 text-purple-400 border-purple-700/40",
   snowflake: "bg-cyan-500/20 text-cyan-400 border-cyan-700/40",
-  bigquery: "bg-indigo-500/20 text-indigo-400 border-indigo-700/40",
+  bigquery: "bg-blue-500/20 text-blue-400 border-blue-700/40",
   redshift: "bg-orange-500/20 text-orange-400 border-orange-700/40",
   databricks: "bg-red-500/20 text-red-400 border-red-700/40",
   clickhouse: "bg-yellow-500/20 text-yellow-400 border-yellow-700/40",
@@ -41,7 +40,7 @@ const DB_COLORS = {
   ibm_db2: "bg-blue-500/20 text-blue-300 border-blue-700/40",
 };
 
-function StatCard({ value, label, gradient = "from-indigo-400 to-violet-400", isNumber = false }) {
+function StatCard({ value, label, gradient = "from-blue-400 to-cyan-400", isNumber = false }) {
   return (
     <motion.div
       className="glass rounded-xl p-4 text-center"
@@ -196,8 +195,9 @@ function ApiConfigSection() {
   return (
     <>
       <StaggerItem>
-        <div className="glass-card rounded-2xl p-6">
-          <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>API Configuration</h2>
+        <div className="bezel-shell">
+          <div className="bezel-core glass-card p-8" style={{ borderRadius: 'calc(2rem - 6px)' }}>
+          <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>API configuration</h2>
           <div className="space-y-4">
             {/* Status */}
             <div className="flex items-center justify-between">
@@ -216,7 +216,7 @@ function ApiConfigSection() {
 
             {/* Masked Key — show initials + dots, click to reveal */}
             <div>
-              <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>API Key</label>
+              <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>API key</label>
               <div className="text-sm font-mono">
                 <MaskedApiKey masked={keyStatus?.masked_key} isDemo={isDemo} />
               </div>
@@ -224,7 +224,7 @@ function ApiConfigSection() {
 
             {/* Preferred Model — no $ symbols, show tier instead */}
             <div>
-              <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Preferred Model</label>
+              <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Preferred model</label>
               <select
                 value={preferredModel || ""}
                 onChange={handleModelChange}
@@ -242,29 +242,39 @@ function ApiConfigSection() {
             {/* Last Validated */}
             {keyStatus?.validated_at && (
               <div>
-                <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Last Validated</label>
+                <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Last validated</label>
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{new Date(keyStatus.validated_at).toLocaleString()}</p>
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <MotionButton
+            {/* Action Buttons — primary gets Button-in-Button treatment */}
+            <div className="flex items-center gap-3">
+              <motion.button
                 onClick={() => setShowKeyModal(true)}
-                className="px-4 py-2 text-sm font-medium text-indigo-400 bg-indigo-900/20 border border-indigo-800/50 rounded-lg hover:bg-indigo-900/40 transition cursor-pointer"
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="group inline-flex items-center gap-2 pl-5 pr-2 py-2 text-sm font-semibold text-blue-400 bg-blue-900/20 border border-blue-800/50 rounded-full hover:bg-blue-900/30 ease-spring cursor-pointer"
               >
-                {isConfigured ? "Update Key" : "Add Key"}
-              </MotionButton>
+                <span>{isConfigured ? "Update key" : "Add key"}</span>
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-500/20 ease-spring transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-[1px]">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 12h14M13 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </motion.button>
               {isConfigured && (
-                <MotionButton
+                <motion.button
                   onClick={handleDeleteKey}
                   disabled={deleting}
-                  className="px-4 py-2 text-sm font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg hover:bg-red-900/40 transition cursor-pointer disabled:opacity-50"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-full hover:bg-red-900/30 ease-spring cursor-pointer disabled:opacity-50"
                 >
-                  {deleting ? "Removing..." : "Remove Key"}
-                </MotionButton>
+                  {deleting ? "Removing..." : "Remove key"}
+                </motion.button>
               )}
             </div>
+          </div>
           </div>
         </div>
       </StaggerItem>
@@ -273,6 +283,9 @@ function ApiConfigSection() {
       <AnimatePresence>
         {showKeyModal && (
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Update API key"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -324,24 +337,37 @@ function ApiConfigSection() {
               )}
 
               <div className="flex gap-3">
-                <MotionButton
+                <motion.button
                   onClick={() => { setShowKeyModal(false); setNewKey(""); setKeyError(""); }}
-                  className="flex-1 glass hover:bg-white/10 text-gray-300 font-medium rounded-lg py-2.5 transition cursor-pointer"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="flex-1 glass hover:bg-white/10 text-gray-300 font-medium rounded-full py-2.5 ease-spring cursor-pointer"
                 >
                   Cancel
-                </MotionButton>
-                <MotionButton
+                </motion.button>
+                <motion.button
                   onClick={handleSaveKey}
                   disabled={keyValidating || !newKey.trim()}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-medium rounded-lg py-2.5 transition cursor-pointer"
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="group flex-1 flex items-center justify-center gap-2 pl-5 pr-2 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold rounded-full ease-spring cursor-pointer"
                 >
                   {keyValidating ? (
-                    <span className="flex items-center justify-center gap-2">
+                    <span className="flex items-center justify-center gap-2 py-0.5">
                       <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Validating
                     </span>
-                  ) : "Validate & Save"}
-                </MotionButton>
+                  ) : (
+                    <>
+                      <span className="text-sm">Validate &amp; save</span>
+                      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-white/15 ease-spring transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-[1px]">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M5 12l5 5L20 7" />
+                        </svg>
+                      </span>
+                    </>
+                  )}
+                </motion.button>
               </div>
             </motion.div>
           </motion.div>
@@ -428,10 +454,10 @@ export default function Account() {
         <UserDropdown />
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6 relative z-10">
+      <div className="max-w-2xl mx-auto px-4 py-16 space-y-6 relative z-10">
         {loading ? (
           <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-            <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             Loading account...
           </div>
         ) : error ? (
@@ -456,7 +482,7 @@ export default function Account() {
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Plan</label>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-400 border border-indigo-700/40 capitalize">{account?.plan || "free"}</span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-700/40 capitalize">{account?.plan || "free"}</span>
                   </div>
                   <div>
                     <label className="block text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Member Since</label>
@@ -516,11 +542,11 @@ export default function Account() {
             {/* 4. Storage & Usage */}
             <StaggerItem>
               <div className="glass-card rounded-2xl p-6">
-                <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Storage & Usage</h2>
+                <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Storage &amp; usage</h2>
                 <div className="grid grid-cols-3 gap-3">
-                  <StatCard value={account?.saved_connections ?? 0} label="Saved Connections" isNumber />
-                  <StatCard value={account?.chat_count ?? 0} label="Chat Sessions" gradient="from-purple-400 to-pink-400" isNumber />
-                  <StatCard value={account?.trained_tables ?? 0} label="Trained Tables" gradient="from-emerald-400 to-teal-400" isNumber />
+                  <StatCard value={account?.saved_connections ?? 0} label="Saved connections" isNumber />
+                  <StatCard value={account?.chat_count ?? 0} label="Chat sessions" gradient="from-purple-400 to-pink-400" isNumber />
+                  <StatCard value={account?.trained_tables ?? 0} label="Trained tables" gradient="from-emerald-400 to-teal-400" isNumber />
                 </div>
               </div>
             </StaggerItem>
@@ -530,7 +556,7 @@ export default function Account() {
               {account?.saved_connections_list?.length > 0 && (
                 <StaggerItem>
                   <div className="glass-card rounded-2xl p-6">
-                    <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Saved Databases</h2>
+                    <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Saved databases</h2>
                     <div className="flex flex-wrap gap-2">
                       {account.saved_connections_list.map((s, i) => (
                         <motion.div
@@ -556,7 +582,7 @@ export default function Account() {
             {/* 7. Danger Zone */}
             <StaggerItem>
               <div className="glass-card border-red-900/30 rounded-2xl p-6">
-                <h2 className="text-sm font-semibold text-red-400 mb-2">Danger Zone</h2>
+                <h2 className="text-sm font-semibold text-red-400 mb-2">Danger zone</h2>
                 <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>These actions cannot be undone.</p>
                 <AnimatePresence>
                   {actionMsg && (
@@ -572,35 +598,41 @@ export default function Account() {
                   )}
                 </AnimatePresence>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between glass rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-between glass rounded-xl px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium text-yellow-400">Clear Chat History</p>
+                      <p className="text-sm font-medium text-yellow-400">Clear chat history</p>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Remove {account?.chat_count ?? 0} chat session{(account?.chat_count ?? 0) !== 1 ? "s" : ""} and all saved queries</p>
                     </div>
-                    <MotionButton onClick={handleClearHistory} disabled={clearing || (account?.chat_count ?? 0) === 0}
-                      className="px-4 py-2 text-sm font-medium text-yellow-400 bg-yellow-900/20 border border-yellow-800/50 rounded-lg hover:bg-yellow-900/40 transition cursor-pointer disabled:opacity-50 flex-shrink-0">
+                    <motion.button onClick={handleClearHistory} disabled={clearing || (account?.chat_count ?? 0) === 0}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                      className="px-4 py-2 text-sm font-medium text-yellow-400 bg-yellow-900/20 border border-yellow-800/50 rounded-full hover:bg-yellow-900/40 ease-spring cursor-pointer disabled:opacity-50 flex-shrink-0">
                       {clearing ? "Clearing..." : "Clear"}
-                    </MotionButton>
+                    </motion.button>
                   </div>
-                  <div className="flex items-center justify-between glass rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-between glass rounded-xl px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium text-orange-400">Reset All Connections</p>
+                      <p className="text-sm font-medium text-orange-400">Reset all connections</p>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Disconnect {account?.active_connection_count ?? 0} active and remove {account?.saved_connections ?? 0} saved connection{(account?.saved_connections ?? 0) !== 1 ? "s" : ""}</p>
                     </div>
-                    <MotionButton onClick={handleResetConnections} disabled={resetting}
-                      className="px-4 py-2 text-sm font-medium text-orange-400 bg-orange-900/20 border border-orange-800/50 rounded-lg hover:bg-orange-900/40 transition cursor-pointer disabled:opacity-50 flex-shrink-0">
+                    <motion.button onClick={handleResetConnections} disabled={resetting}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                      className="px-4 py-2 text-sm font-medium text-orange-400 bg-orange-900/20 border border-orange-800/50 rounded-full hover:bg-orange-900/40 ease-spring cursor-pointer disabled:opacity-50 flex-shrink-0">
                       {resetting ? "Resetting..." : "Reset"}
-                    </MotionButton>
+                    </motion.button>
                   </div>
-                  <div className="flex items-center justify-between glass rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-between glass rounded-xl px-4 py-3">
                     <div>
-                      <p className="text-sm font-medium text-red-400">Delete Account</p>
+                      <p className="text-sm font-medium text-red-400">Delete account</p>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Permanently revoke access. Your data is retained for records.</p>
                     </div>
-                    <MotionButton onClick={() => setShowDeleteModal(true)} disabled={deleting}
-                      className="px-4 py-2 text-sm font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg hover:bg-red-900/40 transition cursor-pointer disabled:opacity-50 flex-shrink-0">
+                    <motion.button onClick={() => setShowDeleteModal(true)} disabled={deleting}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                      className="px-4 py-2 text-sm font-medium text-red-400 bg-red-900/20 border border-red-800/50 rounded-full hover:bg-red-900/40 ease-spring cursor-pointer disabled:opacity-50 flex-shrink-0">
                       {deleting ? "Deleting..." : "Delete"}
-                    </MotionButton>
+                    </motion.button>
                   </div>
                 </div>
               </div>
@@ -635,7 +667,7 @@ export default function Account() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                       </svg>
                     </div>
-                    <h3 id="delete-modal-title" className="text-lg font-bold text-center mb-2" style={{ color: 'var(--text-primary)' }}>Delete Your Account?</h3>
+                    <h3 id="delete-modal-title" className="text-lg font-bold text-center mb-2" style={{ color: 'var(--text-primary)' }}>Delete your account?</h3>
                     <p className="text-sm text-center mb-4" style={{ color: 'var(--text-secondary)' }}>
                       This will permanently revoke your access. You&apos;ll need to register again. Type your email to confirm.
                     </p>
@@ -648,20 +680,24 @@ export default function Account() {
                       aria-label="Confirm email to delete account"
                     />
                     <div className="flex gap-3">
-                      <MotionButton onClick={() => { setShowDeleteModal(false); setDeleteConfirmEmail(""); }}
-                        className="flex-1 glass hover:bg-white/10 text-gray-300 font-medium rounded-lg py-2.5 transition cursor-pointer">
+                      <motion.button onClick={() => { setShowDeleteModal(false); setDeleteConfirmEmail(""); }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        className="flex-1 glass hover:bg-white/10 text-gray-300 font-medium rounded-full py-2.5 ease-spring cursor-pointer">
                         Cancel
-                      </MotionButton>
-                      <MotionButton
+                      </motion.button>
+                      <motion.button
                         onClick={async () => {
                           setDeleting(true); setShowDeleteModal(false);
                           try { await api.deleteAccount(); logout(); navigate("/login"); }
                           catch (err) { setActionMsg(err.message); setDeleting(false); }
                         }}
                         disabled={deleteConfirmEmail !== account?.email}
-                        className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white font-medium rounded-lg py-2.5 transition cursor-pointer">
-                        Delete Forever
-                      </MotionButton>
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold rounded-full py-2.5 ease-spring cursor-pointer">
+                        Delete forever
+                      </motion.button>
                     </div>
                   </motion.div>
                 </motion.div>

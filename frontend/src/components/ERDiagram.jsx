@@ -207,11 +207,11 @@ export default function ERDiagram({ tables = [], compact = false, savedPositions
       >
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="#6366f1" />
+            <polygon points="0 0, 10 3.5, 0 7" fill="#2563EB" />
           </marker>
           <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#4f46e5" />
-            <stop offset="100%" stopColor="#7c3aed" />
+            <stop offset="0%" stopColor="#2563EB" />
+            <stop offset="100%" stopColor="#1d4ed8" />
           </linearGradient>
         </defs>
 
@@ -223,7 +223,7 @@ export default function ERDiagram({ tables = [], compact = false, savedPositions
               <path
                 d={`M ${e.from.x} ${e.from.y} C ${midX} ${e.from.y}, ${midX} ${e.to.y}, ${e.to.x} ${e.to.y}`}
                 fill="none"
-                stroke="#6366f1"
+                stroke="#2563EB"
                 strokeWidth="1.5"
                 strokeOpacity="0.5"
                 markerEnd="url(#arrowhead)"
@@ -271,7 +271,7 @@ export default function ERDiagram({ tables = [], compact = false, savedPositions
                 height={node.h}
                 rx="12"
                 fill={isHovered ? erColors.nodeHoverBg : erColors.nodeBg}
-                stroke={isHovered ? "#6366f1" : erColors.nodeBorder}
+                stroke={isHovered ? "#2563EB" : erColors.nodeBorder}
                 strokeWidth={isHovered ? "2" : "1"}
               />
               {/* Header bar */}
@@ -313,7 +313,7 @@ export default function ERDiagram({ tables = [], compact = false, savedPositions
                       cx={node.x + 18}
                       cy={y}
                       r="4"
-                      fill={isPK ? "#eab308" : isFK ? "#6366f1" : erColors.dotDefault}
+                      fill={isPK ? "#eab308" : isFK ? "#2563EB" : erColors.dotDefault}
                     />
                     <text x={node.x + 30} y={y + 4} fill={erColors.colText} fontSize="11" fontFamily="monospace">
                       {col.name}

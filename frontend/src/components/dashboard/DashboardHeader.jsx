@@ -1,13 +1,83 @@
 import { useState, useRef, useEffect } from 'react';
 import { TOKENS } from './tokens';
 
-export default function DashboardHeader({ dashboard, saving, onNameChange, onOpenMetrics, onOpenTheme, onOpenBookmarks, onToggleFullscreen, onShare, onOpenVersions, onOpenAlerts, onOpenSettings }) {
+/**
+ * DashboardHeader — Fluid Island chrome for the dashboard builder.
+ *
+ * Design language: Ethereal Glass + Editorial Luxury. The title zone breathes on
+ * the left with a pulsing eyebrow tag, and all action buttons live inside a
+ * single floating pill on the right (Arc/Linear-style), grouped with hairline
+ * separators. The primary Share button uses the Button-in-Button pattern with
+ * a nested arrow circle.
+ *
+ * Keyboard: ⌘K hint is shown on the action island — it surfaces the command
+ * palette which is owned by DashboardBuilder.jsx.
+ */
+export default function DashboardHeader({
+  dashboard,
+  saving,
+  onNameChange,
+  onOpenMetrics,
+  onOpenTheme,
+  onOpenBookmarks,
+  onToggleFullscreen,
+  onShare,
+  onOpenVersions,
+  onOpenAlerts,
+  onOpenSettings,
+  onOpenCommandPalette,
+}) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(dashboard?.name || '');
+  // Ticking "now" so the relative timestamp stays fresh without pulling Date.now() during render.
+  const [now, setNow] = useState(() => Date.now());
+  // Width-aware compact tiers — derived via ResizeObserver on the header itself.
+  // The header lives inside <main>, so its width = the dashboard area's width.
+  // As the agent panel grows and squeezes the dashboard, the header shrinks
+  // and we collapse non-essential controls so the title stays readable.
+  const [headerWidth, setHeaderWidth] = useState(1200);
   const inputRef = useRef(null);
+  const headerRef = useRef(null);
 
   useEffect(() => { setName(dashboard?.name || ''); }, [dashboard?.name]);
   useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+
+  // Watch the header's own width — gives us perfect awareness of dashboard area
+  // size, regardless of why it changed (panel resize, window resize, sidebar).
+  useEffect(() => {
+    if (!headerRef.current) return;
+    let rafId = null;
+    const observer = new ResizeObserver((entries) => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        for (const entry of entries) {
+          setHeaderWidth(entry.contentRect.width);
+        }
+      });
+    });
+    observer.observe(headerRef.current);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      observer.disconnect();
+    };
+  }, []);
+
+  // Compact thresholds — tuned empirically.
+  // < 900: hide the "Search actions" text (icon + ⌘K only)
+  // < 700: hide the entire command palette pill
+  // < 560: hide "Present" text (icon only)
+  // < 480: ultra compact — title gets smaller font
+  const compactSearchText  = headerWidth < 900;
+  const hideCommandPalette = headerWidth < 700;
+  const hidePresentText    = headerWidth < 560;
+  const ultraCompact       = headerWidth < 480;
+
+  // Update the "relative time" clock every 30s — cheap, and React-pure.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const save = () => {
     setEditing(false);
@@ -17,127 +87,217 @@ export default function DashboardHeader({ dashboard, saving, onNameChange, onOpe
   const relTime = (iso) => {
     if (!iso) return '';
     const d = new Date(iso);
-    const diff = (Date.now() - d.getTime()) / 1000;
+    const diff = (now - d.getTime()) / 1000;
     if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff/60)} min ago`;
-    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return d.toLocaleDateString();
   };
 
+  // Detect cmd vs ctrl for the keyboard hint
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
+
   return (
-    <div className="flex items-center justify-between mb-4 px-6 pt-4">
-      <div className="flex items-center gap-3 group">
-        {editing ? (
-          <input ref={inputRef} value={name} onChange={e => setName(e.target.value)}
-            onBlur={save} onKeyDown={e => e.key === 'Enter' && save()}
-            className="text-[22px] font-bold tracking-tight bg-transparent outline-none border-b-2"
-            style={{ color: TOKENS.text.primary, borderColor: TOKENS.accent, letterSpacing: '-0.02em' }} />
-        ) : (
-          <h1 className="text-[22px] font-bold tracking-tight cursor-pointer"
-            style={{ color: TOKENS.text.primary, letterSpacing: '-0.02em' }}
-            onClick={() => setEditing(true)}>
-            {dashboard?.name || 'Untitled Dashboard'}
-          </h1>
-        )}
-        <svg onClick={() => setEditing(true)} className="w-3.5 h-3.5 cursor-pointer opacity-0 group-hover:opacity-100"
-          style={{ color: TOKENS.text.muted, transition: `opacity ${TOKENS.transition}` }}
-          xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"/>
-        </svg>
+    <div ref={headerRef} className="flex items-start justify-between gap-4 px-6 pt-5 pb-3">
+      {/* ═══════════ LEFT · Editorial title zone ═══════════ */}
+      <div className="flex flex-col gap-2 min-w-0 flex-1" style={{ minWidth: 0 }}>
+        {/* Eyebrow tag */}
+        <div className="eyebrow" style={{ flexWrap: 'nowrap', overflow: 'hidden' }}>
+          <span className="eyebrow-dot" aria-hidden="true" />
+          <span>Dashboard</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span style={{ color: saving ? TOKENS.warning : TOKENS.success, letterSpacing: '0.18em' }}>
+            {saving ? 'Saving' : 'Live'}
+          </span>
+          {!saving && !ultraCompact && dashboard?.updated_at && (
+            <>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span style={{ letterSpacing: '0.1em', textTransform: 'none', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {relTime(dashboard.updated_at)}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Editable title — flex chain ensures the h1 can truncate cleanly */}
+        <div className="flex items-center gap-3 group" style={{ minWidth: 0 }}>
+          {editing ? (
+            <input
+              ref={inputRef}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={save}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') save();
+                if (e.key === 'Escape') { setName(dashboard?.name || ''); setEditing(false); }
+              }}
+              className="bg-transparent outline-none flex-1"
+              style={{
+                fontSize: ultraCompact ? 22 : 30,
+                fontWeight: 700,
+                letterSpacing: '-0.03em',
+                color: TOKENS.text.primary,
+                fontFamily: TOKENS.tile.headerFont,
+                borderBottom: `2px solid ${TOKENS.accent}`,
+                minWidth: 0,
+              }}
+            />
+          ) : (
+            <h1
+              onClick={() => setEditing(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === 'F2' || e.key === ' ') {
+                  e.preventDefault();
+                  setEditing(true);
+                }
+              }}
+              tabIndex={0}
+              role="button"
+              aria-label={`Dashboard name: ${dashboard?.name || 'Untitled dashboard'}. Press Enter to rename.`}
+              className="cursor-text truncate flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 rounded-sm"
+              style={{
+                fontSize: ultraCompact ? 22 : 30,
+                fontWeight: 700,
+                letterSpacing: '-0.03em',
+                color: TOKENS.text.primary,
+                fontFamily: TOKENS.tile.headerFont,
+                lineHeight: 1.1,
+                margin: 0,
+                minWidth: 0,
+              }}
+              title={dashboard?.name || 'Untitled dashboard'}
+            >
+              {dashboard?.name || 'Untitled dashboard'}
+            </h1>
+          )}
+          <svg
+            onClick={() => setEditing(true)}
+            className="w-4 h-4 cursor-pointer opacity-0 group-hover:opacity-60 ease-spring flex-shrink-0"
+            style={{ color: TOKENS.text.muted, transition: 'opacity 300ms cubic-bezier(0.32,0.72,0,1)' }}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+          </svg>
+        </div>
       </div>
-      <div className="flex items-center gap-4">
-        {onOpenAlerts && (
-          <button onClick={onOpenAlerts} title="Alerts"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-            style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary, transition: `all ${TOKENS.transition}` }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+
+      {/* ═══════════ RIGHT · Fluid Island action cluster ═══════════ */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Command palette trigger (⌘K) — a dedicated island.
+            Hidden entirely when the dashboard area gets narrow; users can
+            still hit ⌘K from the keyboard shortcut, and the action island
+            below has a Search button anyway. */}
+        {onOpenCommandPalette && !hideCommandPalette && (
+          <button
+            onClick={onOpenCommandPalette}
+            className="dash-island flex items-center gap-2 ease-spring"
+            style={{ padding: compactSearchText ? '8px 10px' : '8px 14px' }}
+            aria-label="Open command palette"
+            title="Command palette"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ color: TOKENS.text.muted }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
-            Alerts
+            {!compactSearchText && (
+              <span style={{ fontSize: 11, color: TOKENS.text.muted, fontWeight: 500 }}>Search actions</span>
+            )}
+            <span className="cmd-k-kbd" style={{ margin: 0 }}>{isMac ? '⌘' : 'Ctrl'} K</span>
           </button>
         )}
-        {onOpenMetrics && (
-          <button onClick={onOpenMetrics} title="Custom Metrics"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-            style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary, transition: `all ${TOKENS.transition}` }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25v-.008zm2.498-6.75h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007v-.008zm2.504-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zm2.498-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008v-.008zM8.25 6h7.5v2.25h-7.5V6zM12 2.25c-1.892 0-3.758.11-5.593.322C5.307 2.7 4.5 3.65 4.5 4.757V19.5a2.25 2.25 0 002.25 2.25h10.5a2.25 2.25 0 002.25-2.25V4.757c0-1.108-.806-2.057-1.907-2.185A48.507 48.507 0 0012 2.25z" />
-            </svg>
-            Metrics
-          </button>
-        )}
-        {onOpenBookmarks && (
-          <button onClick={onOpenBookmarks} title="Saved Views"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-            style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary, transition: `all ${TOKENS.transition}` }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-            </svg>
-            Views
-          </button>
-        )}
-        {onOpenVersions && (
-          <button onClick={onOpenVersions} title="Version History"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-            style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary, transition: `all ${TOKENS.transition}` }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            History
-          </button>
-        )}
+
+        {/* Main action island */}
+        <div className="dash-island flex items-center px-1.5 py-1">
+          {/* Metrics */}
+          {onOpenMetrics && (
+            <button className="dash-action" onClick={onOpenMetrics} title="Custom metrics" aria-label="Custom metrics">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 14l4-4 4 4 5-6" />
+              </svg>
+            </button>
+          )}
+          {/* Theme */}
+          {onOpenTheme && (
+            <button className="dash-action" onClick={onOpenTheme} title="Theme" aria-label="Theme">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="12" r="9" />
+                <path strokeLinecap="round" d="M12 3a9 9 0 019 9h-9V3z" fill="currentColor" opacity="0.5" stroke="none" />
+              </svg>
+            </button>
+          )}
+          {/* Alerts */}
+          {onOpenAlerts && (
+            <button className="dash-action" onClick={onOpenAlerts} title="Alerts" aria-label="Alerts">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+            </button>
+          )}
+
+          <span className="dash-island-sep" aria-hidden="true" />
+
+          {/* Bookmarks */}
+          {onOpenBookmarks && (
+            <button className="dash-action" onClick={onOpenBookmarks} title="Saved views" aria-label="Saved views">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+              </svg>
+            </button>
+          )}
+          {/* Version history */}
+          {onOpenVersions && (
+            <button className="dash-action" onClick={onOpenVersions} title="Version history" aria-label="Version history">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+          )}
+          {/* Settings */}
+          {onOpenSettings && (
+            <button className="dash-action" onClick={onOpenSettings} title="Dashboard settings" aria-label="Dashboard settings">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="12" r="3" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+              </svg>
+            </button>
+          )}
+
+          <span className="dash-island-sep" aria-hidden="true" />
+
+          {/* Present (fullscreen) — text label hides at narrow widths */}
+          {onToggleFullscreen && (
+            <button className="dash-action" onClick={onToggleFullscreen} title="Present" aria-label="Present">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+              </svg>
+              {!hidePresentText && <span>Present</span>}
+            </button>
+          )}
+        </div>
+
+        {/* Primary CTA — Share with Button-in-Button */}
         {onShare && (
-          <button onClick={onShare} title="Share Dashboard"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-            style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary, transition: `all ${TOKENS.transition}` }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0-12.814a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0 12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-            </svg>
-            Share
+          <button
+            onClick={onShare}
+            className="group inline-flex items-center gap-2 pl-5 pr-1.5 py-1.5 rounded-full text-xs font-semibold ease-spring cursor-pointer"
+            style={{
+              background: 'var(--accent)',
+              color: 'var(--text-on-accent)',
+              boxShadow: '0 8px 24px -8px var(--accent-shadow), 0 1px 0 rgba(255,255,255,0.15) inset',
+            }}
+            title="Share dashboard"
+            aria-label="Share dashboard"
+          >
+            <span>Share</span>
+            <span className="flex items-center justify-center w-7 h-7 rounded-full ease-spring transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-[1px]" style={{ background: 'var(--on-accent-overlay)' }}>
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
+            </span>
           </button>
-        )}
-        {onToggleFullscreen && (
-          <button onClick={onToggleFullscreen} title="Fullscreen Preview"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-            style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary, transition: `all ${TOKENS.transition}` }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-            </svg>
-            Preview
-          </button>
-        )}
-        {onOpenTheme && (
-          <button onClick={onOpenTheme} title="Dashboard Theme"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-            style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary, transition: `all ${TOKENS.transition}` }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
-            </svg>
-            Theme
-          </button>
-        )}
-        {onOpenSettings && (
-          <button onClick={onOpenSettings} title="Dashboard Settings"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer"
-            style={{ background: TOKENS.bg.elevated, border: `1px solid ${TOKENS.border.default}`, color: TOKENS.text.secondary, transition: `all ${TOKENS.transition}` }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Settings
-          </button>
-        )}
-        {saving && (
-          <span className="flex items-center gap-1.5 text-xs" style={{ color: TOKENS.text.muted }}>
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: TOKENS.warning }}></span>
-            Saving...
-          </span>
-        )}
-        {!saving && dashboard?.updated_at && (
-          <span className="flex items-center gap-1.5 text-xs" style={{ color: TOKENS.text.muted }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: TOKENS.success }}></span>
-            Updated {relTime(dashboard.updated_at)}
-          </span>
         )}
       </div>
     </div>

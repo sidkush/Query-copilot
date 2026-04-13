@@ -33,7 +33,7 @@ export default function VersionHistory({ dashboardId, onClose, onRestore }) {
         const res = await api.listVersions(dashboardId);
         setVersions((res.versions || []).reverse()); // newest first
       } catch (err) {
-        console.error('Failed to load versions:', err);
+        void err;
         setError(err?.message || 'Failed to load version history');
       } finally {
         setLoading(false);
@@ -50,7 +50,7 @@ export default function VersionHistory({ dashboardId, onClose, onRestore }) {
       onRestore?.(restored);
       onClose();
     } catch (err) {
-      console.error('Restore failed:', err);
+      void err;
       setError(err?.message || 'Failed to restore version');
     } finally {
       setRestoring(null);

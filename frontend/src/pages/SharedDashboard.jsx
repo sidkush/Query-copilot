@@ -75,7 +75,7 @@ export default function SharedDashboard() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: TOKENS.bg.base, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100dvh', background: TOKENS.bg.base, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: TOKENS.text.muted, fontSize: 14 }}>Loading shared dashboard...</div>
       </div>
     );
@@ -83,7 +83,7 @@ export default function SharedDashboard() {
 
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', background: TOKENS.bg.base, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100dvh', background: TOKENS.bg.base, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🔗</div>
           <h2 style={{ color: TOKENS.text.primary, fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Link Unavailable</h2>
@@ -100,7 +100,7 @@ export default function SharedDashboard() {
   const allTiles = sections.flatMap(s => s.tiles || []);
 
   return (
-    <div style={{ minHeight: '100vh', background: TOKENS.bg.base, padding: '32px 24px' }}>
+    <div style={{ minHeight: '100dvh', background: TOKENS.bg.base, padding: '32px 24px' }}>
       {/* Header */}
       <div style={{ maxWidth: 1400, margin: '0 auto 24px' }}>
         <h1 style={{ color: TOKENS.text.primary, fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>

@@ -35,7 +35,7 @@ export default function ShareModal({ dashboardId, dashboardName, currentToken, o
       setShareUrl(url);
       onTokenCreated?.(result.token);
     } catch (err) {
-      console.error('Share failed:', err);
+      void err;
       setError(err?.message || 'Failed to generate share link');
     } finally {
       setGenerating(false);
@@ -56,7 +56,7 @@ export default function ShareModal({ dashboardId, dashboardName, currentToken, o
       setShareUrl('');
       onTokenCreated?.(null);
     } catch (err) {
-      console.error('Revoke failed:', err);
+      void err;
       setError(err?.message || 'Failed to revoke share link');
     }
   };
@@ -99,7 +99,7 @@ export default function ShareModal({ dashboardId, dashboardName, currentToken, o
                 <button onClick={handleCopy}
                   className="px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
                   style={{ background: copied ? TOKENS.success : TOKENS.accent, color: '#fff', border: 'none' }}>
-                  {copied ? 'Copied!' : 'Copy'}
+                  {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
               <button onClick={handleRevoke}

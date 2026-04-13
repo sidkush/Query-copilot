@@ -302,7 +302,7 @@ export const useStore = create((set, get) => ({
         return true;
       }
     } catch (err) {
-      console.warn("Failed to load agent session:", err);
+      void err;
     }
     return false;
   },
@@ -318,7 +318,7 @@ export const useStore = create((set, get) => ({
         hasPending: s.has_pending || false,
       }));
     } catch (err) {
-      console.warn("Failed to list agent sessions:", err);
+      void err;
       return [];
     }
   },
@@ -327,7 +327,7 @@ export const useStore = create((set, get) => ({
       const { api } = await import("./api");
       await api.agentSessionDelete(chatId);
     } catch (err) {
-      console.warn("Failed to delete agent session:", err);
+      void err;
     }
   },
   // Progress state for continue/resume UI

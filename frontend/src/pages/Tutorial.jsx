@@ -57,7 +57,7 @@ const STEPS = [
     icon: (
       <div className="flex items-end gap-2 justify-center h-20">
         {[40, 65, 50, 80, 55, 72, 60].map((h, i) => (
-          <div key={i} className="w-6 rounded-t-md bg-gradient-to-t from-indigo-500 to-violet-400" style={{ height: `${h}%`, animationDelay: `${i * 0.1}s` }} />
+          <div key={i} className="w-6 rounded-t-md bg-gradient-to-t from-blue-500 to-blue-400" style={{ height: `${h}%`, animationDelay: `${i * 0.1}s` }} />
         ))}
       </div>
     ),
@@ -158,14 +158,14 @@ export default function Tutorial() {
               {step < STEPS.length - 1 ? (
                 <MotionButton
                   onClick={() => setStep(step + 1)}
-                  className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-semibold rounded-full transition cursor-pointer btn-glow shadow-lg shadow-indigo-500/20"
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-full transition cursor-pointer btn-glow shadow-lg shadow-blue-600/15"
                 >
                   Next
                 </MotionButton>
               ) : (
                 <MotionButton
                   onClick={finish}
-                  className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-bold rounded-full shadow-lg shadow-indigo-500/25 hover:-translate-y-0.5 transition cursor-pointer btn-glow"
+                  className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-full shadow-lg shadow-blue-600/20 hover:-translate-y-0.5 transition cursor-pointer btn-glow"
                 >
                   Get Started
                 </MotionButton>

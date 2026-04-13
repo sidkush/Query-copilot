@@ -44,7 +44,7 @@ export default function CursorGlow({ size = 300, color = "99,102,241", opacity =
   return (
     <div
       ref={ref}
-      className="fixed top-0 left-0 pointer-events-none z-[9999] cursor-glow"
+      className="fixed top-0 left-0 pointer-events-none z-[90] cursor-glow"
       style={{
         width: size,
         height: size,
