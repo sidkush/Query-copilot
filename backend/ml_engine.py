@@ -63,19 +63,40 @@ class MLEngine:
             stratify_column: column for stratified sampling
         """
         import pyarrow as pa
+        from sqlalchemy import inspect as sa_inspect
 
         if max_rows is None:
             max_rows = settings.ML_MAX_TRAINING_ROWS
 
+        # Auto-discover tables if none specified
+        if not tables:
+            try:
+                inspector = sa_inspect(connector._engine)
+                tables = inspector.get_table_names()
+                logger.info(f"Auto-discovered {len(tables)} tables from source DB")
+            except Exception as e:
+                logger.warning(f"Table auto-discovery failed: {e}")
+                tables = []
+
+        # Detect BigQuery for dialect-specific SQL
+        db_type = getattr(connector, 'db_type', None)
+        db_type_str = (db_type.value if hasattr(db_type, 'value') else str(db_type)).lower()
+        is_bigquery = 'bigquery' in db_type_str
+        is_mysql = 'mysql' in db_type_str or 'mariadb' in db_type_str
+
+        # Quote character: backtick for BigQuery/MySQL, double-quote for others
+        q = '`' if (is_bigquery or is_mysql) else '"'
+        # Random function: RAND() for BigQuery/MySQL, RANDOM() for others
+        rand_fn = 'RAND()' if (is_bigquery or is_mysql) else 'RANDOM()'
+
         frames = []
-        for table in (tables or []):
+        for table in tables:
             if sample_size:
-                # Stratified sample: ORDER BY RANDOM() LIMIT N
-                sql = f'SELECT * FROM "{table}" ORDER BY RANDOM() LIMIT {sample_size}'
+                sql = f'SELECT * FROM {q}{table}{q} ORDER BY {rand_fn} LIMIT {sample_size}'
             elif max_rows and max_rows < 10_000_000:
-                sql = f'SELECT * FROM "{table}" LIMIT {max_rows}'
+                sql = f'SELECT * FROM {q}{table}{q} LIMIT {max_rows}'
             else:
-                sql = f'SELECT * FROM "{table}"'
+                sql = f'SELECT * FROM {q}{table}{q}'
 
             try:
                 arrow_table = connector.execute_query_arrow(

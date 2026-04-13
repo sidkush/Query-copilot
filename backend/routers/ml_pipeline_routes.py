@@ -108,7 +108,7 @@ async def run_stage(pipeline_id: str, stage_key: str, req: RunStageRequest, requ
     store.update_stage(uh, pipeline_id, stage_key, {"status": "active", "config": merged_config})
 
     try:
-        output = _execute_stage(stage_key, conn_id, tables, target_column, merged_config, pipeline, uh, request)
+        output = _execute_stage(stage_key, conn_id, tables, target_column, merged_config, pipeline, uh, request, user_email=user["email"])
         store.update_stage(uh, pipeline_id, stage_key, {
             "status": "complete",
             "config": merged_config,
@@ -122,7 +122,7 @@ async def run_stage(pipeline_id: str, stage_key: str, req: RunStageRequest, requ
         raise HTTPException(500, f"Stage execution failed: {str(e)[:200]}")
 
 
-def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: str, config: dict, pipeline: dict, user_hash: str, request=None) -> dict:
+def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: str, config: dict, pipeline: dict, user_hash: str, request=None, user_email: str = "") -> dict:
     """Execute a pipeline stage and return output summary."""
     from ml_engine import MLEngine
     from ml_feature_engine import analyze_features, detect_column_types, prepare_dataset
@@ -148,13 +148,47 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
                     if connector:
                         break
 
+            # If no live connector, try auto-reconnect from saved configs
+            if not connector and user_email:
+                try:
+                    from user_storage import load_connection_configs, decrypt_password
+                    from db_connector import DatabaseConnector
+                    from config import DBType
+                    from routers.connection_routes import _build_uri_from_config
+                    configs = load_connection_configs(user_email)
+                    logger.info(f"ML auto-reconnect: {len(configs)} saved configs for {user_email}")
+                    for cfg in configs:
+                        logger.info(f"ML auto-reconnect: trying config id={cfg.get('id')}, db_type={cfg.get('db_type')}")
+                        try:
+                            working = dict(cfg)
+                            if working.get("password"):
+                                working["password"] = decrypt_password(working["password"])
+                            if working.get("token"):
+                                working["token"] = decrypt_password(working["token"])
+                            db_type = DBType(working["db_type"])
+                            uri = _build_uri_from_config(working)
+                            temp_connector = DatabaseConnector(
+                                db_type=db_type,
+                                connection_uri=uri,
+                                credentials_path=working.get("credentials_path"),
+                            )
+                            temp_connector.connect()
+                            connector = temp_connector
+                            logger.info(f"ML ingest: auto-reconnected to {cfg.get('db_type')}")
+                            break
+                        except Exception as cfg_err:
+                            logger.warning(f"ML auto-reconnect: config {cfg.get('id')} failed: {cfg_err}")
+                            continue
+                except Exception as e:
+                    logger.warning(f"ML ingest: auto-reconnect setup failed: {e}")
+
             if connector:
                 sample_size = config.get("sample_size") if data_source == "sample" else None
-                logger.info(f"ML ingest: data_source={data_source}, sample_size={sample_size}, using live connector")
+                logger.info(f"ML ingest: data_source={data_source}, sample_size={sample_size}")
                 df = engine.ingest_from_source(connector, tables or [], sample_size=sample_size)
             else:
                 raise ValueError(
-                    f"No active database connection found for '{data_source}' mode. "
+                    f"No active database connection for '{data_source}' mode. "
                     "Go to Dashboard, reconnect your database, then try again. "
                     "Or select 'Twin (Quick)' to use cached data."
                 )
