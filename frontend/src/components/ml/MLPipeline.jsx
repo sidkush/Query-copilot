@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store';
@@ -137,6 +138,14 @@ export default function MLPipeline({ onRunStage }) {
   const setActiveStage = useStore((s) => s.setMLPipelineActiveStage);
   const updateStage = useStore((s) => s.updatePipelineStage);
   const resetPipeline = useStore((s) => s.resetMLPipeline);
+  const mlActiveWorkflow = useStore((s) => s.mlActiveWorkflow);
+
+  // Auto-open first stage when workflow is active but no stage selected
+  useEffect(() => {
+    if (mlActiveWorkflow && !activeStage) {
+      setActiveStage('ingest');
+    }
+  }, [mlActiveWorkflow, activeStage, setActiveStage]);
 
   const handleStageClick = (key) => {
     setActiveStage(activeStage === key ? null : key);
@@ -210,6 +219,13 @@ export default function MLPipeline({ onRunStage }) {
           Reset Pipeline
         </button>
       </div>
+
+      {/* Hint */}
+      {!activeStage && (
+        <div style={{ textAlign: 'center', fontSize: 11, color: TOKENS.text.muted, padding: '8px 0 4px', opacity: 0.6 }}>
+          Click any stage above to configure and run it
+        </div>
+      )}
 
       {/* Detail panel */}
       <StageDetailPanel
