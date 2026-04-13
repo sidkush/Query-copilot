@@ -1675,6 +1675,9 @@ class AgentEngine:
                         step.tool_result = tool_result
                         self._progress["total_tool_calls"] = self._tool_calls
 
+                        # Re-yield the step with tool_result so frontend pipeline gets the data
+                        yield step
+
                         yield self._complete_phase()
                         yield self._emit_checklist()
 

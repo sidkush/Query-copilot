@@ -484,9 +484,14 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
             ? Math.round(100 - features.reduce((s, f) => s + (f.missing_pct || 0), 0) / totalCols)
             : 100;
 
+          // Estimate row count from the first numeric feature's stats if available
+          const firstNumeric = features.find(f => f.type === 'numeric' && f.unique_count);
+          const estimatedRows = firstNumeric?.unique_count || features.length || 0;
           const ingestData = {
-            tables: [{ name: 'dataset', rows: features[0]?.unique_count ? '~' : '--', columns: totalCols }],
+            tables: [{ name: 'dataset', rows: estimatedRows, columns: totalCols }],
             totalFeatures: totalCols,
+            rowCount: estimatedRows,
+            columnCount: totalCols,
           };
           const cleanData = {
             qualityScore,

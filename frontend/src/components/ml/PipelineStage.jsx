@@ -138,8 +138,9 @@ export default function PipelineStage({ icon, label, status = 'idle', onClick, i
       whileTap={{ scale: 0.97 }}
       style={{
         position: 'relative',
-        width: 100,
-        height: 80,
+        width: 85,
+        minWidth: 85,
+        height: 72,
         borderRadius: TOKENS.radius.lg,
         background: TOKENS.bg.surface,
         border: `1px solid ${config.borderColor}`,

@@ -124,22 +124,23 @@ const btnClose = {
 
 function IngestContent({ data }) {
   const tables = data?.tables || [];
-  const totalRows = tables.reduce((s, t) => s + (t.rows || 0), 0);
-  const totalCols = tables.reduce((s, t) => s + (t.columns || 0), 0);
+  const totalRows = data?.rowCount || tables.reduce((s, t) => s + (typeof t.rows === 'number' ? t.rows : 0), 0);
+  const totalCols = data?.columnCount || tables.reduce((s, t) => s + (t.columns || 0), 0);
+  const totalFeatures = data?.totalFeatures || totalCols;
 
   return (
     <div style={statGridStyle}>
       <div style={statCardStyle}>
-        <div style={statValueStyle}>{tables.length}</div>
+        <div style={statValueStyle}>{tables.length || 1}</div>
         <div style={statLabelStyle}>Tables</div>
       </div>
       <div style={statCardStyle}>
-        <div style={statValueStyle}>{totalRows.toLocaleString()}</div>
-        <div style={statLabelStyle}>Total Rows</div>
+        <div style={statValueStyle}>{totalRows > 0 ? totalRows.toLocaleString() : 'Loaded'}</div>
+        <div style={statLabelStyle}>Rows</div>
       </div>
       <div style={statCardStyle}>
-        <div style={statValueStyle}>{totalCols}</div>
-        <div style={statLabelStyle}>Columns</div>
+        <div style={statValueStyle}>{totalFeatures}</div>
+        <div style={statLabelStyle}>Features</div>
       </div>
     </div>
   );
