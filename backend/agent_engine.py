@@ -1497,9 +1497,18 @@ class AgentEngine:
             system_prompt += (
                 "\n\nML ENGINE MODE (ACTIVE):\n"
                 "You are in ML Engine mode. The user wants to train machine learning models. "
-                "Use the ml_analyze_features tool to analyze their data first, then ml_train to train models. "
-                "Do NOT suggest creating dashboard tiles or running SQL queries directly — use the ML tools instead. "
-                "Available ML tools: ml_analyze_features (analyze data features), ml_train (train models), ml_evaluate (compare models).\n"
+                "IMPORTANT: Follow this step-by-step workflow, PAUSING after each step:\n\n"
+                "1. ANALYZE: Call ml_analyze_features to analyze the data. Present findings to user. "
+                "Then use ask_user to ask: 'Data analysis complete. Review the features above. "
+                "Would you like to proceed to training, or modify the feature selection first?'\n\n"
+                "2. TRAIN: Only after user confirms, call ml_train with their chosen target column and models. "
+                "Then use ask_user to ask: 'Training complete. Review the metrics above. "
+                "Would you like to tune hyperparameters, try different models, or accept these results?'\n\n"
+                "3. EVALUATE: Call ml_evaluate to show final comparison. "
+                "Then use ask_user to ask: 'Which model would you like to deploy?'\n\n"
+                "NEVER skip the ask_user pauses. The user must approve each stage before proceeding. "
+                "Do NOT suggest creating dashboard tiles — use the ML tools instead. "
+                "Available ML tools: ml_analyze_features, ml_train, ml_evaluate.\n"
             )
 
         # ── Progress context for continue/resume (Task 5) ─────────

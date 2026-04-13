@@ -462,40 +462,40 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
 
   // Watch for ML tool steps and update pipeline
   useEffect(() => {
-    if (agentContext !== 'ml') return;
+    if (agentContext !== 'ml' || steps.length === 0) return;
 
-    const lastStep = steps[steps.length - 1];
-    if (!lastStep) return;
+    // Scan all steps for ML tool calls and their results
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
 
-    // Tool call started — set stage to active
-    if (lastStep.type === 'tool_call') {
-      if (lastStep.tool_name === 'ml_analyze_features') {
-        updatePipelineStage('ingest', { status: 'active' });
-      } else if (lastStep.tool_name === 'ml_train') {
-        updatePipelineStage('train', { status: 'active' });
-      } else if (lastStep.tool_name === 'ml_evaluate') {
-        updatePipelineStage('evaluate', { status: 'active' });
+      // Case 1: tool_call step with tool_result on same step
+      if (step.tool_name && step.tool_result) {
+        let parsed = null;
+        try {
+          parsed = typeof step.tool_result === 'string' ? JSON.parse(step.tool_result) : step.tool_result;
+        } catch { /* ignore */ }
+
+        if (step.tool_name === 'ml_analyze_features' && parsed) {
+          updatePipelineStage('ingest', { status: 'complete', data: parsed });
+          updatePipelineStage('clean', { status: 'complete', data: parsed });
+          updatePipelineStage('features', { status: 'complete', data: parsed });
+        } else if (step.tool_name === 'ml_train' && parsed) {
+          updatePipelineStage('train', { status: 'complete', data: parsed });
+          updatePipelineStage('evaluate', { status: 'complete', data: parsed });
+        } else if (step.tool_name === 'ml_evaluate' && parsed) {
+          updatePipelineStage('results', { status: 'complete', data: parsed });
+        }
       }
-    }
 
-    // Tool result arrived — parse and complete stages
-    if (lastStep.tool_result && lastStep.tool_name) {
-      let parsed = null;
-      try {
-        parsed = typeof lastStep.tool_result === 'string'
-          ? JSON.parse(lastStep.tool_result)
-          : lastStep.tool_result;
-      } catch { /* ignore parse errors */ }
-
-      if (lastStep.tool_name === 'ml_analyze_features' && parsed) {
-        updatePipelineStage('ingest', { status: 'complete', data: parsed });
-        updatePipelineStage('clean', { status: 'complete', data: parsed });
-        updatePipelineStage('features', { status: 'complete', data: parsed });
-      } else if (lastStep.tool_name === 'ml_train' && parsed) {
-        updatePipelineStage('train', { status: 'complete', data: parsed });
-        updatePipelineStage('evaluate', { status: 'complete', data: parsed });
-      } else if (lastStep.tool_name === 'ml_evaluate' && parsed) {
-        updatePipelineStage('results', { status: 'complete', data: parsed });
+      // Case 2: tool_call step without result yet — mark active
+      if (step.type === 'tool_call' && !step.tool_result) {
+        if (step.tool_name === 'ml_analyze_features') {
+          updatePipelineStage('ingest', { status: 'active' });
+        } else if (step.tool_name === 'ml_train') {
+          updatePipelineStage('train', { status: 'active' });
+        } else if (step.tool_name === 'ml_evaluate') {
+          updatePipelineStage('evaluate', { status: 'active' });
+        }
       }
     }
   }, [steps, agentContext, updatePipelineStage]);
