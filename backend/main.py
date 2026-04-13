@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import auth_routes, query_routes, schema_routes, connection_routes, user_routes, chat_routes, admin_routes, dashboard_routes, alert_routes, agent_routes, behavior_routes, ml_routes
+from routers import auth_routes, query_routes, schema_routes, connection_routes, user_routes, chat_routes, admin_routes, dashboard_routes, alert_routes, agent_routes, behavior_routes, ml_routes, voice_routes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -135,6 +135,7 @@ app.include_router(alert_routes.router)
 app.include_router(agent_routes.router)
 app.include_router(behavior_routes.router)
 app.include_router(ml_routes.router)
+app.include_router(voice_routes.router)
 
 
 @app.get("/api/v1/health")
