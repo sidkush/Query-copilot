@@ -326,6 +326,7 @@ class AgentStep:
     elapsed_ms: Optional[int] = None
     estimated_total_ms: Optional[int] = None
     checklist: Optional[list] = None
+    metadata: Optional[dict] = None  # Performance metadata for frontend
 
     def to_dict(self) -> dict:
         d = {
@@ -355,6 +356,8 @@ class AgentStep:
             d["estimated_total_ms"] = self.estimated_total_ms
         if self.checklist is not None:
             d["checklist"] = self.checklist
+        if self.metadata is not None:
+            d["metadata"] = self.metadata
         return d
 
 
@@ -1163,7 +1166,14 @@ class AgentEngine:
                         # Strip record_batch before JSON serialization (Arrow boundary)
                         _tier_data_safe = {k: v for k, v in (tier_result.data or {}).items() if k != "record_batch"}
                         yield AgentStep(type="tier_routing", content=f"Answered from {tier_result.tier_name} tier",
-                                      tool_name="waterfall", tool_result=json.dumps(_tier_data_safe))
+                                      tool_name="waterfall", tool_result=json.dumps(_tier_data_safe),
+                                      metadata={
+                                          "tier_name": tier_result.tier_name,
+                                          "query_ms": tier_result.metadata.get("time_ms", 0),
+                                          "row_count": tier_result.data.get("row_count") if tier_result.data else None,
+                                          "arrow_enabled": _cfg.ARROW_BRIDGE_ENABLED,
+                                          "tiers_checked": tier_result.metadata.get("tiers_checked", []),
+                                      })
                         _logger.info("Waterfall hit: tier=%s, time=%dms", tier_result.tier_name, tier_result.metadata.get("time_ms", 0))
                         if tier_result.tier_name in ("schema", "memory") and tier_result.data:
                             self.memory.add_turn("user", question)
@@ -1174,7 +1184,14 @@ class AgentEngine:
                                 increment_query_stats(self.email, tier_result.metadata.get("time_ms", 0), True)
                             except Exception:
                                 pass
-                            yield AgentStep(type="result", content=tier_result.data.get("answer", ""))
+                            yield AgentStep(type="result", content=tier_result.data.get("answer", ""),
+                                          metadata={
+                                              "tier_name": tier_result.tier_name,
+                                              "query_ms": tier_result.metadata.get("time_ms", 0),
+                                              "row_count": tier_result.data.get("row_count") if tier_result.data else None,
+                                              "arrow_enabled": _cfg.ARROW_BRIDGE_ENABLED,
+                                              "tiers_checked": tier_result.metadata.get("tiers_checked", []),
+                                          })
                             self._result.final_answer = tier_result.data.get("answer", "")
                             return
             except Exception as exc:
@@ -1193,6 +1210,13 @@ class AgentEngine:
                     cache_age_seconds=_cached_result.cache_age_seconds,
                     tool_name="waterfall",
                     tool_result=json.dumps(_cached_data_safe),
+                    metadata={
+                        "tier_name": _cached_result.tier_name,
+                        "query_ms": _cached_result.metadata.get("time_ms", 0),
+                        "row_count": _cached_result.data.get("row_count") if _cached_result.data else None,
+                        "arrow_enabled": _cfg.ARROW_BRIDGE_ENABLED,
+                        "tiers_checked": _cached_result.metadata.get("tiers_checked", []),
+                    },
                 )
                 self._result.dual_response = True
                 _logger.info("Dual-response: cached result emitted (tier=%s, age=%.1fs)",
