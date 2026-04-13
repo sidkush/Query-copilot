@@ -302,55 +302,137 @@ function IngestContent({ data, onRunStage }) {
 }
 
 function CleanContent({ data, onRunStage }) {
-  const missing = data?.missingValues || [];
-  const quality = data?.qualityScore ?? '--';
-  const [imputation, setImputation] = useState(data?.imputationStrategy || 'median');
+  const features = data?.features || data?.preview || [];
+  const quality = data?.qualityScore ?? (features.length > 0
+    ? Math.round(100 - features.reduce((s, f) => s + (f.missing_pct || f.nullPct || 0), 0) / Math.max(features.length, 1))
+    : null);
+  const [globalStrategy, setGlobalStrategy] = useState(data?.imputationStrategy || 'median');
+  const [perColumn, setPerColumn] = useState(() =>
+    Object.fromEntries(features.map(f => [f.name, 'auto']))
+  );
+
+  const setColStrategy = (name, strategy) => {
+    setPerColumn(prev => ({ ...prev, [name]: strategy }));
+  };
+
+  const STRATEGY_OPTIONS = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'median', label: 'Median' },
+    { value: 'mean', label: 'Mean' },
+    { value: 'mode', label: 'Mode' },
+    { value: 'zero', label: 'Zero Fill' },
+    { value: 'ffill', label: 'Forward Fill' },
+    { value: 'drop_col', label: 'Drop Column' },
+    { value: 'drop_rows', label: 'Drop Rows' },
+  ];
+
+  const TYPE_BADGES = {
+    numeric: { bg: 'rgba(34,197,94,0.12)', color: '#22c55e', label: 'NUM' },
+    categorical: { bg: 'rgba(99,102,241,0.12)', color: '#818cf8', label: 'CAT' },
+    datetime: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', label: 'DATE' },
+    text: { bg: 'rgba(6,182,212,0.12)', color: '#22d3ee', label: 'TEXT' },
+    pii: { bg: 'rgba(239,68,68,0.12)', color: '#ef4444', label: 'PII' },
+    unknown: { bg: 'rgba(148,163,184,0.12)', color: '#94a3b8', label: '?' },
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={statGridStyle}>
-        <div style={statCardStyle}>
-          <div style={statValueStyle}>{typeof quality === 'number' ? `${quality}%` : quality}</div>
-          <div style={statLabelStyle}>Data Quality</div>
+      {/* Quality score bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Data Quality</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: quality >= 90 ? TOKENS.success : quality >= 70 ? TOKENS.warning : TOKENS.danger, fontFamily: TOKENS.tile.headerFont }}>
+              {quality != null ? `${quality}%` : 'Analyze data first'}
+            </span>
+          </div>
+          <div style={{ height: 6, borderRadius: 3, background: TOKENS.bg.elevated, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              borderRadius: 3,
+              width: quality != null ? `${quality}%` : '0%',
+              background: quality >= 90 ? TOKENS.success : quality >= 70 ? TOKENS.warning : TOKENS.danger,
+              transition: 'width 0.4s ease-out',
+            }} />
+          </div>
         </div>
-        <div style={statCardStyle}>
-          <div style={statLabelStyle}>Imputation Strategy</div>
-          <select
-            value={imputation}
-            onChange={(e) => setImputation(e.target.value)}
-            style={{ ...selectStyle, marginTop: 4, width: '100%' }}
-          >
-            <option value="median">Median (numeric)</option>
-            <option value="mean">Mean (numeric)</option>
-            <option value="mode">Mode (categorical)</option>
+        <div>
+          <span style={{ fontSize: 10, color: TOKENS.text.muted, display: 'block', marginBottom: 2 }}>Global Strategy</span>
+          <select value={globalStrategy} onChange={(e) => setGlobalStrategy(e.target.value)} style={selectStyle}>
+            <option value="median">Median</option>
+            <option value="mean">Mean</option>
+            <option value="mode">Mode</option>
             <option value="drop">Drop rows</option>
           </select>
         </div>
       </div>
-      {missing.length > 0 && (
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Column</th>
-              <th style={thStyle}>Missing %</th>
-              <th style={thStyle}>Strategy</th>
-            </tr>
-          </thead>
-          <tbody>
-            {missing.map((m) => (
-              <tr key={m.column}>
-                <td style={tdStyle}>{m.column}</td>
-                <td style={tdStyle}>{m.percent}%</td>
-                <td style={tdStyle}>{m.strategy || '--'}</td>
+
+      {/* Per-column cleaning table */}
+      {features.length > 0 ? (
+        <div style={{ borderRadius: TOKENS.radius.md, border: `1px solid ${TOKENS.border.default}`, overflow: 'hidden' }}>
+          <table style={{ ...tableStyle, fontSize: 11 }}>
+            <thead>
+              <tr style={{ background: TOKENS.bg.elevated }}>
+                <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px' }}>Column</th>
+                <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px' }}>Type</th>
+                <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px', textAlign: 'right' }}>Null %</th>
+                <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px', width: 80 }}>Null Bar</th>
+                <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px' }}>Transform</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {features.map((f, i) => {
+                const nullPct = f.missing_pct || f.nullPct || 0;
+                const badge = TYPE_BADGES[f.type] || TYPE_BADGES.unknown;
+                return (
+                  <tr key={f.name} style={{ background: i % 2 === 0 ? 'transparent' : `${TOKENS.bg.elevated}40` }}>
+                    <td style={{ ...tdStyle, padding: '6px 10px', fontWeight: 500, color: TOKENS.text.primary, fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11 }}>
+                      {f.name}
+                    </td>
+                    <td style={{ ...tdStyle, padding: '6px 10px' }}>
+                      <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', background: badge.bg, color: badge.color }}>
+                        {badge.label}
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, padding: '6px 10px', textAlign: 'right', fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 10 }}>
+                      <span style={{ color: nullPct > 10 ? TOKENS.danger : nullPct > 0 ? TOKENS.warning : TOKENS.success }}>
+                        {nullPct.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, padding: '6px 10px' }}>
+                      <div style={{ height: 4, borderRadius: 2, background: TOKENS.bg.elevated, overflow: 'hidden', width: 80 }}>
+                        <div style={{ height: '100%', borderRadius: 2, width: `${Math.min(nullPct, 100)}%`, background: nullPct > 10 ? TOKENS.danger : nullPct > 0 ? TOKENS.warning : TOKENS.success }} />
+                      </div>
+                    </td>
+                    <td style={{ ...tdStyle, padding: '4px 10px' }}>
+                      <select
+                        value={perColumn[f.name] || 'auto'}
+                        onChange={(e) => setColStrategy(f.name, e.target.value)}
+                        style={{ ...selectStyle, fontSize: 10, padding: '2px 4px', width: '100%' }}
+                      >
+                        {STRATEGY_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12, color: TOKENS.text.muted }}>
+          Run Data Ingest first to see column details
+        </div>
       )}
 
       {/* Run action */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-        <button style={btnPrimary} onClick={() => onRunStage?.('clean', { imputation })}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+        <button style={btnPrimary} onClick={() => onRunStage?.('clean', {
+          imputation: globalStrategy,
+          per_column: perColumn,
+        })}>
           Run Cleaning
         </button>
       </div>

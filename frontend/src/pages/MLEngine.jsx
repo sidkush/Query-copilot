@@ -223,10 +223,83 @@ export default function MLEngine() {
     updatePipelineStage(stageKey, { status: 'active' });
     try {
       const result = await api.mlRunStage(mlActiveWorkflow.id, stageKey, config);
+      const output = result.output || {};
+      let stageData = output;
+
+      if (stageKey === 'ingest' && output.features) {
+        stageData = {
+          tables: [{ name: 'dataset', rows: output.row_count, columns: output.column_count }],
+          rowCount: output.row_count,
+          columnCount: output.column_count,
+          totalFeatures: output.column_count,
+          preview: (output.features || []).map(f => ({
+            name: f.name,
+            type: f.type || 'unknown',
+            nullPct: f.missing_pct || 0,
+            unique: f.unique_count || 0,
+            mean: f.mean != null ? f.mean : null,
+            min: f.min != null ? f.min : null,
+            max: f.max != null ? f.max : null,
+          })),
+        };
+      } else if (stageKey === 'clean') {
+        stageData = {
+          qualityScore: output.quality_score,
+          imputationStrategy: output.imputation_strategy,
+          missingValues: (output.missing_details || []).map(m => ({
+            column: m.column,
+            percent: m.percent,
+            strategy: m.strategy || 'median',
+          })),
+          features: output.features || [],
+          totalColumns: output.total_columns,
+          missingColumns: output.missing_columns,
+        };
+      } else if (stageKey === 'features') {
+        stageData = {
+          features: (output.selected || []).map(f => ({
+            name: f.name,
+            type: f.type,
+            include: true,
+          })),
+          totalFeatures: output.total_features,
+          selectedFeatures: output.selected_features,
+          excludedNames: output.excluded_names || [],
+        };
+      } else if (stageKey === 'train') {
+        stageData = {
+          models: (output.models || []).map(m => ({
+            name: m.name || m.model_name,
+            ...m.metrics,
+          })),
+          task_type: output.task_type,
+        };
+      } else if (stageKey === 'evaluate') {
+        stageData = {
+          metrics: (output.models || []).map(m => ({
+            model: m.name || m.model_name,
+            ...m.metrics,
+          })),
+          bestModel: output.best_model,
+        };
+      }
+
       updatePipelineStage(stageKey, {
         status: 'complete',
-        data: result.output
+        data: stageData,
       });
+
+      // Seed clean stage with feature data from ingest so it has column info
+      if (stageKey === 'ingest' && output.features) {
+        updatePipelineStage('clean', {
+          status: 'idle',
+          data: {
+            features: stageData.preview,
+            qualityScore: null,
+          },
+        });
+      }
+
       const updated = await api.mlLoadPipeline(mlActiveWorkflow.id);
       useStore.getState().setMLActiveWorkflow(updated);
     } catch (err) {
