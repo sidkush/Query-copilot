@@ -248,6 +248,7 @@ class DuckDBTwin:
 
         size_mb = _file_size_mb(path)
         tables: List[str] = []
+        table_row_counts: Dict[str, int] = {}
         last_sync = ""
         sample_percent = settings.TURBO_TWIN_SAMPLE_PERCENT
         schema_hash = ""
@@ -266,6 +267,15 @@ class DuckDBTwin:
                     for row in result
                     if row[0] != _METADATA_TABLE
                 ]
+
+                # Get per-table row counts from the twin
+                table_row_counts: Dict[str, int] = {}
+                for tbl in tables:
+                    try:
+                        cnt = con.execute(f'SELECT COUNT(*) FROM "{tbl}"').fetchone()[0]
+                        table_row_counts[tbl] = cnt
+                    except Exception:
+                        table_row_counts[tbl] = -1
 
                 # Read stored metadata if available
                 meta_exists = con.execute(
@@ -310,6 +320,7 @@ class DuckDBTwin:
             "exists": True,
             "size_mb": round(size_mb, 3),
             "tables": tables,
+            "table_row_counts": table_row_counts,
             "last_sync": last_sync,
             "sample_percent": sample_percent,
             "schema_hash": schema_hash,

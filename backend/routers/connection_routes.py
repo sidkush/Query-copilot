@@ -834,6 +834,43 @@ async def turbo_status(conn_id: str, request: Request, user: dict = Depends(get_
 
     status = _turbo_status.get(conn_id, {"enabled": False, "syncing": False})
     twin_info = _duckdb_twin.get_twin_info(conn_id)
+
+    # Add per-table detail for Smart Twin UI
+    if twin_info and twin_info.get("exists"):
+        entry = connections[conn_id]
+        schema_profile = getattr(entry, "schema_profile", None)
+        tables_detail = []
+        for table_name in twin_info.get("tables", []):
+            if table_name.startswith("_"):  # Skip internal tables
+                continue
+            # Get row count from schema profile if available
+            source_rows = None
+            if schema_profile and hasattr(schema_profile, "tables"):
+                for tp in schema_profile.tables:
+                    if tp.name == table_name:
+                        source_rows = getattr(tp, "row_count_estimate", None)
+                        if source_rows is not None and source_rows < 0:
+                            source_rows = None
+                        break
+            twin_rows = twin_info.get("table_row_counts", {}).get(table_name)
+            if twin_rows is not None and twin_rows < 0:
+                twin_rows = None
+            strategy = (
+                "Full copy"
+                if source_rows and source_rows <= settings.SMART_TWIN_FULL_COPY_THRESHOLD
+                else "Smart sample"
+            )
+            tables_detail.append({
+                "name": table_name,
+                "source_rows": source_rows,
+                "twin_rows": twin_rows,
+                "strategy": strategy,
+            })
+        twin_info["tables_detail"] = tables_detail
+        twin_info["aggregate_count"] = len(
+            [t for t in twin_info.get("tables", []) if t.startswith("_agg_")]
+        )
+
     return {
         "enabled": status.get("enabled", False),
         "syncing": status.get("syncing", False),
