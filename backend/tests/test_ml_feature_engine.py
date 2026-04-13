@@ -62,3 +62,16 @@ class TestFeatureEngine:
         assert result["X_test"].shape[0] == 20
         assert result["y_train"].shape[0] == 80
         assert result["y_test"].shape[0] == 20
+
+    def test_prepare_dataset_encodes_string_target(self):
+        from ml_feature_engine import prepare_dataset
+        import numpy as np
+        df = pl.DataFrame({
+            "feature1": list(range(100)),
+            "target": ["member"] * 50 + ["casual"] * 50,
+        })
+        result = prepare_dataset(df, target_column="target", test_size=0.2)
+        # Target should be numeric (0 or 1), not strings
+        assert result["y_train"].dtype in (np.int32, np.int64, np.intp)
+        assert set(result["y_train"]).issubset({0, 1})
+        assert result["target_encoder"] is not None

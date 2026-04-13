@@ -103,6 +103,13 @@ def prepare_dataset(df: pl.DataFrame, target_column: str, test_size: float = 0.2
             pdf[col] = le.fit_transform(pdf[col].astype(str))
             encoders[col] = le
 
+    # Encode target column if it's categorical/string
+    target_encoder = None
+    if types.get(target_column) in ("categorical", "text") or pdf[target_column].dtype == object:
+        target_encoder = LabelEncoder()
+        y_raw = pdf[target_column].astype(str)
+        pdf[target_column] = target_encoder.fit_transform(y_raw)
+
     X = pdf[feature_cols].values
     y = pdf[target_column].values
 
@@ -119,4 +126,5 @@ def prepare_dataset(df: pl.DataFrame, target_column: str, test_size: float = 0.2
         "y_train": y_train, "y_test": y_test,
         "feature_names": feature_cols,
         "encoders": encoders, "scaler": scaler,
+        "target_encoder": target_encoder,
     }
