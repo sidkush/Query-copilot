@@ -261,47 +261,7 @@ export default function MLEngine() {
     );
   }
 
-  /* ── Gate: turbo not enabled ── */
-  if (!turbo?.enabled) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center" style={{ maxWidth: 420 }}>
-          <div
-            className="w-12 h-12 mx-auto mb-4 rounded-xl flex items-center justify-center"
-            style={{ background: `${TOKENS.warning}15` }}
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.6}
-              style={{ color: TOKENS.warning }}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
-              />
-            </svg>
-          </div>
-          <h2
-            className="text-lg font-semibold mb-2"
-            style={{ color: TOKENS.text.primary, fontFamily: TOKENS.tile.headerFont }}
-          >
-            Enable Turbo Mode
-          </h2>
-          <p className="text-sm mb-1" style={{ color: TOKENS.text.secondary }}>
-            ML Engine requires Turbo Mode to be enabled.
-          </p>
-          <p className="text-xs" style={{ color: TOKENS.text.muted }}>
-            Turbo Mode creates a local data replica that the ML pipeline uses for
-            training — your data never leaves your infrastructure.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const turboWarning = !turbo?.enabled;
 
   /* ── Main layout ── */
   return (
@@ -326,6 +286,21 @@ export default function MLEngine() {
           </div>
           <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} liveConnIds={new Set(connections.map(c => c.conn_id))} />
         </div>
+
+        {/* Turbo Mode warning banner */}
+        {turboWarning && (
+          <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl" style={{
+            background: `${TOKENS.warning}10`,
+            border: `1px solid ${TOKENS.warning}30`,
+          }}>
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ color: TOKENS.warning }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+            <p className="text-xs" style={{ color: TOKENS.text.secondary }}>
+              Enable <strong>Turbo Mode</strong> on your connection to train models. Go to the <a href="/dashboard" style={{ color: TOKENS.accent, textDecoration: 'underline' }}>Dashboard</a> to enable it.
+            </p>
+          </div>
+        )}
 
         {/* ML Pipeline Visualization */}
         <MLPipeline />
