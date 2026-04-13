@@ -188,6 +188,12 @@ class Settings(BaseSettings):
     ML_AUTO_EXCLUDE_PII: bool = Field(default=True)
     ML_MODELS_DIR: str = Field(default=".data/ml_models")
 
+    # Voice Mode (Phase 5 — Global Comp)
+    VOICE_MODE_ENABLED: bool = Field(default=True)
+    VOICE_WS_MAX_CONNECTIONS_PER_USER: int = Field(default=2)
+    VOICE_RESPONSE_MAX_CHARS: int = Field(default=500, description="Cap TTS response length for cost control")
+    VOICE_INTERIM_DEBOUNCE_MS: int = Field(default=300)
+
     DECOMPOSITION_ENABLED: bool = Field(default=True)
     DECOMPOSITION_MIN_ROWS: int = Field(default=1_000_000)  # only decompose if estimated > 1M rows
     STREAMING_PROGRESS_INTERVAL_MS: int = Field(default=1000)
