@@ -1160,8 +1160,10 @@ class AgentEngine:
                     # Dual-response disabled — use existing route_sync path
                     tier_result = self.waterfall_router.route_sync(question, _schema_profile, _conn_id)
                     if tier_result.hit:
+                        # Strip record_batch before JSON serialization (Arrow boundary)
+                        _tier_data_safe = {k: v for k, v in (tier_result.data or {}).items() if k != "record_batch"}
                         yield AgentStep(type="tier_routing", content=f"Answered from {tier_result.tier_name} tier",
-                                      tool_name="waterfall", tool_result=json.dumps(tier_result.data or {}))
+                                      tool_name="waterfall", tool_result=json.dumps(_tier_data_safe))
                         _logger.info("Waterfall hit: tier=%s, time=%dms", tier_result.tier_name, tier_result.metadata.get("time_ms", 0))
                         if tier_result.tier_name in ("schema", "memory") and tier_result.data:
                             self.memory.add_turn("user", question)
@@ -1183,12 +1185,14 @@ class AgentEngine:
             # Emit cached_result SSE event if we have a cache hit
             if _cached_result and _cached_result.hit and _cached_result.data:
                 _dual_cached_content = _cached_result.data.get("answer", "")
+                # Strip record_batch before JSON serialization (Arrow boundary)
+                _cached_data_safe = {k: v for k, v in (_cached_result.data or {}).items() if k != "record_batch"}
                 yield AgentStep(
                     type="cached_result",
                     content=_dual_cached_content,
                     cache_age_seconds=_cached_result.cache_age_seconds,
                     tool_name="waterfall",
-                    tool_result=json.dumps(_cached_result.data or {}),
+                    tool_result=json.dumps(_cached_data_safe),
                 )
                 self._result.dual_response = True
                 _logger.info("Dual-response: cached result emitted (tier=%s, age=%.1fs)",
@@ -1839,8 +1843,13 @@ class AgentEngine:
                     if twin_result and "error" not in twin_result and twin_result.get("columns"):
                         import pandas as pd
                         from pii_masking import mask_dataframe
-                        twin_cols = twin_result["columns"]
-                        twin_rows = twin_result["rows"]
+                        # Arrow path: extract columns/rows from record_batch if present
+                        if "record_batch" in twin_result and twin_result["record_batch"] is not None:
+                            from arrow_bridge import extract_columns_rows
+                            twin_cols, twin_rows = extract_columns_rows(twin_result)
+                        else:
+                            twin_cols = twin_result["columns"]
+                            twin_rows = twin_result["rows"]
                         df = pd.DataFrame(twin_rows, columns=twin_cols) if twin_rows else pd.DataFrame(columns=twin_cols)
                         df = mask_dataframe(df)
                         turbo_used = True

@@ -22,6 +22,7 @@ from config import settings
 from auth import get_current_user
 from agent_engine import AgentEngine, SessionMemory, AgentStep
 from agent_session_store import session_store
+from arrow_bridge import extract_columns_rows
 from schema_intelligence import SchemaIntelligence
 from waterfall_router import build_default_router
 from provider_registry import get_provider_for_user
@@ -29,6 +30,22 @@ from provider_registry import get_provider_for_user
 _logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/agent", tags=["agent"])
+
+
+def _strip_record_batch(data: dict) -> dict:
+    """Strip non-JSON-serializable record_batch from a dict before json.dumps.
+
+    Converts Arrow RecordBatch → columns/rows via extract_columns_rows,
+    then removes the record_batch key.  Returns the dict unchanged if no
+    record_batch is present.
+    """
+    if not isinstance(data, dict) or "record_batch" not in data:
+        return data
+    cols, rows = extract_columns_rows(data)
+    cleaned = {k: v for k, v in data.items() if k != "record_batch"}
+    cleaned["columns"] = cols
+    cleaned["rows"] = rows
+    return cleaned
 
 # Cap for collected_steps lists in SSE generators to prevent memory bloat
 MAX_COLLECTED_STEPS = 500
@@ -224,7 +241,7 @@ async def agent_run(req: AgentRunRequest, request: Request,
 
                 if step is None:
                     # Send final result
-                    result_data = engine._result.to_dict()
+                    result_data = _strip_record_batch(engine._result.to_dict())
                     result_data["chat_id"] = chat_id
                     collected_steps.append(result_data)
                     yield f"data: {json.dumps(result_data, default=str)}\n\n"
@@ -233,6 +250,7 @@ async def agent_run(req: AgentRunRequest, request: Request,
                     break
 
                 step_data = step.to_dict() if isinstance(step, AgentStep) else step
+                step_data = _strip_record_batch(step_data) if isinstance(step_data, dict) else step_data
                 step_data["chat_id"] = chat_id
                 collected_steps.append(step_data)
                 # Dual-response logging (Task 1.6)
@@ -470,7 +488,7 @@ async def agent_continue(req: AgentContinueRequest, request: Request,
                     continue
 
                 if step is None:
-                    result_data = engine._result.to_dict()
+                    result_data = _strip_record_batch(engine._result.to_dict())
                     result_data["chat_id"] = chat_id
                     collected_steps.append(result_data)
                     yield f"data: {json.dumps(result_data, default=str)}\n\n"
@@ -478,6 +496,7 @@ async def agent_continue(req: AgentContinueRequest, request: Request,
                     break
 
                 step_data = step.to_dict() if isinstance(step, AgentStep) else step
+                step_data = _strip_record_batch(step_data) if isinstance(step_data, dict) else step_data
                 step_data["chat_id"] = chat_id
                 collected_steps.append(step_data)
                 yield f"data: {json.dumps(step_data, default=str)}\n\n"

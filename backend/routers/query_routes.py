@@ -10,6 +10,7 @@ from typing import Optional
 from auth import get_current_user
 from user_storage import increment_query_stats, get_daily_usage, log_sql_edit
 from query_memory import QueryMemory, anonymize_sql
+from arrow_bridge import extract_columns_rows
 
 logger = logging.getLogger(__name__)
 
@@ -318,6 +319,14 @@ def execute_sql(req: ExecuteRequest, user: dict = Depends(get_current_user)):
             logger.debug("Failed to store query insight: %s", e)
 
     result_dict = result.to_dict()
+
+    # Arrow boundary: convert record_batch → columns/rows for JSON serialization
+    if isinstance(result_dict, dict) and "record_batch" in result_dict:
+        cols, rws = extract_columns_rows(result_dict)
+        result_dict = {k: v for k, v in result_dict.items() if k != "record_batch"}
+        result_dict["columns"] = cols
+        result_dict["rows"] = rws
+
     result_dict["conn_id"] = entry.conn_id
     result_dict["db_type"] = entry.db_type
     result_dict["database_name"] = entry.database_name
