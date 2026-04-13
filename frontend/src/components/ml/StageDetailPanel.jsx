@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS } from '../dashboard/tokens';
@@ -440,66 +440,227 @@ function CleanContent({ data, onRunStage }) {
   );
 }
 
-function FeaturesContent({ data, onApplyChanges, onRunStage }) {
-  const features = data?.features || [];
+function FeaturesContentInner({ features, onApplyChanges, onRunStage }) {
   const [selections, setSelections] = useState(() =>
     Object.fromEntries(features.map((f) => [f.name, f.include !== false]))
   );
+  const [customFeatures, setCustomFeatures] = useState([]);
+  const [showCreator, setShowCreator] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newExpr, setNewExpr] = useState('');
+  const [newType, setNewType] = useState('numeric');
 
-  const toggle = (name) => {
-    const next = { ...selections, [name]: !selections[name] };
-    setSelections(next);
+  const toggle = (name) => setSelections(prev => ({ ...prev, [name]: !prev[name] }));
+
+  const addCustom = () => {
+    if (!newName.trim() || !newExpr.trim()) return;
+    setCustomFeatures(prev => [...prev, {
+      name: newName.trim(),
+      expression: newExpr.trim(),
+      type: newType,
+      isCustom: true,
+    }]);
+    setSelections(prev => ({ ...prev, [newName.trim()]: true }));
+    setNewName('');
+    setNewExpr('');
+    setShowCreator(false);
   };
 
-  const handleApply = () => {
-    onApplyChanges?.({
-      features: features.map((f) => ({ ...f, include: selections[f.name] ?? true })),
-    });
+  const removeCustom = (name) => {
+    setCustomFeatures(prev => prev.filter(f => f.name !== name));
+    setSelections(prev => { const n = { ...prev }; delete n[name]; return n; });
   };
+
+  const allFeatures = [...features, ...customFeatures];
+  const selectedCount = allFeatures.filter(f => selections[f.name]).length;
+  const excludedCount = allFeatures.length - selectedCount;
+
+  const TYPE_BADGES = {
+    numeric: { bg: 'rgba(34,197,94,0.12)', color: '#22c55e', label: 'NUM' },
+    categorical: { bg: 'rgba(99,102,241,0.12)', color: '#818cf8', label: 'CAT' },
+    datetime: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', label: 'DATE' },
+    text: { bg: 'rgba(6,182,212,0.12)', color: '#22d3ee', label: 'TEXT' },
+    pii: { bg: 'rgba(239,68,68,0.12)', color: '#ef4444', label: 'PII' },
+    custom: { bg: 'rgba(168,85,247,0.12)', color: '#a855f7', label: 'CUSTOM' },
+    unknown: { bg: 'rgba(148,163,184,0.12)', color: '#94a3b8', label: '?' },
+  };
+
+  if (features.length === 0 && customFeatures.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 12, color: TOKENS.text.muted }}>
+        Run Data Ingest first to load features
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <table style={tableStyle}>
-        <thead>
-          <tr>
-            <th style={thStyle}>Name</th>
-            <th style={thStyle}>Type</th>
-            <th style={thStyle}>Null %</th>
-            <th style={{ ...thStyle, textAlign: 'center' }}>Include</th>
-          </tr>
-        </thead>
-        <tbody>
-          {features.map((f) => (
-            <tr key={f.name}>
-              <td style={{ ...tdStyle, fontWeight: 500, color: TOKENS.text.primary }}>{f.name}</td>
-              <td style={tdStyle}>{f.type}</td>
-              <td style={tdStyle}>{f.nullPercent ?? f.missing_pct ?? 0}%</td>
-              <td style={{ ...tdStyle, textAlign: 'center' }}>
+      {/* Summary bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
+          <span style={{ color: TOKENS.success, fontWeight: 600 }}>{selectedCount} selected</span>
+          <span style={{ color: TOKENS.text.muted }}>{excludedCount} excluded</span>
+          <span style={{ color: '#a855f7', fontWeight: 600 }}>{customFeatures.length} custom</span>
+        </div>
+        <button
+          onClick={() => setShowCreator(!showCreator)}
+          style={{
+            ...btnSecondary,
+            fontSize: 10,
+            padding: '4px 10px',
+            color: showCreator ? TOKENS.danger : '#a855f7',
+            borderColor: showCreator ? TOKENS.danger : '#a855f740',
+          }}
+        >
+          {showCreator ? 'Cancel' : '+ Custom Feature'}
+        </button>
+      </div>
+
+      {/* Custom feature creator */}
+      {showCreator && (
+        <div style={{
+          padding: 12,
+          borderRadius: TOKENS.radius.md,
+          border: '1px solid #a855f730',
+          background: 'rgba(168,85,247,0.04)',
+        }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              type="text"
+              placeholder="Feature name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              style={{ ...selectStyle, flex: 1, fontSize: 11 }}
+            />
+            <select value={newType} onChange={(e) => setNewType(e.target.value)} style={{ ...selectStyle, fontSize: 11, width: 100 }}>
+              <option value="numeric">Numeric</option>
+              <option value="categorical">Categorical</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              placeholder="Expression: col1 + col2, CASE WHEN x > 0 THEN 1 ELSE 0"
+              value={newExpr}
+              onChange={(e) => setNewExpr(e.target.value)}
+              style={{ ...selectStyle, flex: 1, fontSize: 11, fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}
+              onKeyDown={(e) => e.key === 'Enter' && addCustom()}
+            />
+            <button onClick={addCustom} style={{ ...btnPrimary, fontSize: 10, padding: '4px 12px', background: '#a855f7' }}>
+              Add
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Features table */}
+      <div style={{ borderRadius: TOKENS.radius.md, border: `1px solid ${TOKENS.border.default}`, overflow: 'hidden' }}>
+        <table style={{ ...tableStyle, fontSize: 11 }}>
+          <thead>
+            <tr style={{ background: TOKENS.bg.elevated }}>
+              <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px', width: 30, textAlign: 'center' }}>
                 <input
                   type="checkbox"
-                  checked={selections[f.name] ?? true}
-                  onChange={() => toggle(f.name)}
+                  checked={selectedCount === allFeatures.length}
+                  onChange={() => {
+                    const allSelected = selectedCount === allFeatures.length;
+                    setSelections(Object.fromEntries(allFeatures.map(f => [f.name, !allSelected])));
+                  }}
                   style={{ accentColor: TOKENS.accent, cursor: 'pointer' }}
                 />
-              </td>
+              </th>
+              <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px' }}>Feature</th>
+              <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px' }}>Type</th>
+              <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px', textAlign: 'right' }}>Null %</th>
+              <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px', textAlign: 'right' }}>Stats</th>
+              <th style={{ ...thStyle, fontSize: 10, padding: '7px 6px', width: 30 }}></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {allFeatures.map((f, i) => {
+              const badge = f.isCustom ? TYPE_BADGES.custom : (TYPE_BADGES[f.type] || TYPE_BADGES.unknown);
+              const nullPct = f.nullPercent || f.nullPct || 0;
+              return (
+                <tr key={f.name} style={{ background: i % 2 === 0 ? 'transparent' : `${TOKENS.bg.elevated}40`, opacity: selections[f.name] ? 1 : 0.4 }}>
+                  <td style={{ ...tdStyle, padding: '6px 10px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selections[f.name] ?? true}
+                      onChange={() => toggle(f.name)}
+                      style={{ accentColor: TOKENS.accent, cursor: 'pointer' }}
+                    />
+                  </td>
+                  <td style={{ ...tdStyle, padding: '6px 10px', fontWeight: 500, color: TOKENS.text.primary, fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11 }}>
+                    {f.name}
+                    {f.expression && (
+                      <div style={{ fontSize: 9, color: TOKENS.text.muted, fontWeight: 400, marginTop: 1 }}>
+                        = {f.expression}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ ...tdStyle, padding: '6px 10px' }}>
+                    <span style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', background: badge.bg, color: badge.color }}>
+                      {badge.label}
+                    </span>
+                  </td>
+                  <td style={{ ...tdStyle, padding: '6px 10px', textAlign: 'right', fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 10 }}>
+                    {f.isCustom ? '-' : (
+                      <span style={{ color: nullPct > 10 ? TOKENS.danger : nullPct > 0 ? TOKENS.warning : TOKENS.success }}>
+                        {nullPct.toFixed(1)}%
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ ...tdStyle, padding: '6px 10px', textAlign: 'right', fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 10, color: TOKENS.text.muted }}>
+                    {f.isCustom ? 'derived' : f.unique ? `${f.unique} uniq` : f.mean != null ? `avg ${Number(f.mean).toFixed(1)}` : '-'}
+                  </td>
+                  <td style={{ ...tdStyle, padding: '4px 6px' }}>
+                    {f.isCustom && (
+                      <button onClick={() => removeCustom(f.name)} style={{ background: 'none', border: 'none', color: TOKENS.danger, cursor: 'pointer', fontSize: 12, padding: 2 }} title="Remove custom feature">
+                        x
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Actions */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button style={btnSecondary} onClick={handleApply}>Apply Changes</button>
+        <button style={btnSecondary} onClick={() => onApplyChanges?.({
+          features: allFeatures.map(f => ({ ...f, include: selections[f.name] ?? true })),
+        })}>
+          Apply Changes
+        </button>
         <button
           style={btnPrimary}
           onClick={() => {
-            const include = features.filter(f => selections[f.name]).map(f => f.name);
-            const exclude = features.filter(f => !selections[f.name]).map(f => f.name);
-            onRunStage?.('features', { include, exclude });
+            const include = allFeatures.filter(f => selections[f.name]).map(f => f.name);
+            const exclude = allFeatures.filter(f => !selections[f.name]).map(f => f.name);
+            const custom = customFeatures.filter(f => selections[f.name]);
+            onRunStage?.('features', { include, exclude, custom_features: custom });
           }}
         >
-          Run Feature Selection
+          Run Feature Engineering
         </button>
       </div>
     </div>
+  );
+}
+
+// Wrapper that resets internal state when features list changes
+function FeaturesContent({ data, onApplyChanges, onRunStage }) {
+  const features = useMemo(() => data?.features || [], [data?.features]);
+  const featureKey = useMemo(() => features.map(f => f.name).join(','), [features]);
+  return (
+    <FeaturesContentInner
+      key={featureKey}
+      features={features}
+      onApplyChanges={onApplyChanges}
+      onRunStage={onRunStage}
+    />
   );
 }
 
@@ -727,7 +888,7 @@ function ResultsContent({ data, onRunStage }) {
 const STAGE_LABELS = {
   ingest: 'Data Ingest',
   clean: 'Data Cleaning',
-  features: 'Feature Extraction',
+  features: 'Feature Engineering',
   train: 'Training',
   evaluate: 'Evaluation',
   results: 'Results',

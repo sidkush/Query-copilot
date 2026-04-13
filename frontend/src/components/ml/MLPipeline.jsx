@@ -63,7 +63,7 @@ const IconTrophy = (
 const STAGES = [
   { key: 'ingest',   label: 'Data Ingest',    icon: IconDatabase },
   { key: 'clean',    label: 'Data Cleaning',   icon: IconBroom },
-  { key: 'features', label: 'Feature Extract', icon: IconMicroscope },
+  { key: 'features', label: 'Feature Eng.',    icon: IconMicroscope },
   { key: 'train',    label: 'Training',        icon: IconCog },
   { key: 'evaluate', label: 'Evaluation',      icon: IconChart },
   { key: 'results',  label: 'Results',         icon: IconTrophy },

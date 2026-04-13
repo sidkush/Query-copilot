@@ -298,6 +298,24 @@ export default function MLEngine() {
             qualityScore: null,
           },
         });
+
+        // Also seed features stage with feature data
+        updatePipelineStage('features', {
+          status: 'idle',
+          data: {
+            features: stageData.preview.map(f => ({
+              name: f.name,
+              type: f.type,
+              nullPercent: f.nullPct || 0,
+              include: f.type !== 'pii',
+              unique: f.unique,
+              mean: f.mean,
+              min: f.min,
+              max: f.max,
+              isCustom: false,
+            })),
+          },
+        });
       }
 
       const updated = await api.mlLoadPipeline(mlActiveWorkflow.id);
