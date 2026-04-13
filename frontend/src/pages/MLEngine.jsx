@@ -175,6 +175,8 @@ function EmptyState() {
    ════════════════════════════════════════════════════════════════ */
 export default function MLEngine() {
   const activeConnId = useStore((s) => s.activeConnId);
+  const connections = useStore((s) => s.connections);
+  const setActiveConnId = useStore((s) => s.setActiveConnId);
   const turboStatus = useStore((s) => s.turboStatus);
   const setAgentContext = useStore((s) => s.setAgentContext);
   const agentPanelOpen = useStore((s) => s.agentPanelOpen);
@@ -188,9 +190,13 @@ export default function MLEngine() {
   /* Set agent context to ML on mount */
   useEffect(() => {
     setAgentContext("ml");
-    setAgentPanelOpen(true);
     return () => setAgentContext("query");
-  }, [setAgentContext, setAgentPanelOpen]);
+  }, [setAgentContext]);
+
+  /* Open agent panel when connection is available */
+  useEffect(() => {
+    if (connId) setAgentPanelOpen(true);
+  }, [connId, setAgentPanelOpen]);
 
   /* Load models when connection changes */
   useEffect(() => {
@@ -244,7 +250,7 @@ export default function MLEngine() {
           <p className="text-sm mb-5" style={{ color: TOKENS.text.secondary }}>
             Connect a database to start building ML models
           </p>
-          <DatabaseSwitcher />
+          <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} />
         </div>
       </div>
     );
@@ -313,7 +319,7 @@ export default function MLEngine() {
               Train and manage machine learning models on your data
             </p>
           </div>
-          <DatabaseSwitcher />
+          <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} />
         </div>
 
         {/* Models section */}

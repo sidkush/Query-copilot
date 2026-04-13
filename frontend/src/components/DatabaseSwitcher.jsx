@@ -49,7 +49,7 @@ function DbIcon({ dbType, size = 14 }) {
   );
 }
 
-export default function DatabaseSwitcher({ connections, activeConnId, onSwitch, liveConnIds = null }) {
+export default function DatabaseSwitcher({ connections = [], activeConnId, onSwitch = () => {}, liveConnIds = null }) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
   const ref = useRef(null);
@@ -114,7 +114,7 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch, 
       >
         {activeConn ? (
           <>
-            <StatusDot isLive={!liveConnIds || liveConnIds.has(activeConn?.conn_id)} />
+            <StatusDot isLive={liveConnIds ? liveConnIds.has(activeConn?.conn_id) : false} />
             <DbIcon dbType={activeConn?.db_type} />
             <span style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>
               {dbLabel}
@@ -185,7 +185,7 @@ export default function DatabaseSwitcher({ connections, activeConnId, onSwitch, 
                 onMouseEnter={() => setFocusIdx(idx)}
                 onMouseLeave={() => setFocusIdx(-1)}
               >
-                <StatusDot isLive={!liveConnIds || liveConnIds.has(conn.conn_id)} />
+                <StatusDot isLive={liveConnIds ? liveConnIds.has(conn.conn_id) : false} />
                 <DbIcon dbType={conn.db_type} size={14} />
                 <span style={{ flex: 1, overflow: 'hidden' }}>
                   <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: isActive ? '#a5b4fc' : 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
