@@ -123,25 +123,146 @@ const btnClose = {
 /* ── Stage content renderers ───────────────────────────────── */
 
 function IngestContent({ data }) {
+  const [rowLimit, setRowLimit] = useState(10);
   const tables = data?.tables || [];
   const totalRows = data?.rowCount || tables.reduce((s, t) => s + (typeof t.rows === 'number' ? t.rows : 0), 0);
-  const totalCols = data?.columnCount || tables.reduce((s, t) => s + (t.columns || 0), 0);
-  const totalFeatures = data?.totalFeatures || totalCols;
+  const totalFeatures = data?.totalFeatures || data?.columnCount || 0;
+  const preview = data?.preview || [];
+  const visibleRows = preview.slice(0, rowLimit);
+
+  const TYPE_BADGES = {
+    numeric: { bg: 'rgba(34,197,94,0.12)', color: '#22c55e', label: 'NUM' },
+    categorical: { bg: 'rgba(99,102,241,0.12)', color: '#818cf8', label: 'CAT' },
+    datetime: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24', label: 'DATE' },
+    text: { bg: 'rgba(6,182,212,0.12)', color: '#22d3ee', label: 'TEXT' },
+    pii: { bg: 'rgba(239,68,68,0.12)', color: '#ef4444', label: 'PII' },
+    unknown: { bg: 'rgba(148,163,184,0.12)', color: '#94a3b8', label: '?' },
+  };
 
   return (
-    <div style={statGridStyle}>
-      <div style={statCardStyle}>
-        <div style={statValueStyle}>{tables.length || 1}</div>
-        <div style={statLabelStyle}>Tables</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Stat summary row */}
+      <div style={statGridStyle}>
+        <div style={statCardStyle}>
+          <div style={statValueStyle}>{tables.length || 1}</div>
+          <div style={statLabelStyle}>Tables</div>
+        </div>
+        <div style={statCardStyle}>
+          <div style={statValueStyle}>{totalRows > 0 ? totalRows.toLocaleString() : 'Loaded'}</div>
+          <div style={statLabelStyle}>Rows</div>
+        </div>
+        <div style={statCardStyle}>
+          <div style={statValueStyle}>{totalFeatures}</div>
+          <div style={statLabelStyle}>Features</div>
+        </div>
       </div>
-      <div style={statCardStyle}>
-        <div style={statValueStyle}>{totalRows > 0 ? totalRows.toLocaleString() : 'Loaded'}</div>
-        <div style={statLabelStyle}>Rows</div>
-      </div>
-      <div style={statCardStyle}>
-        <div style={statValueStyle}>{totalFeatures}</div>
-        <div style={statLabelStyle}>Features</div>
-      </div>
+
+      {/* Data preview table */}
+      {preview.length > 0 && (
+        <div>
+          {/* Header with row selector */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Column Preview
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 10, color: TOKENS.text.muted }}>Show</span>
+              <select
+                value={rowLimit}
+                onChange={(e) => setRowLimit(Number(e.target.value))}
+                style={{
+                  fontSize: 11,
+                  padding: '2px 6px',
+                  borderRadius: TOKENS.radius.sm,
+                  background: TOKENS.bg.elevated,
+                  border: `1px solid ${TOKENS.border.default}`,
+                  color: TOKENS.text.primary,
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>All</option>
+              </select>
+              <span style={{ fontSize: 10, color: TOKENS.text.muted }}>
+                of {preview.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div style={{ borderRadius: TOKENS.radius.md, border: `1px solid ${TOKENS.border.default}`, overflow: 'hidden' }}>
+            <table style={{ ...tableStyle, fontSize: 11 }}>
+              <thead>
+                <tr style={{ background: TOKENS.bg.elevated }}>
+                  <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px' }}>Column</th>
+                  <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px' }}>Type</th>
+                  <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px', textAlign: 'right' }}>Unique</th>
+                  <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px', textAlign: 'right' }}>Null %</th>
+                  <th style={{ ...thStyle, fontSize: 10, padding: '7px 10px', textAlign: 'right' }}>Range / Stats</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRows.map((col, i) => {
+                  const badge = TYPE_BADGES[col.type] || TYPE_BADGES.unknown;
+                  const hasStats = col.min != null && col.max != null;
+                  return (
+                    <tr
+                      key={col.name}
+                      style={{
+                        background: i % 2 === 0 ? 'transparent' : `${TOKENS.bg.elevated}40`,
+                        transition: 'background 150ms',
+                      }}
+                    >
+                      <td style={{ ...tdStyle, padding: '6px 10px', fontWeight: 500, color: TOKENS.text.primary, fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11 }}>
+                        {col.name}
+                      </td>
+                      <td style={{ ...tdStyle, padding: '6px 10px' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '1px 6px',
+                          borderRadius: 4,
+                          fontSize: 9,
+                          fontWeight: 700,
+                          letterSpacing: '0.05em',
+                          background: badge.bg,
+                          color: badge.color,
+                        }}>
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, padding: '6px 10px', textAlign: 'right', fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 10, color: TOKENS.text.secondary }}>
+                        {col.unique > 0 ? col.unique.toLocaleString() : '-'}
+                      </td>
+                      <td style={{ ...tdStyle, padding: '6px 10px', textAlign: 'right' }}>
+                        {col.nullPct > 0 ? (
+                          <span style={{ color: col.nullPct > 10 ? TOKENS.danger : TOKENS.warning, fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 10 }}>
+                            {col.nullPct}%
+                          </span>
+                        ) : (
+                          <span style={{ color: TOKENS.success, fontSize: 10 }}>0%</span>
+                        )}
+                      </td>
+                      <td style={{ ...tdStyle, padding: '6px 10px', textAlign: 'right', fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 10, color: TOKENS.text.muted }}>
+                        {hasStats ? `${Number(col.min).toFixed(1)} .. ${Number(col.max).toFixed(1)}` : col.type === 'categorical' ? `${col.unique} classes` : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Truncation notice */}
+          {preview.length > rowLimit && (
+            <div style={{ textAlign: 'center', padding: '6px 0', fontSize: 10, color: TOKENS.text.muted }}>
+              +{preview.length - rowLimit} more columns
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

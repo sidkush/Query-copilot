@@ -492,6 +492,16 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
             totalFeatures: totalCols,
             rowCount: estimatedRows,
             columnCount: totalCols,
+            // Raw feature details for table preview
+            preview: features.map(f => ({
+              name: f.name,
+              type: f.type || 'unknown',
+              nullPct: f.missing_pct || 0,
+              unique: f.unique_count || 0,
+              mean: f.mean != null ? f.mean : null,
+              min: f.min != null ? f.min : null,
+              max: f.max != null ? f.max : null,
+            })),
           };
           const cleanData = {
             qualityScore,
