@@ -574,8 +574,8 @@ export default function Chat() {
                   chartSuggestion: step.chart_suggestion || null,
                 };
                 addMessage(ansMsg);
-                // Auto-speak agent answer when voice mode is active
-                if (step.final_answer && ttsSupported) speak(step.final_answer.slice(0, 500));
+                // Auto-speak agent answer ONLY when voice mode is active (user clicked mic)
+                if (step.final_answer && ttsSupported && isListening) speak(step.final_answer.slice(0, 500));
                 if (chatId) api.appendMessage(chatId, ansMsg).catch(() => {});
               }
             }

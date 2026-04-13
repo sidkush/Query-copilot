@@ -162,6 +162,8 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
   const deleteAgentHistory = useStore((s) => s.deleteAgentHistory);
   const agentPersona = useStore((s) => s.agentPersona);
   const agentPermissionMode = useStore((s) => s.agentPermissionMode);
+  const agentContext = useStore((s) => s.agentContext);
+  const softClearAgent = useStore((s) => s.softClearAgent);
 
   const [showHistory, setShowHistory] = useState(false);
   const [historyList, setHistoryList] = useState([]);
@@ -376,19 +378,23 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
     setInput("");
     // Save current conversation before starting new one
     if (agentSteps.length > 0) saveAgentHistory();
-    clearAgent();
+
+    // Capture existing chat ID for continuation BEFORE clearing steps
+    const existingChatId = agentChatId;
+
+    // Clear UI state but preserve agentChatId for continuous conversation
+    softClearAgent();
     setAgentLoading(true);
     setShowHistory(false);
 
-    // Add user question as first step so it shows in history
+    // Add user question as first step so it shows immediately
     addAgentStep({ type: "user_query", content: q });
 
     // Abort previous stream if any
     if (streamRef.current?.close) streamRef.current.close();
 
-    // Always start a fresh session — clearAgent() above set agentChatId to null,
-    // but the closure captured the OLD value. Use null explicitly.
-    const chatIdForRun = null;
+    // Reuse existing chat ID for continuous conversation
+    const chatIdForRun = existingChatId;
 
     const stream = api.agentRun(q, connId, chatIdForRun, (step) => {
       if (step.chat_id) setAgentChatId(step.chat_id);
@@ -406,8 +412,8 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         const resultText = step.final_answer || step.content;
         addAgentStep({ type: "result", content: resultText, sql: step.sql });
         setAgentLoading(false);
-        // Auto-speak result when voice mode is active
-        if (resultText && ttsSupported) speak(resultText.slice(0, 500));
+        // Auto-speak result ONLY when voice mode is active (user clicked mic)
+        if (resultText && ttsSupported && isListening) speak(resultText.slice(0, 500));
         // Reload dashboard after agent finishes (covers all tile modifications)
         const dashId = useStore.getState().activeDashboardId;
         if (dashId) api.getDashboard(dashId).then(fresh => {
@@ -416,16 +422,21 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       } else {
         addAgentStep(step);
       }
-    }, { persona: agentPersona, permissionMode: agentPermissionMode });
+    }, { persona: agentPersona, permissionMode: agentPermissionMode, agentContext });
     streamRef.current = stream;
-  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, clearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, ttsSupported, speak]);
+  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak]);
 
   // ── Quick action — same as handleSubmit but accepts text directly ──
   const handleQuickAction = useCallback((text) => {
     if (!text || agentLoading || agentWaiting) return;
     // Save current conversation before starting new one
     if (agentSteps.length > 0) saveAgentHistory();
-    clearAgent();
+
+    // Capture existing chat ID for continuation BEFORE clearing steps
+    const existingChatId = agentChatId;
+
+    // Clear UI state but preserve agentChatId for continuous conversation
+    softClearAgent();
     setAgentLoading(true);
     setShowHistory(false);
     setInput("");
@@ -434,7 +445,8 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
 
     if (streamRef.current?.close) streamRef.current.close();
 
-    const chatIdForRun = null;
+    // Reuse existing chat ID for continuous conversation
+    const chatIdForRun = existingChatId;
 
     const stream = api.agentRun(text, connId, chatIdForRun, (step) => {
       if (step.chat_id) setAgentChatId(step.chat_id);
@@ -449,8 +461,8 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         const resultText = step.final_answer || step.content;
         addAgentStep({ type: "result", content: resultText, sql: step.sql });
         setAgentLoading(false);
-        // Auto-speak result when voice mode is active
-        if (resultText && ttsSupported) speak(resultText.slice(0, 500));
+        // Auto-speak result ONLY when voice mode is active (user clicked mic)
+        if (resultText && ttsSupported && isListening) speak(resultText.slice(0, 500));
         const dashId = useStore.getState().activeDashboardId;
         if (dashId) api.getDashboard(dashId).then(fresh => {
           if (fresh) window.dispatchEvent(new CustomEvent('dashboard-reload', { detail: { dashboard: fresh } }));
@@ -458,9 +470,9 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       } else {
         addAgentStep(step);
       }
-    }, { persona: agentPersona, permissionMode: agentPermissionMode });
+    }, { persona: agentPersona, permissionMode: agentPermissionMode, agentContext });
     streamRef.current = stream;
-  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, clearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, ttsSupported, speak]);
+  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak]);
 
   // Keep ref in sync so the speech recognition callback always calls the latest version
   useEffect(() => { handleQuickActionRef.current = handleQuickAction; }, [handleQuickAction]);
