@@ -187,6 +187,7 @@ class Settings(BaseSettings):
     ML_MAX_CONCURRENT_TRAINING_PER_USER: int = Field(default=2)
     ML_AUTO_EXCLUDE_PII: bool = Field(default=True)
     ML_MODELS_DIR: str = Field(default=".data/ml_models")
+    ML_PIPELINES_DIR: str = Field(default=".data/ml_pipelines")
 
     # Voice Mode (Phase 5 — Global Comp)
     VOICE_MODE_ENABLED: bool = Field(default=True)
