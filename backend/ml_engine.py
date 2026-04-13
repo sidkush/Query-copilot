@@ -50,6 +50,48 @@ class MLEngine:
         finally:
             con.close()
 
+    def ingest_from_source(self, connector, tables: list[str],
+                           max_rows: int = None, sample_size: int = None,
+                           stratify_column: str = None) -> pl.DataFrame:
+        """Query source database directly — bypasses twin sampling limits.
+
+        Args:
+            connector: DatabaseConnector with live connection
+            tables: table names to query
+            max_rows: absolute row cap (None = config default)
+            sample_size: if set, take stratified random sample
+            stratify_column: column for stratified sampling
+        """
+        import pyarrow as pa
+
+        if max_rows is None:
+            max_rows = settings.ML_MAX_TRAINING_ROWS
+
+        frames = []
+        for table in (tables or []):
+            if sample_size:
+                # Stratified sample: ORDER BY RANDOM() LIMIT N
+                sql = f'SELECT * FROM "{table}" ORDER BY RANDOM() LIMIT {sample_size}'
+            elif max_rows and max_rows < 10_000_000:
+                sql = f'SELECT * FROM "{table}" LIMIT {max_rows}'
+            else:
+                sql = f'SELECT * FROM "{table}"'
+
+            try:
+                arrow_table = connector.execute_query_arrow(
+                    sql, timeout=settings.ML_TRAINING_QUERY_TIMEOUT
+                )
+                frames.append(pl.from_arrow(arrow_table))
+            except Exception as e:
+                logger.warning(f"Arrow query failed for {table}, falling back to pandas: {e}")
+                # Fallback to regular execute_query
+                df_pandas = connector.execute_query(sql)
+                frames.append(pl.from_pandas(df_pandas))
+
+        if not frames:
+            raise ValueError("No tables to ingest")
+        return frames[0] if len(frames) == 1 else pl.concat(frames)
+
     def detect_task_type(self, df: pl.DataFrame, target_column: str) -> str:
         col = df[target_column]
         dtype = col.dtype

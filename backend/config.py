@@ -187,6 +187,10 @@ class Settings(BaseSettings):
     ML_MAX_CONCURRENT_TRAINING_PER_USER: int = Field(default=2)
     ML_AUTO_EXCLUDE_PII: bool = Field(default=True)
     ML_MODELS_DIR: str = Field(default=".data/ml_models")
+    ML_FULL_DATASET_ENABLED: bool = Field(default=True, description="Allow training on full source dataset (bypasses twin sampling)")
+    ML_MAX_TRAINING_ROWS: int = Field(default=10_000_000, description="Safety cap for full dataset training")
+    ML_DEFAULT_SAMPLE_SIZE: int = Field(default=500_000, description="Default stratified sample size")
+    ML_TRAINING_QUERY_TIMEOUT: int = Field(default=3600, description="Timeout for full dataset queries (seconds)")
     ML_PIPELINES_DIR: str = Field(default=".data/ml_pipelines")
 
     # Voice Mode (Phase 5 — Global Comp)

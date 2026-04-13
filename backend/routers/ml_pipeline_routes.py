@@ -2,7 +2,7 @@
 import hashlib
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from config import settings
@@ -80,7 +80,7 @@ async def delete_pipeline(pipeline_id: str, user=Depends(get_current_user)):
 
 
 @router.post("/{pipeline_id}/stages/{stage_key}/run")
-async def run_stage(pipeline_id: str, stage_key: str, req: RunStageRequest, user=Depends(get_current_user)):
+async def run_stage(pipeline_id: str, stage_key: str, req: RunStageRequest, request: Request, user=Depends(get_current_user)):
     """Execute a single pipeline stage manually."""
     uh = _hash(user["email"])
     pipeline = store.load_pipeline(uh, pipeline_id)
@@ -108,7 +108,7 @@ async def run_stage(pipeline_id: str, stage_key: str, req: RunStageRequest, user
     store.update_stage(uh, pipeline_id, stage_key, {"status": "active", "config": merged_config})
 
     try:
-        output = _execute_stage(stage_key, conn_id, tables, target_column, merged_config, pipeline, uh)
+        output = _execute_stage(stage_key, conn_id, tables, target_column, merged_config, pipeline, uh, request)
         store.update_stage(uh, pipeline_id, stage_key, {
             "status": "complete",
             "config": merged_config,
@@ -122,7 +122,7 @@ async def run_stage(pipeline_id: str, stage_key: str, req: RunStageRequest, user
         raise HTTPException(500, f"Stage execution failed: {str(e)[:200]}")
 
 
-def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: str, config: dict, pipeline: dict, user_hash: str) -> dict:
+def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: str, config: dict, pipeline: dict, user_hash: str, request=None) -> dict:
     """Execute a pipeline stage and return output summary."""
     from ml_engine import MLEngine
     from ml_feature_engine import analyze_features, detect_column_types, prepare_dataset
@@ -174,9 +174,35 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
     elif stage_key == "train":
         if not target_column:
             raise ValueError("target_column is required for training")
-        df = engine.ingest_from_twin(conn_id, tables or [])
+
+        data_source = config.get("data_source", "twin")
+
+        if data_source in ("full", "sample") and request and settings.ML_FULL_DATASET_ENABLED:
+            # Get live connector from app.state
+            connector = None
+            if hasattr(request.app.state, 'connections') and request.app.state.connections:
+                for email, conns in request.app.state.connections.items():
+                    if conn_id in conns:
+                        connector = conns[conn_id].connector
+                        break
+
+            if not connector:
+                raise ValueError("Live database connection required for full dataset training. Please reconnect.")
+
+            sample_size = config.get("sample_size") if data_source == "sample" else None
+            df = engine.ingest_from_source(
+                connector, tables or [],
+                sample_size=sample_size,
+                stratify_column=target_column
+            )
+        else:
+            # Default: use twin data
+            df = engine.ingest_from_twin(conn_id, tables or [])
+
         if isinstance(df, list):
             df = df[0]
+
+        row_count = len(df)
         model_names = config.get("models", [])
         task_type = config.get("task_type")
         params = config.get("params")
@@ -185,7 +211,7 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
         for m in result["models"]:
             mid = engine.save_model(m, user_hash)
             saved.append({"model_id": mid, "name": m["model_name"], "metrics": m["metrics"]})
-        return {"task_type": result["task_type"], "models": saved}
+        return {"task_type": result["task_type"], "models": saved, "rows_trained": row_count, "data_source": data_source}
 
     elif stage_key == "evaluate":
         train_out = pipeline["stages"].get("train", {}).get("output_summary", {})

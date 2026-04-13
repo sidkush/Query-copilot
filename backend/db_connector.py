@@ -237,6 +237,65 @@ class DatabaseConnector:
             logger.error(f"Query execution failed: {e}")
             raise RuntimeError(f"Query failed: {str(e)}")
 
+    def execute_query_arrow(self, sql: str, timeout: int = 3600):
+        """Execute query and return Arrow Table — no row limit, for ML training.
+
+        Uses chunked fetching to avoid memory spikes. Returns pyarrow.Table.
+        For use by ML pipeline only — bypasses MAX_ROWS safety limit.
+        """
+        import pyarrow as pa
+
+        if not self._engine:
+            raise RuntimeError("Not connected. Call connect() first.")
+
+        def _run():
+            with self._engine.connect() as conn:
+                # ── Per-dialect read-only enforcement (same as execute_query) ──
+                if self.db_type in (
+                    DBType.POSTGRESQL, DBType.REDSHIFT, DBType.COCKROACHDB
+                ):
+                    conn.execute(
+                        text("SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY")
+                    )
+                elif self.db_type == DBType.CLICKHOUSE:
+                    conn.execute(text("SET readonly = 1"))
+
+                result = conn.execute(text(sql))
+                columns = list(result.keys())
+
+                all_rows = []
+                while True:
+                    chunk = result.fetchmany(10000)
+                    if not chunk:
+                        break
+                    all_rows.extend(chunk)
+
+                if not all_rows:
+                    return pa.table({col: [] for col in columns})
+
+                # Build Arrow table from rows
+                col_data = {}
+                for ci, col in enumerate(columns):
+                    col_data[col] = [row[ci] for row in all_rows]
+
+                return pa.table(col_data)
+
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_run)
+                try:
+                    return future.result(timeout=timeout)
+                except FuturesTimeout:
+                    raise RuntimeError(
+                        f"Arrow query timed out after {timeout}s. "
+                        "Consider reducing the dataset or using sampling."
+                    )
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.error(f"Arrow query execution failed: {e}")
+            raise RuntimeError(f"Arrow query failed: {str(e)}")
+
     def estimate_result_size(self, sql: str, timeout: int = 5) -> Optional[int]:
         """Quick COUNT(*) estimate for big data queries. Returns None on failure."""
         if not self._engine or not self.is_big_data_engine():
