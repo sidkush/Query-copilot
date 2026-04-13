@@ -152,6 +152,8 @@ const btnClose = {
 
 function IngestContent({ data, onRunStage }) {
   const [rowLimit, setRowLimit] = useState(10);
+  const [dataSource, setDataSource] = useState(data?.dataSource || 'twin');
+  const [sampleSize, setSampleSize] = useState(data?.sampleSize || 500000);
   const tables = data?.tables || [];
   const totalRows = data?.rowCount || tables.reduce((s, t) => s + (typeof t.rows === 'number' ? t.rows : 0), 0);
   const totalFeatures = data?.totalFeatures || data?.columnCount || 0;
@@ -169,6 +171,60 @@ function IngestContent({ data, onRunStage }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Data Source selector */}
+      <div>
+        <div style={{ fontSize: 10, fontWeight: 700, color: TOKENS.text.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Data Source</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[
+            { key: 'twin', label: 'Twin (Quick)', desc: 'DuckDB replica', detail: '~50K rows', speed: 'instant', color: TOKENS.success },
+            { key: 'sample', label: 'Smart Sample', desc: 'Stratified random', detail: `${(sampleSize / 1000).toFixed(0)}K rows`, speed: '~30s', color: TOKENS.accent },
+            { key: 'full', label: 'Full Dataset', desc: 'Source DB directly', detail: 'All rows', speed: 'minutes', color: '#a855f7' },
+          ].map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setDataSource(opt.key)}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: TOKENS.radius.md,
+                border: `1.5px solid ${dataSource === opt.key ? opt.color : TOKENS.border.default}`,
+                background: dataSource === opt.key ? `${opt.color}08` : 'transparent',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: `all ${TOKENS.transition}`,
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: dataSource === opt.key ? opt.color : TOKENS.text.primary, fontFamily: TOKENS.tile.headerFont }}>
+                {opt.label}
+              </div>
+              <div style={{ fontSize: 10, color: TOKENS.text.muted, marginTop: 2 }}>
+                {opt.desc}
+              </div>
+              <div style={{ fontSize: 9, color: TOKENS.text.muted, marginTop: 3, fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>
+                {opt.detail} &middot; {opt.speed}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Sample size input (only for Smart Sample) */}
+        {dataSource === 'sample' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            <span style={{ fontSize: 10, color: TOKENS.text.muted, whiteSpace: 'nowrap' }}>Sample size</span>
+            <input
+              type="number"
+              value={sampleSize}
+              onChange={(e) => setSampleSize(Math.max(1000, parseInt(e.target.value) || 500000))}
+              step={50000}
+              min={1000}
+              max={10000000}
+              style={{ ...inputStyle, width: 120, fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11 }}
+            />
+            <span style={{ fontSize: 10, color: TOKENS.text.muted }}>rows</span>
+          </div>
+        )}
+      </div>
+
       {/* Stat summary row */}
       <div style={statGridStyle}>
         <div style={statCardStyle}>
@@ -294,7 +350,7 @@ function IngestContent({ data, onRunStage }) {
 
       {/* Run action */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-        <button style={btnPrimary} onClick={() => onRunStage?.('ingest', {})}>
+        <button style={btnPrimary} onClick={() => onRunStage?.('ingest', { data_source: dataSource, sample_size: dataSource === 'sample' ? sampleSize : undefined })}>
           Load Data
         </button>
       </div>
@@ -871,8 +927,6 @@ function TrainContent({ data, onApplyChanges, onRunStage }) {
   const [expandedModel, setExpandedModel] = useState(null);
   const [paramOverrides, setParamOverrides] = useState({});
   const [testSize, setTestSize] = useState(0.2);
-  const [dataSource, setDataSource] = useState('twin');
-  const [sampleSize, setSampleSize] = useState(500000);
 
   const models = MODEL_CATALOG[taskType] || [];
 
@@ -957,60 +1011,6 @@ function TrainContent({ data, onApplyChanges, onRunStage }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* ── Data Source ── */}
-      <div>
-        <div style={sectionLabel}>Data Source</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {[
-            { key: 'twin', label: 'Twin (Quick)', desc: 'DuckDB replica', detail: '~50K rows', speed: 'instant', color: TOKENS.success },
-            { key: 'sample', label: 'Smart Sample', desc: 'Stratified random', detail: `${(sampleSize / 1000).toFixed(0)}K rows`, speed: '~30s', color: TOKENS.accent },
-            { key: 'full', label: 'Full Dataset', desc: 'Source DB directly', detail: 'All rows', speed: 'minutes', color: '#a855f7' },
-          ].map(opt => (
-            <button
-              key={opt.key}
-              onClick={() => setDataSource(opt.key)}
-              style={{
-                flex: 1,
-                padding: '10px 12px',
-                borderRadius: TOKENS.radius.md,
-                border: `1.5px solid ${dataSource === opt.key ? opt.color : TOKENS.border.default}`,
-                background: dataSource === opt.key ? `${opt.color}08` : 'transparent',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: `all ${TOKENS.transition}`,
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 600, color: dataSource === opt.key ? opt.color : TOKENS.text.primary, fontFamily: TOKENS.tile.headerFont }}>
-                {opt.label}
-              </div>
-              <div style={{ fontSize: 10, color: TOKENS.text.muted, marginTop: 2 }}>
-                {opt.desc}
-              </div>
-              <div style={{ fontSize: 9, color: TOKENS.text.muted, marginTop: 3, fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>
-                {opt.detail} &middot; {opt.speed}
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Sample size input (only for Smart Sample) */}
-        {dataSource === 'sample' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-            <span style={{ fontSize: 10, color: TOKENS.text.muted, whiteSpace: 'nowrap' }}>Sample size</span>
-            <input
-              type="number"
-              value={sampleSize}
-              onChange={(e) => setSampleSize(Math.max(1000, parseInt(e.target.value) || 500000))}
-              step={50000}
-              min={1000}
-              max={10000000}
-              style={{ ...selectStyle, width: 120, fontFamily: "'JetBrains Mono', ui-monospace, monospace", fontSize: 11 }}
-            />
-            <span style={{ fontSize: 10, color: TOKENS.text.muted }}>rows</span>
-          </div>
-        )}
-      </div>
-
       {/* ── A. Target Column ── */}
       <div>
         <div style={sectionLabel}>Target Column</div>
@@ -1234,8 +1234,6 @@ function TrainContent({ data, onApplyChanges, onRunStage }) {
               [...selectedModels].map(name => [name, getParams(name)])
             ),
             test_size: testSize,
-            data_source: dataSource,
-            sample_size: dataSource === 'sample' ? sampleSize : undefined,
           })}
         >
           Start Training

@@ -131,15 +131,47 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
     engine = MLEngine()
 
     if stage_key == "ingest":
-        df = engine.ingest_from_twin(conn_id, tables or [])
+        data_source = config.get("data_source", "twin")
+
+        if data_source in ("full", "sample") and request and settings.ML_FULL_DATASET_ENABLED:
+            # Get live connector from app.state
+            connector = None
+            if hasattr(request.app.state, 'connections') and request.app.state.connections:
+                for email_key, conns in request.app.state.connections.items():
+                    if conn_id in conns:
+                        connector = conns[conn_id].connector
+                        break
+                    for cid, entry in conns.items():
+                        if hasattr(entry, 'connector') and entry.connector:
+                            connector = entry.connector
+                            break
+                    if connector:
+                        break
+
+            if connector:
+                sample_size = config.get("sample_size") if data_source == "sample" else None
+                df = engine.ingest_from_source(connector, tables or [], sample_size=sample_size)
+            else:
+                # Fallback to twin
+                df = engine.ingest_from_twin(conn_id, tables or [])
+        else:
+            df = engine.ingest_from_twin(conn_id, tables or [])
+
         if isinstance(df, list):
             df = df[0]
         features = analyze_features(df)
+
+        # Store data_source at pipeline level for downstream stages
+        pipeline_id = pipeline.get("id")
+        if pipeline_id:
+            store.update_pipeline(user_hash, pipeline_id, {"data_source": data_source})
+
         return {
             "row_count": len(df),
             "column_count": len(df.columns),
             "features": features,
-            "columns": df.columns,
+            "columns": list(df.columns),
+            "data_source": data_source,
         }
 
     elif stage_key == "clean":
@@ -175,18 +207,17 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
         if not target_column:
             raise ValueError("target_column is required for training")
 
-        data_source = config.get("data_source", "twin")
+        # Read data_source from pipeline level (set during ingest)
+        data_source = pipeline.get("data_source", config.get("data_source", "twin"))
 
         if data_source in ("full", "sample") and request and settings.ML_FULL_DATASET_ENABLED:
             # Get live connector from app.state
             connector = None
             if hasattr(request.app.state, 'connections') and request.app.state.connections:
                 for email, conns in request.app.state.connections.items():
-                    # Try exact conn_id match first
                     if conn_id in conns:
                         connector = conns[conn_id].connector
                         break
-                    # Fallback: match any active connection (user may have reconnected with new ID)
                     for cid, entry in conns.items():
                         if hasattr(entry, 'connector') and entry.connector:
                             connector = entry.connector
@@ -194,15 +225,16 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
                     if connector:
                         break
 
-            if not connector:
-                raise ValueError("No active database connection found. Go to Dashboard and reconnect your database first.")
-
-            sample_size = config.get("sample_size") if data_source == "sample" else None
-            df = engine.ingest_from_source(
-                connector, tables or [],
-                sample_size=sample_size,
-                stratify_column=target_column
-            )
+            if connector:
+                sample_size = config.get("sample_size") if data_source == "sample" else None
+                df = engine.ingest_from_source(
+                    connector, tables or [],
+                    sample_size=sample_size,
+                    stratify_column=target_column
+                )
+            else:
+                # Fallback to twin if connector unavailable
+                df = engine.ingest_from_twin(conn_id, tables or [])
         else:
             # Default: use twin data
             df = engine.ingest_from_twin(conn_id, tables or [])
