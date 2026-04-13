@@ -219,7 +219,7 @@ function FeaturesContent({ data, onApplyChanges }) {
             <tr key={f.name}>
               <td style={{ ...tdStyle, fontWeight: 500, color: TOKENS.text.primary }}>{f.name}</td>
               <td style={tdStyle}>{f.type}</td>
-              <td style={tdStyle}>{f.nullPercent ?? 0}%</td>
+              <td style={tdStyle}>{f.nullPercent ?? f.missing_pct ?? 0}%</td>
               <td style={{ ...tdStyle, textAlign: 'center' }}>
                 <input
                   type="checkbox"

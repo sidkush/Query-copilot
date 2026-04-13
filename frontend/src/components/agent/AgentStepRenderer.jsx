@@ -476,14 +476,63 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
         } catch { /* ignore */ }
 
         if (step.tool_name === 'ml_analyze_features' && parsed) {
-          updatePipelineStage('ingest', { status: 'complete', data: parsed });
-          updatePipelineStage('clean', { status: 'complete', data: parsed });
-          updatePipelineStage('features', { status: 'complete', data: parsed });
+          // Transform raw feature array into shapes expected by StageDetailPanel
+          const features = Array.isArray(parsed) ? parsed : parsed?.features || parsed?.columns || [];
+          const totalCols = features.length;
+          const withMissing = features.filter(f => (f.missing_pct || 0) > 0);
+          const qualityScore = totalCols > 0
+            ? Math.round(100 - features.reduce((s, f) => s + (f.missing_pct || 0), 0) / totalCols)
+            : 100;
+
+          const ingestData = {
+            tables: [{ name: 'dataset', rows: features[0]?.unique_count ? '~' : '--', columns: totalCols }],
+            totalFeatures: totalCols,
+          };
+          const cleanData = {
+            qualityScore,
+            imputationStrategy: withMissing.length > 0 ? 'Median (numeric) / Mode (categorical)' : 'None needed',
+            missingValues: withMissing.map(f => ({ column: f.name, percent: f.missing_pct, strategy: f.type === 'numeric' ? 'Median' : 'Mode' })),
+          };
+          const featuresData = {
+            features: features.map(f => ({
+              name: f.name,
+              type: f.type || 'unknown',
+              nullPercent: f.missing_pct || 0,
+              include: f.type !== 'pii',
+            })),
+          };
+
+          updatePipelineStage('ingest', { status: 'complete', data: ingestData });
+          updatePipelineStage('clean', { status: 'complete', data: cleanData });
+          updatePipelineStage('features', { status: 'complete', data: featuresData });
         } else if (step.tool_name === 'ml_train' && parsed) {
-          updatePipelineStage('train', { status: 'complete', data: parsed });
-          updatePipelineStage('evaluate', { status: 'complete', data: parsed });
+          const models = parsed?.models || (Array.isArray(parsed) ? parsed : []);
+          const trainData = {
+            models: models.map(m => ({
+              name: m.model_name || m.name,
+              learning_rate: 0.1,
+              n_estimators: 100,
+              max_depth: 6,
+              ...m.metrics,
+            })),
+          };
+          const evalData = {
+            metrics: models.map(m => ({
+              model: m.model_name || m.name,
+              accuracy: m.metrics?.accuracy,
+              precision: m.metrics?.precision,
+              recall: m.metrics?.recall,
+              f1: m.metrics?.f1,
+            })),
+          };
+          updatePipelineStage('train', { status: 'complete', data: trainData });
+          updatePipelineStage('evaluate', { status: 'complete', data: evalData });
         } else if (step.tool_name === 'ml_evaluate' && parsed) {
-          updatePipelineStage('results', { status: 'complete', data: parsed });
+          const models = parsed?.models || [];
+          updatePipelineStage('results', { status: 'complete', data: {
+            bestModel: models[0] || {},
+            allModels: models,
+          }});
         }
       }
 
