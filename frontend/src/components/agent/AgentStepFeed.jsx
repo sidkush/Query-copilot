@@ -2,6 +2,7 @@ import { useRef, useEffect, Component, lazy, Suspense, useState } from "react";
 import { useStore } from "../../store";
 import { TOKENS } from "../dashboard/tokens";
 import AgentQuestion from "./AgentQuestion";
+import PerformancePill from '../PerformancePill';
 import ReactMarkdown from "react-markdown";
 const ResultsChart = lazy(() => import("../ResultsChart"));
 
@@ -705,6 +706,15 @@ function AgentStepFeedInner() {
                   <VerificationBadge verification={agentVerification} />
                 )}
 
+                {step.type === "result" && step.metadata && (
+                  <PerformancePill
+                    queryMs={step.elapsed_ms || step.metadata?.query_ms}
+                    tierName={step.metadata?.tier_name}
+                    rowsScanned={step.metadata?.row_count}
+                    arrowEnabled={step.metadata?.arrow_enabled}
+                  />
+                )}
+
                 {step.type === "tier_routing" && (() => {
                   const isActivePulse = agentLoading && i === steps.length - 1;
                   return (
@@ -886,6 +896,15 @@ function AgentStepFeedInner() {
                       </span>
                     )}
                   </span>
+                )}
+
+                {step.type === "tier_hit" && step.metadata && (
+                  <PerformancePill
+                    queryMs={step.elapsed_ms || step.metadata?.query_ms}
+                    tierName={step.metadata?.tier_name || step.tier}
+                    rowsScanned={step.metadata?.row_count}
+                    arrowEnabled={step.metadata?.arrow_enabled}
+                  />
                 )}
 
                 {step.type === "cached_result" && (

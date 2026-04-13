@@ -187,6 +187,13 @@ export const useStore = create((set, get) => ({
   agentElapsedMs: 0,
   agentEstimatedMs: 0,
   agentVerification: null,
+  performanceMetrics: {
+    lastQueryMs: null,
+    lastTierName: null,
+    lastTransferMethod: null,
+    lastRowsScanned: null,
+  },
+  setPerformanceMetrics: (metrics) => set({ performanceMetrics: metrics }),
   agentDock: "float",
   agentPanelWidth: 380,
   agentPanelHeight: 500,
