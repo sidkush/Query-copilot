@@ -704,37 +704,37 @@ export const api = {
 
   // ML Engine
   mlTrain: (connId, tables, targetColumn, modelNames, taskType) =>
-    request("/v1/ml/train", {
+    request("/ml/train", {
       method: "POST",
       body: JSON.stringify({ conn_id: connId, tables, target_column: targetColumn, model_names: modelNames, task_type: taskType }),
     }),
-  mlStatus: (taskId) => request(`/v1/ml/status/${taskId}`),
-  mlModels: () => request("/v1/ml/models"),
-  mlGetModel: (modelId) => request(`/v1/ml/models/${modelId}`),
-  mlDeleteModel: (modelId) => request(`/v1/ml/models/${modelId}`, { method: "DELETE" }),
+  mlStatus: (taskId) => request(`/ml/status/${taskId}`),
+  mlModels: () => request("/ml/models"),
+  mlGetModel: (modelId) => request(`/ml/models/${modelId}`),
+  mlDeleteModel: (modelId) => request(`/ml/models/${modelId}`, { method: "DELETE" }),
 
   // ML Pipeline Workflows
   mlCreatePipeline: (name, connId, tables, targetColumn) =>
-    request("/v1/ml/pipelines", {
+    request("/ml/pipelines", {
       method: "POST",
       body: JSON.stringify({ name, conn_id: connId, tables: tables || [], target_column: targetColumn }),
     }),
-  mlListPipelines: () => request("/v1/ml/pipelines"),
-  mlLoadPipeline: (id) => request(`/v1/ml/pipelines/${id}`),
+  mlListPipelines: () => request("/ml/pipelines"),
+  mlLoadPipeline: (id) => request(`/ml/pipelines/${id}`),
   mlUpdatePipeline: (id, updates) =>
-    request(`/v1/ml/pipelines/${id}`, {
+    request(`/ml/pipelines/${id}`, {
       method: "PUT",
       body: JSON.stringify(updates),
     }),
   mlDeletePipeline: (id) =>
-    request(`/v1/ml/pipelines/${id}`, { method: "DELETE" }),
+    request(`/ml/pipelines/${id}`, { method: "DELETE" }),
   mlRunStage: (pipelineId, stageKey, config) =>
-    request(`/v1/ml/pipelines/${pipelineId}/stages/${stageKey}/run`, {
+    request(`/ml/pipelines/${pipelineId}/stages/${stageKey}/run`, {
       method: "POST",
       body: JSON.stringify({ config: config || {} }),
     }),
   mlAnalyze: (connId, tables) =>
-    request("/v1/ml/pipelines/analyze", {
+    request("/ml/pipelines/analyze", {
       method: "POST",
       body: JSON.stringify({ conn_id: connId, tables: tables || [] }),
     }),
