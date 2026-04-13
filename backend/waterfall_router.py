@@ -185,6 +185,23 @@ class BaseTier(ABC):
             except Exception:
                 pass  # Config unavailable — fall through to normal masking
 
+        # Arrow path — mask RecordBatch directly
+        try:
+            from config import settings as _cfg
+            if _cfg.ARROW_BRIDGE_ENABLED and result.data and "record_batch" in result.data and result.data["record_batch"] is not None:
+                try:
+                    from pii_masking import mask_record_batch
+                    masked_batch = mask_record_batch(result.data["record_batch"], conn_id=conn_id)
+                    result.data["record_batch"] = masked_batch
+                    return result
+                except Exception:
+                    if not _cfg.ARROW_FALLBACK_TO_PANDAS:
+                        return TierResult(hit=False, tier_name=result.tier_name,
+                                          metadata={**result.metadata, "masking_error": True})
+                    # Fall through to pandas path
+        except Exception:
+            pass  # Config unavailable — fall through to pandas path
+
         if not result.hit or not result.data:
             return result
 
@@ -503,6 +520,7 @@ class TurboTier(BaseTier):
                 "cache_age_seconds": cache_age,
                 "columns": [],
                 "rows": [],
+                "record_batch": None,  # Arrow path — populated by execute_on_twin()
             },
             metadata={
                 "tiers_checked": ["turbo"],
