@@ -677,9 +677,16 @@ class AgentEngine:
         self._step_number: int = 0
         self._checklist: list = []
 
+        # Voice mode — conversational style for spoken output
+        self._voice_mode = False
+
         # Collected during run
         self._steps: list[AgentStep] = []
         self._result = AgentResult()
+
+    def set_voice_mode(self, enabled: bool):
+        """Toggle voice mode for conversational, spoken-friendly responses."""
+        self._voice_mode = enabled
 
     def _get_turbo_tier(self):
         """Return the TurboTier from the waterfall router, or None if unavailable."""
@@ -1469,6 +1476,17 @@ class AgentEngine:
             system_prompt += (
                 f"\n\nSQL DIALECT ({db_type.upper()}):\n"
                 + "\n".join(f"- {h}" for h in hints) + "\n"
+            )
+
+        # ── Voice mode response style ─────────────────────────────
+        if self._voice_mode:
+            system_prompt += (
+                "\n\nVOICE MODE (ACTIVE):\n"
+                "Respond conversationally and concisely. Lead with the key insight. "
+                "Keep responses under 3 sentences when possible. "
+                "Always end with a follow-up question to guide the conversation. "
+                "Numbers: say '2.4 million' not '$2,400,000'. "
+                "Avoid tables or code blocks — describe data verbally instead.\n"
             )
 
         # ── Progress context for continue/resume (Task 5) ─────────
