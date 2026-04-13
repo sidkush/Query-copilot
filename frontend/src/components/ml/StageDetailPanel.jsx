@@ -311,6 +311,9 @@ function CleanContent({ data, onRunStage }) {
   const [perColumn, setPerColumn] = useState(() =>
     Object.fromEntries(features.map(f => [f.name, 'auto']))
   );
+  const [scaling, setScaling] = useState(data?.scaling || 'standard');
+  const [powerTransform, setPowerTransform] = useState(data?.powerTransform || 'none');
+  const [outlierTreatment, setOutlierTreatment] = useState(data?.outlierTreatment || 'none');
 
   const setColStrategy = (name, strategy) => {
     setPerColumn(prev => ({ ...prev, [name]: strategy }));
@@ -318,11 +321,14 @@ function CleanContent({ data, onRunStage }) {
 
   const STRATEGY_OPTIONS = [
     { value: 'auto', label: 'Auto' },
-    { value: 'median', label: 'Median' },
-    { value: 'mean', label: 'Mean' },
-    { value: 'mode', label: 'Mode' },
+    { value: 'median', label: 'Median Fill' },
+    { value: 'mean', label: 'Mean Fill' },
+    { value: 'mode', label: 'Mode Fill' },
     { value: 'zero', label: 'Zero Fill' },
     { value: 'ffill', label: 'Forward Fill' },
+    { value: 'bfill', label: 'Backward Fill' },
+    { value: 'knn', label: 'KNN Imputer' },
+    { value: 'mice', label: 'MICE (Iterative)' },
     { value: 'drop_col', label: 'Drop Column' },
     { value: 'drop_rows', label: 'Drop Rows' },
   ];
@@ -428,11 +434,116 @@ function CleanContent({ data, onRunStage }) {
         </div>
       )}
 
+      {/* Scaling & Normalization */}
+      <div style={{ borderTop: `1px solid ${TOKENS.border.default}`, paddingTop: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Scaling & Normalization
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { value: 'none', label: 'None' },
+            { value: 'standard', label: 'StandardScaler' },
+            { value: 'minmax', label: 'MinMaxScaler' },
+            { value: 'robust', label: 'RobustScaler' },
+            { value: 'maxabs', label: 'MaxAbsScaler' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setScaling(opt.value)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: TOKENS.radius.sm,
+                border: `1px solid ${scaling === opt.value ? TOKENS.accent : TOKENS.border.default}`,
+                background: scaling === opt.value ? `${TOKENS.accent}15` : 'transparent',
+                color: scaling === opt.value ? TOKENS.accent : TOKENS.text.secondary,
+                fontSize: 10,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Power Transforms */}
+      <div style={{ borderTop: `1px solid ${TOKENS.border.default}`, paddingTop: 10, marginTop: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Power Transforms (for skewed data)
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { value: 'none', label: 'None' },
+            { value: 'yeo-johnson', label: 'Yeo-Johnson' },
+            { value: 'box-cox', label: 'Box-Cox' },
+            { value: 'log', label: 'Log Transform' },
+            { value: 'sqrt', label: 'Square Root' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setPowerTransform(opt.value)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: TOKENS.radius.sm,
+                border: `1px solid ${powerTransform === opt.value ? '#a855f7' : TOKENS.border.default}`,
+                background: powerTransform === opt.value ? 'rgba(168,85,247,0.1)' : 'transparent',
+                color: powerTransform === opt.value ? '#a855f7' : TOKENS.text.secondary,
+                fontSize: 10,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Outlier Treatment */}
+      <div style={{ borderTop: `1px solid ${TOKENS.border.default}`, paddingTop: 10, marginTop: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 8 }}>
+          Outlier Treatment
+        </span>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { value: 'none', label: 'None' },
+            { value: 'iqr', label: 'IQR Clip' },
+            { value: 'zscore', label: 'Z-Score Clip' },
+            { value: 'winsorize', label: 'Winsorize' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setOutlierTreatment(opt.value)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: TOKENS.radius.sm,
+                border: `1px solid ${outlierTreatment === opt.value ? '#f59e0b' : TOKENS.border.default}`,
+                background: outlierTreatment === opt.value ? 'rgba(245,158,11,0.1)' : 'transparent',
+                color: outlierTreatment === opt.value ? '#f59e0b' : TOKENS.text.secondary,
+                fontSize: 10,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Run action */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
         <button style={btnPrimary} onClick={() => onRunStage?.('clean', {
           imputation: globalStrategy,
           per_column: perColumn,
+          scaling,
+          power_transform: powerTransform,
+          outlier_treatment: outlierTreatment,
         })}>
           Run Cleaning
         </button>
@@ -450,6 +561,7 @@ function FeaturesContentInner({ features, onApplyChanges, onRunStage }) {
   const [newName, setNewName] = useState('');
   const [newExpr, setNewExpr] = useState('');
   const [newType, setNewType] = useState('numeric');
+  const [encoding, setEncoding] = useState('label');
 
   const toggle = (name) => setSelections(prev => ({ ...prev, [name]: !prev[name] }));
 
@@ -628,6 +740,38 @@ function FeaturesContentInner({ features, onApplyChanges, onRunStage }) {
         </table>
       </div>
 
+      {/* Encoding Options */}
+      <div style={{ borderTop: `1px solid ${TOKENS.border.default}`, paddingTop: 10, marginTop: 4 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 8 }}>
+          Categorical Encoding
+        </span>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { value: 'label', label: 'Label Encoding' },
+            { value: 'onehot', label: 'One-Hot Encoding' },
+            { value: 'ordinal', label: 'Ordinal Encoding' },
+            { value: 'target', label: 'Target Encoding' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setEncoding(opt.value)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: TOKENS.radius.sm,
+                border: `1px solid ${encoding === opt.value ? TOKENS.accent : TOKENS.border.default}`,
+                background: encoding === opt.value ? `${TOKENS.accent}15` : 'transparent',
+                color: encoding === opt.value ? TOKENS.accent : TOKENS.text.secondary,
+                fontSize: 10,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Actions */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
         <button style={btnSecondary} onClick={() => onApplyChanges?.({
@@ -641,7 +785,7 @@ function FeaturesContentInner({ features, onApplyChanges, onRunStage }) {
             const include = allFeatures.filter(f => selections[f.name]).map(f => f.name);
             const exclude = allFeatures.filter(f => !selections[f.name]).map(f => f.name);
             const custom = customFeatures.filter(f => selections[f.name]);
-            onRunStage?.('features', { include, exclude, custom_features: custom });
+            onRunStage?.('features', { include, exclude, custom_features: custom, encoding });
           }}
         >
           Run Feature Engineering
@@ -726,6 +870,7 @@ function TrainContent({ data, onApplyChanges, onRunStage }) {
   const [selectedModels, setSelectedModels] = useState(new Set(data?.models?.map(m => m.name) || ['XGBoost']));
   const [expandedModel, setExpandedModel] = useState(null);
   const [paramOverrides, setParamOverrides] = useState({});
+  const [testSize, setTestSize] = useState(0.2);
 
   const models = MODEL_CATALOG[taskType] || [];
 
@@ -1003,7 +1148,18 @@ function TrainContent({ data, onApplyChanges, onRunStage }) {
         </div>
       </div>
 
-      {/* ── E. Start Training ── */}
+      {/* ── E. Train/Test Split ── */}
+      <div style={{ marginTop: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: TOKENS.text.secondary, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Train/Test Split</span>
+          <span style={{ fontSize: 11, color: TOKENS.text.primary, fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>{Math.round((1 - testSize) * 100)}% / {Math.round(testSize * 100)}%</span>
+        </div>
+        <input type="range" min={0.1} max={0.4} step={0.05} value={testSize}
+          onChange={(e) => setTestSize(parseFloat(e.target.value))}
+          style={{ width: '100%', accentColor: TOKENS.accent }} />
+      </div>
+
+      {/* ── F. Start Training ── */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
         <button
           style={{
@@ -1021,6 +1177,7 @@ function TrainContent({ data, onApplyChanges, onRunStage }) {
             params: Object.fromEntries(
               [...selectedModels].map(name => [name, getParams(name)])
             ),
+            test_size: testSize,
           })}
         >
           Start Training
