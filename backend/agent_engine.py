@@ -327,6 +327,7 @@ class AgentStep:
     estimated_total_ms: Optional[int] = None
     checklist: Optional[list] = None
     metadata: Optional[dict] = None  # Performance metadata for frontend
+    brief_thinking: Optional[str] = None  # 1-2 sentence summary for UI
 
     def to_dict(self) -> dict:
         d = {
@@ -358,6 +359,8 @@ class AgentStep:
             d["checklist"] = self.checklist
         if self.metadata is not None:
             d["metadata"] = self.metadata
+        if self.brief_thinking is not None:
+            d["brief_thinking"] = self.brief_thinking
         return d
 
 
@@ -1452,6 +1455,16 @@ class AgentEngine:
         model = self.primary_model
         escalated = False
 
+        # ── Emit default checklist immediately so UI shows progress within 2s ──
+        default_checklist = [
+            {"label": "Understanding question", "status": "active"},
+            {"label": "Finding relevant tables", "status": "pending"},
+            {"label": "Generating SQL", "status": "pending"},
+            {"label": "Executing query", "status": "pending"},
+            {"label": "Analyzing results", "status": "pending"},
+        ]
+        yield AgentStep(type="plan", content="", checklist=default_checklist)
+
         try:
             while True:
                 self._check_guardrails()
@@ -1506,7 +1519,16 @@ class AgentEngine:
                 for block in content_blocks:
                     if block.type == "text" and block.text.strip():
                         # Final text response from Claude
-                        self._result.final_answer = block.text.strip()
+                        content = block.text.strip()
+                        self._result.final_answer = content
+
+                        # Extract first sentence as brief thinking for UI
+                        brief = content.split('.')[0] + '.' if content and '.' in content else content
+                        if brief and len(brief) > 150:
+                            brief = brief[:147] + '...'
+                        thinking_step = AgentStep(type="thinking", content=content, brief_thinking=brief)
+                        self._steps.append(thinking_step)
+                        yield thinking_step
 
                     elif block.type == "tool_use":
                         has_tool_use = True
