@@ -169,6 +169,8 @@ export const useStore = create((set, get) => ({
   }),
 
   // ── Agent Slice ──────────────────────────────────────────────
+  agentContext: 'query', // 'query' | 'dashboard' | 'ml'
+  setAgentContext: (ctx) => set({ agentContext: ctx }),
   agentSteps: [],
   agentLoading: false,
   agentError: null,
