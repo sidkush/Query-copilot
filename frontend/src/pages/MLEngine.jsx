@@ -4,6 +4,7 @@ import { api } from "../api";
 import AgentPanel from "../components/agent/AgentPanel";
 import DatabaseSwitcher from "../components/DatabaseSwitcher";
 import MLPipeline from "../components/ml/MLPipeline";
+import WorkflowBar from "../components/ml/WorkflowBar";
 import { TOKENS } from "../components/dashboard/tokens";
 
 /* ── Status badge helper ── */
@@ -185,6 +186,8 @@ export default function MLEngine() {
   const mlModels = useStore((s) => s.mlModels);
   const setMLModels = useStore((s) => s.setMLModels);
   const resetMLPipeline = useStore((s) => s.resetMLPipeline);
+  const mlActiveWorkflow = useStore((s) => s.mlActiveWorkflow);
+  const updatePipelineStage = useStore((s) => s.updatePipelineStage);
 
   const connId = activeConnId;
   const turbo = turboStatus[connId];
@@ -213,6 +216,24 @@ export default function MLEngine() {
       })
       .catch(() => {});
   }, [connId, setMLModels]);
+
+  /* Stage execution handler */
+  const handleRunStage = useCallback(async (stageKey, config) => {
+    if (!mlActiveWorkflow) return;
+    updatePipelineStage(stageKey, { status: 'active' });
+    try {
+      const result = await api.mlRunStage(mlActiveWorkflow.id, stageKey, config);
+      updatePipelineStage(stageKey, {
+        status: 'complete',
+        data: result.output
+      });
+      const updated = await api.mlLoadPipeline(mlActiveWorkflow.id);
+      useStore.getState().setMLActiveWorkflow(updated);
+    } catch (err) {
+      updatePipelineStage(stageKey, { status: 'error' });
+      console.error(`Stage ${stageKey} failed:`, err);
+    }
+  }, [mlActiveWorkflow, updatePipelineStage]);
 
   /* Delete handler */
   const handleDelete = useCallback(
@@ -287,6 +308,9 @@ export default function MLEngine() {
           <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} liveConnIds={new Set(connections.map(c => c.conn_id))} />
         </div>
 
+        {/* Workflow management bar */}
+        <WorkflowBar connId={connId} />
+
         {/* Turbo Mode warning banner */}
         {turboWarning && (
           <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl" style={{
@@ -303,7 +327,7 @@ export default function MLEngine() {
         )}
 
         {/* ML Pipeline Visualization */}
-        <MLPipeline />
+        <MLPipeline onRunStage={handleRunStage} />
 
         {/* Models section */}
         {mlModels.length > 0 ? (

@@ -131,7 +131,7 @@ function Connector({ fromStatus, toStatus }) {
 
 /* ── Main pipeline container ───────────────────────────────── */
 
-export default function MLPipeline() {
+export default function MLPipeline({ onRunStage }) {
   const mlPipelineStages = useStore((s) => s.mlPipelineStages);
   const activeStage = useStore((s) => s.mlPipelineActiveStage);
   const setActiveStage = useStore((s) => s.setMLPipelineActiveStage);
@@ -217,6 +217,7 @@ export default function MLPipeline() {
         data={activeStage ? mlPipelineStages[activeStage]?.data : null}
         onClose={handleClose}
         onApplyChanges={handleApplyChanges}
+        onRunStage={onRunStage}
       />
     </div>
   );
