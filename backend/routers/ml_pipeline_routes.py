@@ -182,12 +182,20 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
             connector = None
             if hasattr(request.app.state, 'connections') and request.app.state.connections:
                 for email, conns in request.app.state.connections.items():
+                    # Try exact conn_id match first
                     if conn_id in conns:
                         connector = conns[conn_id].connector
                         break
+                    # Fallback: match any active connection (user may have reconnected with new ID)
+                    for cid, entry in conns.items():
+                        if hasattr(entry, 'connector') and entry.connector:
+                            connector = entry.connector
+                            break
+                    if connector:
+                        break
 
             if not connector:
-                raise ValueError("Live database connection required for full dataset training. Please reconnect.")
+                raise ValueError("No active database connection found. Go to Dashboard and reconnect your database first.")
 
             sample_size = config.get("sample_size") if data_source == "sample" else None
             df = engine.ingest_from_source(
