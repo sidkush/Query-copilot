@@ -86,3 +86,26 @@ class TestMLPipelineStore:
                 assert store.delete_pipeline("test_user", p["id"]) is False
             finally:
                 settings.ML_PIPELINES_DIR = orig
+
+
+class TestTargetColumnFromConfig:
+    def test_target_column_extracted_from_stage_config(self):
+        """When target_column is in stage config, pipeline should be updated."""
+        import ml_pipeline_store as store
+        from config import settings
+        import tempfile
+        orig = settings.ML_PIPELINES_DIR
+        with tempfile.TemporaryDirectory() as tmp:
+            settings.ML_PIPELINES_DIR = tmp
+            try:
+                p = store.create_pipeline("test_user", "Test", "conn1")
+                assert p["target_column"] is None
+
+                # Simulate what run_stage does: update pipeline with target_column
+                updated = store.update_pipeline("test_user", p["id"], {"target_column": "member_casual"})
+                assert updated["target_column"] == "member_casual"
+
+                loaded = store.load_pipeline("test_user", p["id"])
+                assert loaded["target_column"] == "member_casual"
+            finally:
+                settings.ML_PIPELINES_DIR = orig

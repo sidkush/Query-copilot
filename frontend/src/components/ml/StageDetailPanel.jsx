@@ -1334,6 +1334,29 @@ export default function StageDetailPanel({ stage, data, onClose, onApplyChanges,
               </button>
             </div>
 
+            {/* Error banner */}
+            {data?.error && (
+              <div style={{
+                padding: '10px 14px',
+                background: `${TOKENS.danger}10`,
+                borderBottom: `1px solid ${TOKENS.danger}30`,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+              }}>
+                <svg width={14} height={14} viewBox="0 0 14 14" fill="none" style={{ marginTop: 1, flexShrink: 0 }}>
+                  <circle cx={7} cy={7} r={6} stroke={TOKENS.danger} strokeWidth={1.5} />
+                  <path d="M7 4v3M7 9h.01" stroke={TOKENS.danger} strokeWidth={1.5} strokeLinecap="round" />
+                </svg>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: TOKENS.danger, marginBottom: 2 }}>Stage Failed</div>
+                  <div style={{ fontSize: 11, color: TOKENS.text.secondary, fontFamily: "'JetBrains Mono', ui-monospace, monospace", wordBreak: 'break-word' }}>
+                    {data.error}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Body */}
             <div style={bodyStyle}>
               {Renderer ? (

@@ -321,7 +321,11 @@ export default function MLEngine() {
       const updated = await api.mlLoadPipeline(mlActiveWorkflow.id);
       useStore.getState().setMLActiveWorkflow(updated);
     } catch (err) {
-      updatePipelineStage(stageKey, { status: 'error' });
+      const errorMsg = err?.message || err?.detail || String(err);
+      updatePipelineStage(stageKey, {
+        status: 'error',
+        data: { error: errorMsg },
+      });
       console.error(`Stage ${stageKey} failed:`, err);
     }
   }, [mlActiveWorkflow, updatePipelineStage]);

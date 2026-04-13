@@ -97,6 +97,13 @@ async def run_stage(pipeline_id: str, stage_key: str, req: RunStageRequest, user
     stage = pipeline["stages"][stage_key]
     merged_config = {**stage.get("config", {}), **req.config}
 
+    # If target_column provided in config, update pipeline-level field
+    if merged_config.get("target_column") and not target_column:
+        target_column = merged_config["target_column"]
+        store.update_pipeline(uh, pipeline_id, {"target_column": target_column})
+    elif merged_config.get("target_column"):
+        target_column = merged_config["target_column"]
+
     # Mark stage as active
     store.update_stage(uh, pipeline_id, stage_key, {"status": "active", "config": merged_config})
 
