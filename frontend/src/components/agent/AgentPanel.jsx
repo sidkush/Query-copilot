@@ -970,7 +970,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
               ))}
             </div>
           ) : (
-            <AgentStepFeed />
+            <AgentStepFeed compact={panelWidth < 400} />
           )}
 
           {/* Quick-action buttons after agent completes a result */}
