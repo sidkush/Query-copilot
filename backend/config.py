@@ -174,6 +174,20 @@ class Settings(BaseSettings):
     DATAFUSION_TIMEOUT_MS: int = Field(default=5000, description="Per-provider timeout for DataFusion execution")
     DATAFUSION_FALLBACK_TO_DECOMPOSER: bool = Field(default=True, description="Fall back to query_decomposer.py if DataFusion fails")
 
+    # Celery + Redis
+    CELERY_BROKER_URL: str = Field(default="redis://localhost:6379/0")
+    CELERY_RESULT_BACKEND: str = Field(default="redis://localhost:6379/1")
+
+    # ML Engine
+    ML_ENGINE_ENABLED: bool = Field(default=True)
+    ML_MAX_MODELS_FREE: int = Field(default=3)
+    ML_MAX_MODELS_PRO: int = Field(default=10)
+    ML_TRAINING_TIMEOUT_SECONDS: int = Field(default=3600)
+    ML_WORKER_MAX_MEMORY_MB: int = Field(default=512)
+    ML_MAX_CONCURRENT_TRAINING_PER_USER: int = Field(default=2)
+    ML_AUTO_EXCLUDE_PII: bool = Field(default=True)
+    ML_MODELS_DIR: str = Field(default=".data/ml_models")
+
     DECOMPOSITION_ENABLED: bool = Field(default=True)
     DECOMPOSITION_MIN_ROWS: int = Field(default=1_000_000)  # only decompose if estimated > 1M rows
     STREAMING_PROGRESS_INTERVAL_MS: int = Field(default=1000)
