@@ -250,7 +250,7 @@ export default function MLEngine() {
           <p className="text-sm mb-5" style={{ color: TOKENS.text.secondary }}>
             Connect a database to start building ML models
           </p>
-          <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} />
+          <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} liveConnIds={new Set(connections.map(c => c.conn_id))} />
         </div>
       </div>
     );
@@ -319,7 +319,7 @@ export default function MLEngine() {
               Train and manage machine learning models on your data
             </p>
           </div>
-          <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} />
+          <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} liveConnIds={new Set(connections.map(c => c.conn_id))} />
         </div>
 
         {/* Models section */}
