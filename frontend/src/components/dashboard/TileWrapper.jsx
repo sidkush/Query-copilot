@@ -9,6 +9,8 @@ import HeatMatrix from './tiles/HeatMatrix';
 import TileBoundary from './TileBoundary';
 import { getChartDef, WOW_FAMILIES } from '../charts/defs/chartDefs';
 import { isEnabled as isChartTypeEnabled } from '../../lib/tileFeatureFlag';
+import useTimeAnimation from '../charts/animation/useTimeAnimation';
+import TimelineScrubber from '../charts/animation/TimelineScrubber';
 import { blendSources } from '../../lib/dataBlender';
 import { mergeFormatting } from '../../lib/formatUtils';
 import { api } from '../../api';
@@ -45,6 +47,20 @@ const WOW_TILE_REGISTRY = {
   particle_flow: ThreeParticleFlow,
   liquid_gauge: LiquidGauge,
 };
+
+// Phase 5.4 — 2D ↔ 3D pair map. Used by the toggle pill in the tile
+// header to swap between visual variants of the same semantic chart.
+// Chart types not in this map won't show the toggle even if their
+// chartDef has supports3DToggle: true — both sides of the pair must
+// exist for the swap to make sense.
+const TWIN_MAP = {
+  scatter: 'scatter_3d',
+  scatter_3d: 'scatter',
+};
+
+function is3DChart(chartType) {
+  return chartType?.endsWith('_3d') || chartType === 'hologram_scatter' || chartType === 'particle_flow';
+}
 
 const CHART_TYPES = [
   { id: 'bar',           label: 'Bar',          icon: 'M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z' },
@@ -193,6 +209,15 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
   const DenseTile = isDense ? DENSE_TILE_REGISTRY[tile.chartType] : null;
   const isWow = chartDef && WOW_FAMILIES.has(chartDef.family);
   const WowTile = isWow ? WOW_TILE_REGISTRY[tile.chartType] : null;
+
+  // Phase 5 — time animation. The hook auto-detects a time column and
+  // returns filteredRows that engines consume without knowing they're
+  // being animated. If the chart type doesn't opt into animation via
+  // `supportsTimeAnimation`, the hook still runs but we ignore its
+  // filter so rendering is identical to pre-Phase-5.
+  const timeAnim = useTimeAnimation(chartColumns, chartRows);
+  const supportsAnim = Boolean(chartDef?.supportsTimeAnimation && timeAnim.timeField && timeAnim.frames.length > 1);
+  const effectiveRows = supportsAnim ? timeAnim.filteredRows : chartRows;
 
   // Hot metric ambient pulse (Phase 2.4) — per-tile selector so tiles
   // only re-render when their own heat class flips
@@ -407,6 +432,24 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
             )}
           </div>
 
+          {/* Phase 5.4 — 2D↔3D toggle (only when chartDef declares support) */}
+          {chartDef?.supports3DToggle && TWIN_MAP[tile?.chartType] && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChangeChart?.(tile.id, TWIN_MAP[tile.chartType]);
+              }}
+              title={`Switch to ${is3DChart(tile?.chartType) ? '2D' : '3D'}`}
+              aria-label={`Switch to ${is3DChart(tile?.chartType) ? '2D' : '3D'} variant`}
+              className="tile-dim-toggle"
+              data-dim={is3DChart(tile?.chartType) ? '3d' : '2d'}
+            >
+              <span data-active={!is3DChart(tile?.chartType) || undefined}>2D</span>
+              <span data-active={is3DChart(tile?.chartType) || undefined}>3D</span>
+            </button>
+          )}
+
           {/* Chart type picker */}
           <div className="relative" ref={pickerRef}>
             <button
@@ -536,17 +579,17 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
         ) : isKPI ? (
           <KPICard tile={tile} index={index} onEdit={onEdit} formatting={tile.visualConfig} />
         ) : isDense && DenseTile ? (
-          <DenseTile tile={{ ...tile, columns: chartColumns, rows: chartRows }} index={index} formatting={tile.visualConfig} />
+          <DenseTile tile={{ ...tile, columns: chartColumns, rows: effectiveRows }} index={index} formatting={tile.visualConfig} />
         ) : isWow && WowTile ? (
           <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: TOKENS.text.muted, fontSize: 11 }}>Loading 3D engine…</div>}>
-            <WowTile tile={{ ...tile, columns: chartColumns, rows: chartRows }} index={index} formatting={tile.visualConfig} />
+            <WowTile tile={{ ...tile, columns: chartColumns, rows: effectiveRows }} index={index} formatting={tile.visualConfig} />
           </Suspense>
-        ) : chartRows?.length > 0 ? (
-          chartRows.length > 1000 && ['scatter', 'heatmap'].includes(tile?.chartType) ? (
+        ) : effectiveRows?.length > 0 ? (
+          effectiveRows.length > 1000 && ['scatter', 'heatmap'].includes(tile?.chartType) ? (
             <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><span style={{ color: '#5C5F66', fontSize: 12 }}>Loading...</span></div>}>
               <CanvasChart
                 columns={chartColumns}
-                rows={chartRows}
+                rows={effectiveRows}
                 chartType={tile.chartType}
                 formatting={tile.visualConfig}
               />
@@ -554,7 +597,7 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
           ) : (
             <ResultsChart
               key={`${tile.id}-${tile.chartType}-${tile.palette}-${tile.dataSources?.length || 0}-${JSON.stringify(tile.visualConfig?.colors?.measureColors || {})}-${JSON.stringify(tile.visualConfig?.colors?.categoryColors || {})}-${themeConfig?.palette || ''}-${(tile.activeMeasures || []).join(',')}`}
-              columns={chartColumns} rows={chartRows} embedded
+              columns={chartColumns} rows={effectiveRows} embedded
               defaultChartType={tile.chartType} defaultPalette={tile.palette}
               defaultMeasure={tile.selectedMeasure} defaultMeasures={tile.activeMeasures}
               customMetrics={customMetrics}
@@ -587,6 +630,22 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
         )}
         </TileBoundary>
       </div>
+      {/* Phase 5 — time animation scrubber, mounts only when chart opts in
+          AND data has a detectable time dimension with 2+ frames */}
+      {supportsAnim && (
+        <TimelineScrubber
+          frames={timeAnim.frames}
+          currentIndex={timeAnim.currentIndex}
+          currentFrame={timeAnim.currentFrame}
+          isPlaying={timeAnim.isPlaying}
+          onToggle={timeAnim.toggle}
+          onSetFrame={timeAnim.setFrame}
+          speed={timeAnim.speed}
+          onSetSpeed={timeAnim.setSpeed}
+          loop={timeAnim.loop}
+          onSetLoop={timeAnim.setLoop}
+        />
+      )}
       {/* Resize handle */}
       <div className="absolute bottom-1 right-1 w-3 h-3 opacity-0 group-hover:opacity-40 cursor-se-resize"
         style={{ transition: `opacity ${TOKENS.transition}` }}>

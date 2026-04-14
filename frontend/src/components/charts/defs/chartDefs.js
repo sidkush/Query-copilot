@@ -71,6 +71,7 @@ export const CHART_DEFS = [
     key: 'line', family: 'standard', engine: 'echarts',
     label: 'Line', group: 'trend',
     icon: 'M3 17l6-6 4 4 8-8',
+    supportsTimeAnimation: true,
     score: (a) => {
       let s = 50;
       if (a.isDateLike) s += 35;
@@ -83,6 +84,7 @@ export const CHART_DEFS = [
     key: 'area', family: 'standard', engine: 'echarts',
     label: 'Area', group: 'trend',
     icon: 'M3 17l6-6 4 4 8-8v11H3z',
+    supportsTimeAnimation: true,
     score: (a) => {
       let s = 40;
       if (a.isDateLike) s += 30;
@@ -147,6 +149,8 @@ export const CHART_DEFS = [
     key: 'scatter', family: 'standard', engine: 'echarts',
     label: 'Scatter', group: 'correlation',
     icon: 'M7 14a2 2 0 100-4 2 2 0 000 4zM14 8a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4zM11 19a2 2 0 100-4 2 2 0 000 4z',
+    supports3DToggle: true,
+    supportsTimeAnimation: true,
     score: (a) => {
       let s = 15;
       if (a.metricCount >= 2 && a.rowCount > 5) s += 35;
