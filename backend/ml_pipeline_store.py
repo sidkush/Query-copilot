@@ -83,7 +83,7 @@ def update_pipeline(user_hash: str, pipeline_id: str, updates: dict) -> Optional
     pipeline = load_pipeline(user_hash, pipeline_id)
     if not pipeline:
         return None
-    for key in ["name", "target_column", "tables"]:
+    for key in ["name", "target_column", "tables", "data_source", "_cached_conn_uri", "_cached_db_type"]:
         if key in updates:
             pipeline[key] = updates[key]
     if "stages" in updates:
