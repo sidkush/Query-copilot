@@ -160,6 +160,51 @@ class SaveBookmark(BaseModel):
     name: str
     state: dict
 
+class TileTelemetryEvent(BaseModel):
+    event: str  # "tile_created" | "tile_deleted" | "tile_survived_24h"
+    dashboardId: str
+    tileId: str
+    chartType: Optional[str] = None
+    ageMs: Optional[int] = None
+
+
+# ── Phase 2.5 — tile survival telemetry ────────────────────────────
+
+_VALID_TILE_EVENTS = {"tile_created", "tile_deleted", "tile_survived_24h"}
+
+
+@router.post("/audit/tile-event")
+async def log_tile_telemetry(
+    body: TileTelemetryEvent,
+    user=Depends(get_current_user),
+):
+    """
+    Append a tile lifecycle event to the audit trail JSONL log.
+
+    Reuses the existing audit_trail writer — no schema change, no new
+    table. Used to compute tile survival rate (Phase 2 falsifiable
+    claim: dense tiles survive 24h > 70% of the time).
+
+    Hashing: user email is sha256-prefixed before writing to preserve
+    the existing audit log's anonymization posture.
+    """
+    if body.event not in _VALID_TILE_EVENTS:
+        raise HTTPException(400, f"Unknown event type: {body.event}")
+
+    import hashlib
+    email_hash = hashlib.sha256(user["email"].encode("utf-8")).hexdigest()[:16]
+
+    from audit_trail import log_tile_event
+    log_tile_event(
+        event_type=body.event,
+        dashboard_id=body.dashboardId,
+        tile_id=body.tileId,
+        chart_type=body.chartType,
+        user_email_hash=email_hash,
+        age_ms=body.ageMs,
+    )
+    return {"ok": True}
+
 
 # ── Dashboard CRUD ──────────────────────────────────────────────────
 

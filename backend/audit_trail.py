@@ -244,6 +244,55 @@ def log_agent_event(
     _append_entry(entry)
 
 
+_VALID_TILE_EVENT_TYPES = frozenset(
+    {"tile_created", "tile_deleted", "tile_survived_24h"}
+)
+
+
+def log_tile_event(
+    event_type: str,
+    dashboard_id: str,
+    tile_id: str,
+    chart_type: Optional[str] = None,
+    user_email_hash: Optional[str] = None,
+    age_ms: Optional[int] = None,
+) -> None:
+    """
+    Record a dashboard tile lifecycle event for survival telemetry.
+
+    Phase 2.5 engagement signal — reuses the existing JSONL writer, no
+    schema change. Used to compute tile survival rate (1 - deleted_24h/created)
+    for the falsifiable claim in the dashboard-density plan.
+
+    Parameters
+    ----------
+    event_type       : "tile_created" | "tile_deleted" | "tile_survived_24h"
+    dashboard_id     : Dashboard the tile belongs to.
+    tile_id          : Tile identifier.
+    chart_type       : The chart family used (bar, kpi, sparkline_kpi, ...).
+    user_email_hash  : Pre-hashed email — do NOT hash again here.
+    age_ms           : Age in milliseconds for delete events.
+    """
+    if event_type not in _VALID_TILE_EVENT_TYPES:
+        logger.warning(
+            "audit_trail.log_tile_event: unknown event_type %r — logging anyway",
+            event_type,
+        )
+    entry = {
+        "timestamp": _utc_now_iso(),
+        "event_type": event_type,
+        "dashboard_id": dashboard_id,
+        "tile_id": tile_id,
+    }
+    if chart_type is not None:
+        entry["chart_type"] = chart_type
+    if user_email_hash is not None:
+        entry["user_email_hash"] = user_email_hash
+    if age_ms is not None:
+        entry["age_ms"] = age_ms
+    _append_entry(entry)
+
+
 def get_recent_decisions(
     conn_id: Optional[str] = None,
     limit: int = 100,
