@@ -240,17 +240,56 @@ class DatabaseConnector:
     def execute_query_arrow(self, sql: str, timeout: int = 3600):
         """Execute query and return Arrow Table using native database Arrow exports.
 
-        BigQuery: uses google-cloud-bigquery client's to_arrow()
-        DuckDB: uses fetch_arrow_table()
-        Others: chunked fetch → Arrow (fallback, still faster than pandas)
+        BigQuery: uses google.cloud.bigquery Client.query().to_arrow() (Storage Read API)
+        Others: chunked fetch via SQLAlchemy → Arrow
         """
         import pyarrow as pa
         from concurrent.futures import ThreadPoolExecutor
 
+        db_type_str = (self.db_type.value if hasattr(self.db_type, 'value') else str(self.db_type)).lower()
+
         def _run():
+            # BigQuery: bypass SQLAlchemy, use native client for true Arrow streaming
+            if 'bigquery' in db_type_str:
+                try:
+                    from google.cloud import bigquery
+                    # Extract project from engine URL
+                    url_str = str(self._engine.url)
+                    # bigquery://project/dataset or bigquery://project
+                    parts = url_str.replace('bigquery://', '').split('/')
+                    project = parts[0] if parts else None
+
+                    # Get credentials from engine
+                    creds = None
+                    if hasattr(self._engine, 'dialect') and hasattr(self._engine.dialect, 'credentials_path'):
+                        creds_path = self._engine.dialect.credentials_path
+                        if creds_path:
+                            from google.oauth2 import service_account
+                            creds = service_account.Credentials.from_service_account_file(creds_path)
+
+                    # Try to get credentials from existing engine connection
+                    if not creds:
+                        try:
+                            create_disposition = getattr(self._engine.dialect, 'create_disposition', None)
+                            # Use default credentials
+                            import google.auth
+                            creds, _ = google.auth.default()
+                        except Exception:
+                            pass
+
+                    client = bigquery.Client(project=project, credentials=creds)
+                    job = client.query(sql)
+                    result = job.result()  # Waits for completion
+                    arrow_table = result.to_arrow()
+                    return arrow_table
+                except ImportError:
+                    _logger.warning("google-cloud-bigquery not available, falling back to SQLAlchemy")
+                except Exception as e:
+                    _logger.warning(f"BigQuery native Arrow failed: {e}, falling back to SQLAlchemy")
+
+            # All other databases: SQLAlchemy path
             with self._engine.connect() as conn:
-                # Set read-only
-                db_type_str = str(self.db_type).lower()
+                # Set read-only for supported databases
                 if 'postgresql' in db_type_str or 'redshift' in db_type_str or 'cockroach' in db_type_str:
                     try:
                         conn.execute(text("SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY"))
@@ -260,21 +299,10 @@ class DatabaseConnector:
                 result = conn.execute(text(sql))
                 columns = list(result.keys())
 
-                # Try native Arrow cursor methods first
-                cursor = result.cursor if hasattr(result, 'cursor') else None
-
-                # BigQuery: cursor has fetcharrow() or result has to_arrow()
-                if cursor and hasattr(cursor, 'fetcharrow'):
-                    try:
-                        return cursor.fetcharrow()
-                    except Exception:
-                        pass
-
-                # Fallback: chunked fetch into columnar Arrow (still better than row-by-row)
-                # Fetch ALL rows first, then build columnar
+                # Chunked fetch → columnar Arrow
                 all_rows = []
                 while True:
-                    chunk = result.fetchmany(50000)  # larger chunks = fewer round trips
+                    chunk = result.fetchmany(50000)
                     if not chunk:
                         break
                     all_rows.extend(chunk)
@@ -282,7 +310,6 @@ class DatabaseConnector:
                 if not all_rows:
                     return pa.table({col: [] for col in columns})
 
-                # Build Arrow table column-wise (not row-wise)
                 col_data = {}
                 for ci, col in enumerate(columns):
                     col_data[col] = [row[ci] for row in all_rows]
