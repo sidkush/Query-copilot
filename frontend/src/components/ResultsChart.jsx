@@ -230,7 +230,7 @@ const COMBO_TYPES = [
 ];
 
 function MeasureSelector({ measures, selected, onSelect, colors, mode = "single", seriesTypes = {}, onSeriesTypeChange = null }) {
-  if (measures.length <= 1 && !onSeriesTypeChange) return null;
+  // Hooks must be called unconditionally — keep above any early return.
   const [openPicker, setOpenPicker] = useState(null);
   const pickerContainerRef = useRef(null);
 
@@ -243,6 +243,9 @@ function MeasureSelector({ measures, selected, onSelect, colors, mode = "single"
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [openPicker]);
+
+  // Early bailout after all hooks have been called.
+  if (measures.length <= 1 && !onSeriesTypeChange) return null;
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
