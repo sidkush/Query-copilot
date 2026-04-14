@@ -522,9 +522,12 @@ export default function ResultsChart({
     }).filter(Boolean).filter((rl) => isFinite(rl.value));
   }, [fmt.referenceLines, sortedData, displayMeasures]);
 
-  const fmtTickFn = fmt.axis.tickFormat !== 'auto'
-    ? (v) => formatTickValue(v, fmt.axis.tickFormat, fmt.axis.tickDecimals)
-    : formatTick;
+  const fmtTickFn = useMemo(
+    () => (fmt.axis.tickFormat !== 'auto'
+      ? (v) => formatTickValue(v, fmt.axis.tickFormat, fmt.axis.tickDecimals)
+      : formatTick),
+    [fmt.axis.tickFormat, fmt.axis.tickDecimals]
+  );
 
   /* ── ECharts option builder ── */
   const echartsOption = useMemo(() => {
@@ -998,7 +1001,7 @@ export default function ResultsChart({
         };
       }
     }
-  }, [chartType, embedded, chartData, labelCol, displayMeasures, currentMeasure, colors, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn, chartColors, measureSeriesTypes, hasMixedTypes]);
+  }, [chartType, embedded, chartData, labelCol, displayMeasures, currentMeasure, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn, chartColors, measureSeriesTypes, hasMixedTypes]);
 
   /* ── ECharts event handlers for cross-filter ── */
   const onChartEvents = useMemo(() => {
