@@ -260,18 +260,32 @@ export const CHART_DEFS = [
     },
   },
   {
-    key: 'globe_3d', family: 'geo', engine: 'deckgl',
-    label: 'Globe', group: 'wow',
-    icon: 'M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 3c3.9 0 7 3.1 7 7s-3.1 7-7 7-7-3.1-7-7 3.1-7 7-7zM2 12h20M12 2v20',
-    supports3DToggle: true,
+    key: 'geo_map', family: 'geo', engine: 'deckgl',
+    label: 'Geo Map', group: 'wow',
+    // Map pin icon — flat 2D bubble map, not a 3D globe
+    icon: 'M12 2C7.6 2 4 5.6 4 10c0 5.5 8 12 8 12s8-6.5 8-12c0-4.4-3.6-8-8-8zm0 11a3 3 0 110-6 3 3 0 010 6z',
     supportsTimeAnimation: true,
     score: (a) => {
       let s = 0;
-      if (a.hasCoordinates) s += 70;
+      if (a.hasCoordinates) s += 75;
       if (a.hasCoordinates && a.metricCount >= 1) s += 10;
-      if (!a.hasCoordinates) s -= 100; // needs lat/lng
+      if (!a.hasCoordinates) s -= 100;
       return s;
     },
+  },
+  {
+    // Legacy alias for tiles saved before the 3D globe was replaced
+    // by the Tableau-style 2D bubble map. Renders via the same GeoMap
+    // engine (see WOW_TILE_REGISTRY in TileWrapper.jsx). Hidden from
+    // the picker via `deprecated: true` so new tiles always pick
+    // 'geo_map'. Score returns -1000 so the auto-recommender never
+    // surfaces it.
+    key: 'globe_3d', family: 'geo', engine: 'deckgl',
+    label: 'Globe (legacy)', group: 'wow',
+    icon: 'M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z',
+    deprecated: true,
+    supportsTimeAnimation: true,
+    score: () => -1000,
   },
   {
     key: 'ridgeline', family: 'creative', engine: 'd3',

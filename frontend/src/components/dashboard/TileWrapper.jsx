@@ -27,7 +27,7 @@ const CanvasChart = lazy(() => import('./CanvasChart'));
 // a user actually opens a 3D / geo / creative tile.
 const ThreeScatter3D = lazy(() => import('../charts/engines/ThreeScatter3D'));
 const ThreeHologram = lazy(() => import('../charts/engines/ThreeHologram'));
-const DeckGlobe = lazy(() => import('../charts/engines/DeckGlobe'));
+const GeoMap = lazy(() => import('../charts/engines/GeoMap'));
 const D3Ridgeline = lazy(() => import('../charts/engines/D3Ridgeline'));
 const ThreeParticleFlow = lazy(() => import('../charts/engines/ThreeParticleFlow'));
 const LiquidGauge = lazy(() => import('../charts/engines/LiquidGauge'));
@@ -42,7 +42,12 @@ const DENSE_TILE_REGISTRY = {
 const WOW_TILE_REGISTRY = {
   scatter_3d: ThreeScatter3D,
   hologram_scatter: ThreeHologram,
-  globe_3d: DeckGlobe,
+  geo_map: GeoMap,
+  // Legacy alias — any tile saved with chartType='globe_3d' before the
+  // Tableau-style bubble map rewrite still renders via the new engine.
+  // The chartDefs registry only advertises 'geo_map' to new picker
+  // selections.
+  globe_3d: GeoMap,
   ridgeline: D3Ridgeline,
   particle_flow: ThreeParticleFlow,
   liquid_gauge: LiquidGauge,

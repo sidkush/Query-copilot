@@ -392,7 +392,7 @@ SECTIONS = [
     ("Wow Factor · 3D + Geo + Premium", [
         ("scatter_3d",       "3D Product Space",          gen_scatter_3d),
         ("hologram_scatter", "Hologram: Products over Time", gen_hologram),
-        ("globe_3d",         "Global User Distribution (20 cities)", gen_globe),
+        ("geo_map",          "Global User Distribution (20 cities)", gen_globe),
         ("ridgeline",        "Service Response Time Distributions", gen_ridgeline),
         ("particle_flow",    "Curl Vector Field",         gen_particle_flow),
         ("liquid_gauge",     "Q4 Goal Progress",          gen_liquid_gauge),
@@ -404,9 +404,15 @@ def run():
     login()
     print("[login] token ok")
 
-    # Create a fresh dashboard — re-running the script builds a new one
-    # each time rather than mutating an existing one, so the user always
-    # has a clean reference copy.
+    # Delete any existing "Sample Dashboard" so re-runs are idempotent
+    # (otherwise the user ends up with a growing pile of duplicates).
+    existing = _req("/dashboards/")
+    for d in existing.get("dashboards", []):
+        if d.get("name") == "Sample Dashboard":
+            _req(f"/dashboards/{d['id']}", "DELETE")
+            print(f"[cleanup] removed old Sample Dashboard {d['id']}")
+
+    # Create a fresh dashboard
     dash = _req("/dashboards/", "POST", {"name": "Sample Dashboard"})
     if dash.get("_error"):
         print(f"FATAL: dashboard create failed {dash['_error']}: {dash.get('_body')}")
