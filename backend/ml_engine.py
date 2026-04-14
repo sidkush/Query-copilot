@@ -98,7 +98,13 @@ class MLEngine:
         frames = []
         for table in tables:
             if sample_size:
-                sql = f'SELECT {col_clause} FROM {q}{table}{q} ORDER BY {rand_fn} LIMIT {sample_size}'
+                if is_bigquery:
+                    # BigQuery: ORDER BY RAND() causes OOM on large tables.
+                    # Use TABLESAMPLE for approximate random sample (no sorting).
+                    # BigQuery TABLESAMPLE needs dataset.table format — handled by connector.
+                    sql = f'SELECT {col_clause} FROM {q}{table}{q} TABLESAMPLE SYSTEM (10 PERCENT) LIMIT {sample_size}'
+                else:
+                    sql = f'SELECT {col_clause} FROM {q}{table}{q} ORDER BY {rand_fn} LIMIT {sample_size}'
             elif max_rows and max_rows < 10_000_000:
                 sql = f'SELECT {col_clause} FROM {q}{table}{q} LIMIT {max_rows}'
             else:

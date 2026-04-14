@@ -253,11 +253,28 @@ class DatabaseConnector:
             if 'bigquery' in db_type_str:
                 try:
                     from google.cloud import bigquery
-                    # Extract project from engine URL
+                    # Extract project and dataset from engine URL
                     url_str = str(self._engine.url)
                     # bigquery://project/dataset or bigquery://project
                     parts = url_str.replace('bigquery://', '').split('/')
                     project = parts[0] if parts else None
+                    dataset = parts[1] if len(parts) > 1 else None
+
+                    # Qualify unqualified table names with dataset
+                    qualified_sql = sql
+                    if dataset:
+                        # Replace unqualified `table` with `dataset.table`
+                        import re
+                        qualified_sql = re.sub(
+                            r'FROM\s+`([^`.]+)`',
+                            f'FROM `{dataset}.\\1`',
+                            sql
+                        )
+                        qualified_sql = re.sub(
+                            r'JOIN\s+`([^`.]+)`',
+                            f'JOIN `{dataset}.\\1`',
+                            qualified_sql
+                        )
 
                     # Get credentials from engine
                     creds = None
@@ -278,14 +295,14 @@ class DatabaseConnector:
                             pass
 
                     client = bigquery.Client(project=project, credentials=creds)
-                    job = client.query(sql)
+                    job = client.query(qualified_sql)
                     result = job.result()  # Waits for completion
                     arrow_table = result.to_arrow()
                     return arrow_table
                 except ImportError:
-                    _logger.warning("google-cloud-bigquery not available, falling back to SQLAlchemy")
+                    logger.warning("google-cloud-bigquery not available, falling back to SQLAlchemy")
                 except Exception as e:
-                    _logger.warning(f"BigQuery native Arrow failed: {e}, falling back to SQLAlchemy")
+                    logger.warning(f"BigQuery native Arrow failed: {e}, falling back to SQLAlchemy")
 
             # All other databases: SQLAlchemy path
             with self._engine.connect() as conn:
