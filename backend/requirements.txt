@@ -73,3 +73,4 @@ apscheduler>=3.10
 
 # ── Redis ───────────────────────────────────────────────────
 redis>=5.0
+google-cloud-bigquery-storage>=2.0
