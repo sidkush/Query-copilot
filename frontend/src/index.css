@@ -3428,3 +3428,174 @@ html.theme-transitioning *::before,
 html.theme-transitioning *::after {
   transition: background-color 300ms ease, color 200ms ease, border-color 200ms ease, box-shadow 300ms ease !important;
 }
+
+/* ── Phase 2 — Engagement loop ────────────────────────────────────────── */
+
+/* "While you were away" diff-on-load banner (Phase 2.3) */
+.diff-on-load-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 14px 24px 0;
+  padding: 11px 14px 11px 18px;
+  border-radius: 14px;
+  background: var(--glass-bg-card);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 1px 0 var(--glass-highlight) inset,
+    0 18px 32px -20px var(--shadow-deep);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
+}
+.diff-on-load-banner__content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.diff-on-load-banner__eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: 'Outfit', system-ui, sans-serif;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.diff-on-load-banner__title {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  flex-shrink: 0;
+  line-height: 1;
+  letter-spacing: -0.005em;
+}
+.diff-on-load-banner__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.diff-on-load-banner__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 600;
+  line-height: 1;
+  max-width: 220px;
+  border: 1px solid transparent;
+}
+.diff-on-load-banner__chip[data-dir="up"] {
+  background: color-mix(in oklab, var(--status-success) 12%, transparent);
+  color: var(--status-success);
+  border-color: color-mix(in oklab, var(--status-success) 26%, transparent);
+}
+.diff-on-load-banner__chip[data-dir="down"] {
+  background: color-mix(in oklab, var(--status-danger) 12%, transparent);
+  color: var(--status-danger);
+  border-color: color-mix(in oklab, var(--status-danger) 26%, transparent);
+}
+.diff-on-load-banner__chip-label {
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.diff-on-load-banner__chip-value {
+  font-variant-numeric: tabular-nums;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.diff-on-load-banner__dismiss {
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.diff-on-load-banner__dismiss:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+
+/* Hot metric ambient pulse (Phase 2.4) */
+@keyframes heatPulseUp {
+  0%, 100% {
+    box-shadow:
+      0 1px 0 var(--glass-highlight) inset,
+      0 0 0 1px color-mix(in oklab, var(--accent) 22%, transparent),
+      0 20px 40px -18px color-mix(in oklab, var(--accent) 28%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 1px 0 var(--glass-highlight) inset,
+      0 0 0 2.5px color-mix(in oklab, var(--accent) 38%, transparent),
+      0 26px 52px -16px color-mix(in oklab, var(--accent) 55%, transparent);
+  }
+}
+@keyframes heatPulseDown {
+  0%, 100% {
+    box-shadow:
+      0 1px 0 var(--glass-highlight) inset,
+      0 0 0 1px color-mix(in oklab, var(--status-warning) 22%, transparent),
+      0 20px 40px -18px color-mix(in oklab, var(--status-warning) 28%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 1px 0 var(--glass-highlight) inset,
+      0 0 0 2.5px color-mix(in oklab, var(--status-warning) 38%, transparent),
+      0 26px 52px -16px color-mix(in oklab, var(--status-warning) 55%, transparent);
+  }
+}
+.dashboard-tile[data-heat="warm"] {
+  border-color: color-mix(in oklab, var(--accent) 24%, var(--glass-border)) !important;
+}
+.dashboard-tile[data-heat="warm-negative"] {
+  border-color: color-mix(in oklab, var(--status-warning) 24%, var(--glass-border)) !important;
+}
+.dashboard-tile[data-heat="hot"] {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--glass-border)) !important;
+  animation: heatPulseUp 3.2s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+  will-change: box-shadow;
+}
+.dashboard-tile[data-heat="hot-negative"] {
+  border-color: color-mix(in oklab, var(--status-warning) 55%, var(--glass-border)) !important;
+  animation: heatPulseDown 3.2s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+  will-change: box-shadow;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-tile[data-heat="hot"],
+  .dashboard-tile[data-heat="hot-negative"] {
+    animation: none !important;
+  }
+  .dashboard-tile[data-heat="hot"] {
+    box-shadow:
+      0 1px 0 var(--glass-highlight) inset,
+      0 0 0 2px color-mix(in oklab, var(--accent) 40%, transparent) !important;
+  }
+  .dashboard-tile[data-heat="hot-negative"] {
+    box-shadow:
+      0 1px 0 var(--glass-highlight) inset,
+      0 0 0 2px color-mix(in oklab, var(--status-warning) 40%, transparent) !important;
+  }
+}

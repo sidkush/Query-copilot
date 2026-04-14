@@ -17,6 +17,7 @@ import behaviorEngine from "../lib/behaviorEngine";
 import { TOKENS } from "../components/dashboard/tokens";
 import AgentPanel from "../components/agent/AgentPanel";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
+import DiffOnLoadBanner from "../components/dashboard/DiffOnLoadBanner";
 import TabBar from "../components/dashboard/TabBar";
 import Section from "../components/dashboard/Section";
 import GlobalFilterBar from "../components/dashboard/GlobalFilterBar";
@@ -2108,6 +2109,14 @@ export default function DashboardBuilder() {
                 onOpenSettings={() => openModal('settings')}
                 onToggleFullscreen={enterFullscreen}
                 onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+              />
+            )}
+
+            {/* Diff-on-load banner — shows top-3 deltas since last visit */}
+            {!fullscreenMode && (
+              <DiffOnLoadBanner
+                dashboardId={activeDashboard?.id}
+                tiles={activeTab?.tiles || []}
               />
             )}
 
