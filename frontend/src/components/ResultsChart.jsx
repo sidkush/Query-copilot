@@ -998,7 +998,7 @@ export default function ResultsChart({
         };
       }
     }
-  }, [chartType, chartData, labelCol, displayMeasures, currentMeasure, colors, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn, chartColors, measureSeriesTypes, hasMixedTypes]);
+  }, [chartType, embedded, chartData, labelCol, displayMeasures, currentMeasure, colors, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn, chartColors, measureSeriesTypes, hasMixedTypes]);
 
   /* ── ECharts event handlers for cross-filter ── */
   const onChartEvents = useMemo(() => {
