@@ -70,6 +70,67 @@ export const TOKENS = {
     labelLetterSpacing: '0.22em',
     pad: '22px 24px 20px',
   },
+  // Dense tile family — Tableau-class information density.
+  // Consumed by SparklineKPI / ScorecardTable / HBarCard / HeatMatrix.
+  // Grid sizing hints (minW/minH) live on each chartDefs entry; these are
+  // the visual/typographic scales that adapt dense tiles to tight footprints.
+  dense: {
+    // Compact header + body (vs. standard tile 44px header + 14px body pad)
+    headerHeight: 32,
+    headerPad: '8px 12px',
+    bodyPad: '2px 12px 10px',
+    innerGap: 6,
+    // Title typography — one step smaller than standard tile title
+    titleSize: 11.5,
+    titleWeight: 650,
+    titleLetterSpacing: '-0.012em',
+    eyebrowSize: 8,
+    eyebrowLetterSpacing: '0.2em',
+    // Primary metric (the big value in a SparklineKPI)
+    valueSize: 22,
+    valueWeight: 750,
+    valueLetterSpacing: '-0.028em',
+    // Secondary metric (delta chip, sub-label)
+    deltaSize: 10.5,
+    deltaWeight: 600,
+    labelSize: 9.5,
+    labelMuted: 'var(--text-muted)',
+    // Delta chip palette — delta-up reads as success, delta-down as danger
+    deltaUpBg: 'color-mix(in oklab, var(--status-success) 14%, transparent)',
+    deltaUpFg: 'var(--status-success)',
+    deltaDownBg: 'color-mix(in oklab, var(--status-danger) 14%, transparent)',
+    deltaDownFg: 'var(--status-danger)',
+    deltaFlatBg: 'color-mix(in oklab, var(--text-muted) 10%, transparent)',
+    deltaFlatFg: 'var(--text-muted)',
+    // Sparkline / mini-chart stroke + area fill
+    sparkStroke: 'var(--accent)',
+    sparkStrokeWidth: 1.5,
+    sparkArea: 'color-mix(in oklab, var(--accent) 18%, transparent)',
+    sparkAreaMuted: 'color-mix(in oklab, var(--accent) 8%, transparent)',
+    // Inline bar rail (HBarCard + ScorecardTable inline bars)
+    barTrack: 'color-mix(in oklab, var(--text-muted) 14%, transparent)',
+    barFill: 'var(--accent)',
+    barFillAlt: 'color-mix(in oklab, var(--accent) 75%, var(--brand-purple, #a855f7) 25%)',
+    barHeight: 4,
+    barRadius: 2,
+    // Row rhythm for ScorecardTable (8-row default dense list)
+    rowHeight: 22,
+    rowGap: 3,
+    rowHover: 'var(--bg-hover)',
+    rankFg: 'var(--text-muted)',
+    rankSize: 10,
+    // Heat matrix cell defaults
+    heatCellGap: 1,
+    heatCellRadius: 2,
+    heatColdFg: 'color-mix(in oklab, var(--accent) 6%, var(--bg-elevated))',
+    heatHotFg: 'var(--accent)',
+    // Grid sizing — react-grid-layout contract (cols=12, rowHeight=60).
+    // These are FALLBACK defaults; each chartDefs entry overrides via density.{minW,minH}.
+    defaultMinW: 3,
+    defaultMinH: 1,
+    // Text fade for truncated labels (ScorecardTable long names)
+    truncateFade: 'linear-gradient(90deg, transparent 0%, var(--bg-elevated) 92%)',
+  },
 };
 
 export const KPI_ACCENTS = [
