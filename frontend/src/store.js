@@ -39,6 +39,19 @@ export const useStore = create((set, get) => ({
     set({ theme: preference, resolvedTheme: resolved });
   },
 
+  // Engagement — hot metric ambient pulse (Phase 2.4)
+  // Per-user opt-in toggle; defaults to ON. Persisted to localStorage.
+  hotMetricsEnabled: localStorage.getItem("askdb.hotMetricsEnabled") !== "false",
+  setHotMetricsEnabled: (enabled) => {
+    localStorage.setItem("askdb.hotMetricsEnabled", enabled ? "true" : "false");
+    set({ hotMetricsEnabled: enabled });
+  },
+  // Per-dashboard tile heat classification map computed by hotMetricDetector.
+  // Shape: { [tileId]: 'cold' | 'warm' | 'warm-negative' | 'hot' | 'hot-negative' }
+  // Written by Dashboard builder on data change, read by TileWrapper selectors.
+  tileHeatMap: {},
+  setTileHeatMap: (map) => set({ tileHeatMap: map || {} }),
+
   // Onboarding state (replaces tutorialComplete)
   tutorialComplete: localStorage.getItem("tutorialComplete") === "true",
   setTutorialComplete: (v) => {

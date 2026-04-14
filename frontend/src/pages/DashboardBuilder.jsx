@@ -18,6 +18,7 @@ import { TOKENS } from "../components/dashboard/tokens";
 import AgentPanel from "../components/agent/AgentPanel";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import DiffOnLoadBanner from "../components/dashboard/DiffOnLoadBanner";
+import { detectHotMetrics } from "../lib/hotMetricDetector";
 import TabBar from "../components/dashboard/TabBar";
 import Section from "../components/dashboard/Section";
 import GlobalFilterBar from "../components/dashboard/GlobalFilterBar";
@@ -169,6 +170,22 @@ export default function DashboardBuilder() {
   const activeTab =
     activeDashboard?.tabs?.find((t) => t.id === activeTabId) || null;
   const sections = activeTab?.sections || [];
+
+  // ── Hot metric heat map (Phase 2.4) ──
+  // Recomputed when the active tab's tile data changes. Must run AFTER
+  // tile.rows load so snapshots have real numbers, not placeholders.
+  // Note: diffSnapshot is called by detectHotMetrics BEFORE the banner
+  // re-snapshots — this ordering is intentional so the banner sees the
+  // same delta picture the pulse is reacting to.
+  const setTileHeatMap = useStore((s) => s.setTileHeatMap);
+  useEffect(() => {
+    if (!activeDashboard?.id || !activeTab?.tiles?.length) {
+      setTileHeatMap({});
+      return;
+    }
+    const heatMap = detectHotMetrics(activeDashboard.id, activeTab.tiles);
+    setTileHeatMap(heatMap);
+  }, [activeDashboard?.id, activeTab?.tiles, setTileHeatMap]);
 
   // ── Load dashboards on mount ──
   useEffect(() => {

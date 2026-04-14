@@ -13,6 +13,8 @@ import { api } from '../../api';
 import { downloadCSV } from '../../lib/exportUtils';
 import { detectAnomalies, formatAnomalyBadge } from '../../lib/anomalyDetector';
 import { isDateColumn } from '../../lib/fieldClassification';
+import { useStore } from '../../store';
+import { acknowledgeTile } from '../../lib/hotMetricDetector';
 
 const CanvasChart = lazy(() => import('./CanvasChart'));
 
@@ -169,11 +171,32 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
   const isDense = denseDef?.family === 'dense';
   const DenseTile = isDense ? DENSE_TILE_REGISTRY[tile.chartType] : null;
 
+  // Hot metric ambient pulse (Phase 2.4) — per-tile selector so tiles
+  // only re-render when their own heat class flips
+  const tileHeat = useStore((s) => s.tileHeatMap?.[tile?.id] || 'cold');
+  const hotMetricsEnabled = useStore((s) => s.hotMetricsEnabled);
+  const appliedHeat = hotMetricsEnabled ? tileHeat : 'cold';
+  const hoverAckTimerRef = useRef(null);
+  const handleHeatHoverEnter = useCallback(() => {
+    if (!appliedHeat.startsWith('hot') || !dashboardId || !tile?.id) return;
+    clearTimeout(hoverAckTimerRef.current);
+    hoverAckTimerRef.current = setTimeout(() => {
+      acknowledgeTile(dashboardId, tile.id);
+    }, 2000);
+  }, [appliedHeat, dashboardId, tile?.id]);
+  const handleHeatHoverLeave = useCallback(() => {
+    clearTimeout(hoverAckTimerRef.current);
+  }, []);
+  useEffect(() => () => clearTimeout(hoverAckTimerRef.current), []);
+
   return (
     <div className="relative overflow-visible group h-full flex flex-col dashboard-tile"
       data-selected={selectedTileId === tile?.id ? "true" : undefined}
       data-kpi={isKPI || undefined}
+      data-heat={appliedHeat !== 'cold' ? appliedHeat : undefined}
       onClick={() => onSelect?.()}
+      onMouseEnter={handleHeatHoverEnter}
+      onMouseLeave={handleHeatHoverLeave}
       style={{
         background: fmt.style.background || themeConfig?.background?.tile || TOKENS.tile.surface,
         // Hairline border via CSS var — reads on both themes
