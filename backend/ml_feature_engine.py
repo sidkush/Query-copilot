@@ -8,8 +8,6 @@ import unicodedata
 
 import polars as pl
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 _PII_SUBSTRINGS = [
     "ssn", "social_security", "passport", "driver_license",
@@ -78,53 +76,110 @@ def analyze_features(df: pl.DataFrame) -> list[dict[str, Any]]:
 
 
 def prepare_dataset(df: pl.DataFrame, target_column: str, test_size: float = 0.2,
-                    exclude_columns: list[str] = None) -> dict:
-    """Prepare dataset for ML training."""
+                    exclude_columns: list[str] = None, schema_profile=None) -> dict:
+    """Prepare dataset for ML training — pure Polars, no pandas.
+
+    All feature engineering stays lazy/Polars until final .to_numpy() for sklearn.
+    Train/test split uses deterministic hash-based splitting (no shuffle needed).
+    """
     types = detect_column_types(df)
     exclude = set(exclude_columns or [])
     exclude.add(target_column)
+
+    # Auto-exclude PII columns
     for col, col_type in types.items():
         if col_type == "pii":
             exclude.add(col)
-    feature_cols = [c for c in df.columns if c not in exclude]
-    pdf = df.select(feature_cols + [target_column]).to_pandas()
 
+    feature_cols = [c for c in df.columns if c not in exclude]
+
+    # Select only needed columns (column pruning)
+    df = df.select(feature_cols + [target_column])
+
+    # --- Feature Engineering in pure Polars ---
+
+    # 1. Handle missing values (Polars native)
+    fill_exprs = []
     for col in feature_cols:
         if types.get(col) == "numeric":
-            pdf[col] = pdf[col].fillna(pdf[col].median())
+            fill_exprs.append(pl.col(col).fill_null(pl.col(col).median()))
         else:
-            mode_val = pdf[col].mode()
-            pdf[col] = pdf[col].fillna(mode_val.iloc[0] if not mode_val.empty else "unknown")
+            fill_exprs.append(pl.col(col).fill_null(pl.col(col).mode().first()))
+    if fill_exprs:
+        df = df.with_columns(fill_exprs)
 
-    encoders = {}
+    # 2. Encode target column if categorical/string
+    target_mapping = None
+    if types.get(target_column) in ("categorical", "text") or df[target_column].dtype in (pl.Utf8, pl.String):
+        # Build deterministic label mapping (sorted for consistency)
+        unique_vals = sorted(df[target_column].unique().drop_nulls().to_list(), key=str)
+        target_mapping = {val: idx for idx, val in enumerate(unique_vals)}
+        df = df.with_columns(
+            pl.col(target_column).cast(pl.String).replace_strict(
+                {str(k): v for k, v in target_mapping.items()}
+            ).cast(pl.Int64).alias(target_column)
+        )
+
+    # 3. Encode categorical features (label encoding in Polars)
+    feature_mappings = {}
     for col in feature_cols:
         if types.get(col) in ("categorical", "text"):
-            le = LabelEncoder()
-            pdf[col] = le.fit_transform(pdf[col].astype(str))
-            encoders[col] = le
+            unique_vals = sorted(df[col].cast(pl.String).unique().drop_nulls().to_list(), key=str)
+            mapping = {val: idx for idx, val in enumerate(unique_vals)}
+            feature_mappings[col] = mapping
+            df = df.with_columns(
+                pl.col(col).cast(pl.String).replace_strict(
+                    {str(k): v for k, v in mapping.items()}
+                ).cast(pl.Float64).alias(col)
+            )
 
-    # Encode target column if it's categorical/string
-    target_encoder = None
-    if types.get(target_column) in ("categorical", "text") or pdf[target_column].dtype == object:
-        target_encoder = LabelEncoder()
-        y_raw = pdf[target_column].astype(str)
-        pdf[target_column] = target_encoder.fit_transform(y_raw)
+    # 4. Scale numeric features (StandardScaler equivalent in Polars)
+    scale_stats = {}
+    for col in feature_cols:
+        if types.get(col) == "numeric":
+            mean_val = df[col].mean()
+            std_val = df[col].std()
+            if std_val and std_val > 0:
+                scale_stats[col] = {"mean": mean_val, "std": std_val}
+                df = df.with_columns(
+                    ((pl.col(col) - mean_val) / std_val).alias(col)
+                )
 
-    X = pdf[feature_cols].values
-    y = pdf[target_column].values
+    # 5. Deterministic train/test split (hash-based, no shuffle needed)
+    # Try primary key from schema_profile, fallback to struct hash
+    pk_cols = []
+    if schema_profile:
+        for tp in getattr(schema_profile, 'tables', []):
+            if hasattr(tp, 'primary_keys') and tp.primary_keys:
+                pk_cols = [pk for pk in tp.primary_keys if pk in df.columns]
+                break
 
-    stratify = y if len(set(y)) < 20 else None
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42, stratify=stratify
-    )
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
+    split_pct = int((1.0 - test_size) * 100)
+
+    if pk_cols:
+        # Hash on primary key
+        pk_expr = pl.col(pk_cols[0]) if len(pk_cols) == 1 else pl.struct([pl.col(c) for c in pk_cols])
+        train_df = df.filter(pk_expr.hash(seed=42) % 100 < split_pct)
+        test_df = df.filter(pk_expr.hash(seed=42) % 100 >= split_pct)
+    else:
+        # Deduplicate then hash on all columns
+        df = df.unique(maintain_order=False)
+        train_df = df.filter(pl.struct(pl.all()).hash(seed=42) % 100 < split_pct)
+        test_df = df.filter(pl.struct(pl.all()).hash(seed=42) % 100 >= split_pct)
+
+    # 6. Final materialization to numpy — ONLY copy in entire pipeline
+    X_train = train_df.select(feature_cols).to_numpy()
+    X_test = test_df.select(feature_cols).to_numpy()
+    y_train = train_df.select(target_column).to_numpy().ravel()
+    y_test = test_df.select(target_column).to_numpy().ravel()
 
     return {
-        "X_train": X_train, "X_test": X_test,
-        "y_train": y_train, "y_test": y_test,
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
         "feature_names": feature_cols,
-        "encoders": encoders, "scaler": scaler,
-        "target_encoder": target_encoder,
+        "encoders": feature_mappings,  # Polars-native mappings, not sklearn LabelEncoder
+        "scaler": scale_stats,  # dict of {col: {mean, std}}, not sklearn StandardScaler
+        "target_encoder": target_mapping,  # {val: int} mapping
     }

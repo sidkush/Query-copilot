@@ -58,10 +58,13 @@ class TestFeatureEngine:
             "target": [0] * 50 + [1] * 50,
         })
         result = prepare_dataset(df, target_column="target", test_size=0.2)
-        assert result["X_train"].shape[0] == 80
-        assert result["X_test"].shape[0] == 20
-        assert result["y_train"].shape[0] == 80
-        assert result["y_test"].shape[0] == 20
+        total = result["X_train"].shape[0] + result["X_test"].shape[0]
+        assert total == 100
+        # Hash-based split is approximately 80/20 (not exact like sklearn)
+        assert result["X_train"].shape[0] == pytest.approx(80, abs=10)
+        assert result["X_test"].shape[0] == pytest.approx(20, abs=10)
+        assert result["y_train"].shape[0] == result["X_train"].shape[0]
+        assert result["y_test"].shape[0] == result["X_test"].shape[0]
 
     def test_prepare_dataset_encodes_string_target(self):
         from ml_feature_engine import prepare_dataset
@@ -75,3 +78,35 @@ class TestFeatureEngine:
         assert result["y_train"].dtype in (np.int32, np.int64, np.intp)
         assert set(result["y_train"]).issubset({0, 1})
         assert result["target_encoder"] is not None
+        # target_encoder is now a dict, not sklearn LabelEncoder
+        assert isinstance(result["target_encoder"], dict)
+        assert "member" in result["target_encoder"]
+        assert "casual" in result["target_encoder"]
+
+    def test_prepare_dataset_returns_numpy_not_pandas(self):
+        from ml_feature_engine import prepare_dataset
+        import numpy as np
+        df = pl.DataFrame({
+            "f1": list(range(100)),
+            "f2": [float(x) for x in range(100)],
+            "target": [0] * 50 + [1] * 50,
+        })
+        result = prepare_dataset(df, target_column="target", test_size=0.2)
+        assert isinstance(result["X_train"], np.ndarray)
+        assert isinstance(result["y_train"], np.ndarray)
+        # Verify no pandas objects
+        import pandas as pd
+        for key, val in result.items():
+            assert not isinstance(val, pd.DataFrame), f"{key} should not be pandas DataFrame"
+            assert not isinstance(val, pd.Series), f"{key} should not be pandas Series"
+
+    def test_prepare_dataset_target_encoder_is_dict(self):
+        from ml_feature_engine import prepare_dataset
+        df = pl.DataFrame({
+            "f1": list(range(100)),
+            "target": ["member"] * 50 + ["casual"] * 50,
+        })
+        result = prepare_dataset(df, target_column="target", test_size=0.2)
+        assert isinstance(result["target_encoder"], dict)
+        assert "member" in result["target_encoder"]
+        assert "casual" in result["target_encoder"]
