@@ -447,23 +447,29 @@ export default function ResultsChart({
   const [activeMeasures, setActiveMeasures] = useState(
     defaultMeasures?.length ? defaultMeasures : numericCols
   );
+  // Sync activeMeasures when the parent tile updates (e.g. after TileEditor save).
+  // Adjusting state during render — React short-circuits and restarts without committing.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevDefaultMeasures, setPrevDefaultMeasures] = useState(defaultMeasures);
+  if (defaultMeasures !== prevDefaultMeasures) {
+    setPrevDefaultMeasures(defaultMeasures);
+    if (defaultMeasures?.length) setActiveMeasures(defaultMeasures);
+  }
+
   const [palette, setPalette] = useState(defaultPalette);
   const [measureSeriesTypes, setMeasureSeriesTypes] = useState(formatting?.seriesTypes || {});
+  // Sync seriesTypes when formatting changes (e.g. after TileEditor save) — same render-time pattern.
+  const [prevSeriesTypes, setPrevSeriesTypes] = useState(formatting?.seriesTypes);
+  if (formatting?.seriesTypes !== prevSeriesTypes) {
+    setPrevSeriesTypes(formatting?.seriesTypes);
+    setMeasureSeriesTypes(formatting?.seriesTypes || {});
+  }
+
   const [showGrid, setShowGrid] = useState(true);
   const [showLegend, setShowLegend] = useState(!embedded);
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exportError, setExportError] = useState(null);
-
-  // Sync activeMeasures when the parent tile updates (e.g. after TileEditor save)
-  useEffect(() => {
-    if (defaultMeasures?.length) setActiveMeasures(defaultMeasures);
-  }, [defaultMeasures]);
-
-  // Sync seriesTypes when formatting changes (e.g. after TileEditor save)
-  useEffect(() => {
-    setMeasureSeriesTypes(formatting?.seriesTypes || {});
-  }, [formatting?.seriesTypes]);
 
   const handleSeriesTypeChange = useCallback((measure, type) => {
     setMeasureSeriesTypes((prev) => ({ ...prev, [measure]: type }));
