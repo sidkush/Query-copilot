@@ -8,6 +8,7 @@ import HBarCard from './tiles/HBarCard';
 import HeatMatrix from './tiles/HeatMatrix';
 import TileBoundary from './TileBoundary';
 import { getChartDef } from '../charts/defs/chartDefs';
+import { isEnabled as isChartTypeEnabled } from '../../lib/tileFeatureFlag';
 import { blendSources } from '../../lib/dataBlender';
 import { mergeFormatting } from '../../lib/formatUtils';
 import { api } from '../../api';
@@ -490,7 +491,28 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
       <div className="flex-1 min-h-0 overflow-hidden"
         style={{ padding: `4px ${fmt.style.padding ?? 12}px ${fmt.style.padding ?? 8}px` }}>
         <TileBoundary>
-        {isKPI ? (
+        {!isChartTypeEnabled(tile?.chartType) ? (
+          <div
+            className="h-full flex flex-col items-center justify-center"
+            style={{
+              color: TOKENS.text.muted,
+              fontSize: 12,
+              fontFamily: TOKENS.fontBody,
+              textAlign: 'center',
+              padding: 16,
+              gap: 6,
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx={12} cy={12} r={10} />
+              <path d="M4.93 4.93l14.14 14.14" />
+            </svg>
+            <span style={{ fontWeight: 600, color: TOKENS.text.secondary }}>Chart type disabled</span>
+            <span style={{ fontSize: 10.5, opacity: 0.75 }}>
+              The <code style={{ fontFamily: TOKENS.fontMono }}>{tile?.chartType}</code> renderer is currently killed via feature flag.
+            </span>
+          </div>
+        ) : isKPI ? (
           <KPICard tile={tile} index={index} onEdit={onEdit} formatting={tile.visualConfig} />
         ) : isDense && DenseTile ? (
           <DenseTile tile={{ ...tile, columns: chartColumns, rows: chartRows }} index={index} formatting={tile.visualConfig} />
