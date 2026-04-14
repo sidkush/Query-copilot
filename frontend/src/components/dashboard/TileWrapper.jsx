@@ -7,7 +7,7 @@ import ScorecardTable from './tiles/ScorecardTable';
 import HBarCard from './tiles/HBarCard';
 import HeatMatrix from './tiles/HeatMatrix';
 import TileBoundary from './TileBoundary';
-import { getChartDef } from '../charts/defs/chartDefs';
+import { getChartDef, WOW_FAMILIES } from '../charts/defs/chartDefs';
 import { isEnabled as isChartTypeEnabled } from '../../lib/tileFeatureFlag';
 import { blendSources } from '../../lib/dataBlender';
 import { mergeFormatting } from '../../lib/formatUtils';
@@ -22,8 +22,13 @@ const CanvasChart = lazy(() => import('./CanvasChart'));
 
 // Wow-factor family — each engine in its own lazy-loaded chunk so the
 // initial tile render never pays the three.js / deck.gl cost unless
-// a user actually opens a 3D or geo tile.
+// a user actually opens a 3D / geo / creative tile.
 const ThreeScatter3D = lazy(() => import('../charts/engines/ThreeScatter3D'));
+const ThreeHologram = lazy(() => import('../charts/engines/ThreeHologram'));
+const DeckGlobe = lazy(() => import('../charts/engines/DeckGlobe'));
+const D3Ridgeline = lazy(() => import('../charts/engines/D3Ridgeline'));
+const ThreeParticleFlow = lazy(() => import('../charts/engines/ThreeParticleFlow'));
+const LiquidGauge = lazy(() => import('../charts/engines/LiquidGauge'));
 
 const DENSE_TILE_REGISTRY = {
   sparkline_kpi: SparklineKPI,
@@ -34,6 +39,11 @@ const DENSE_TILE_REGISTRY = {
 
 const WOW_TILE_REGISTRY = {
   scatter_3d: ThreeScatter3D,
+  hologram_scatter: ThreeHologram,
+  globe_3d: DeckGlobe,
+  ridgeline: D3Ridgeline,
+  particle_flow: ThreeParticleFlow,
+  liquid_gauge: LiquidGauge,
 };
 
 const CHART_TYPES = [
@@ -181,7 +191,7 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
   const chartDef = getChartDef(tile?.chartType);
   const isDense = chartDef?.family === 'dense';
   const DenseTile = isDense ? DENSE_TILE_REGISTRY[tile.chartType] : null;
-  const isWow = chartDef?.family === '3d' || chartDef?.family === 'geo';
+  const isWow = chartDef && WOW_FAMILIES.has(chartDef.family);
   const WowTile = isWow ? WOW_TILE_REGISTRY[tile.chartType] : null;
 
   // Hot metric ambient pulse (Phase 2.4) — per-tile selector so tiles

@@ -20,7 +20,13 @@ export const CHART_FAMILIES = {
   DENSE: 'dense',
   THREE_D: '3d',
   GEO: 'geo',
+  CREATIVE: 'creative',
 };
+
+// Every family OTHER than 'standard' / 'dense' routes through the
+// wow-factor registry (see TileWrapper.jsx WOW_TILE_REGISTRY). Exported
+// so TileWrapper can do a constant-time family membership check.
+export const WOW_FAMILIES = new Set(['3d', 'geo', 'creative']);
 
 export const CHART_DEFS = [
   {
@@ -227,11 +233,75 @@ export const CHART_DEFS = [
     supportsTimeAnimation: true,
     score: (a) => {
       let s = 0;
-      // Best fit: 3+ numeric columns
       if (a.numericCols?.length >= 3) s += 45;
       if (a.rowCount >= 30 && a.rowCount <= 10000) s += 15;
-      if (a.numericCols?.length < 3) s -= 100; // impossible without XYZ
+      if (a.numericCols?.length < 3) s -= 100;
       if (a.rowCount < 10) s -= 20;
+      return s;
+    },
+  },
+  {
+    key: 'hologram_scatter', family: '3d', engine: 'three',
+    label: 'Hologram', group: 'wow',
+    icon: 'M12 2l10 6v8l-10 6L2 16V8z',
+    supports3DToggle: true,
+    supportsTimeAnimation: true,
+    score: (a) => {
+      let s = 0;
+      // Best fit: 3+ numeric cols + a time dimension (sci-fi temporal data)
+      if (a.numericCols?.length >= 3 && a.isDateLike) s += 50;
+      if (a.numericCols?.length >= 3 && !a.isDateLike) s += 30;
+      if (a.numericCols?.length < 3) s -= 100;
+      return s;
+    },
+  },
+  {
+    key: 'globe_3d', family: 'geo', engine: 'deckgl',
+    label: 'Globe', group: 'wow',
+    icon: 'M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 3c3.9 0 7 3.1 7 7s-3.1 7-7 7-7-3.1-7-7 3.1-7 7-7zM2 12h20M12 2v20',
+    supports3DToggle: true,
+    supportsTimeAnimation: true,
+    score: (a) => {
+      let s = 0;
+      if (a.hasCoordinates) s += 70;
+      if (a.hasCoordinates && a.metricCount >= 1) s += 10;
+      if (!a.hasCoordinates) s -= 100; // needs lat/lng
+      return s;
+    },
+  },
+  {
+    key: 'ridgeline', family: 'creative', engine: 'd3',
+    label: 'Ridgeline', group: 'wow',
+    icon: 'M3 18c3-4 5-4 7 0M9 15c3-6 5-6 8 0M15 12c3-5 4-5 6 0',
+    score: (a) => {
+      let s = 0;
+      if (a.rowCount >= 10 && a.metricCount >= 1) s += 40;
+      if (a.rowCount >= 20) s += 10;
+      if (a.rowCount < 5) s -= 50;
+      return s;
+    },
+  },
+  {
+    key: 'particle_flow', family: '3d', engine: 'three',
+    label: 'Particle Flow', group: 'wow',
+    icon: 'M3 12c3-3 5-3 7 0s5 3 7 0M3 18c3-3 5-3 7 0s5 3 7 0M3 6c3-3 5-3 7 0s5 3 7 0',
+    score: (a) => {
+      let s = 0;
+      if (a.numericCols?.length >= 2) s += 35;
+      if (a.hasCoordinates && a.metricCount >= 2) s += 20;
+      if (a.numericCols?.length < 2) s -= 100;
+      return s;
+    },
+  },
+  {
+    key: 'liquid_gauge', family: 'creative', engine: 'svg',
+    label: 'Liquid Gauge', group: 'wow',
+    icon: 'M12 2c4 5 6 9 6 13a6 6 0 0 1-12 0c0-4 2-8 6-13z',
+    score: (a) => {
+      let s = 0;
+      if (a.metricCount === 1 && a.rowCount === 1) s += 60;
+      if (a.metricCount === 1 && a.rowCount <= 3) s += 30;
+      if (a.metricCount > 1) s -= 30;
       return s;
     },
   },

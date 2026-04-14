@@ -4,6 +4,7 @@ import { mergeFormatting, resolveColor, resolveCategoryColor, formatTickValue } 
 import { injectMetricColumns } from '../lib/metricEvaluator';
 import { useStore } from "../store";
 import { CHART_DEFS, MIN_SCORE, rankChartsForData } from './charts/defs/chartDefs';
+import { isCoordinatePair } from '../lib/fieldClassification';
 
 const ReactECharts = lazy(() => import('echarts-for-react'));
 
@@ -77,7 +78,10 @@ function analyzeData(columns, rows, labelCol) {
     if (max > 0) hasVariance = (max - min) / max > 0.1;
   }
 
-  return { numericCols, rowCount, metricCount, isDateLike, allPositive, avgLabelLen, hasVariance };
+  // Phase 4 — geo detection for Globe scoring
+  const hasCoordinates = Boolean(isCoordinatePair(columns, rows));
+
+  return { numericCols, rowCount, metricCount, isDateLike, allPositive, avgLabelLen, hasVariance, hasCoordinates };
 }
 
 /* CHART_DEFS + MIN_SCORE + rankChartsForData live in ./charts/defs/chartDefs.js.

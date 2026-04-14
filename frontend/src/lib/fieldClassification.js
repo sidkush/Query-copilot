@@ -131,6 +131,46 @@ export function isDateColumn(colName, rows) {
 }
 
 /**
+ * Detect a latitude column by name + value range. Phase 4.4 / DeckGlobe.
+ * Name patterns: lat, latitude, y_coord, lat_deg. Values must be -90..90.
+ */
+export function isLatColumn(colName, rows) {
+  if (!colName) return false;
+  const nameMatch = /^(lat|latitude|y_coord|lat_deg)$/i.test(colName);
+  if (!nameMatch) return false;
+  const sample = sampleValues(rows, colName)
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v));
+  return sample.length > 0 && sample.every((v) => v >= -90 && v <= 90);
+}
+
+/**
+ * Detect a longitude column by name + value range. Phase 4.4 / DeckGlobe.
+ * Name patterns: lng, lon, long, longitude, x_coord, lon_deg. Values -180..180.
+ */
+export function isLngColumn(colName, rows) {
+  if (!colName) return false;
+  const nameMatch = /^(lng|lon|long|longitude|x_coord|lon_deg)$/i.test(colName);
+  if (!nameMatch) return false;
+  const sample = sampleValues(rows, colName)
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v));
+  return sample.length > 0 && sample.every((v) => v >= -180 && v <= 180);
+}
+
+/**
+ * Returns { latCol, lngCol } if the row set contains a valid coordinate
+ * pair, or null otherwise. Used by chartDefs analysis + DeckGlobe to
+ * decide whether to surface the globe chart type.
+ */
+export function isCoordinatePair(columns, rows) {
+  if (!Array.isArray(columns)) return null;
+  const latCol = columns.find((c) => isLatColumn(c, rows));
+  const lngCol = columns.find((c) => isLngColumn(c, rows));
+  return latCol && lngCol ? { latCol, lngCol } : null;
+}
+
+/**
  * Return field suggestions based on the enclosing SQL aggregation function.
  *
  * @param {string|null} functionName - SQL function name (e.g. "SUM"), or null.
