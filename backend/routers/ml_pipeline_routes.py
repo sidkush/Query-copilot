@@ -175,6 +175,15 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
                             temp_connector.connect()
                             connector = temp_connector
                             logger.info(f"ML ingest: auto-reconnected to {cfg.get('db_type')}")
+                            # Cache encrypted URI in pipeline for downstream stages
+                            try:
+                                from user_storage import encrypt_password
+                                encrypted_uri = encrypt_password(uri)
+                                pipeline_id = pipeline.get("id")
+                                if pipeline_id:
+                                    store.update_pipeline(user_hash, pipeline_id, {"_cached_conn_uri": encrypted_uri, "_cached_db_type": str(db_type)})
+                            except Exception:
+                                pass  # Non-critical — downstream will re-read from saved configs
                             break
                         except Exception as cfg_err:
                             logger.warning(f"ML auto-reconnect: config {cfg.get('id')} failed: {cfg_err}")
@@ -263,6 +272,50 @@ def _execute_stage(stage_key: str, conn_id: str, tables: list, target_column: st
                             break
                     if connector:
                         break
+
+            # Try cached connection from ingest stage first
+            if not connector:
+                cached_uri = pipeline.get("_cached_conn_uri")
+                cached_type = pipeline.get("_cached_db_type")
+                if cached_uri and cached_type:
+                    try:
+                        from user_storage import decrypt_password
+                        from db_connector import DatabaseConnector
+                        from config import DBType
+                        uri = decrypt_password(cached_uri)
+                        temp = DatabaseConnector(db_type=DBType(cached_type), connection_uri=uri, credentials_path=None)
+                        temp.connect()
+                        connector = temp
+                        logger.info("ML train: using cached connection from ingest stage")
+                    except Exception:
+                        pass  # Fall through to saved configs
+
+            # Auto-reconnect if no live connector
+            if not connector and user_email:
+                try:
+                    from user_storage import load_connection_configs, decrypt_password
+                    from db_connector import DatabaseConnector
+                    from config import DBType
+                    from routers.connection_routes import _build_uri_from_config
+                    configs = load_connection_configs(user_email)
+                    for cfg in configs:
+                        try:
+                            working = dict(cfg)
+                            if working.get("password"):
+                                working["password"] = decrypt_password(working["password"])
+                            if working.get("token"):
+                                working["token"] = decrypt_password(working["token"])
+                            db_type = DBType(working["db_type"])
+                            uri = _build_uri_from_config(working)
+                            temp = DatabaseConnector(db_type=db_type, connection_uri=uri, credentials_path=working.get("credentials_path"))
+                            temp.connect()
+                            connector = temp
+                            logger.info(f"ML train: auto-reconnected to {cfg.get('db_type')}")
+                            break
+                        except Exception:
+                            continue
+                except Exception as e:
+                    logger.warning(f"ML train: auto-reconnect failed: {e}")
 
             if connector:
                 sample_size = config.get("sample_size") if data_source == "sample" else None
