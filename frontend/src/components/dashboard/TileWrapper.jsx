@@ -20,11 +20,20 @@ import { acknowledgeTile } from '../../lib/hotMetricDetector';
 
 const CanvasChart = lazy(() => import('./CanvasChart'));
 
+// Wow-factor family — each engine in its own lazy-loaded chunk so the
+// initial tile render never pays the three.js / deck.gl cost unless
+// a user actually opens a 3D or geo tile.
+const ThreeScatter3D = lazy(() => import('../charts/engines/ThreeScatter3D'));
+
 const DENSE_TILE_REGISTRY = {
   sparkline_kpi: SparklineKPI,
   scorecard_table: ScorecardTable,
   hbar_card: HBarCard,
   heat_matrix: HeatMatrix,
+};
+
+const WOW_TILE_REGISTRY = {
+  scatter_3d: ThreeScatter3D,
 };
 
 const CHART_TYPES = [
@@ -169,9 +178,11 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
   }, [anomaly, tile?.title, chartColumns, chartRows]);
 
   const isKPI = tile?.chartType === 'kpi';
-  const denseDef = getChartDef(tile?.chartType);
-  const isDense = denseDef?.family === 'dense';
+  const chartDef = getChartDef(tile?.chartType);
+  const isDense = chartDef?.family === 'dense';
   const DenseTile = isDense ? DENSE_TILE_REGISTRY[tile.chartType] : null;
+  const isWow = chartDef?.family === '3d' || chartDef?.family === 'geo';
+  const WowTile = isWow ? WOW_TILE_REGISTRY[tile.chartType] : null;
 
   // Hot metric ambient pulse (Phase 2.4) — per-tile selector so tiles
   // only re-render when their own heat class flips
@@ -516,6 +527,10 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
           <KPICard tile={tile} index={index} onEdit={onEdit} formatting={tile.visualConfig} />
         ) : isDense && DenseTile ? (
           <DenseTile tile={{ ...tile, columns: chartColumns, rows: chartRows }} index={index} formatting={tile.visualConfig} />
+        ) : isWow && WowTile ? (
+          <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: TOKENS.text.muted, fontSize: 11 }}>Loading 3D engine…</div>}>
+            <WowTile tile={{ ...tile, columns: chartColumns, rows: chartRows }} index={index} formatting={tile.visualConfig} />
+          </Suspense>
         ) : chartRows?.length > 0 ? (
           chartRows.length > 1000 && ['scatter', 'heatmap'].includes(tile?.chartType) ? (
             <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><span style={{ color: '#5C5F66', fontSize: 12 }}>Loading...</span></div>}>

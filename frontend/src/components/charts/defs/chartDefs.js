@@ -213,6 +213,28 @@ export const CHART_DEFS = [
       return s;
     },
   },
+
+  /* ── Flagship wow-factor family — Phase 4 (3D + GEO + premium 2D) ─
+     Charts Tableau / Looker / PowerBI don't ship out of the box.
+     Each engine is lazy-loaded via TileWrapper for bundle isolation.
+     `supports3DToggle` / `supportsTimeAnimation` flags prepare Phase 5
+     time-animation framework to auto-surface play buttons. */
+  {
+    key: 'scatter_3d', family: '3d', engine: 'three',
+    label: '3D Scatter', group: 'wow',
+    icon: 'M12 2v20M2 12h20M5 5l14 14M19 5L5 19',
+    supports3DToggle: true,
+    supportsTimeAnimation: true,
+    score: (a) => {
+      let s = 0;
+      // Best fit: 3+ numeric columns
+      if (a.numericCols?.length >= 3) s += 45;
+      if (a.rowCount >= 30 && a.rowCount <= 10000) s += 15;
+      if (a.numericCols?.length < 3) s -= 100; // impossible without XYZ
+      if (a.rowCount < 10) s -= 20;
+      return s;
+    },
+  },
 ];
 
 /** Minimum relevance score for a chart type to appear in the picker. */

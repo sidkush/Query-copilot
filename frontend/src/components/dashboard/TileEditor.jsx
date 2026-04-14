@@ -29,6 +29,9 @@ const CHART_TYPES = [
   { key: 'scorecard_table', label: 'Scorecard', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="5" width="14" height="2" rx="1" fill="currentColor"/><rect x="19" y="5" width="2" height="2" rx="1" fill="currentColor" opacity=".7"/><rect x="3" y="10" width="10" height="2" rx="1" fill="currentColor" opacity=".75"/><rect x="15" y="10" width="6" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="3" y="15" width="8" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="13" y="15" width="8" height="2" rx="1" fill="currentColor" opacity=".35"/></svg> },
   { key: 'hbar_card', label: 'Bar Card', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="4" width="16" height="4" rx="1.5" fill="currentColor"/><rect x="3" y="10" width="11" height="4" rx="1.5" fill="currentColor" opacity=".75"/><rect x="3" y="16" width="18" height="4" rx="1.5" fill="currentColor" opacity=".5"/></svg> },
   { key: 'heat_matrix', label: 'Heat Matrix', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="5" height="5" rx="1" fill="currentColor" opacity=".9"/><rect x="10" y="3" width="5" height="5" rx="1" fill="currentColor" opacity=".5"/><rect x="17" y="3" width="4" height="5" rx="1" fill="currentColor" opacity=".7"/><rect x="3" y="10" width="5" height="5" rx="1" fill="currentColor" opacity=".3"/><rect x="10" y="10" width="5" height="5" rx="1" fill="currentColor" opacity=".85"/><rect x="17" y="10" width="4" height="5" rx="1" fill="currentColor" opacity=".45"/><rect x="3" y="17" width="5" height="4" rx="1" fill="currentColor" opacity=".6"/><rect x="10" y="17" width="5" height="4" rx="1" fill="currentColor" opacity=".4"/><rect x="17" y="17" width="4" height="4" rx="1" fill="currentColor" opacity=".8"/></svg> },
+
+  /* ── Wow-factor family — flagship Phase 4 charts ── */
+  { key: 'scatter_3d', label: '3D Scatter', family: 'wow', icon: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 20L12 4L20 20Z" fill="none" stroke="currentColor" strokeWidth="1.4" opacity=".35"/><circle cx="7" cy="16" r="1.4" fill="currentColor"/><circle cx="12" cy="7" r="1.4" fill="currentColor" opacity=".75"/><circle cx="17" cy="17" r="1.4" fill="currentColor" opacity=".85"/><circle cx="13" cy="13" r="1.4" fill="currentColor" opacity=".55"/><circle cx="9" cy="11" r="1.4" fill="currentColor" opacity=".65"/></svg> },
 ];
 
 const PALETTE_KEYS = Object.keys(CHART_PALETTES);
@@ -461,12 +464,17 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
             {/* 2. Chart Type Selector — Standard + Dense families */}
             <div style={sectionStyle}>
               <label style={labelStyle}>Chart Type</label>
-              {['standard', 'dense'].map((familyKey) => {
+              {['standard', 'dense', 'wow'].map((familyKey) => {
                 const familyCharts = CHART_TYPES.filter((ct) => (ct.family || 'standard') === familyKey);
                 if (familyCharts.length === 0) return null;
+                const familyHeadings = {
+                  dense: 'Dense · Tableau-class',
+                  wow: 'Wow Factor · 3D + Geo + Premium',
+                };
+                const heading = familyHeadings[familyKey];
                 return (
-                  <div key={familyKey} style={{ marginTop: familyKey === 'dense' ? 14 : 0 }}>
-                    {familyKey === 'dense' && (
+                  <div key={familyKey} style={{ marginTop: familyKey === 'standard' ? 0 : 14 }}>
+                    {heading && (
                       <div
                         style={{
                           fontSize: 9,
@@ -478,7 +486,7 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
                           fontFamily: TOKENS.fontDisplay,
                         }}
                       >
-                        Dense · Tableau-class
+                        {heading}
                       </div>
                     )}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
