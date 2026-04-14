@@ -208,7 +208,6 @@ function exportChart(echartsRef, format = "png") {
   const instance = echartsRef.current?.getEchartsInstance?.();
   if (!instance) {
     return false;
-    return false;
   }
   const exportBg = getComputedStyle(document.documentElement).getPropertyValue('--chart-export-bg').trim() || '#111827';
   const url = instance.getDataURL({
