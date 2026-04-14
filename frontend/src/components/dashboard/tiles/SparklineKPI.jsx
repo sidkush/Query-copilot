@@ -81,7 +81,7 @@ export default function SparklineKPI({ tile, formatting }) {
     return { line, area, w, h, tip: pts[pts.length - 1] };
   }, [series]);
 
-  const dense = TOKENS.tile.dense;
+  const dense = TOKENS.dense;
   const vc = formatting || tile?.visualConfig || {};
   const valueColor = vc.colors?.measureColors?.[columns[valIdx]] || TOKENS.text.primary;
 

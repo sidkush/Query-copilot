@@ -34,7 +34,7 @@ export default function HBarCard({ tile, formatting }) {
     return { rows: top, maxValue };
   }, [tile?.rows, labelCol, valueCol]);
 
-  const dense = TOKENS.tile.dense;
+  const dense = TOKENS.dense;
   const vc = formatting || tile?.visualConfig || {};
   const accentOverride = vc.colors?.measureColors?.[valueCol];
 

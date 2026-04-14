@@ -20,7 +20,7 @@ const CanvasChart = lazy(() => import('../CanvasChart'));
 export default function HeatMatrix({ tile, formatting }) {
   const columns = tile?.columns || [];
   const rows = tile?.rows || [];
-  const dense = TOKENS.tile.dense;
+  const dense = TOKENS.dense;
 
   if (!rows.length || !columns.length) {
     return (
