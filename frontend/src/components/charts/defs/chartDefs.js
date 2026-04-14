@@ -1,0 +1,176 @@
+/**
+ * Unified chart registry — single source of truth for every renderable chart type.
+ *
+ * Each entry declares:
+ *   - key      : stable id (matches tile.chartType in dashboards)
+ *   - family   : grouping for picker UX + routing ('standard' | 'dense' | '3d' | 'geo')
+ *   - engine   : which renderer handles it ('echarts' | 'react' | 'three' | 'deckgl' | 'd3')
+ *   - label    : picker label
+ *   - group    : semantic category (comparison | trend | proportion | correlation | dense)
+ *   - icon     : SVG path for picker thumbnail
+ *   - score(a) : relevance scoring function given DataAnalysis shape
+ *   - density? : (dense family only) grid-aware sizing hints { minW, minH, infoBits }
+ *
+ * Adding a new chart type? Add a new entry here and (if needed) a render branch
+ * in the owning engine. Do NOT fork this list across files.
+ */
+
+export const CHART_FAMILIES = {
+  STANDARD: 'standard',
+  DENSE: 'dense',
+  THREE_D: '3d',
+  GEO: 'geo',
+};
+
+export const CHART_DEFS = [
+  {
+    key: 'bar', family: 'standard', engine: 'echarts',
+    label: 'Bar', group: 'comparison',
+    icon: 'M3 13h2v8H3zM8 8h2v13H8zM13 11h2v10h-2zM18 5h2v16h-2z',
+    score: (a) => {
+      let s = 60;
+      if (a.rowCount >= 2 && a.rowCount <= 20) s += 20;
+      if (a.metricCount >= 2) s += 15;
+      if (a.isDateLike) s -= 10;
+      if (a.rowCount > 20) s -= 20;
+      return s;
+    },
+  },
+  {
+    key: 'bar_h', family: 'standard', engine: 'echarts',
+    label: 'H-Bar', group: 'comparison',
+    icon: 'M3 3v2h8V3zM3 8v2h13V8zM3 13v2h10V13zM3 18v2h16V18z',
+    score: (a) => {
+      let s = 40;
+      if (a.avgLabelLen > 10) s += 25;
+      if (a.rowCount >= 5 && a.rowCount <= 15) s += 15;
+      if (a.metricCount === 1) s += 10;
+      if (a.isDateLike) s -= 30;
+      return s;
+    },
+  },
+  {
+    key: 'stacked', family: 'standard', engine: 'echarts',
+    label: 'Stacked', group: 'composition',
+    icon: 'M3 13h2v8H3zM8 6h2v15H8zM13 9h2v12h-2zM18 3h2v18h-2z',
+    score: (a) => {
+      let s = 30;
+      if (a.metricCount >= 2) s += 35;
+      if (a.rowCount >= 3 && a.rowCount <= 15) s += 15;
+      if (a.metricCount < 2) s -= 50;
+      return s;
+    },
+  },
+  {
+    key: 'line', family: 'standard', engine: 'echarts',
+    label: 'Line', group: 'trend',
+    icon: 'M3 17l6-6 4 4 8-8',
+    score: (a) => {
+      let s = 50;
+      if (a.isDateLike) s += 35;
+      if (a.rowCount > 5) s += 15;
+      if (a.rowCount <= 2) s -= 30;
+      return s;
+    },
+  },
+  {
+    key: 'area', family: 'standard', engine: 'echarts',
+    label: 'Area', group: 'trend',
+    icon: 'M3 17l6-6 4 4 8-8v11H3z',
+    score: (a) => {
+      let s = 40;
+      if (a.isDateLike) s += 30;
+      if (a.rowCount > 5) s += 15;
+      if (a.metricCount === 1) s += 5;
+      if (a.rowCount <= 2) s -= 30;
+      return s;
+    },
+  },
+  {
+    key: 'pie', family: 'standard', engine: 'echarts',
+    label: 'Pie', group: 'proportion',
+    icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18V12h10c0 5.52-4.48 10-10 10z',
+    score: (a) => {
+      let s = 30;
+      if (a.rowCount >= 2 && a.rowCount <= 8 && a.allPositive) s += 40;
+      if (a.hasVariance) s += 10;
+      if (a.rowCount > 10) s -= 40;
+      if (!a.allPositive) s -= 50;
+      return s;
+    },
+  },
+  {
+    key: 'donut', family: 'standard', engine: 'echarts',
+    label: 'Donut', group: 'proportion',
+    icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6z',
+    score: (a) => {
+      let s = 35;
+      if (a.rowCount >= 2 && a.rowCount <= 8 && a.allPositive) s += 35;
+      if (a.hasVariance) s += 10;
+      if (a.rowCount > 10) s -= 40;
+      if (!a.allPositive) s -= 50;
+      return s;
+    },
+  },
+  {
+    key: 'radar', family: 'standard', engine: 'echarts',
+    label: 'Radar', group: 'comparison',
+    icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01z',
+    score: (a) => {
+      let s = 20;
+      if (a.rowCount >= 3 && a.rowCount <= 10 && a.metricCount >= 2) s += 40;
+      if (a.metricCount < 2) s -= 30;
+      if (a.rowCount > 10) s -= 20;
+      if (a.rowCount < 3) s -= 30;
+      return s;
+    },
+  },
+  {
+    key: 'treemap', family: 'standard', engine: 'echarts',
+    label: 'Treemap', group: 'proportion',
+    icon: 'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v3h-8zM3 13h5v8H3zM10 13h11v8H10z',
+    score: (a) => {
+      let s = 25;
+      if (a.rowCount >= 4 && a.rowCount <= 20 && a.allPositive) s += 30;
+      if (a.rowCount > 20) s -= 10;
+      if (!a.allPositive) s -= 50;
+      return s;
+    },
+  },
+  {
+    key: 'scatter', family: 'standard', engine: 'echarts',
+    label: 'Scatter', group: 'correlation',
+    icon: 'M7 14a2 2 0 100-4 2 2 0 000 4zM14 8a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4zM11 19a2 2 0 100-4 2 2 0 000 4z',
+    score: (a) => {
+      let s = 15;
+      if (a.metricCount >= 2 && a.rowCount > 5) s += 35;
+      if (a.metricCount < 2) s -= 50;
+      return s;
+    },
+  },
+];
+
+/** Minimum relevance score for a chart type to appear in the picker. */
+export const MIN_SCORE = 35;
+
+/** Lookup by key; returns undefined if the key is unknown. */
+export function getChartDef(key) {
+  return CHART_DEFS.find((d) => d.key === key);
+}
+
+/** Filter by family — used by TileEditor to build picker categories. */
+export function getChartsByFamily(family) {
+  return CHART_DEFS.filter((d) => d.family === family);
+}
+
+/**
+ * Score + sort chart types for a given DataAnalysis shape.
+ * Returns the ranked list with `relevance` attached, filtered to >= MIN_SCORE.
+ * Used by ResultsChart.jsx and TileEditor.jsx for auto-recommendation.
+ */
+export function rankChartsForData(analysis) {
+  return CHART_DEFS
+    .map((def) => ({ ...def, relevance: def.score(analysis) }))
+    .filter((d) => d.relevance >= MIN_SCORE)
+    .sort((a, b) => b.relevance - a.relevance);
+}

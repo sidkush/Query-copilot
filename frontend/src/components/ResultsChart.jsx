@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { mergeFormatting, resolveColor, resolveCategoryColor, formatTickValue } from '../lib/formatUtils';
 import { injectMetricColumns } from '../lib/metricEvaluator';
 import { useStore } from "../store";
+import { CHART_DEFS, MIN_SCORE, rankChartsForData } from './charts/defs/chartDefs';
 
 const ReactECharts = lazy(() => import('echarts-for-react'));
 
@@ -79,129 +80,8 @@ function analyzeData(columns, rows, labelCol) {
   return { numericCols, rowCount, metricCount, isDateLike, allPositive, avgLabelLen, hasVariance };
 }
 
-/* ── Chart type definitions with relevance scoring ── */
-const CHART_DEFS = [
-  {
-    key: "bar", label: "Bar", group: "comparison",
-    icon: "M3 13h2v8H3zM8 8h2v13H8zM13 11h2v10h-2zM18 5h2v16h-2z",
-    score: (a) => {
-      let s = 60;
-      if (a.rowCount >= 2 && a.rowCount <= 20) s += 20;
-      if (a.metricCount >= 2) s += 15; // grouped bars are great for comparison
-      if (a.isDateLike) s -= 10;
-      if (a.rowCount > 20) s -= 20;
-      return s;
-    },
-  },
-  {
-    key: "bar_h", label: "H-Bar", group: "comparison",
-    icon: "M3 3v2h8V3zM3 8v2h13V8zM3 13v2h10V13zM3 18v2h16V18z",
-    score: (a) => {
-      let s = 40;
-      if (a.avgLabelLen > 10) s += 25; // long labels work better horizontal
-      if (a.rowCount >= 5 && a.rowCount <= 15) s += 15;
-      if (a.metricCount === 1) s += 10;
-      if (a.isDateLike) s -= 30;
-      return s;
-    },
-  },
-  {
-    key: "stacked", label: "Stacked", group: "composition",
-    icon: "M3 13h2v8H3zM8 6h2v15H8zM13 9h2v12h-2zM18 3h2v18h-2z",
-    score: (a) => {
-      let s = 30;
-      if (a.metricCount >= 2) s += 35; // stacked needs multiple metrics
-      if (a.rowCount >= 3 && a.rowCount <= 15) s += 15;
-      if (a.metricCount < 2) s -= 50; // hide if only 1 metric
-      return s;
-    },
-  },
-  {
-    key: "line", label: "Line", group: "trend",
-    icon: "M3 17l6-6 4 4 8-8",
-    score: (a) => {
-      let s = 50;
-      if (a.isDateLike) s += 35; // lines are ideal for time series
-      if (a.rowCount > 5) s += 15;
-      if (a.rowCount <= 2) s -= 30;
-      return s;
-    },
-  },
-  {
-    key: "area", label: "Area", group: "trend",
-    icon: "M3 17l6-6 4 4 8-8v11H3z",
-    score: (a) => {
-      let s = 40;
-      if (a.isDateLike) s += 30;
-      if (a.rowCount > 5) s += 15;
-      if (a.metricCount === 1) s += 5;
-      if (a.rowCount <= 2) s -= 30;
-      return s;
-    },
-  },
-  {
-    key: "pie", label: "Pie", group: "proportion",
-    icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18V12h10c0 5.52-4.48 10-10 10z",
-    score: (a) => {
-      let s = 30;
-      if (a.rowCount >= 2 && a.rowCount <= 8 && a.allPositive) s += 40;
-      if (a.hasVariance) s += 10;
-      if (a.rowCount > 10) s -= 40;
-      if (!a.allPositive) s -= 50;
-      return s;
-    },
-  },
-  {
-    key: "donut", label: "Donut", group: "proportion",
-    icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6z",
-    score: (a) => {
-      let s = 35;
-      if (a.rowCount >= 2 && a.rowCount <= 8 && a.allPositive) s += 35;
-      if (a.hasVariance) s += 10;
-      if (a.rowCount > 10) s -= 40;
-      if (!a.allPositive) s -= 50;
-      return s;
-    },
-  },
-  {
-    key: "radar", label: "Radar", group: "comparison",
-    icon: "M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01z",
-    score: (a) => {
-      let s = 20;
-      if (a.rowCount >= 3 && a.rowCount <= 10 && a.metricCount >= 2) s += 40;
-      if (a.metricCount < 2) s -= 30;
-      if (a.rowCount > 10) s -= 20;
-      if (a.rowCount < 3) s -= 30;
-      return s;
-    },
-  },
-  {
-    key: "treemap", label: "Treemap", group: "proportion",
-    icon: "M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v3h-8zM3 13h5v8H3zM10 13h11v8H10z",
-    score: (a) => {
-      let s = 25;
-      if (a.rowCount >= 4 && a.rowCount <= 20 && a.allPositive) s += 30;
-      if (a.rowCount > 20) s -= 10;
-      if (!a.allPositive) s -= 50;
-      return s;
-    },
-  },
-  {
-    key: "scatter", label: "Scatter", group: "correlation",
-    icon: "M7 14a2 2 0 100-4 2 2 0 000 4zM14 8a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4zM11 19a2 2 0 100-4 2 2 0 000 4z",
-    score: (a) => {
-      let s = 15;
-      if (a.metricCount >= 2 && a.rowCount > 5) s += 35;
-      if (a.metricCount < 2) s -= 50;
-      return s;
-    },
-  },
-];
-
-/* Minimum relevance score to show a chart type */
-const MIN_SCORE = 35;
-
-/* (ECharts handles tooltips, pie labels, treemap content natively via option config) */
+/* CHART_DEFS + MIN_SCORE + rankChartsForData live in ./charts/defs/chartDefs.js.
+   Imported at the top so this file can focus on rendering, not registry. */
 
 /* ── Chart Export (ECharts native) ── */
 function exportChart(echartsRef, format = "png") {
@@ -433,13 +313,8 @@ export default function ResultsChart({
   const analysis = useMemo(() => analyzeData(augColumns, data, labelCol), [augColumns, data, labelCol]);
   const { numericCols } = analysis;
 
-  // Score & sort chart types, filter by relevance
-  const rankedCharts = useMemo(() => {
-    return CHART_DEFS
-      .map((def) => ({ ...def, relevance: def.score(analysis) }))
-      .filter((d) => d.relevance >= MIN_SCORE)
-      .sort((a, b) => b.relevance - a.relevance);
-  }, [analysis]);
+  // Score & sort chart types, filter by relevance (logic lives in chartDefs registry)
+  const rankedCharts = useMemo(() => rankChartsForData(analysis), [analysis]);
 
   // State
   const [activeType, setActiveType] = useState(defaultChartType);
