@@ -52,7 +52,8 @@ class MLEngine:
 
     def ingest_from_source(self, connector, tables: list[str],
                            max_rows: int = None, sample_size: int = None,
-                           stratify_column: str = None) -> pl.DataFrame:
+                           stratify_column: str = None,
+                           columns: list[str] = None) -> pl.DataFrame:
         """Query source database directly — bypasses twin sampling limits.
 
         Args:
@@ -89,14 +90,19 @@ class MLEngine:
         # Random function: RAND() for BigQuery/MySQL, RANDOM() for others
         rand_fn = 'RAND()' if (is_bigquery or is_mysql) else 'RANDOM()'
 
+        # Column pruning: SELECT specific columns instead of SELECT *
+        col_clause = '*'
+        if columns:
+            col_clause = ', '.join(f'{q}{c}{q}' for c in columns)
+
         frames = []
         for table in tables:
             if sample_size:
-                sql = f'SELECT * FROM {q}{table}{q} ORDER BY {rand_fn} LIMIT {sample_size}'
+                sql = f'SELECT {col_clause} FROM {q}{table}{q} ORDER BY {rand_fn} LIMIT {sample_size}'
             elif max_rows and max_rows < 10_000_000:
-                sql = f'SELECT * FROM {q}{table}{q} LIMIT {max_rows}'
+                sql = f'SELECT {col_clause} FROM {q}{table}{q} LIMIT {max_rows}'
             else:
-                sql = f'SELECT * FROM {q}{table}{q}'
+                sql = f'SELECT {col_clause} FROM {q}{table}{q}'
 
             try:
                 arrow_table = connector.execute_query_arrow(
@@ -144,7 +150,14 @@ class MLEngine:
                 logger.warning(f"Model {model_name} not found for task {task_type}")
                 continue
 
-            model = instantiate_model(config, params_override)
+            # Extract per-model params if params_override is keyed by model name
+            model_params = None
+            if params_override:
+                if model_name in params_override and isinstance(params_override[model_name], dict):
+                    model_params = params_override[model_name]
+                elif not any(isinstance(v, dict) for v in params_override.values()):
+                    model_params = params_override  # Flat dict — apply to all
+            model = instantiate_model(config, model_params)
             model.fit(X_train, y_train)
             y_pred = model.predict(X_test)
 
