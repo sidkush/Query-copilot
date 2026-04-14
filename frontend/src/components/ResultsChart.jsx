@@ -6,13 +6,15 @@ import { useStore } from "../store";
 
 const ReactECharts = lazy(() => import('echarts-for-react'));
 
-/* ── Color Palettes (corporate blue-first) ── */
+/* ── Color Palettes — premium editorial tuned for readability on dark + light ── */
 const PALETTES = {
-  default:    ["#2563EB", "#0369A1", "#0EA5E9", "#38BDF8", "#1E40AF", "#3B82F6", "#06B6D4", "#0284C7"],
-  ocean:      ["#06b6d4", "#0ea5e9", "#38bdf8", "#7dd3fc", "#0284c7", "#0369a1", "#22d3ee", "#67e8f9"],
-  sunset:     ["#f59e0b", "#ef4444", "#f97316", "#fb923c", "#dc2626", "#ea580c", "#d97706", "#fbbf24"],
-  forest:     ["#059669", "#10b981", "#34d399", "#6ee7b7", "#047857", "#065f46", "#14b8a6", "#2dd4bf"],
-  mono:       ["#94a3b8", "#cbd5e1", "#64748b", "#475569", "#334155", "#1e293b", "#e2e8f0", "#f1f5f9"],
+  // Premium default — coordinated but varied. Base blue, secondary purple, then
+  // warm/cool alternation. Saturation dialed to ~70% so nothing screams.
+  default:    ["#2563EB", "#A855F7", "#10B981", "#F59E0B", "#06B6D4", "#EC4899", "#6366F1", "#14B8A6"],
+  ocean:      ["#0EA5E9", "#06B6D4", "#14B8A6", "#22D3EE", "#0284C7", "#0891B2", "#0D9488", "#155E75"],
+  sunset:     ["#F97316", "#EF4444", "#EC4899", "#F59E0B", "#DC2626", "#DB2777", "#D97706", "#BE123C"],
+  forest:     ["#22C55E", "#16A34A", "#10B981", "#4ADE80", "#059669", "#15803D", "#84CC16", "#65A30D"],
+  mono:       ["#64748B", "#94A3B8", "#475569", "#CBD5E1", "#334155", "#E2E8F0", "#1E293B", "#F1F5F9"],
   colorblind: ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#F0E442", "#000000"],
 };
 
@@ -322,10 +324,37 @@ export default function ResultsChart({
   const chartRef = useRef(null);
   const resolvedTheme = useStore((s) => s.resolvedTheme);
 
-  // Theme-aware chart colors (ECharts needs raw hex, not CSS vars)
+  // Theme-aware chart colors — premium tuned. Grid = nearly invisible dashed.
+  // Axis labels muted. Tooltip reads as a premium glass pill.
   const chartColors = useMemo(() => resolvedTheme === 'light'
-    ? { axis: '#6b7280', grid: '#e5e7eb', tooltipBg: '#ffffff', tooltipBorder: '#d1d5db', tooltipText: '#1f2937', pieBorder: '#ffffff', nameText: '#6b7280', labelText: '#6b7280', treemapBorder: '#f8fafc', axisLine: '#d1d5db', legendText: '#6b7280', splitAreaLine: '#e5e7eb' }
-    : { axis: '#94a3b8', grid: '#1e293b', tooltipBg: '#0f172a', tooltipBorder: '#334155', tooltipText: '#e2e8f0', pieBorder: '#111827', nameText: '#94a3b8', labelText: '#9ca3af', treemapBorder: '#0B1120', axisLine: '#1e293b', legendText: '#9ca3af', splitAreaLine: '#1e293b' },
+    ? {
+        axis: '#64748B',          // slate-500 — readable on white without being dark
+        grid: 'rgba(15,23,42,0.06)', // near-invisible split lines
+        tooltipBg: 'rgba(255,255,255,0.96)',
+        tooltipBorder: 'rgba(15,23,42,0.08)',
+        tooltipText: '#0F172A',
+        pieBorder: '#FFFFFF',
+        nameText: '#94A3B8',
+        labelText: '#64748B',
+        treemapBorder: '#F8FAFC',
+        axisLine: 'rgba(15,23,42,0.12)',
+        legendText: '#64748B',
+        splitAreaLine: 'rgba(15,23,42,0.04)',
+      }
+    : {
+        axis: '#94A3B8',          // slate-400 — muted on vantablack
+        grid: 'rgba(148,163,184,0.08)',
+        tooltipBg: 'rgba(15,15,20,0.92)',
+        tooltipBorder: 'rgba(255,255,255,0.08)',
+        tooltipText: '#F1F5F9',
+        pieBorder: 'rgba(6,6,14,0.9)',
+        nameText: '#94A3B8',
+        labelText: '#94A3B8',
+        treemapBorder: 'rgba(6,6,14,0.9)',
+        axisLine: 'rgba(148,163,184,0.18)',
+        legendText: '#94A3B8',
+        splitAreaLine: 'rgba(148,163,184,0.06)',
+      },
   [resolvedTheme]);
 
   // Coerce data
@@ -492,20 +521,51 @@ export default function ResultsChart({
   /* ── ECharts option builder ── */
   const echartsOption = useMemo(() => {
     const labels = chartData.map((r) => r[labelCol]);
-    const axisLabelStyle = { color: chartColors.axis, fontSize: fmt.typography.axisFontSize };
-    const axisLineStyle = { lineStyle: { color: chartColors.axisLine } };
+    // Premium axis label — Plus Jakarta Sans, slightly smaller, muted color
+    const axisLabelStyle = {
+      color: chartColors.axis,
+      fontSize: fmt.typography.axisFontSize || 10.5,
+      fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+      fontWeight: 500,
+    };
+    const axisLineStyle = { lineStyle: { color: chartColors.axisLine, width: 1 } };
+    // Split lines dashed, barely-there — let content breathe
     const splitLineStyle = showGrid && fmt.grid.show
-      ? { show: true, lineStyle: { color: fmt.grid.color, type: fmt.grid.style === 'dotted' ? 'dotted' : fmt.grid.style === 'dashed' ? 'dashed' : 'solid' } }
+      ? {
+          show: true,
+          lineStyle: {
+            color: fmt.grid.color || chartColors.grid,
+            type: fmt.grid.style === 'dotted' ? 'dotted' : 'dashed',
+            width: 1,
+          },
+        }
       : { show: false };
 
+    // Premium tooltip — glass pill with rounded corners, deep shadow, Outfit font.
+    // appendToBody escapes tile overflow: hidden so tooltips are never clipped
+    // by dashboard tile boundaries.
     const tooltipCfg = fmt.tooltip.show ? {
       trigger: ['pie', 'donut', 'treemap', 'scatter'].includes(chartType) ? 'item' : 'axis',
+      appendToBody: true,
+      confine: false,
       backgroundColor: chartColors.tooltipBg,
       borderColor: chartColors.tooltipBorder,
-      borderRadius: 8,
-      padding: [10, 14],
-      textStyle: { color: chartColors.tooltipText, fontSize: 12, fontFamily: "'Inter', system-ui, sans-serif" },
-      extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.12);',
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: [12, 16],
+      textStyle: {
+        color: chartColors.tooltipText,
+        fontSize: 11.5,
+        fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+        fontWeight: 500,
+      },
+      extraCssText:
+        'z-index: 9999 !important; box-shadow: 0 22px 44px -18px rgba(0,0,0,0.50), 0 6px 14px -8px rgba(0,0,0,0.30); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); pointer-events: none;',
+      axisPointer: {
+        type: 'line',
+        lineStyle: { color: chartColors.axisLine, width: 1, type: 'dashed' },
+        crossStyle: { color: chartColors.axisLine },
+      },
       ...(fmt.tooltip.template ? {
         formatter: (params) => {
           const row = Array.isArray(params) ? params[0]?.data : params.data;
@@ -524,7 +584,16 @@ export default function ResultsChart({
     // and each chip is clickable to toggle visibility.
     const legendCfg = (embedded && showLegend && fmt.legend.show && displayMeasures.length > 1) ? {
       show: true,
-      textStyle: { color: fmt.legend.color || chartColors.legendText, fontSize: fmt.legend.fontSize || 11 },
+      textStyle: {
+        color: fmt.legend.color || chartColors.legendText,
+        fontSize: fmt.legend.fontSize || 10.5,
+        fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+        fontWeight: 500,
+      },
+      itemGap: 18,
+      itemWidth: 14,
+      itemHeight: 8,
+      icon: 'roundRect',
       ...(fmt.legend.position === 'top' ? { top: 0 } : fmt.legend.position === 'left' ? { left: 0, orient: 'vertical' } : fmt.legend.position === 'right' ? { right: 0, orient: 'vertical' } : { bottom: 0 }),
     } : { show: false };
 
@@ -542,7 +611,7 @@ export default function ResultsChart({
       formatter: (p) => formatTickValue(p.value, fmt.dataLabels.format, null),
     } : { show: false };
 
-    const baseGrid = { left: 60, right: 20, top: 30, bottom: 40 };
+    const baseGrid = { left: 52, right: 28, top: 24, bottom: 36, containLabel: true };
 
     switch (chartType) {
       case "bar":

@@ -28,13 +28,47 @@ export const TOKENS = {
   warning: 'var(--status-warning)',
   danger: 'var(--status-danger)',
   info: '#06b6d4',
-  radius: { sm: '6px', md: '10px', lg: '14px', xl: '18px' },
+  radius: { sm: '6px', md: '10px', lg: '14px', xl: '18px', pill: '9999px' },
   transition: '200ms cubic-bezier(0.16,1,0.3,1)',
-  // Premium tile defaults
+  // Fonts
+  fontDisplay: "'Outfit', system-ui, sans-serif",
+  fontBody: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+  fontMono: "'JetBrains Mono', ui-monospace, monospace",
+  // Premium tile defaults — theme-aware via CSS vars
   tile: {
-    shadow: '0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04)',
-    shadowHover: '0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06)',
+    // Background: glass card that adapts to theme
+    surface: 'var(--glass-bg-card)',
+    surfaceHover: 'var(--glass-bg-card-hover)',
+    // Border: hairline that reads on both themes
+    border: 'var(--glass-border)',
+    borderHover: 'var(--glass-border-hover)',
+    // Shadow stack — base + hover
+    shadow:
+      '0 1px 0 var(--glass-highlight) inset, 0 22px 44px -28px var(--shadow-deep), 0 6px 14px -10px var(--shadow-soft)',
+    shadowHover:
+      '0 1px 0 var(--glass-highlight) inset, 0 30px 56px -24px var(--shadow-deep), 0 10px 22px -12px var(--shadow-mid)',
+    // Geometry
+    radius: 20,
+    innerRadius: 17, // radius - border width - pad
+    headerHeight: 44,
+    headerPad: '13px 16px',
+    bodyPad: '4px 14px 14px',
+    // Typography
     headerFont: "'Outfit', system-ui, sans-serif",
+    titleSize: 14,
+    titleWeight: 700,
+    titleLetterSpacing: '-0.018em',
+    eyebrowSize: 9,
+    eyebrowLetterSpacing: '0.22em',
+  },
+  // KPI-specific premium tokens
+  kpi: {
+    valueFontSize: 40,
+    valueFontWeight: 800,
+    valueLetterSpacing: '-0.035em',
+    labelFontSize: 9,
+    labelLetterSpacing: '0.22em',
+    pad: '22px 24px 20px',
   },
 };
 

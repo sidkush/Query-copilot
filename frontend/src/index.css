@@ -106,6 +106,18 @@
   --overlay-subtle: rgba(255, 255, 255, 0.05);
   --overlay-light: rgba(255, 255, 255, 0.08);
   --overlay-medium: rgba(255, 255, 255, 0.12);
+
+  /* Premium surface tokens — used by inline React styles via var(--...).
+     Dark theme: translucent-white on near-black. */
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --shadow-deep: rgba(0, 0, 0, 0.55);
+  --shadow-mid: rgba(0, 0, 0, 0.32);
+  --shadow-soft: rgba(0, 0, 0, 0.22);
+  --surface-glass-soft: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.010));
+  --surface-glass-subtle: rgba(255, 255, 255, 0.035);
+  --surface-glass-strong: rgba(255, 255, 255, 0.08);
+  --surface-input: rgba(255, 255, 255, 0.03);
+  --divider-subtle: rgba(148, 163, 184, 0.08);
 }
 
 /* ── Light theme overrides ── */
@@ -179,6 +191,19 @@
   --overlay-subtle: rgba(0, 0, 0, 0.03);
   --overlay-light: rgba(0, 0, 0, 0.04);
   --overlay-medium: rgba(0, 0, 0, 0.06);
+
+  /* Light-theme premium surface tokens — boosted contrast so premium shells
+     read clearly on near-white backgrounds. Shadows are slate-tinted with
+     more depth; surfaces lean warmer so they separate from the page. */
+  --glass-highlight: rgba(255, 255, 255, 0.98);
+  --shadow-deep: rgba(15, 23, 42, 0.24);
+  --shadow-mid: rgba(15, 23, 42, 0.14);
+  --shadow-soft: rgba(15, 23, 42, 0.08);
+  --surface-glass-soft: linear-gradient(180deg, rgba(15, 23, 42, 0.055), rgba(15, 23, 42, 0.015));
+  --surface-glass-subtle: rgba(15, 23, 42, 0.045);
+  --surface-glass-strong: rgba(15, 23, 42, 0.08);
+  --surface-input: rgba(255, 255, 255, 0.70);
+  --divider-subtle: rgba(15, 23, 42, 0.10);
 }
 
 /* ── Tailwind theme integration ── */
@@ -287,6 +312,56 @@ h3, .text-3xl { letter-spacing: -0.02em; }
   contain: layout paint;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   .page-hero — shared editorial page header pattern
+   Used across Profile / Account / Billing / Schema secondary
+   pages. Eyebrow + display title + subtitle, theme-aware.
+   ══════════════════════════════════════════════════════════════ */
+.page-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.page-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+.page-hero__title {
+  font-size: clamp(26px, 4vw, 38px);
+  line-height: 1.0;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-family: 'Outfit', system-ui, sans-serif;
+  letter-spacing: -0.035em;
+  margin: 0;
+}
+.page-hero__subtitle {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  font-family: 'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif;
+  letter-spacing: -0.005em;
+  line-height: 1.55;
+  max-width: 560px;
+  margin: 2px 0 0;
+}
+.page-hero-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: clamp(28px, 3.6vw, 48px) clamp(20px, 3.2vw, 40px) clamp(20px, 2.4vw, 32px);
+}
+
 /* ── Theme-aware chat input pill ── */
 .chat-input-pill {
   background: var(--glass-bg-card-elevated);
@@ -355,44 +430,848 @@ h3, .text-3xl { letter-spacing: -0.02em; }
   box-shadow: 0 0 16px rgba(0, 0, 0, 0.06);
 }
 
-/* ── Agent user bubble — subtle blue tint ── */
+/* ── Agent user bubble — restrained blue tint, softer shadows ── */
 .agent-bubble-user {
-  background: rgba(37, 99, 235, 0.09);
-  border: 1px solid rgba(37, 99, 235, 0.16);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.05));
+  border: 1px solid rgba(37, 99, 235, 0.18);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.05) inset,
-    0 12px 28px -14px rgba(37, 99, 235, 0.25);
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 14px 28px -18px rgba(37, 99, 235, 0.30),
+    0 3px 10px -6px rgba(37, 99, 235, 0.15);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
 }
 :root.light .agent-bubble-user {
-  background: rgba(37, 99, 235, 0.06);
-  border: 1px solid rgba(37, 99, 235, 0.12);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.03));
+  border: 1px solid rgba(37, 99, 235, 0.14);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 10px 22px -14px rgba(37, 99, 235, 0.18);
+    0 1px 0 rgba(255, 255, 255, 0.92) inset,
+    0 12px 24px -18px rgba(37, 99, 235, 0.20),
+    0 3px 8px -6px rgba(37, 99, 235, 0.12);
 }
 
-/* ── Agent assistant bubble ── */
+/* ── Agent assistant bubble — softened vantablack glass ── */
 .agent-bubble-assistant {
   background: var(--glass-bg-card);
   border: 1px solid var(--glass-border);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 18px 36px -22px rgba(0, 0, 0, 0.35);
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 18px 38px -24px rgba(0, 0, 0, 0.45),
+    0 4px 12px -8px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
 }
 :root.light .agent-bubble-assistant {
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 14px 30px -20px rgba(15, 23, 42, 0.12);
+    0 1px 0 rgba(255, 255, 255, 0.92) inset,
+    0 14px 28px -22px rgba(15, 23, 42, 0.12),
+    0 3px 10px -6px rgba(15, 23, 42, 0.06);
 }
 
-/* ── Agent plan card ── */
-.agent-plan-card {
-  background: rgba(37, 99, 235, 0.06);
+/* ── Agent panel mobile full-sheet override ──
+   Below md:768, any dock mode expands to a true bottom-sheet covering the
+   full width with rounded top corners. Avoids cramped panels on phones. */
+@media (max-width: 768px) {
+  .agent-panel-shell {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 85dvh !important;
+    max-height: 85dvh !important;
+    border-radius: 20px 20px 0 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    border-top: 1px solid var(--border-default) !important;
+    z-index: 60 !important;
+  }
+}
+
+/* ── Agent markdown table — premium glass shell, scrollable, sticky head ── */
+.agent-table-shell {
+  margin: 12px 0;
+  border-radius: 14px;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01));
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.05) inset,
+    0 18px 36px -24px rgba(0,0,0,0.45);
+  overflow: hidden;
+}
+:root.light .agent-table-shell {
+  background: linear-gradient(180deg, rgba(15,23,42,0.04), rgba(15,23,42,0.01));
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.95) inset,
+    0 14px 28px -18px rgba(15,23,42,0.16);
+}
+.agent-table-scroll {
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 13px;
+  background: var(--glass-bg-card);
+  /* No mask here — tables get scrollbar indication instead. A right-edge
+     fade would clip the rightmost cell when the user scrolls fully right. */
+  scrollbar-gutter: stable;
+}
+.agent-table-scroll::-webkit-scrollbar { height: 6px; }
+.agent-table-scroll::-webkit-scrollbar-track { background: transparent; }
+.agent-table-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148,163,184,0.22);
+  border-radius: 9999px;
+}
+.agent-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148,163,184,0.42);
+}
+.agent-table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: 'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif;
+  font-size: 11.5px;
+}
+.agent-table-head th {
+  padding: 10px 14px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  font-family: 'Outfit', system-ui, sans-serif;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-default);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, var(--glass-bg-card), rgba(15,15,25,0.92));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+:root.light .agent-table-head th {
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.92));
+}
+.agent-table-row {
+  transition: background 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.agent-table tbody .agent-table-row:nth-child(even) {
+  background: rgba(255,255,255,0.018);
+}
+:root.light .agent-table tbody .agent-table-row:nth-child(even) {
+  background: rgba(15,23,42,0.025);
+}
+.agent-table-row:hover {
+  background: rgba(37,99,235,0.06) !important;
+}
+.agent-table td {
+  padding: 9px 14px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif;
+  vertical-align: top;
+  letter-spacing: -0.005em;
+  white-space: normal;
+  max-width: 220px;
+  border-bottom: 1px solid rgba(148,163,184,0.06);
+}
+.agent-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.agent-table td[data-numeric="true"] {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  letter-spacing: 0;
+}
+.agent-table td:first-child {
+  font-weight: 600;
+  color: var(--text-primary);
+  position: sticky;
+  left: 0;
+  background: var(--glass-bg-card);
+  box-shadow: 1px 0 0 rgba(148,163,184,0.08);
+}
+.agent-table-row:hover td:first-child {
+  background: rgba(37,99,235,0.06);
+}
+
+/* ── Agent result markdown scroll polish ── */
+.agent-result-md::-webkit-scrollbar { width: 6px; }
+.agent-result-md::-webkit-scrollbar-track { background: transparent; }
+.agent-result-md::-webkit-scrollbar-thumb {
+  background: rgba(148,163,184,0.22);
+  border-radius: 9999px;
+}
+.agent-result-md::-webkit-scrollbar-thumb:hover {
+  background: rgba(148,163,184,0.42);
+}
+
+/* ── Chat page "editorial confident" — broadsheet rhythm ──
+   Larger measure, tighter heading tracking, optional drop-cap on the first
+   paragraph of long answers. Applied via .chat-md-comfy wrapper.
+*/
+.chat-md-comfy {
+  font-family: 'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif;
+}
+
+/* Drop-cap on first paragraph — only applied via .chat-md-comfy--longform
+   modifier set by Chat.jsx when message body is substantial (>240 chars).
+   Short one-line replies skip this treatment so they don't get a comically
+   large initial letter. */
+.chat-md-comfy--longform > div > div:first-child::first-letter {
+  float: left;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: clamp(38px, 5.2vw, 58px);
+  font-weight: 800;
+  line-height: 0.88;
+  margin: 6px 10px 0 0;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+}
+@media (max-width: 640px) {
+  .chat-md-comfy--longform > div > div:first-child::first-letter {
+    font-size: 36px;
+    margin: 4px 8px 0 0;
+  }
+}
+.chat-md-comfy { max-width: 68ch; }
+@media (max-width: 768px) { .chat-md-comfy { max-width: 100%; } }
+
+/* Chat page comfy markdown — bigger cells, looser type, hero shadows */
+.chat-md-comfy .agent-table {
+  font-size: 13px;
+}
+.chat-md-comfy .agent-table-head th {
+  padding: 12px 16px;
+  font-size: 10px;
+  letter-spacing: 0.20em;
+}
+.chat-md-comfy .agent-table td {
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 320px;
+}
+.chat-md-comfy .agent-table-shell {
+  margin: 16px 0;
+  border-radius: 18px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.06) inset,
+    0 28px 56px -28px rgba(0,0,0,0.55),
+    0 8px 18px -10px rgba(0,0,0,0.30);
+}
+:root.light .chat-md-comfy .agent-table-shell {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.95) inset,
+    0 22px 44px -24px rgba(15,23,42,0.18),
+    0 6px 14px -8px rgba(15,23,42,0.10);
+}
+.chat-md-comfy .agent-table-scroll {
+  border-radius: 17px;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ML Engine — premium pipeline + stage editor primitives
+   ════════════════════════════════════════════════════════════════ */
+
+/* Pipeline rail — outer gradient ring + inner glass core (double bezel) */
+.ml-pipeline-rail {
+  position: relative;
+  padding: 1px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015));
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 22px 48px -28px rgba(0,0,0,0.42),
+    0 6px 14px -10px rgba(0,0,0,0.22);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+:root.light .ml-pipeline-rail {
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.10), rgba(168, 85, 247, 0.04) 50%, rgba(15, 23, 42, 0.01));
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 28px 56px -24px rgba(37, 99, 235, 0.26),
+    0 10px 22px -12px rgba(15, 23, 42, 0.12);
+}
+:root.light .ml-pipeline-rail__inner {
+  background: rgba(255, 255, 255, 0.82);
+}
+:root.light .ml-pipeline-rail__inner::before {
+  background:
+    radial-gradient(60% 80% at 0% 0%, rgba(37, 99, 235, 0.10), transparent 60%),
+    radial-gradient(60% 80% at 100% 100%, rgba(168, 85, 247, 0.08), transparent 60%);
+  opacity: 0.85;
+}
+.ml-pipeline-rail__inner {
+  position: relative;
+  padding: 28px 28px 20px;
+  border-radius: 30.5px;
+  background: var(--glass-bg-card);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  overflow: hidden;
+}
+.ml-pipeline-rail__inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 80% at 0% 0%, rgba(96,165,250,0.06), transparent 60%),
+    radial-gradient(60% 80% at 100% 100%, rgba(96,165,250,0.03), transparent 60%);
+  opacity: 0.55;
+}
+
+/* Pipeline track — horizontal scroll, no mid-flow wrapping ever.
+   Preserves the spatial metaphor of the stage sequence.
+   Centered by default so the sequence sits in the visual middle of the
+   rail. The flex-wrapper stays `inline-flex` + `margin: 0 auto` so the
+   track actually centers even with `overflow-x: auto`.
+   NOTE: top/bottom padding is 14px so the CheckBadge (at -6px inset) has
+   room to render — browsers silently promote overflow-y: visible to auto
+   when overflow-x is set, which would clip the badge otherwise. */
+.ml-pipeline-track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 14px 18px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.22) transparent;
+  position: relative;
+  z-index: 1;
+}
+.ml-pipeline-track > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+.ml-pipeline-track::-webkit-scrollbar {
+  height: 6px;
+}
+.ml-pipeline-track::-webkit-scrollbar-track { background: transparent; }
+.ml-pipeline-track::-webkit-scrollbar-thumb {
+  background: rgba(148,163,184,0.22);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.ml-pipeline-track::-webkit-scrollbar-thumb:hover {
+  background: rgba(148,163,184,0.42);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+/* When sequence can't fit, switch to justify-start so horizontal scroll
+   starts from the first stage rather than centering and cutting both sides.
+   Centering below uses a scroll-snap start alignment. */
+@media (max-width: 1100px) {
+  .ml-pipeline-track {
+    justify-content: flex-start;
+    padding: 14px 16px;
+  }
+}
+
+/* Pipeline reset button — premium glass pill */
+.ml-pipeline-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background: var(--surface-glass-subtle);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  font-family: 'Outfit', system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 1px 0 var(--glass-highlight) inset, 0 6px 14px -8px var(--shadow-soft);
+  transition:
+    background 380ms cubic-bezier(0.32,0.72,0,1),
+    color 380ms cubic-bezier(0.32,0.72,0,1),
+    border-color 380ms cubic-bezier(0.32,0.72,0,1),
+    transform 380ms cubic-bezier(0.32,0.72,0,1),
+    box-shadow 380ms cubic-bezier(0.32,0.72,0,1);
+  flex-shrink: 0;
+}
+.ml-pipeline-reset:hover {
+  background: linear-gradient(180deg, rgba(239,68,68,0.18), rgba(239,68,68,0.06));
+  color: #f87171;
+  border-color: rgba(239,68,68,0.42);
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset, 0 14px 28px -12px rgba(239,68,68,0.42);
+}
+.ml-pipeline-reset:active {
+  transform: translateY(0) scale(0.97);
+}
+.ml-pipeline-reset[data-armed="true"] {
+  background: linear-gradient(180deg, rgba(239,68,68,0.26), rgba(239,68,68,0.10));
+  color: #fff;
+  border-color: rgba(239,68,68,0.60);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.15) inset,
+    0 18px 36px -14px rgba(239,68,68,0.55),
+    0 0 0 4px rgba(239,68,68,0.16);
+  animation: armedPulse 1.8s cubic-bezier(0.32,0.72,0,1) infinite;
+}
+
+.ml-model-delete[data-armed="true"] {
+  opacity: 1 !important;
+  transform: translateX(0) !important;
+  background: linear-gradient(180deg, rgba(239,68,68,0.28), rgba(239,68,68,0.12)) !important;
+  color: #fff !important;
+  border-color: rgba(239,68,68,0.60) !important;
+  box-shadow:
+    0 10px 24px -10px rgba(239,68,68,0.55),
+    0 0 0 3px rgba(239,68,68,0.16);
+  animation: armedPulse 1.8s cubic-bezier(0.32,0.72,0,1) infinite;
+}
+
+.agent-overflow-row[data-armed="true"] {
+  background: linear-gradient(180deg, rgba(239,68,68,0.18), rgba(239,68,68,0.06)) !important;
+  color: #f87171 !important;
+  animation: armedPulse 1.8s cubic-bezier(0.32,0.72,0,1) infinite;
+}
+.agent-overflow-row[data-armed="true"] .agent-overflow-row__icon {
+  color: #f87171 !important;
+}
+
+@keyframes armedPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.28); }
+  50%      { box-shadow: 0 0 0 5px rgba(239,68,68,0.00); }
+}
+
+/* Stage card focus ring + active-state glow */
+.ml-stage-card {
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+}
+.ml-stage-card:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(37,99,235,0.28),
+    0 0 0 5px rgba(37,99,235,0.12),
+    0 22px 44px -16px rgba(37,99,235,0.42);
+}
+.ml-stage-card[data-active="true"] {
+  transform: translateY(-2px);
+}
+
+/* Light theme — stage card tonal overrides.
+   Each status state gets a distinct warm-white / tinted surface so cards
+   read clearly against the near-white page. Idle was the worst offender
+   (pure white on pure white). Active/complete/error keep their color
+   identity but gain deeper shadows and richer gradients. */
+:root.light .ml-stage-card[data-status="idle"] {
+  background: linear-gradient(180deg, #FFFFFF, #F8FAFC) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 14px 28px -18px rgba(15, 23, 42, 0.18),
+    0 4px 10px -8px rgba(15, 23, 42, 0.10) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+:root.light .ml-stage-card[data-status="idle"]:hover {
+  border-color: rgba(37, 99, 235, 0.42) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 22px 44px -18px rgba(37, 99, 235, 0.32),
+    0 8px 18px -10px rgba(15, 23, 42, 0.14) !important;
+}
+:root.light .ml-stage-card[data-status="active"] {
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.14), rgba(37, 99, 235, 0.05)) !important;
+  border-color: rgba(37, 99, 235, 0.55) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(37, 99, 235, 0.18),
+    0 22px 44px -16px rgba(37, 99, 235, 0.32),
+    0 0 0 5px rgba(37, 99, 235, 0.08) !important;
+}
+:root.light .ml-stage-card[data-status="complete"] {
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.03)) !important;
+  border-color: rgba(34, 197, 94, 0.48) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(34, 197, 94, 0.18),
+    0 20px 38px -18px rgba(34, 197, 94, 0.32) !important;
+}
+:root.light .ml-stage-card[data-status="error"] {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.03)) !important;
+  border-color: rgba(239, 68, 68, 0.50) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(239, 68, 68, 0.18),
+    0 20px 38px -18px rgba(239, 68, 68, 0.32) !important;
+}
+:root.light .ml-stage-card[data-active="true"] {
+  border-color: rgba(37, 99, 235, 0.55) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 0 0 4px rgba(37, 99, 235, 0.14),
+    0 22px 44px -18px rgba(37, 99, 235, 0.38) !important;
+}
+
+/* Detail panel — outer double-bezel shell, neutral */
+.ml-detail-shell {
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.015));
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 26px 54px -30px rgba(0,0,0,0.48),
+    0 8px 16px -12px rgba(0,0,0,0.25);
+}
+:root.light .ml-detail-shell {
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.08), rgba(168, 85, 247, 0.03) 50%, rgba(15, 23, 42, 0.01));
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 26px 54px -24px rgba(37, 99, 235, 0.22),
+    0 10px 22px -12px rgba(15, 23, 42, 0.14);
+}
+:root.light .ml-detail-inner {
+  background: rgba(255, 255, 255, 0.88) !important;
+}
+.ml-detail-inner {
+  border-radius: 22px !important;
+}
+.ml-detail-body {
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.28) transparent;
+}
+.ml-detail-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.ml-detail-body::-webkit-scrollbar-track { background: transparent; }
+.ml-detail-body::-webkit-scrollbar-thumb {
+  background: rgba(148,163,184,0.22);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.ml-detail-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(148,163,184,0.42);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Detail panel — input/select focus halo */
+.ml-detail-body input:focus,
+.ml-detail-body select:focus,
+.ml-detail-body textarea:focus {
+  border-color: rgba(37,99,235,0.42) !important;
+  background: rgba(37,99,235,0.06) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.07) inset,
+    0 0 0 4px rgba(37,99,235,0.12) !important;
+}
+
+/* Detail panel — button hover physics */
+.ml-detail-body button[type="button"]:hover,
+.ml-detail-body button:not([type]):hover {
+  filter: brightness(1.08);
+}
+
+/* Model card delete button — invisible until card hover */
+.ml-model-delete {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(239,68,68,0.32);
+  background: rgba(239,68,68,0.08);
+  color: #f87171;
+  cursor: pointer;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: 'Outfit', system-ui, sans-serif;
+  opacity: 0;
+  transform: translateX(6px);
+  transition:
+    opacity 380ms cubic-bezier(0.32,0.72,0,1),
+    transform 380ms cubic-bezier(0.32,0.72,0,1),
+    background 380ms cubic-bezier(0.32,0.72,0,1);
+}
+.ml-model-card:hover .ml-model-delete {
+  opacity: 1;
+  transform: translateX(0);
+}
+.ml-model-delete:hover {
+  background: rgba(239,68,68,0.18);
+}
+
+/* ML Engine page ambient mesh — gives depth on both themes.
+   Light theme uses vivid warm accents (blue + purple + cyan orbs) so the
+   page reads rich rather than flat-white. Dark theme inherits from the
+   existing page chrome (opacity 0 in dark). */
+.ml-engine-scroll {
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148,163,184,0.22) transparent;
+}
+.ml-engine-scroll::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(1100px 620px at 8% -4%, rgba(37, 99, 235, 0.18), transparent 60%),
+    radial-gradient(900px 540px at 96% 18%, rgba(168, 85, 247, 0.16), transparent 60%),
+    radial-gradient(780px 500px at 52% 72%, rgba(14, 165, 233, 0.12), transparent 60%),
+    radial-gradient(640px 420px at 24% 96%, rgba(34, 197, 94, 0.08), transparent 60%);
+  opacity: 0;
+  transition: opacity 520ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+:root.light .ml-engine-scroll::before {
+  opacity: 1;
+}
+/* Light theme — page bg gets a subtle warm tint so nothing reads pure white */
+:root.light .ml-engine-scroll {
+  background:
+    linear-gradient(180deg, #F5F7FB 0%, #EEF2F9 100%);
+}
+.ml-engine-scroll > * {
+  position: relative;
+  z-index: 1;
+}
+.ml-engine-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.ml-engine-scroll::-webkit-scrollbar-track { background: transparent; }
+.ml-engine-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148,163,184,0.22);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.ml-engine-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148,163,184,0.42);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Mobile collapse — rail compresses below md */
+@media (max-width: 768px) {
+  .ml-pipeline-rail__inner { padding: 20px 16px 16px; }
+}
+
+/* ── Asymmetric bento grid for trained models ── */
+.ml-model-bento {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 20px;
+}
+.ml-model-bento__cell[data-span="wide"] {
+  grid-column: span 3;
+}
+.ml-model-bento__cell[data-span="narrow"] {
+  grid-column: span 2;
+}
+.ml-model-bento__cell > * {
+  height: 100%;
+}
+@media (max-width: 1200px) {
+  .ml-model-bento {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .ml-model-bento__cell[data-span="wide"] { grid-column: span 2; }
+  .ml-model-bento__cell[data-span="narrow"] { grid-column: span 2; }
+}
+@media (max-width: 768px) {
+  .ml-model-bento {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .ml-model-bento__cell[data-span="wide"] { grid-column: span 1; }
+  .ml-model-bento__cell[data-span="narrow"] { grid-column: span 1; }
+}
+
+/* Light theme — WorkflowBar needs more punch. Override via className. */
+:root.light .ml-workflow-bar {
+  background: linear-gradient(180deg, #FFFFFF, #F8FAFC) !important;
+  border: 1px solid rgba(37, 99, 235, 0.18) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 22px 44px -20px rgba(37, 99, 235, 0.22),
+    0 6px 14px -8px rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Light theme — WorkflowBar pill buttons: warmer surface + visible edge */
+:root.light .ml-workflow-bar button {
+  background: rgba(15, 23, 42, 0.035) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+:root.light .ml-workflow-bar button:hover {
+  background: rgba(37, 99, 235, 0.10) !important;
+  border-color: rgba(37, 99, 235, 0.32) !important;
+}
+
+/* Light theme — model cards need proper depth */
+:root.light .ml-model-card {
+  background: linear-gradient(180deg, #FFFFFF, #F8FAFC) !important;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+}
+:root.light .ml-model-card:hover {
+  border-color: rgba(37, 99, 235, 0.35) !important;
+}
+
+/* Light theme — pipeline reset button pop */
+:root.light .ml-pipeline-reset {
+  background: #FFFFFF;
+  border-color: rgba(15, 23, 42, 0.14);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 4px 10px -4px rgba(15, 23, 42, 0.12);
+}
+
+/* Light theme — connector arrow head more visible against tinted bg */
+:root.light .ml-pipeline-rail__inner {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+/* Light theme — stage chip (status pill at card bottom) */
+:root.light .ml-stage-card[data-status="idle"] .ml-stage-chip,
+:root.light .ml-stage-card[data-status="idle"] span[style*="borderRadius: 9999px"] {
+  /* fallback — handled inline via config.chipBg */
+}
+
+/* ── Hero instrument strip — mono stage sequence under "ML Engine" ── */
+.ml-hero-strip {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 8px;
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.ml-hero-strip__item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: color 380ms cubic-bezier(0.32, 0.72, 0, 1), border-color 380ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+:root.light .ml-hero-strip__item {
+  background: linear-gradient(180deg, #FFFFFF, #F1F5F9);
   border: 1px solid rgba(37, 99, 235, 0.15);
+  color: #475569;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 1) inset, 0 2px 6px -2px rgba(15, 23, 42, 0.08);
+}
+.ml-hero-strip__sep {
+  display: inline-block;
+  width: 8px;
+  height: 1px;
+  margin: 0 2px;
+  background: rgba(148, 163, 184, 0.28);
+}
+:root.light .ml-hero-strip__sep { background: rgba(15, 23, 42, 0.18); }
+@media (max-width: 900px) {
+  .ml-hero-strip { display: none; }
+}
+
+/* ── Live thinking-card "Live preview" pulse indicator ── */
+.agent-thinking-card {
+  position: relative;
+  overflow: hidden;
+}
+.agent-thinking-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(37,99,235,0.6) 30%,
+    rgba(96,165,250,0.9) 50%,
+    rgba(37,99,235,0.6) 70%,
+    transparent 100%);
+  animation: thinkingTopShimmer 2.4s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+  background-size: 200% 100%;
+}
+@keyframes thinkingTopShimmer {
+  0%   { background-position: -100% 0; opacity: 0.4; }
+  50%  { opacity: 1; }
+  100% { background-position: 200% 0; opacity: 0.4; }
+}
+.agent-thinking-pulse {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.agent-thinking-pulse__dot {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #60a5fa, #2563eb);
+  box-shadow: 0 0 8px rgba(37,99,235,0.7);
+  animation: thinkingDotBeat 1.6s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+}
+.agent-thinking-pulse__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(37,99,235,0.55);
+  animation: thinkingRingPulse 1.6s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+}
+@keyframes thinkingDotBeat {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50%      { transform: scale(1.18); opacity: 1; }
+}
+@keyframes thinkingRingPulse {
+  0%   { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* ── Agent plan card — accent-tinted double bezel ── */
+.agent-plan-card {
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.10), rgba(37, 99, 235, 0.04)),
+    var(--glass-bg-card);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 22px 44px -24px rgba(37, 99, 235, 0.35),
+    0 4px 14px -8px rgba(37, 99, 235, 0.18);
 }
 :root.light .agent-plan-card {
-  background: rgba(37, 99, 235, 0.04);
-  border: 1px solid rgba(37, 99, 235, 0.12);
+  background: rgba(37, 99, 235, 0.05);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 14px 30px -18px rgba(37, 99, 235, 0.20);
 }
 
 /* ── Dashboard tile interaction states ── */
@@ -1197,32 +2076,79 @@ html { scroll-behavior: smooth; }
   transform: scaleX(1.4);
 }
 
-/* ── Dashboard tile — premium hover lift (overrides the old hover) ── */
+/* ══════════════════════════════════════════════════════════════
+   Dashboard tile — premium glass shell, theme-aware
+   Double-bezel effect via outer border + inner highlight.
+   Hover adds subtle lift + depth. Selected uses accent glow ring.
+   ══════════════════════════════════════════════════════════════ */
 .dashboard-tile {
+  position: relative;
   transition:
-    box-shadow 400ms cubic-bezier(0.32, 0.72, 0, 1),
-    transform 400ms cubic-bezier(0.32, 0.72, 0, 1),
-    border-color 400ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+    box-shadow 420ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 420ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 420ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+  will-change: transform;
+}
+/* Subtle top hairline highlight — "light from above" effect */
+.dashboard-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 14px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+  border-radius: 9999px;
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 1;
 }
 .dashboard-tile:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  border-color: var(--glass-border-hover) !important;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 24px 48px -24px rgba(0, 0, 0, 0.45),
-    0 8px 20px -8px rgba(37, 99, 235, 0.08) !important;
+    0 1px 0 var(--glass-highlight) inset,
+    0 34px 62px -26px var(--shadow-deep),
+    0 12px 24px -12px var(--shadow-mid),
+    0 0 0 1px rgba(37, 99, 235, 0.04) !important;
 }
-:root.light .dashboard-tile:hover {
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 24px 48px -24px rgba(15, 23, 42, 0.18),
-    0 6px 18px -6px rgba(37, 99, 235, 0.1) !important;
+.dashboard-tile:hover::before {
+  opacity: 0.9;
 }
 .dashboard-tile:active {
-  transform: translateY(-1px) scale(0.998);
+  transform: translateY(-1px) scale(0.997);
 }
+/* Selected — premium accent glow ring instead of outline rectangle */
 .dashboard-tile[data-selected="true"] {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  border-color: rgba(37, 99, 235, 0.42) !important;
+  box-shadow:
+    0 1px 0 var(--glass-highlight) inset,
+    0 0 0 4px rgba(37, 99, 235, 0.14),
+    0 34px 62px -26px var(--shadow-deep),
+    0 12px 24px -12px var(--shadow-mid) !important;
+}
+.dashboard-tile[data-selected="true"]::before {
+  opacity: 1;
+  background: linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.85), transparent);
+}
+
+/* KPI tile — slightly deeper inset for display typography breathing room */
+.dashboard-tile[data-kpi="true"] {
+  overflow: hidden;
+}
+
+/* Tile title typography — enforced via class so it wins over inline styles */
+.dashboard-tile .dashboard-tile__title {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  color: var(--text-primary);
+}
+
+/* Tile action button hover — magnetic lift */
+.dashboard-tile button[class*="w-7 h-7"]:hover {
+  background: var(--surface-glass-subtle);
+  color: var(--text-primary) !important;
 }
 
 /* ── Command palette overlay (⌘K) ── */
@@ -1922,30 +2848,39 @@ html { scroll-behavior: smooth; }
   border-color: rgba(6, 182, 212, 0.22);
 }
 
-/* Animated thinking dots — three pulsing dots, spring stagger */
+/* Animated thinking dots — premium glass pill, gradient dots */
 .agent-thinking {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.45rem 0.85rem;
+  gap: 0.6rem;
+  padding: 0.5rem 1rem;
   border-radius: 9999px;
-  background: var(--overlay-faint);
-  border: 1px solid var(--border-default);
+  background: var(--glass-bg-card);
+  border: 1px solid var(--glass-border);
   font-size: 12px;
-  color: var(--text-muted);
-  font-style: italic;
+  color: var(--text-secondary);
+  font-style: normal;
+  font-family: 'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 14px 30px -18px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
 }
 .agent-thinking__dots {
   display: inline-flex;
-  gap: 3px;
+  gap: 4px;
   align-items: center;
 }
 .agent-thinking__dots span {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
   border-radius: 9999px;
-  background: var(--text-muted);
-  animation: agentThinkingDot 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background: linear-gradient(180deg, var(--accent), rgba(37, 99, 235, 0.5));
+  animation: agentThinkingDot 1.4s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.45);
 }
 .agent-thinking__dots span:nth-child(2) { animation-delay: 0.18s; }
 .agent-thinking__dots span:nth-child(3) { animation-delay: 0.36s; }
@@ -2011,33 +2946,42 @@ html { scroll-behavior: smooth; }
   border-color: rgba(37, 99, 235, 0.3);
 }
 
-/* Premium quick-action chip used after results land */
+/* Premium quick-action chip — magnetic hover, soft glass face */
 .agent-quick-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 0.4rem 0.95rem;
+  gap: 0.5rem;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 0.5rem 1.05rem;
   border-radius: 9999px;
   background: var(--overlay-faint);
   border: 1px solid var(--border-default);
   color: var(--text-secondary);
   cursor: pointer;
+  font-family: 'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif;
+  letter-spacing: -0.005em;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 6px 14px -8px rgba(0, 0, 0, 0.30);
   transition:
-    background 300ms cubic-bezier(0.32, 0.72, 0, 1),
-    color 300ms cubic-bezier(0.32, 0.72, 0, 1),
-    border-color 300ms cubic-bezier(0.32, 0.72, 0, 1),
-    transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+    background 380ms cubic-bezier(0.32, 0.72, 0, 1),
+    color 380ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 380ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 380ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 380ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 .agent-quick-chip:hover {
-  background: var(--accent-glow);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.16), rgba(37, 99, 235, 0.06));
   color: var(--accent);
-  border-color: rgba(37, 99, 235, 0.25);
-  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.32);
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.10) inset,
+    0 14px 28px -14px rgba(37, 99, 235, 0.42);
 }
 .agent-quick-chip:active {
-  transform: translateY(0) scale(0.96);
+  transform: translateY(0) scale(0.97);
 }
 
 /* ── Workspace freeze overlay ──
@@ -2181,6 +3125,23 @@ html { scroll-behavior: smooth; }
   background: var(--accent-glow);
   color: var(--accent);
 }
+.agent-overflow-row:focus-visible {
+  outline: none;
+  background: var(--overlay-light);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.45) inset;
+}
+.agent-overflow-dock-btn:focus-visible {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+.ml-pipeline-reset:focus-visible,
+.ml-model-delete:focus-visible {
+  outline: none;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.10) inset,
+    0 0 0 3px rgba(37, 99, 235, 0.32);
+}
 .agent-overflow-row__icon {
   width: 14px;
   height: 14px;
@@ -2188,37 +3149,169 @@ html { scroll-behavior: smooth; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-muted);
+}
+.agent-overflow-row[data-active="true"] .agent-overflow-row__icon {
+  color: var(--accent);
+}
+.agent-overflow-row__hint {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.8;
+  flex-shrink: 0;
+  font-family: 'Outfit', system-ui, sans-serif;
 }
 
-/* Agent composer pill — same look as Chat input pill but tighter */
+/* Section headers inside Tools popover */
+.agent-overflow-section {
+  padding: 10px 10px 4px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: 'Outfit', system-ui, sans-serif;
+  opacity: 0.75;
+}
+.agent-overflow-section--sub {
+  padding-top: 6px;
+  opacity: 0.55;
+}
+.agent-overflow-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: linear-gradient(90deg, transparent, var(--border-default), transparent);
+}
+
+/* Dock position grid inside Tools popover */
+.agent-overflow-dock-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px 6px 2px;
+}
+.agent-overflow-dock-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  background: var(--surface-glass-subtle);
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'Outfit', system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    background 280ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 280ms cubic-bezier(0.32, 0.72, 0, 1),
+    color 280ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.agent-overflow-dock-btn:hover {
+  background: var(--overlay-light);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.agent-overflow-dock-btn[data-active="true"] {
+  background: var(--accent-glow);
+  border-color: rgba(37, 99, 235, 0.32);
+  color: var(--accent);
+}
+
+/* Dock position glyphs — tiny diagrams showing where the panel lands */
+.agent-dock-glyph {
+  position: relative;
+  width: 28px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  opacity: 0.55;
+}
+.agent-dock-glyph::after {
+  content: '';
+  position: absolute;
+  background: currentColor;
+  border-radius: 1.5px;
+  opacity: 0.75;
+}
+.agent-dock-glyph--float::after {
+  top: 3px;
+  right: 3px;
+  width: 10px;
+  height: 9px;
+}
+.agent-dock-glyph--right::after {
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  width: 9px;
+}
+.agent-dock-glyph--left::after {
+  top: 2px;
+  left: 2px;
+  bottom: 2px;
+  width: 9px;
+}
+.agent-dock-glyph--bottom::after {
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  height: 6px;
+}
+.agent-overflow-dock-btn[data-active="true"] .agent-dock-glyph {
+  opacity: 1;
+}
+
+/* Agent composer pill — premium glass with double-bezel feel + halo focus */
 .agent-composer {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 4px 4px 14px;
+  gap: 8px;
+  padding: 5px 5px 5px 18px;
   border-radius: 9999px;
   background: var(--glass-bg-input);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(18px) saturate(1.6);
-  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.7);
+  -webkit-backdrop-filter: blur(22px) saturate(1.7);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.05) inset,
-    0 12px 28px -16px rgba(0, 0, 0, 0.4);
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 18px 38px -18px rgba(0, 0, 0, 0.55),
+    0 4px 12px -6px rgba(0, 0, 0, 0.30);
   transition:
-    border-color 300ms cubic-bezier(0.32, 0.72, 0, 1),
-    box-shadow 300ms cubic-bezier(0.32, 0.72, 0, 1);
+    border-color 380ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 380ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 380ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 :root.light .agent-composer {
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 10px 22px -14px rgba(15, 23, 42, 0.12);
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 14px 28px -16px rgba(15, 23, 42, 0.16),
+    0 4px 10px -6px rgba(15, 23, 42, 0.08);
 }
 .agent-composer[data-focused="true"] {
-  border-color: var(--glass-border-hover);
+  border-color: rgba(37, 99, 235, 0.35);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.07) inset,
-    0 14px 32px -16px rgba(0, 0, 0, 0.45),
-    0 0 0 4px var(--accent-glow);
+    0 1px 0 rgba(255, 255, 255, 0.10) inset,
+    0 0 0 1px rgba(37, 99, 235, 0.18),
+    0 22px 48px -18px rgba(37, 99, 235, 0.38),
+    0 0 0 5px rgba(37, 99, 235, 0.10);
+  transform: translateY(-1px);
+}
+.agent-composer input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.62;
+  font-family: 'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif !important;
+  letter-spacing: -0.005em;
+  font-weight: 500;
 }
 
 /* ── Carousel dot inactive — brightens on hover (replaces hardcoded gray-600) ── */

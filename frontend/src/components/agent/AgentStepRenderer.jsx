@@ -4,13 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store';
 import { TOKENS } from '../dashboard/tokens';
 import ThinkingBubble from './ThinkingBubble';
-import AnimatedChecklist from './AnimatedChecklist';
 import ToolCallCard from './ToolCallCard';
 import TierWaterfall from './TierWaterfall';
 import ProgressiveResult from './ProgressiveResult';
 import PerformancePill from '../PerformancePill';
 import AgentQuestion from './AgentQuestion';
 import ReactMarkdown from 'react-markdown';
+import { MD_COMPONENTS, REMARK_PLUGINS, FONT_BODY, FONT_DISPLAY, FONT_MONO } from '../../lib/agentMarkdown';
+
+const EASE_OUT = [0.16, 1, 0.3, 1];
 
 /* ── internal step types filtered from display ── */
 const INTERNAL_TYPES = new Set([
@@ -22,47 +24,33 @@ const INTERNAL_TYPES = new Set([
 
 /* ── framer-motion variants for step entry/exit ── */
 const STEP_VARIANTS = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -4 },
+  initial: { opacity: 0, y: 12, filter: 'blur(4px)' },
+  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  exit: { opacity: 0, y: -6, filter: 'blur(2px)' },
 };
 
-/* ── reusable markdown component config ── */
-const MD_COMPONENTS = {
-  h1: ({ children }) => (
-    <div style={{ fontSize: 15, fontWeight: 700, color: TOKENS.text.primary, marginTop: 8, marginBottom: 4 }}>{children}</div>
-  ),
-  h2: ({ children }) => (
-    <div style={{ fontSize: 14, fontWeight: 600, color: TOKENS.text.primary, marginTop: 6, marginBottom: 3 }}>{children}</div>
-  ),
-  h3: ({ children }) => (
-    <div style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text.secondary, marginTop: 4, marginBottom: 2 }}>{children}</div>
-  ),
-  p: ({ children }) => <div style={{ marginBottom: 4, lineHeight: 1.5 }}>{children}</div>,
-  strong: ({ children }) => <span style={{ fontWeight: 600, color: TOKENS.text.primary }}>{children}</span>,
-  ul: ({ children }) => <ul style={{ paddingLeft: 16, margin: '4px 0' }}>{children}</ul>,
-  ol: ({ children }) => <ol style={{ paddingLeft: 16, margin: '4px 0' }}>{children}</ol>,
-  li: ({ children }) => <li style={{ marginBottom: 2, fontSize: 12 }}>{children}</li>,
-  code: ({ children }) => (
-    <span style={{ fontSize: 11, background: TOKENS.bg.base, padding: '1px 4px', borderRadius: 3, color: TOKENS.accentLight }}>{children}</span>
-  ),
-};
-
-/* ── user query bubble (right-aligned) ── */
+/* ── user query bubble (right-aligned) — agent panel "tactile intimate" tone ── */
 function UserBubble({ step }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '100%' }}>
       <div
         className="agent-bubble-user"
         style={{
-          maxWidth: '92%',
+          maxWidth: '86%',
           padding: '10px 14px',
-          borderRadius: '14px',
-          borderTopRightRadius: '4px',
+          borderRadius: 16,
+          borderTopRightRadius: 5,
           wordBreak: 'break-word',
         }}
       >
-        <div style={{ fontSize: '13px', color: TOKENS.text.primary, fontWeight: 500 }}>
+        <div style={{
+          fontSize: 12.5,
+          color: TOKENS.text.primary,
+          fontWeight: 500,
+          lineHeight: 1.5,
+          fontFamily: FONT_BODY,
+          letterSpacing: '-0.005em',
+        }}>
           {step.content}
         </div>
       </div>
@@ -127,50 +115,57 @@ function TierHitBadge({ step }) {
 /* ── plan step with numbered task list ── */
 function PlanStep({ step }) {
   const tasks = step.tool_input;
-  const items = step.checklist;
 
-  // If a checklist array is present, use AnimatedChecklist
-  if (items && Array.isArray(items) && items.length > 0) {
-    return <AnimatedChecklist items={items} />;
-  }
-
-  // Fallback: show numbered plan tasks
   if (!tasks || !Array.isArray(tasks)) {
     return step.content ? (
-      <div className="agent-bubble-assistant" style={{ padding: '10px 14px', borderRadius: TOKENS.radius.md }}>
-        <div className="text-sm" style={{ color: TOKENS.text.secondary }}>{step.content}</div>
+      <div className="agent-bubble-assistant" style={{ padding: '12px 16px', borderRadius: 16 }}>
+        <div style={{ fontSize: 13, color: TOKENS.text.secondary, fontFamily: FONT_BODY, lineHeight: 1.55 }}>{step.content}</div>
       </div>
     ) : null;
   }
 
   return (
-    <div className="agent-plan-card" style={{ fontSize: '12px', padding: '12px 14px', borderRadius: 12 }}>
-      <div className="agent-step__label" style={{ marginBottom: 8 }}>
+    <div className="agent-plan-card" style={{ padding: '14px 16px', borderRadius: 16 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+        fontSize: 9, fontWeight: 700, letterSpacing: '0.22em',
+        textTransform: 'uppercase', color: TOKENS.text.muted,
+        fontFamily: FONT_DISPLAY,
+      }}>
         <span className="eyebrow-dot" aria-hidden="true" />
         Plan
-        <span style={{ opacity: 0.4 }}>&middot;</span>
-        <span style={{ letterSpacing: '0.04em', textTransform: 'none', fontWeight: 500 }}>
+        <span style={{ opacity: 0.35, fontWeight: 400 }}>·</span>
+        <span style={{ color: TOKENS.text.secondary, fontWeight: 600 }}>
           {tasks.length} step{tasks.length !== 1 ? 's' : ''}
         </span>
       </div>
       {step.content && (
-        <div style={{ color: TOKENS.text.secondary, marginBottom: 10, fontSize: 12, lineHeight: 1.55 }}>
+        <div style={{
+          color: TOKENS.text.secondary, marginBottom: 12, fontSize: 12.5,
+          lineHeight: 1.6, fontFamily: FONT_BODY, letterSpacing: '-0.005em',
+        }}>
           {step.content}
         </div>
       )}
-      <ol style={{ display: 'flex', flexDirection: 'column', gap: 5, margin: 0, padding: 0, listStyle: 'none' }}>
+      <ol style={{ display: 'flex', flexDirection: 'column', gap: 7, margin: 0, padding: 0, listStyle: 'none' }}>
         {tasks.map((task, j) => (
-          <li key={j} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 11.5, padding: '3px 0' }}>
+          <li key={j} style={{
+            display: 'flex', alignItems: 'center', gap: 11,
+            fontSize: 12, padding: '4px 0',
+            fontFamily: FONT_BODY,
+          }}>
             <span style={{
-              flexShrink: 0, width: 18, height: 18, borderRadius: 9999,
-              background: TOKENS.accentGlow, border: '1px solid rgba(37, 99, 235, 0.25)',
+              flexShrink: 0, width: 20, height: 20, borderRadius: 9999,
+              background: 'linear-gradient(180deg, rgba(37,99,235,0.16), rgba(37,99,235,0.08))',
+              border: '1px solid rgba(37, 99, 235, 0.28)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)',
               color: TOKENS.accent, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 9, fontWeight: 700, fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+              fontSize: 9, fontWeight: 700, fontFamily: FONT_MONO,
               fontVariantNumeric: 'tabular-nums',
             }}>
               {String(j + 1).padStart(2, '0')}
             </span>
-            <span style={{ color: TOKENS.text.primary, flex: 1, lineHeight: 1.45 }}>
+            <span style={{ color: TOKENS.text.primary, flex: 1, lineHeight: 1.5, letterSpacing: '-0.005em' }}>
               {task.title || task}
             </span>
             {task.chart_type && (
@@ -324,12 +319,7 @@ function LiveCorrectionStep({ step }) {
       </div>
       {step.content && !isConfirmed && (
         <div style={{ wordBreak: 'break-word', fontSize: 12 }}>
-          <ReactMarkdown components={{
-            p: ({ children }) => <div style={{ marginBottom: 3, lineHeight: 1.4 }}>{children}</div>,
-            strong: ({ children }) => <span style={{ fontWeight: 600, color: TOKENS.text.primary }}>{children}</span>,
-            ul: ({ children }) => <ul style={{ paddingLeft: 14, margin: '3px 0' }}>{children}</ul>,
-            li: ({ children }) => <li style={{ marginBottom: 2 }}>{children}</li>,
-          }}>{step.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MD_COMPONENTS}>{step.content}</ReactMarkdown>
         </div>
       )}
     </div>
@@ -370,13 +360,16 @@ function TierRoutingStep({ step, isActive }) {
 /* ── result step with markdown + performance pill ── */
 function ResultStep({ step, verification }) {
   return (
-    <div className="agent-bubble-assistant" style={{ borderRadius: TOKENS.radius.lg, padding: '10px 14px' }}>
+    <div className="agent-bubble-assistant" style={{ borderRadius: 16, padding: '14px 16px' }}>
       {step.content && (
         <div className="agent-result-md" style={{
-          fontSize: '13px', color: TOKENS.text.primary,
-          maxHeight: '400px', overflowY: 'auto', wordBreak: 'break-word',
+          fontSize: 12.5, color: TOKENS.text.primary,
+          maxHeight: 520, overflowY: 'auto', overflowX: 'hidden',
+          wordBreak: 'break-word', overflowWrap: 'anywhere',
+          fontFamily: FONT_BODY, lineHeight: 1.55,
+          letterSpacing: '-0.005em',
         }}>
-          <ReactMarkdown components={MD_COMPONENTS}>{step.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MD_COMPONENTS}>{step.content}</ReactMarkdown>
         </div>
       )}
       {verification && <VerificationBadge verification={verification} />}
@@ -428,12 +421,15 @@ function ThinkingStep({ step, isActive }) {
   return (
     <div style={{ display: 'flex' }}>
       <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-        padding: '0.35rem 0.75rem', borderRadius: 9999,
-        fontSize: 12, color: TOKENS.text.muted,
+        display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+        padding: '0.35rem 0.85rem', borderRadius: 9999,
+        fontSize: 11.5, color: TOKENS.text.muted,
+        fontFamily: FONT_BODY, fontWeight: 500,
+        letterSpacing: '0.005em',
       }}>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-          style={{ color: TOKENS.text.muted, opacity: 0.5, flexShrink: 0 }}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round"
+          style={{ color: TOKENS.success, opacity: 0.85, flexShrink: 0 }}>
           <path d="M20 6L9 17l-5-5" />
         </svg>
         {step.content || 'Analyzed'}
@@ -451,9 +447,6 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
   waiting = null,
   waitingOptions = null,
   chatId = null,
-  checklist = [],
-  elapsedMs = 0,
-  estimatedMs = 0,
   verification = null,
   compact = false,
 }) {
@@ -587,11 +580,6 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
 
   return (
     <>
-      {/* Checklist at top when loading */}
-      {loading && checklist.length > 0 && (
-        <AnimatedChecklist items={checklist} elapsedMs={elapsedMs} estimatedMs={estimatedMs} />
-      )}
-
       {/* Step list */}
       <AnimatePresence mode="popLayout" initial={false}>
         {deduped.map((step, i) => {
@@ -606,7 +594,7 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
               initial="initial"
               animate="animate"
               exit="exit"
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.42, ease: EASE_OUT }}
               layout
             >
               {step.type === 'user_query' && <UserBubble step={step} />}

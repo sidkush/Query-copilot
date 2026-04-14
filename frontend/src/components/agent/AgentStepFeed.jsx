@@ -35,9 +35,6 @@ function AgentStepFeedInner({ compact = false }) {
   const agentWaiting = useStore((s) => s.agentWaiting);
   const agentWaitingOptions = useStore((s) => s.agentWaitingOptions);
   const agentChatId = useStore((s) => s.agentChatId);
-  const agentChecklist = useStore((s) => s.agentChecklist);
-  const agentElapsedMs = useStore((s) => s.agentElapsedMs);
-  const agentEstimatedMs = useStore((s) => s.agentEstimatedMs);
   const agentVerification = useStore((s) => s.agentVerification);
   const agentLoading = useStore((s) => s.agentLoading);
 
@@ -72,28 +69,50 @@ function AgentStepFeedInner({ compact = false }) {
     }
   }, [agentSteps, agentWaiting]);
 
-  // Empty state
+  // Empty state — premium editorial halo
   if (!agentSteps.length && !agentWaiting) {
     return (
       <div style={{
         flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        gap: "10px", padding: "24px 16px",
+        gap: 18, padding: "40px 24px",
       }}>
+        {/* Double-bezel halo */}
         <div style={{
-          width: 40, height: 40, borderRadius: 12,
-          background: TOKENS.accentGlow,
-          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 6, borderRadius: 28,
+          background: "linear-gradient(180deg, rgba(37,99,235,0.18), rgba(37,99,235,0.04))",
+          border: "1px solid rgba(37,99,235,0.20)",
+          boxShadow: "0 24px 60px -28px rgba(37,99,235,0.45), inset 0 1px 0 rgba(255,255,255,0.10)",
         }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={TOKENS.accent} strokeWidth="1.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-          </svg>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "14px", fontWeight: 600, color: TOKENS.text.primary, fontFamily: "'Outfit', system-ui, sans-serif", marginBottom: 4 }}>
-            Ready to help
+          <div style={{
+            width: 52, height: 52, borderRadius: 22,
+            background: "radial-gradient(120% 120% at 30% 20%, rgba(37,99,235,0.32), rgba(37,99,235,0.04) 70%)",
+            border: "1px solid rgba(37,99,235,0.28)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={TOKENS.accent} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
           </div>
-          <div style={{ fontSize: "12px", color: TOKENS.text.muted, maxWidth: 220, lineHeight: 1.5 }}>
-            Ask about your data, build dashboards, or explore insights
+        </div>
+        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{
+            fontSize: 17, fontWeight: 700,
+            color: TOKENS.text.primary,
+            fontFamily: "'Outfit', system-ui, sans-serif",
+            letterSpacing: "-0.022em",
+            lineHeight: 1.15,
+          }}>
+            Ask anything
+          </div>
+          <div style={{
+            fontSize: 12, color: TOKENS.text.muted,
+            maxWidth: 240, lineHeight: 1.55,
+            fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+            letterSpacing: "-0.005em",
+            margin: "0 auto",
+          }}>
+            Type a question about your data, and I&rsquo;ll write the SQL, run it, and explain the result.
           </div>
         </div>
       </div>
@@ -106,8 +125,8 @@ function AgentStepFeedInner({ compact = false }) {
       aria-live="polite"
       aria-label="Agent execution steps"
       style={{
-        flex: 1, overflowY: "auto", padding: "12px 14px",
-        display: "flex", flexDirection: "column", gap: "12px",
+        flex: 1, overflowY: "auto", padding: "18px 18px 22px",
+        display: "flex", flexDirection: "column", gap: 14,
       }}
     >
       <AgentStepRenderer
@@ -116,9 +135,6 @@ function AgentStepFeedInner({ compact = false }) {
         waiting={agentWaiting}
         waitingOptions={agentWaitingOptions}
         chatId={agentChatId}
-        checklist={agentChecklist}
-        elapsedMs={agentElapsedMs}
-        estimatedMs={agentEstimatedMs}
         verification={agentVerification}
         compact={compact}
       />

@@ -157,14 +157,21 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
   return (
     <div className="relative overflow-visible group h-full flex flex-col dashboard-tile"
       data-selected={selectedTileId === tile?.id ? "true" : undefined}
+      data-kpi={isKPI || undefined}
       onClick={() => onSelect?.()}
       style={{
-        background: fmt.style.background || themeConfig?.background?.tile || TOKENS.bg.elevated,
-        border: `${fmt.style.borderWidth ?? 1}px ${fmt.style.borderStyle || 'solid'} ${fmt.style.borderColor || TOKENS.border.default}`,
-        borderRadius: `${fmt.style.radius ?? themeConfig?.spacing?.tileRadius ?? 16}px`,
+        background: fmt.style.background || themeConfig?.background?.tile || TOKENS.tile.surface,
+        // Hairline border via CSS var — reads on both themes
+        border: fmt.style.borderColor
+          ? `${fmt.style.borderWidth ?? 1}px ${fmt.style.borderStyle || 'solid'} ${fmt.style.borderColor}`
+          : `1px solid ${TOKENS.tile.border}`,
+        borderRadius: `${fmt.style.radius ?? themeConfig?.spacing?.tileRadius ?? TOKENS.tile.radius}px`,
+        // Premium shadow stack — theme-aware via CSS vars
         boxShadow: fmt.style.shadow
-          ? `0 8px ${fmt.style.shadowBlur ?? 24}px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.04) inset`
+          ? `0 1px 0 var(--glass-highlight) inset, 0 28px 56px -28px var(--shadow-deep), 0 10px 22px -12px var(--shadow-mid)`
           : TOKENS.tile.shadow,
+        backdropFilter: 'blur(14px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(14px) saturate(1.4)',
         // Outline handled by .dashboard-tile[data-selected="true"] CSS rule — keep inline off to avoid double-ring
       }}>
       {/* Drag handle */}
@@ -175,8 +182,8 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
         <span className="block w-full h-0.5 rounded" style={{ background: TOKENS.text.muted }}/>
       </div>
       {/* Header */}
-      <div className="flex items-center justify-between px-[14px] pt-[10px]">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between" style={{ padding: TOKENS.tile.headerPad }}>
+        <div className="flex items-center gap-2 min-w-0">
           {titleEditing ? (
             <input
               ref={titleInputRef}

@@ -5,6 +5,7 @@ import { useStore } from '../../store';
 import { TOKENS } from '../dashboard/tokens';
 import PipelineStage from './PipelineStage';
 import StageDetailPanel from './StageDetailPanel';
+import useConfirmAction from '../../lib/useConfirmAction';
 
 /* ── Inline SVG icons (24x24, currentColor) ────────────────── */
 
@@ -70,57 +71,80 @@ const STAGES = [
   { key: 'results',  label: 'Results',         icon: IconTrophy },
 ];
 
-/* ── Connector line with animated dot ──────────────────────── */
+/* ── Connector — gradient beam with traveling light dot ───── */
 
 function Connector({ fromStatus, toStatus }) {
-  const isFlowing = fromStatus === 'complete' && (toStatus === 'active' || toStatus === 'complete');
+  const isComplete = fromStatus === 'complete';
+  const isFlowing = isComplete && (toStatus === 'active' || toStatus === 'complete');
+  const lineColor = isComplete
+    ? 'linear-gradient(90deg, rgba(34,197,94,0.65), rgba(96,165,250,0.70))'
+    : 'linear-gradient(90deg, rgba(148,163,184,0.30), rgba(148,163,184,0.16))';
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', width: 32, position: 'relative', flexShrink: 0 }}>
-      {/* Line */}
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      width: 48,
+      position: 'relative',
+      flexShrink: 0,
+      height: 116,
+    }}>
+      {/* Gradient line */}
       <div style={{
         width: '100%',
-        height: 2,
-        background: isFlowing ? TOKENS.accent : TOKENS.border.default,
-        borderRadius: 1,
-        transition: `background ${TOKENS.transition}`,
+        height: 1.5,
+        background: lineColor,
+        borderRadius: 9999,
+        boxShadow: isComplete ? '0 0 12px rgba(96,165,250,0.35)' : 'none',
+        transition: 'background 480ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 480ms cubic-bezier(0.32, 0.72, 0, 1)',
       }} />
 
-      {/* Animated dot */}
+      {/* Tick marks */}
+      <div style={{
+        position: 'absolute',
+        left: '50%', top: '50%',
+        width: 4, height: 4,
+        marginLeft: -2, marginTop: -2,
+        borderRadius: '50%',
+        background: isComplete ? '#60a5fa' : 'rgba(148,163,184,0.25)',
+        boxShadow: isComplete ? '0 0 8px rgba(96,165,250,0.6)' : 'none',
+        transition: 'all 480ms cubic-bezier(0.32, 0.72, 0, 1)',
+      }} />
+
+      {/* Traveling light beam */}
       {isFlowing && (
         <motion.div
           style={{
             position: 'absolute',
             top: '50%',
-            width: 6,
-            height: 6,
+            width: 8,
+            height: 8,
             borderRadius: '50%',
-            background: TOKENS.accent,
-            boxShadow: `0 0 6px ${TOKENS.accent}`,
-            marginTop: -3,
+            background: 'radial-gradient(circle, #60a5fa 0%, rgba(96,165,250,0.4) 50%, transparent 100%)',
+            boxShadow: '0 0 14px rgba(96,165,250,0.85)',
+            marginTop: -4,
           }}
-          animate={{ left: [0, 26] }}
-          transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.6 }}
+          animate={{ left: [-4, 44] }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: [0.32, 0.72, 0, 1], repeatDelay: 0.4 }}
         />
       )}
 
       {/* Arrow head */}
       <svg
         width={6}
-        height={8}
-        viewBox="0 0 6 8"
+        height={9}
+        viewBox="0 0 6 9"
         style={{
           position: 'absolute',
-          right: -1,
+          right: -2,
           top: '50%',
-          marginTop: -4,
-          opacity: 0.5,
+          marginTop: -4.5,
         }}
       >
         <path
-          d="M0 0l5 4-5 4"
-          stroke={isFlowing ? TOKENS.accent : TOKENS.text.muted}
-          strokeWidth={1.2}
+          d="M0 0l5 4.5L0 9"
+          stroke={isComplete ? '#60a5fa' : 'rgba(148,163,184,0.42)'}
+          strokeWidth={1.4}
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -139,6 +163,7 @@ export default function MLPipeline({ onRunStage }) {
   const updateStage = useStore((s) => s.updatePipelineStage);
   const resetPipeline = useStore((s) => s.resetMLPipeline);
   const mlActiveWorkflow = useStore((s) => s.mlActiveWorkflow);
+  const resetConfirm = useConfirmAction(resetPipeline, { timeoutMs: 3500 });
 
   // Auto-open first stage when workflow is active but no stage selected
   useEffect(() => {
@@ -161,71 +186,76 @@ export default function MLPipeline({ onRunStage }) {
 
   return (
     <div style={{ width: '100%' }}>
-      {/* Pipeline row */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '8px 0',
-        justifyContent: 'center',
-      }}>
-        {STAGES.map((stage, i) => {
-          const stageData = mlPipelineStages[stage.key] || { status: 'idle', data: null };
-          return (
-            <div key={stage.key} style={{ display: 'flex', alignItems: 'center' }}>
-              <PipelineStage
-                icon={stage.icon}
-                label={stage.label}
-                status={stageData.status}
-                data={stageData.data}
-                isActive={activeStage === stage.key}
-                onClick={() => handleStageClick(stage.key)}
-              />
-              {i < STAGES.length - 1 && (
-                <Connector
-                  fromStatus={stageData.status}
-                  toStatus={mlPipelineStages[STAGES[i + 1].key]?.status || 'idle'}
-                />
-              )}
+      {/* Pipeline rail — gradient ring outer + inner glass core */}
+      <div className="ml-pipeline-rail">
+        <div className="ml-pipeline-rail__inner">
+          {/* Horizontal-scroll track preserves the pipeline metaphor even on
+              narrow viewports. Never wraps mid-flow. Falls back to vertical
+              scroll-hint below md:768. */}
+          <div className="ml-pipeline-track" role="list">
+            {STAGES.map((stage, i) => {
+              const stageData = mlPipelineStages[stage.key] || { status: 'idle', data: null };
+              return (
+                <div key={stage.key} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }} role="listitem">
+                  <PipelineStage
+                    icon={stage.icon}
+                    label={stage.label}
+                    status={stageData.status}
+                    data={stageData.data}
+                    isActive={activeStage === stage.key}
+                    onClick={() => handleStageClick(stage.key)}
+                    stageNumber={i + 1}
+                  />
+                  {i < STAGES.length - 1 && (
+                    <Connector
+                      fromStatus={stageData.status}
+                      toStatus={mlPipelineStages[STAGES[i + 1].key]?.status || 'idle'}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer row — hint + reset action */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 14,
+            marginTop: 18,
+            paddingTop: 16,
+            borderTop: `1px solid ${TOKENS.border.default}`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span style={{
+                fontSize: 12.5, color: TOKENS.text.secondary,
+                fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+                letterSpacing: '-0.005em', lineHeight: 1.45,
+                fontWeight: 500,
+              }}>
+                {activeStage
+                  ? `Editing ${STAGES.find(s => s.key === activeStage)?.label || activeStage}`
+                  : 'Tap a stage to configure and run it'}
+              </span>
             </div>
-          );
-        })}
-
-        {/* Reset button */}
-        <button
-          onClick={resetPipeline}
-          style={{
-            marginLeft: 12,
-            padding: '4px 10px',
-            fontSize: 10,
-            color: TOKENS.text.muted,
-            background: 'transparent',
-            border: `1px solid ${TOKENS.border.default}`,
-            borderRadius: TOKENS.radius.sm,
-            cursor: 'pointer',
-            transition: `all ${TOKENS.transition}`,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = TOKENS.danger;
-            e.currentTarget.style.color = TOKENS.danger;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = TOKENS.border.default;
-            e.currentTarget.style.color = TOKENS.text.muted;
-          }}
-        >
-          Reset Pipeline
-        </button>
-      </div>
-
-      {/* Hint */}
-      {!activeStage && (
-        <div style={{ textAlign: 'center', fontSize: 11, color: TOKENS.text.muted, padding: '8px 0 4px', opacity: 0.6 }}>
-          Click any stage above to configure and run it
+            <button
+              onClick={resetConfirm.trigger}
+              onBlur={resetConfirm.reset}
+              className="ml-pipeline-reset"
+              data-armed={resetConfirm.armed || undefined}
+              aria-label={resetConfirm.armed ? "Confirm reset pipeline" : "Reset pipeline"}
+              title={resetConfirm.armed ? "Click again to confirm — this clears every stage" : "Reset pipeline"}
+            >
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9" />
+                <path d="M3 4v5h5" />
+              </svg>
+              {resetConfirm.armed ? "Confirm reset" : "Reset"}
+            </button>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Detail panel */}
       <StageDetailPanel
