@@ -2,6 +2,11 @@ import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense, memo
 import { TOKENS } from './tokens';
 import ResultsChart from '../ResultsChart';
 import KPICard from './KPICard';
+import SparklineKPI from './tiles/SparklineKPI';
+import ScorecardTable from './tiles/ScorecardTable';
+import HBarCard from './tiles/HBarCard';
+import HeatMatrix from './tiles/HeatMatrix';
+import { getChartDef } from '../charts/defs/chartDefs';
 import { blendSources } from '../../lib/dataBlender';
 import { mergeFormatting } from '../../lib/formatUtils';
 import { api } from '../../api';
@@ -10,6 +15,13 @@ import { detectAnomalies, formatAnomalyBadge } from '../../lib/anomalyDetector';
 import { isDateColumn } from '../../lib/fieldClassification';
 
 const CanvasChart = lazy(() => import('./CanvasChart'));
+
+const DENSE_TILE_REGISTRY = {
+  sparkline_kpi: SparklineKPI,
+  scorecard_table: ScorecardTable,
+  hbar_card: HBarCard,
+  heat_matrix: HeatMatrix,
+};
 
 const CHART_TYPES = [
   { id: 'bar',           label: 'Bar',          icon: 'M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z' },
@@ -153,6 +165,9 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
   }, [anomaly, tile?.title, chartColumns, chartRows]);
 
   const isKPI = tile?.chartType === 'kpi';
+  const denseDef = getChartDef(tile?.chartType);
+  const isDense = denseDef?.family === 'dense';
+  const DenseTile = isDense ? DENSE_TILE_REGISTRY[tile.chartType] : null;
 
   return (
     <div className="relative overflow-visible group h-full flex flex-col dashboard-tile"
@@ -452,6 +467,8 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
         style={{ padding: `4px ${fmt.style.padding ?? 12}px ${fmt.style.padding ?? 8}px` }}>
         {isKPI ? (
           <KPICard tile={tile} index={index} onEdit={onEdit} formatting={tile.visualConfig} />
+        ) : isDense && DenseTile ? (
+          <DenseTile tile={{ ...tile, columns: chartColumns, rows: chartRows }} index={index} formatting={tile.visualConfig} />
         ) : chartRows?.length > 0 ? (
           chartRows.length > 1000 && ['scatter', 'heatmap'].includes(tile?.chartType) ? (
             <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><span style={{ color: '#5C5F66', fontSize: 12 }}>Loading...</span></div>}>

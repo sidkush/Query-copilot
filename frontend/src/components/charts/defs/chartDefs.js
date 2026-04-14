@@ -148,6 +148,71 @@ export const CHART_DEFS = [
       return s;
     },
   },
+
+  /* ── Dense tile family — Tableau-class compact tiles ────────────────
+     Engine is 'react' for native SVG/CSS tiles and 'echarts' for the
+     heat matrix which delegates to CanvasChart. `density` field gives
+     react-grid-layout sizing hints (cols=12, rowHeight=60 floor). */
+  {
+    key: 'sparkline_kpi', family: 'dense', engine: 'react',
+    label: 'Sparkline KPI', group: 'dense',
+    icon: 'M3 17l4-4 3 3 5-7 6 8M3 20h18',
+    density: { minW: 3, minH: 1, infoBits: 3 },
+    score: (a) => {
+      let s = 0;
+      // Strong fit: exactly 1 numeric metric over time
+      if (a.numericCols?.length === 1 && a.isDateLike) s += 70;
+      // Decent fit: 1 metric + short row count (trend snapshot)
+      if (a.numericCols?.length === 1 && a.rowCount >= 3 && a.rowCount <= 60) s += 20;
+      if (a.numericCols?.length > 1) s -= 30;
+      if (a.rowCount < 2) s -= 40;
+      return s;
+    },
+  },
+  {
+    key: 'scorecard_table', family: 'dense', engine: 'react',
+    label: 'Scorecard', group: 'dense',
+    icon: 'M4 5h16M4 10h16M4 15h12M4 20h10',
+    density: { minW: 4, minH: 2, infoBits: 8 },
+    score: (a) => {
+      let s = 0;
+      // Best fit: 5-20 rows, 1+ metric — a ranked list
+      if (a.rowCount >= 5 && a.rowCount <= 20 && a.metricCount >= 1) s += 60;
+      if (a.avgLabelLen > 4) s += 10;
+      if (a.rowCount > 30) s -= 20;
+      if (a.rowCount < 3) s -= 40;
+      return s;
+    },
+  },
+  {
+    key: 'hbar_card', family: 'dense', engine: 'react',
+    label: 'Bar Card', group: 'dense',
+    icon: 'M3 5h14v3H3zM3 11h10v3H3zM3 17h18v3H3z',
+    density: { minW: 4, minH: 1, infoBits: 5 },
+    score: (a) => {
+      let s = 0;
+      // Sweet spot: <=10 rows, single metric, medium-long labels
+      if (a.rowCount <= 10 && a.metricCount === 1 && a.avgLabelLen > 8) s += 55;
+      if (a.rowCount >= 3 && a.rowCount <= 8) s += 10;
+      if (a.metricCount > 1) s -= 20;
+      if (a.rowCount > 12) s -= 25;
+      return s;
+    },
+  },
+  {
+    key: 'heat_matrix', family: 'dense', engine: 'echarts',
+    label: 'Heat Matrix', group: 'dense',
+    icon: 'M3 3h6v6H3zM11 3h6v6h-6zM19 3h2v6h-2zM3 11h6v6H3zM11 11h6v6h-6zM19 11h2v6h-2zM3 19h6v2H3zM11 19h6v2h-6z',
+    density: { minW: 4, minH: 3, infoBits: 12 },
+    score: (a) => {
+      let s = 0;
+      // Correlation grid: many rows, many metrics
+      if (a.rowCount >= 6 && a.metricCount >= 3) s += 50;
+      if (a.metricCount >= 5) s += 10;
+      if (a.metricCount < 2) s -= 50;
+      return s;
+    },
+  },
 ];
 
 /** Minimum relevance score for a chart type to appear in the picker. */

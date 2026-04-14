@@ -23,6 +23,12 @@ const CHART_TYPES = [
   { key: 'radar',          label: 'Radar',          icon: <svg viewBox="0 0 24 24" width="20" height="20"><polygon points="12,3 20,9 18,18 6,18 4,9" fill="currentColor" opacity=".2" stroke="currentColor" strokeWidth="1.5"/><polygon points="12,7 17,11 15,16 9,16 7,11" fill="currentColor" opacity=".4"/></svg> },
   { key: 'scatter',        label: 'Scatter',        icon: <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="6" cy="16" r="2" fill="currentColor"/><circle cx="10" cy="10" r="2" fill="currentColor" opacity=".7"/><circle cx="16" cy="14" r="2" fill="currentColor" opacity=".5"/><circle cx="18" cy="6" r="2" fill="currentColor"/></svg> },
   { key: 'treemap',        label: 'Treemap',        icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="10" height="10" rx="1" fill="currentColor"/><rect x="15" y="3" width="6" height="10" rx="1" fill="currentColor" opacity=".6"/><rect x="3" y="15" width="6" height="6" rx="1" fill="currentColor" opacity=".4"/><rect x="11" y="15" width="10" height="6" rx="1" fill="currentColor" opacity=".7"/></svg> },
+
+  /* ── Dense family — Tableau-class compact tiles ── */
+  { key: 'sparkline_kpi', label: 'Sparkline KPI', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 17l4-4 3 3 5-7 6 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 20h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity=".4"/></svg> },
+  { key: 'scorecard_table', label: 'Scorecard', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="5" width="14" height="2" rx="1" fill="currentColor"/><rect x="19" y="5" width="2" height="2" rx="1" fill="currentColor" opacity=".7"/><rect x="3" y="10" width="10" height="2" rx="1" fill="currentColor" opacity=".75"/><rect x="15" y="10" width="6" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="3" y="15" width="8" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="13" y="15" width="8" height="2" rx="1" fill="currentColor" opacity=".35"/></svg> },
+  { key: 'hbar_card', label: 'Bar Card', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="4" width="16" height="4" rx="1.5" fill="currentColor"/><rect x="3" y="10" width="11" height="4" rx="1.5" fill="currentColor" opacity=".75"/><rect x="3" y="16" width="18" height="4" rx="1.5" fill="currentColor" opacity=".5"/></svg> },
+  { key: 'heat_matrix', label: 'Heat Matrix', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="5" height="5" rx="1" fill="currentColor" opacity=".9"/><rect x="10" y="3" width="5" height="5" rx="1" fill="currentColor" opacity=".5"/><rect x="17" y="3" width="4" height="5" rx="1" fill="currentColor" opacity=".7"/><rect x="3" y="10" width="5" height="5" rx="1" fill="currentColor" opacity=".3"/><rect x="10" y="10" width="5" height="5" rx="1" fill="currentColor" opacity=".85"/><rect x="17" y="10" width="4" height="5" rx="1" fill="currentColor" opacity=".45"/><rect x="3" y="17" width="5" height="4" rx="1" fill="currentColor" opacity=".6"/><rect x="10" y="17" width="5" height="4" rx="1" fill="currentColor" opacity=".4"/><rect x="17" y="17" width="4" height="4" rx="1" fill="currentColor" opacity=".8"/></svg> },
 ];
 
 const PALETTE_KEYS = Object.keys(CHART_PALETTES);
@@ -452,31 +458,54 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
               <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} style={inputStyle} placeholder="Optional subtitle" />
             </div>
 
-            {/* 2. Chart Type Selector */}
+            {/* 2. Chart Type Selector — Standard + Dense families */}
             <div style={sectionStyle}>
               <label style={labelStyle}>Chart Type</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                {CHART_TYPES.map((ct) => (
-                  <button
-                    key={ct.key}
-                    onClick={() => setChartType(ct.key)}
-                    style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                      padding: '10px 4px', borderRadius: TOKENS.radius.md,
-                      background: chartType === ct.key ? TOKENS.accentGlow : TOKENS.bg.surface,
-                      border: chartType === ct.key
-                        ? `2px solid ${TOKENS.accent}`
-                        : `1px solid ${TOKENS.border.default}`,
-                      color: chartType === ct.key ? TOKENS.accentLight : TOKENS.text.secondary,
-                      cursor: 'pointer', fontSize: '11px', fontWeight: 500,
-                      transition: TOKENS.transition,
-                    }}
-                  >
-                    {ct.icon}
-                    {ct.label}
-                  </button>
-                ))}
-              </div>
+              {['standard', 'dense'].map((familyKey) => {
+                const familyCharts = CHART_TYPES.filter((ct) => (ct.family || 'standard') === familyKey);
+                if (familyCharts.length === 0) return null;
+                return (
+                  <div key={familyKey} style={{ marginTop: familyKey === 'dense' ? 14 : 0 }}>
+                    {familyKey === 'dense' && (
+                      <div
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          letterSpacing: '0.22em',
+                          textTransform: 'uppercase',
+                          color: TOKENS.text.muted,
+                          marginBottom: 8,
+                          fontFamily: TOKENS.fontDisplay,
+                        }}
+                      >
+                        Dense · Tableau-class
+                      </div>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                      {familyCharts.map((ct) => (
+                        <button
+                          key={ct.key}
+                          onClick={() => setChartType(ct.key)}
+                          style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                            padding: '10px 4px', borderRadius: TOKENS.radius.md,
+                            background: chartType === ct.key ? TOKENS.accentGlow : TOKENS.bg.surface,
+                            border: chartType === ct.key
+                              ? `2px solid ${TOKENS.accent}`
+                              : `1px solid ${TOKENS.border.default}`,
+                            color: chartType === ct.key ? TOKENS.accentLight : TOKENS.text.secondary,
+                            cursor: 'pointer', fontSize: '11px', fontWeight: 500,
+                            transition: TOKENS.transition,
+                          }}
+                        >
+                          {ct.icon}
+                          {ct.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* 3. Dimensions & Measures */}
