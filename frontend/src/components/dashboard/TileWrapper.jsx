@@ -6,6 +6,7 @@ import SparklineKPI from './tiles/SparklineKPI';
 import ScorecardTable from './tiles/ScorecardTable';
 import HBarCard from './tiles/HBarCard';
 import HeatMatrix from './tiles/HeatMatrix';
+import TileBoundary from './TileBoundary';
 import { getChartDef } from '../charts/defs/chartDefs';
 import { blendSources } from '../../lib/dataBlender';
 import { mergeFormatting } from '../../lib/formatUtils';
@@ -485,9 +486,10 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
         </div>
       )}
 
-      {/* Chart body */}
+      {/* Chart body — wrapped in TileBoundary so one broken tile can't crash the dashboard */}
       <div className="flex-1 min-h-0 overflow-hidden"
         style={{ padding: `4px ${fmt.style.padding ?? 12}px ${fmt.style.padding ?? 8}px` }}>
+        <TileBoundary>
         {isKPI ? (
           <KPICard tile={tile} index={index} onEdit={onEdit} formatting={tile.visualConfig} />
         ) : isDense && DenseTile ? (
@@ -536,6 +538,7 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
             <span className="text-xs text-slate-500 mt-1 max-w-[200px] text-center">Add SQL to this tile or use the command bar</span>
           </div>
         )}
+        </TileBoundary>
       </div>
       {/* Resize handle */}
       <div className="absolute bottom-1 right-1 w-3 h-3 opacity-0 group-hover:opacity-40 cursor-se-resize"
