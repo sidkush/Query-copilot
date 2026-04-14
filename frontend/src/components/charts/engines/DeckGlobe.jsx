@@ -3,7 +3,7 @@ import DeckGL from '@deck.gl/react';
 // _GlobeView is still flagged experimental at deck.gl 9.x — stable path
 // not available yet, so we alias the underscored export.
 import { _GlobeView as GlobeView } from '@deck.gl/core';
-import { ScatterplotLayer, SolidPolygonLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, SolidPolygonLayer, GeoJsonLayer } from '@deck.gl/layers';
 import { useGPUTier } from '../../../lib/gpuDetect';
 import useViewportMount from '../../../lib/useViewportMount';
 import { acquireContext, releaseContext, touchContext } from '../../../lib/webglContextPool';
@@ -30,16 +30,29 @@ import { TOKENS } from '../../dashboard/tokens';
  *   - Auto-rotation kicks in after 3s of idle (via viewState animation)
  */
 
+// zoom 1.2 places the whole sphere at ~70% of a medium tile footprint
+// with points clearly readable. zoom 0 (deck.gl default) shows the
+// entire globe as a tiny dot at tile scale — visibly broken.
 const INITIAL_VIEW = {
   longitude: 0,
   latitude: 25,
-  zoom: 0,
+  zoom: 1.2,
   pitch: 0,
   bearing: 0,
 };
 
-const MIN_POINT_RADIUS_M = 40_000;
-const MAX_POINT_RADIUS_M = 400_000;
+// Point-radius band in meters. Used for proportional sizing by the
+// optional 3rd numeric measure. Paired with radiusMinPixels below so
+// small values still render even when the sphere zoom is low.
+const MIN_POINT_RADIUS_M = 150_000;
+const MAX_POINT_RADIUS_M = 700_000;
+
+// Public-domain world country outlines GeoJSON. ~250KB, stable URL,
+// MIT-licensed (johan/world.geo.json). Loaded by deck.gl's built-in
+// fetch path in GeoJsonLayer on first globe mount; subsequent tiles
+// reuse the browser cache.
+const WORLD_GEOJSON_URL =
+  'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json';
 
 let _anonCounter = 0;
 const nextAnonId = () => String(++_anonCounter);
@@ -117,7 +130,7 @@ export default function DeckGlobe({ tile }) {
       if (!active) return;
       setViewState((prev) => ({
         ...prev,
-        longitude: (prev.longitude + 0.08) % 360,
+        longitude: (prev.longitude + 0.04) % 360,
       }));
       rafRef.current = requestAnimationFrame(rotate);
     };
@@ -139,7 +152,7 @@ export default function DeckGlobe({ tile }) {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     idleTimerRef.current = setTimeout(() => {
       const rotate = () => {
-        setViewState((prev) => ({ ...prev, longitude: (prev.longitude + 0.08) % 360 }));
+        setViewState((prev) => ({ ...prev, longitude: (prev.longitude + 0.04) % 360 }));
         rafRef.current = requestAnimationFrame(rotate);
       };
       rafRef.current = requestAnimationFrame(rotate);
@@ -182,8 +195,10 @@ export default function DeckGlobe({ tile }) {
 
   const layers = mounted
     ? [
+        // Ocean sphere — opaque navy base. The rectangle gets wrapped
+        // around the full sphere by GlobeView's projection.
         new SolidPolygonLayer({
-          id: 'globe-background',
+          id: 'globe-ocean',
           data: [
             {
               polygon: [
@@ -195,20 +210,42 @@ export default function DeckGlobe({ tile }) {
             },
           ],
           getPolygon: (d) => d.polygon,
-          getFillColor: [15, 23, 42, 180],
+          getFillColor: [9, 16, 38, 255],
           stroked: false,
         }),
+        // Country outlines — fills land with a lighter navy so users
+        // can orient themselves on the sphere, with a subtle accent
+        // hairline for each border. Without this the globe looks like
+        // an uninterpretable black dot, which was the old bug.
+        new GeoJsonLayer({
+          id: 'globe-countries',
+          data: WORLD_GEOJSON_URL,
+          stroked: true,
+          filled: true,
+          getFillColor: [28, 40, 72, 255],
+          getLineColor: [96, 165, 250, 90],
+          lineWidthMinPixels: 0.4,
+          pickable: false,
+          parameters: { depthTest: false },
+        }),
+        // Data points — brighter fill, white stroke, radiusMinPixels
+        // guarantees visibility even at low zoom or tiny tile sizes.
         new ScatterplotLayer({
           id: 'globe-points',
           data,
           getPosition: (d) => d.position,
           getRadius: (d) => d.radius,
-          getFillColor: [96, 165, 250, 210],
-          getLineColor: [147, 197, 253, 255],
+          getFillColor: [96, 165, 250, 245],
+          getLineColor: [255, 255, 255, 230],
           stroked: true,
-          lineWidthMinPixels: 0.5,
+          filled: true,
+          lineWidthMinPixels: 1.4,
+          lineWidthUnits: 'pixels',
           radiusUnits: 'meters',
+          radiusMinPixels: 4,
+          radiusMaxPixels: 28,
           pickable: true,
+          parameters: { depthTest: false },
         }),
       ]
     : [];
