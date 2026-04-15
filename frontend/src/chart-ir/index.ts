@@ -22,8 +22,36 @@ export type {
 export { chartSpecSchema, validateChartSpec, assertValidChartSpec } from './schema';
 export type { ValidationResult } from './schema';
 
-export { routeSpec } from './router';
-export type { RendererId } from './router';
+export { routeSpec, routeSpecWithStrategy } from './router';
+export type {
+  RendererId,
+  RouteWithStrategyInput,
+  RouteWithStrategyResult,
+} from './router';
+
+// Sub-project B — Render Strategy Router + perf subsystem
+export { pickRenderStrategy } from './rsr/renderStrategyRouter';
+export { THRESHOLDS, DECK_ELIGIBLE_MARKS } from './rsr/thresholds';
+export type {
+  StrategyTier,
+  RendererFamily,
+  RendererBackend,
+  DownsampleMethod,
+  FrameBudgetState,
+  GpuTier,
+  ResultProfile,
+  InstancePressure,
+  RenderStrategyInput,
+  DownsampleDecision,
+  StreamingDecision,
+  RenderStrategy,
+} from './rsr/strategy';
+
+export { FrameBudgetTracker, globalFrameBudgetTracker } from './perf/frameBudgetTracker';
+export type { FrameBudgetTrackerOptions } from './perf/frameBudgetTracker';
+
+export { InstancePool, globalInstancePool } from './perf/instancePool';
+export type { InstanceKind, InstancePoolOptions } from './perf/instancePool';
 
 export { compileToVegaLite } from './compiler/toVegaLite';
 
