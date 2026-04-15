@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  ArrowChunkReceiver,
-  type ChunkEvent,
-  type DoneEvent,
-} from '../../perf/arrowChunkReceiver';
+import { ArrowChunkReceiver } from '../../perf/arrowChunkReceiver';
 
 function makeSSEResponse(events: string[]): Response {
   const body = events.join('');
