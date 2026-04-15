@@ -57,3 +57,26 @@ export type Aggregate =
   | 'p75'
   | 'p95'
   | 'none';
+
+/**
+ * Reference to a data field in the result set, with optional encoding
+ * modifiers (aggregation, binning, time bucketing, sort, format).
+ */
+export interface FieldRef {
+  /** Column name in the result set. Must match a column from column_profile. */
+  field: string;
+  /** Semantic type — drives scale and rendering decisions. */
+  type: SemanticType;
+  /** Aggregation operator. Defaults to 'sum' for measures, 'none' for dimensions. */
+  aggregate?: Aggregate;
+  /** Bin a quantitative field into buckets. true for auto, or specify maxbins. */
+  bin?: boolean | { maxbins: number };
+  /** Time bucketing for temporal fields. */
+  timeUnit?: 'year' | 'quarter' | 'month' | 'week' | 'day' | 'hour';
+  /** Sort order. String for direction, object for sort-by-other-field. */
+  sort?: 'asc' | 'desc' | { field: string; op: Aggregate };
+  /** d3-format / d3-time-format string for axis labels and tooltips. */
+  format?: string;
+  /** Display title — overrides the field name in axis labels and legends. */
+  title?: string;
+}

@@ -34,3 +34,52 @@ describe('Aggregate', () => {
     expect(aggs.length).toBe(13);
   });
 });
+
+import type { FieldRef } from '../types';
+
+describe('FieldRef', () => {
+  it('accepts a minimal field reference (field + type only)', () => {
+    const ref: FieldRef = { field: 'revenue', type: 'quantitative' };
+    expect(ref.field).toBe('revenue');
+    expect(ref.type).toBe('quantitative');
+  });
+
+  it('accepts an aggregated measure reference', () => {
+    const ref: FieldRef = {
+      field: 'revenue',
+      type: 'quantitative',
+      aggregate: 'sum',
+      format: '$,.0f',
+      title: 'Total Revenue',
+    };
+    expect(ref.aggregate).toBe('sum');
+  });
+
+  it('accepts a binned quantitative field', () => {
+    const ref: FieldRef = {
+      field: 'age',
+      type: 'quantitative',
+      bin: { maxbins: 20 },
+    };
+    expect(ref.bin).toEqual({ maxbins: 20 });
+  });
+
+  it('accepts a temporal field with timeUnit', () => {
+    const ref: FieldRef = {
+      field: 'order_date',
+      type: 'temporal',
+      timeUnit: 'month',
+      sort: 'asc',
+    };
+    expect(ref.timeUnit).toBe('month');
+  });
+
+  it('accepts a sort by another field with operator', () => {
+    const ref: FieldRef = {
+      field: 'product',
+      type: 'nominal',
+      sort: { field: 'revenue', op: 'sum' },
+    };
+    expect(typeof ref.sort).toBe('object');
+  });
+});
