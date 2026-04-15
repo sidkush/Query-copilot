@@ -17,7 +17,7 @@ describe('Show Me recommender — Mackinlay rules', () => {
       rowCount: 4,
     });
     const recs = recommendCharts(shape);
-    expect(recs[0].mark).toBe('bar');
+    expect(recs[0]!.mark).toBe('bar');
   });
 
   it('1 temporal dim + 1 measure → line chart top recommendation', () => {
@@ -26,7 +26,7 @@ describe('Show Me recommender — Mackinlay rules', () => {
       rowCount: 365,
     });
     const recs = recommendCharts(shape);
-    expect(recs[0].mark).toBe('line');
+    expect(recs[0]!.mark).toBe('line');
   });
 
   it('1 temporal + 2 measures → multi-line', () => {
@@ -35,7 +35,7 @@ describe('Show Me recommender — Mackinlay rules', () => {
       rowCount: 365,
     });
     const recs = recommendCharts(shape);
-    expect(recs[0].mark).toBe('line');
+    expect(recs[0]!.mark).toBe('line');
   });
 
   it('2 measures, 0 dims → scatter plot', () => {
@@ -44,7 +44,7 @@ describe('Show Me recommender — Mackinlay rules', () => {
       rowCount: 1247,
     });
     const recs = recommendCharts(shape);
-    expect(recs[0].mark).toBe('point');
+    expect(recs[0]!.mark).toBe('point');
   });
 
   it('1 high-cardinality dim + 1 measure → bar (sorted top-N) over treemap', () => {
@@ -63,7 +63,7 @@ describe('Show Me recommender — Mackinlay rules', () => {
       rowCount: 47,
     });
     const recs = recommendCharts(shape);
-    expect(recs[0].mark).toBe('geoshape');
+    expect(recs[0]!.mark).toBe('geoshape');
   });
 
   it('returns ranked list with reasons and disabled flags', () => {
@@ -73,9 +73,9 @@ describe('Show Me recommender — Mackinlay rules', () => {
     });
     const recs = recommendCharts(shape);
     expect(recs.length).toBeGreaterThan(0);
-    expect(recs[0].score).toBeGreaterThan(0);
-    expect(recs[0].reason).toBeTruthy();
-    expect(recs[0].disabled).toBe(false);
+    expect(recs[0]!.score).toBeGreaterThan(0);
+    expect(recs[0]!.reason).toBeTruthy();
+    expect(recs[0]!.disabled).toBe(false);
   });
 });
 
