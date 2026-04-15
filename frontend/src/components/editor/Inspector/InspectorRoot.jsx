@@ -1,16 +1,21 @@
 import { useState } from "react";
+import MarksCard from "../MarksCard";
 
 /**
  * InspectorRoot — right rail shell with Setup/Style tab switcher.
- * Phase 1 ships both tab contents as stubs. Phase 2 adds encoding tray
- * (Setup tab) + axis/color/label sections (Style tab).
+ *
+ * Phase 2: Setup tab now hosts the MarksCard drag-drop encoding tray.
+ * Style tab stays a Phase 2b/3 placeholder (axis/color/label/legend
+ * sections). The MarksCard reads the current spec and dispatches
+ * patched specs via onSpecChange — the ChartEditor is responsible for
+ * threading that callback into the store.
  */
 const TABS = [
   { id: "setup", label: "Setup" },
   { id: "style", label: "Style" },
 ];
 
-export default function InspectorRoot({ spec }) {
+export default function InspectorRoot({ spec, onSpecChange }) {
   const [activeTab, setActiveTab] = useState("setup");
 
   return (
@@ -68,9 +73,9 @@ export default function InspectorRoot({ spec }) {
         style={{ flex: 1, padding: 12, overflowY: "auto" }}
       >
         {activeTab === "setup" ? (
-          <Stub title="Setup" />
+          <MarksCard spec={spec} onSpecChange={onSpecChange} />
         ) : (
-          <Stub title="Style" />
+          <StyleStub />
         )}
         {spec?.type && (
           <div
@@ -92,7 +97,7 @@ export default function InspectorRoot({ spec }) {
   );
 }
 
-function Stub({ title }) {
+function StyleStub() {
   return (
     <div
       style={{
@@ -101,7 +106,7 @@ function Stub({ title }) {
         fontStyle: "italic",
       }}
     >
-      {title} — coming in Phase 2
+      Style — axis, color, labels, legend (coming in Phase 2b)
     </div>
   );
 }

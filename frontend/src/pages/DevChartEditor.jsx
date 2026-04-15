@@ -1,14 +1,16 @@
+import { useEffect } from "react";
+import { useStore } from "../store";
 import ChartEditor from "../components/editor/ChartEditor";
+import useChartEditorHotkeys from "../components/editor/useChartEditorHotkeys";
 
 /**
  * DevChartEditor — development-only route that mounts <ChartEditor mode="pro" />
  * with a hardcoded sample ChartSpec + synthetic result set. Gated behind
  * import.meta.env.DEV in App.jsx so it never ships to production bundles.
  *
- * Purpose: visual smoke-test for Sub-project A Phase 1 editor shell. Lets
- * us eyeball the 3-pane grid, topbar, data rail, canvas (stub VegaRenderer
- * with compiled VL JSON), bottom dock, and inspector tabs without going
- * through the full query → result → dashboard-tile flow.
+ * Phase 2: spec is now held in the chartEditor Zustand slice so drag-drop
+ * from the Marks card actually mutates state + re-renders. Cmd-Z / Cmd-Shift-Z
+ * undo/redo hotkeys are wired via useChartEditorHotkeys.
  */
 
 const SAMPLE_SPEC = {
@@ -19,17 +21,16 @@ const SAMPLE_SPEC = {
   encoding: {
     x: { field: "region", type: "nominal" },
     y: { field: "revenue", type: "quantitative", aggregate: "sum" },
-    color: { field: "region", type: "nominal" },
   },
 };
 
 const SAMPLE_RESULT_SET = {
-  columns: ["region", "revenue"],
+  columns: ["region", "revenue", "order_date"],
   rows: [
-    ["North", 125_430],
-    ["South", 98_210],
-    ["East", 142_890],
-    ["West", 112_560],
+    ["North", 125_430, "2026-01-01"],
+    ["South", 98_210, "2026-02-01"],
+    ["East", 142_890, "2026-03-01"],
+    ["West", 112_560, "2026-04-01"],
   ],
   columnProfile: [
     {
@@ -63,6 +64,20 @@ const SAMPLE_RESULT_SET = {
 };
 
 export default function DevChartEditor() {
+  const currentSpec = useStore((s) => s.chartEditor.currentSpec);
+  const initChartEditorSpec = useStore((s) => s.initChartEditorSpec);
+  const setChartEditorSpec = useStore((s) => s.setChartEditorSpec);
+  const undoChartEditor = useStore((s) => s.undoChartEditor);
+  const redoChartEditor = useStore((s) => s.redoChartEditor);
+
+  useEffect(() => {
+    if (!currentSpec) {
+      initChartEditorSpec(SAMPLE_SPEC);
+    }
+  }, [currentSpec, initChartEditorSpec]);
+
+  useChartEditorHotkeys({ undo: undoChartEditor, redo: redoChartEditor });
+
   return (
     <div
       style={{
@@ -72,10 +87,11 @@ export default function DevChartEditor() {
       }}
     >
       <ChartEditor
-        spec={SAMPLE_SPEC}
+        spec={currentSpec || SAMPLE_SPEC}
         resultSet={SAMPLE_RESULT_SET}
         mode="pro"
         surface="dashboard-tile"
+        onSpecChange={(next) => setChartEditorSpec(next)}
       />
     </div>
   );
