@@ -150,6 +150,8 @@ export const chartSpecSchema = {
         theme: { type: 'string' },
         palette: { type: 'string' },
         density: { type: 'string', enum: ['comfortable', 'compact'] },
+        // Sub-project B — power-user / test override for Render Strategy Router
+        strategyHint: { type: 'string', enum: ['t0', 't1', 't2', 't3'] },
       },
     },
   },

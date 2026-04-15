@@ -135,8 +135,24 @@ export interface Transform {
   bin?: { field: string; maxbins?: number };
   /** Compute an aggregate, output as new field. */
   aggregate?: { field: string; op: Aggregate; as: string };
-  /** Sample N rows. method='lttb' preserves visual peaks; 'uniform' is random. */
-  sample?: { n: number; method: 'lttb' | 'uniform' };
+  /**
+   * Sample N rows.
+   * - `lttb` preserves visual peaks on time series
+   * - `uniform` is a random sample
+   * - `pixel_min_max` (sub-project B) emits min/max per pixel bucket for
+   *   ultra-dense time series; requires `pixelWidth` to know the render
+   *   width in pixels
+   *
+   * `targetPoints` is an optional override for the server-side downsampler
+   * (`chart_downsampler.pick_strategy`); when absent the server uses
+   * `CHART_DOWNSAMPLE_DEFAULT_TARGET_POINTS` from config.
+   */
+  sample?: {
+    n: number;
+    method: 'lttb' | 'uniform' | 'pixel_min_max';
+    pixelWidth?: number;
+    targetPoints?: number;
+  };
   /** Calculate a derived field via sandboxed expression. */
   calculate?: { as: string; expr: string };
 }
@@ -267,5 +283,11 @@ export interface ChartSpec {
     palette?: string;
     /** Density preference. */
     density?: 'comfortable' | 'compact';
+    /**
+     * Sub-project B: power-user / test override for the Render Strategy
+     * Router. When set, RSR will honor this tier unless the chart's mark
+     * type is not deck-eligible for t2/t3 hints. See rsr/renderStrategyRouter.
+     */
+    strategyHint?: 't0' | 't1' | 't2' | 't3';
   };
 }
