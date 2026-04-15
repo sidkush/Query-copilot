@@ -139,7 +139,13 @@ export function pickRenderStrategy(input) {
   const markEligible = Boolean(resultProfile.markEligibleForDeck) && DECK_ELIGIBLE_MARKS.has(markName);
   const targetPoints = THRESHOLDS.DEFAULT_TARGET_POINTS;
 
-  // 2a. Hint override (sanity-checked)
+  // 2a. Hint override (sanity-checked).
+  //
+  // Precedence note: an accepted hint early-returns here, BEFORE the GPU tier
+  // clamp (2c), pressure downshift (2d), or frame-budget escalation (2e). This
+  // is intentional — hints exist for power users and tests, and should bypass
+  // the automatic guards. The only sanity check is deck-eligibility for t2/t3.
+  // Covered by the `Hint t3 bypasses gpuTier=low clamp` test.
   if (hint) {
     if ((hint === 't2' || hint === 't3') && !markEligible) {
       reasons.push(`hint=${hint} refused: mark not deck-eligible`);

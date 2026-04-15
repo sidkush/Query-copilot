@@ -155,3 +155,72 @@ test('Reason field is non-empty for every strategy', () => {
     assert.ok(s.reason.length > 0, `empty reason for rowCount=${rowCount}`);
   }
 });
+
+// Branch tests added per code-quality review B0.3.
+
+test('geo-overlay spec.type always uses deck family', () => {
+  const s = pickRenderStrategy(baseInput({
+    spec: { type: 'geo-overlay', mark: 'point', encoding: {} },
+    resultProfile: { rowCount: 250_000, markEligibleForDeck: true, xType: 'quantitative', yType: 'quantitative' },
+  }));
+  assert.equal(s.rendererFamily, 'deck');
+  assert.equal(s.rendererBackend, 'webgl');
+  assert.equal(s.streaming.enabled, true); // > 200k threshold
+});
+
+test('Hint t1 Canvas is honored (covers hint accept for non-deck tier)', () => {
+  const s = pickRenderStrategy(baseInput({
+    resultProfile: { rowCount: 100, markEligibleForDeck: true, xType: 'temporal', yType: 'quantitative' },
+    hint: 't1',
+  }));
+  assert.equal(s.tier, 't1');
+  assert.equal(s.rendererFamily, 'vega');
+  assert.equal(s.rendererBackend, 'canvas');
+});
+
+test('Hint t3 bypasses gpuTier=low clamp (power-user override)', () => {
+  // Documents intentional behavior: hint accepted → early-return before GPU clamp.
+  // If this assertion ever flips, update the comment in renderStrategyRouter.js
+  // about hint precedence.
+  const s = pickRenderStrategy(baseInput({
+    gpuTier: 'low',
+    resultProfile: { rowCount: 10_000, markEligibleForDeck: true, xType: 'temporal', yType: 'quantitative' },
+    hint: 't3',
+  }));
+  assert.equal(s.tier, 't3');
+  assert.equal(s.streaming.enabled, true);
+});
+
+test('Tier t3 with tight frame budget does NOT escalate (already at ceiling)', () => {
+  const s = pickRenderStrategy(baseInput({
+    resultProfile: { rowCount: 10_000_000, markEligibleForDeck: true, xType: 'temporal', yType: 'quantitative' },
+    frameBudgetState: 'tight',
+  }));
+  assert.equal(s.tier, 't3');
+});
+
+test('Non-deck-eligible mark with tight frame budget does NOT escalate', () => {
+  // markEligible=false gates escalation entirely — boxplot stays at T1
+  const s = pickRenderStrategy(baseInput({
+    spec: { type: 'cartesian', mark: 'boxplot', encoding: {} },
+    resultProfile: { rowCount: 50_000, markEligibleForDeck: false, xType: 'quantitative', yType: 'quantitative' },
+    frameBudgetState: 'tight',
+  }));
+  assert.equal(s.tier, 't1');
+  assert.equal(s.rendererFamily, 'vega');
+});
+
+test('Pressure downshift followed by frame escalation is a no-op for deck-eligible T2', () => {
+  // T2 rowCount → pressure downshift to T1 → tight frame → escalate T1 to T2.
+  // Net result depends on helper order. Pinning observed behavior to a spec.
+  const s = pickRenderStrategy(baseInput({
+    resultProfile: { rowCount: 300_000, markEligibleForDeck: true, xType: 'temporal', yType: 'quantitative' },
+    instancePressure: { activeContexts: 11, max: 12, pressureRatio: 0.92 },
+    frameBudgetState: 'tight',
+  }));
+  // Pressure runs first, downshifts t2 → t1. Then frame tight escalates t1 → t2.
+  // Net: t2 again. reason string should include both steps.
+  assert.equal(s.tier, 't2');
+  assert.match(s.reason, /pressure/i);
+  assert.match(s.reason, /escalate/i);
+});
