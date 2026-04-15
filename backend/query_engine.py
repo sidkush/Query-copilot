@@ -27,6 +27,7 @@ from sql_validator import SQLValidator
 from db_connector import DatabaseConnector
 from pii_masking import mask_dataframe
 from model_provider import ModelProvider
+from schema_intelligence import profile_columns
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +108,17 @@ class QueryResult:
                             if non_null_conv >= non_null_orig * 0.8:
                                 df[col] = converted
                 result["rows"] = df.to_dict(orient="records")
+                # Column profile for frontend chart recommender (Sub-project A).
+                # Profile the converted df so the recommender sees the final
+                # dtypes (numeric strings already coerced to floats).
+                try:
+                    result["column_profile"] = profile_columns(df)
+                except Exception as exc:
+                    logger.warning("profile_columns failed: %s", exc)
+                    result["column_profile"] = []
             else:
                 result["rows"] = []
+                result["column_profile"] = []
         return result
 
 
