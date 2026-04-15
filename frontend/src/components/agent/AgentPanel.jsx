@@ -4,10 +4,10 @@ import { useStore } from "../../store";
 import { api } from "../../api";
 import { TOKENS } from "../dashboard/tokens";
 import AgentStepFeed from "./AgentStepFeed";
-import VoiceButton from "../voice/VoiceButton";
 import VoiceIndicator from "../voice/VoiceIndicator";
 import useSpeechRecognition from "../../hooks/useSpeechRecognition";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
+import useConfirmAction from "../../lib/useConfirmAction";
 
 const DOCK_POSITIONS = ["float", "right", "bottom", "left"];
 const MIN_W = 280;
@@ -24,10 +24,6 @@ const APP_SIDEBAR_W = 56;
 // minimum-column width and the layout looks broken. Float mode bypasses this
 // because it overlays the dashboard instead of compressing it.
 const DASHBOARD_MIN_W = 720;
-// Threshold below which the header collapses secondary controls into a "..."
-// overflow popover. Picked empirically: at ~360px the inline controls start
-// clipping the close button.
-const HEADER_COLLAPSE_W = 380;
 
 /**
  * Compute the maximum panel width that still leaves the dashboard with
@@ -118,9 +114,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
   const overflowRef = useRef(null);
   const overflowTriggerRef = useRef(null);
 
-  // Header collapses secondary controls into an overflow popover when narrow.
-  // Bottom dock is always wide so it doesn't need collapsing.
-  const headerCompact = dock !== "bottom" && panelWidth < HEADER_COLLAPSE_W;
+  // All secondary controls live in the Tools popover now — no compact branching.
 
   // Re-anchor the portaled overflow popover when it opens or when the panel
   // moves/resizes. The popover lives in document.body so it escapes the
@@ -168,6 +162,15 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
   const [showHistory, setShowHistory] = useState(false);
   const [historyList, setHistoryList] = useState([]);
   const [inputFocused, setInputFocused] = useState(false);
+
+  // Confirm handlers for destructive actions
+  const newConvoConfirm = useConfirmAction(() => {
+    if (streamRef.current?.close) streamRef.current.close();
+    if (agentSteps.length > 0) saveAgentHistory();
+    clearAgent();
+    setShowHistory(false);
+    setOverflowOpen(false);
+  }, { timeoutMs: 3500 });
 
   // ── Voice mode hooks ──
   const handleQuickActionRef = useRef(null);
@@ -499,12 +502,14 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
   }, [isActive, setAgentResizing]);
 
   // ── Panel positioning styles (memoized) ──
+  // NOTE: No width/height CSS transitions. Animating size triggers layout
+  // reflow every frame (not GPU-accelerated). Dock changes snap instantly;
+  // drag-resize already updates via rAF throttling. Matches native windowed UI.
   const panelStyle = useMemo(() => {
     const base = {
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
-      transition: isActive ? "none" : "width 0.2s ease, height 0.2s ease",
     };
 
     const validatedDock = DOCK_POSITIONS.includes(dock) ? dock : "float";
@@ -557,7 +562,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       zIndex: 50,
       borderTop: `1px solid ${TOKENS.border.default}`,
     };
-  }, [dock, pos.x, pos.y, panelWidth, panelHeight, minimized, isActive]);
+  }, [dock, pos.x, pos.y, panelWidth, panelHeight, minimized]);
 
   // Edge resize handle component
   const edgeHandle = (edge) => {
@@ -593,281 +598,86 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       <div
         onMouseDown={onDragStart}
         style={{
-          display: "flex", alignItems: "center", gap: "10px",
-          padding: "10px 14px", background: "transparent",
+          display: "flex", alignItems: "center", gap: "12px",
+          padding: "13px 16px",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.025), transparent)",
           borderBottom: `1px solid ${TOKENS.border.default}`,
           cursor: dock === "float" ? "grab" : "default",
           userSelect: "none", flexShrink: 0,
         }}
       >
-        <span className="eyebrow-dot" aria-hidden="true" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-          <span style={{
-            fontSize: 9,
-            fontWeight: 600,
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            color: 'var(--text-muted)',
-          }}>
-            Live agent
-          </span>
-          <span style={{
-            fontSize: 14,
+        {/* Title — single visual unit, no competing eyebrow */}
+        <span
+          style={{
+            fontSize: 15,
             fontWeight: 700,
             color: 'var(--text-primary)',
             fontFamily: "'Outfit', system-ui, sans-serif",
-            letterSpacing: "-0.015em",
-            lineHeight: 1.1,
-          }}>
-            AskDB
+            letterSpacing: "-0.022em",
+            lineHeight: 1.05,
+            minWidth: 0,
+          }}
+        >
+          AskDB
+        </span>
+
+        {/* Status chip — live context, only when meaningful */}
+        {(isListening || agentPermissionMode === "autonomous" || agentPersona) && (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              padding: '3px 9px',
+              borderRadius: 9999,
+              fontFamily: "'Outfit', system-ui, sans-serif",
+              background: isListening
+                ? 'rgba(239,68,68,0.12)'
+                : agentPermissionMode === "autonomous"
+                  ? 'rgba(245,158,11,0.12)'
+                  : 'rgba(37,99,235,0.12)',
+              color: isListening
+                ? '#f87171'
+                : agentPermissionMode === "autonomous"
+                  ? '#f59e0b'
+                  : 'var(--accent)',
+              border: `1px solid ${isListening
+                ? 'rgba(239,68,68,0.28)'
+                : agentPermissionMode === "autonomous"
+                  ? 'rgba(245,158,11,0.28)'
+                  : 'rgba(37,99,235,0.28)'}`,
+            }}
+          >
+            {isListening
+              ? 'Listening'
+              : agentPermissionMode === "autonomous"
+                ? 'Auto'
+                : agentPersona ? agentPersona : ''}
           </span>
-        </div>
+        )}
 
         {/* Spacer pushes controls right */}
         <span style={{ flex: 1 }} />
 
-        {/* Primary controls — collapse into overflow popover when panel is narrow */}
-        {headerCompact ? (
-          /* ── Collapsed: single "···" button that opens a popover with all controls.
-              The popover is portaled to document.body to escape the panel's
-              stacking context (which would otherwise clip it behind the
-              dashboard when right-docked). ── */
-          <div style={{ flexShrink: 0 }}>
-            <button
-              ref={overflowTriggerRef}
-              onClick={() => setOverflowOpen((v) => !v)}
-              title="More controls"
-              aria-label="More controls"
-              aria-expanded={overflowOpen}
-              className="agent-dock-pill"
-              data-active={(overflowOpen || agentPersona || agentPermissionMode === "autonomous" || showHistory) || undefined}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" />
-              </svg>
-            </button>
-            {overflowOpen && overflowAnchor && createPortal(
-              <div
-                ref={overflowRef}
-                className="agent-overflow-popover"
-                role="menu"
-                style={{
-                  position: "fixed",
-                  top: overflowAnchor.top,
-                  right: overflowAnchor.right,
-                  // Override the absolute positioning from the CSS class
-                  left: "auto",
-                }}
-              >
-                <button
-                  className="agent-overflow-row"
-                  data-active={showHistory || undefined}
-                  onClick={() => { setShowHistory(!showHistory); setOverflowOpen(false); }}
-                >
-                  <span className="agent-overflow-row__icon">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </span>
-                  {showHistory ? "Back to chat" : "Chat history"}
-                </button>
-                <button
-                  className="agent-overflow-row"
-                  onClick={() => {
-                    if (streamRef.current?.close) streamRef.current.close();
-                    if (agentSteps.length > 0) saveAgentHistory();
-                    clearAgent();
-                    setShowHistory(false);
-                    setOverflowOpen(false);
-                  }}
-                >
-                  <span className="agent-overflow-row__icon">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
-                  </span>
-                  New conversation
-                </button>
-                <button
-                  className="agent-overflow-row"
-                  data-active={agentPermissionMode === "autonomous" || undefined}
-                  onClick={() => {
-                    useStore.getState().setAgentPermissionMode(agentPermissionMode === "supervised" ? "autonomous" : "supervised");
-                  }}
-                >
-                  <span className="agent-overflow-row__icon">
-                    {agentPermissionMode === "supervised" ? (
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                    ) : (
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 019.9-1" /></svg>
-                    )}
-                  </span>
-                  {agentPermissionMode === "supervised" ? "Mode: Safe (supervised)" : "Mode: Auto (autonomous)"}
-                </button>
-                <div style={{ height: 1, background: "var(--border-default)", margin: "4px 6px" }} aria-hidden="true" />
-                <div style={{ padding: "6px 10px 4px", fontSize: 9, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)" }}>
-                  Persona
-                </div>
-                {[{ v: "", l: "None" }, { v: "explorer", l: "Explorer" }, { v: "auditor", l: "Auditor" }, { v: "storyteller", l: "Storyteller" }].map((opt) => (
-                  <button
-                    key={opt.v || "none"}
-                    className="agent-overflow-row"
-                    data-active={(agentPersona || "") === opt.v || undefined}
-                    onClick={() => {
-                      useStore.getState().setAgentPersona(opt.v || null);
-                    }}
-                  >
-                    <span className="agent-overflow-row__icon" />
-                    {opt.l}
-                  </button>
-                ))}
-              </div>,
-              document.body
-            )}
-          </div>
-        ) : (
-          /* ── Expanded: full inline control rail ── */
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-            {/* History toggle */}
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              title={showHistory ? "Back to chat" : "Chat history"}
-              aria-pressed={showHistory}
-              className="agent-dock-pill"
-              data-active={showHistory || undefined}
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-
-            {/* Persona selector */}
-            <select
-              value={agentPersona || ""}
-              onChange={(e) => useStore.getState().setAgentPersona(e.target.value || null)}
-              title="Analyst persona"
-              aria-label="Analyst persona"
-              className="ease-spring"
-              style={{
-                height: 26,
-                borderRadius: 7,
-                fontSize: 9,
-                maxWidth: 70,
-                border: `1px solid ${agentPersona ? 'rgba(37, 99, 235, 0.3)' : 'var(--border-default)'}`,
-                background: agentPersona ? 'var(--accent-glow)' : 'transparent',
-                color: agentPersona ? 'var(--accent)' : 'var(--text-muted)',
-                cursor: "pointer",
-                padding: "0 4px",
-                outline: "none",
-                fontWeight: 600,
-                letterSpacing: '0.04em',
-                transition: 'background 300ms cubic-bezier(0.32,0.72,0,1), color 300ms cubic-bezier(0.32,0.72,0,1)',
-              }}
-            >
-              <option value="" style={{ background: "var(--bg-elevated)" }}>Mode</option>
-              <option value="explorer" style={{ background: "var(--bg-elevated)" }}>Explorer</option>
-              <option value="auditor" style={{ background: "var(--bg-elevated)" }}>Auditor</option>
-              <option value="storyteller" style={{ background: "var(--bg-elevated)" }}>Storyteller</option>
-            </select>
-
-            {/* Permission mode toggle */}
-            <button
-              onClick={() => useStore.getState().setAgentPermissionMode(agentPermissionMode === "supervised" ? "autonomous" : "supervised")}
-              title={agentPermissionMode === "supervised" ? "Supervised mode — asks before dashboard changes" : "Autonomous mode — creates freely, still asks before modify/delete"}
-              aria-label={`Permission: ${agentPermissionMode}`}
-              className="ease-spring"
-              style={{
-                height: 26,
-                borderRadius: 7,
-                fontSize: 9,
-                padding: '0 7px',
-                fontWeight: 600,
-                letterSpacing: '0.04em',
-                border: `1px solid ${agentPermissionMode === "autonomous" ? 'rgba(245, 158, 11, 0.32)' : 'var(--border-default)'}`,
-                background: agentPermissionMode === "autonomous" ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-                color: agentPermissionMode === "autonomous" ? '#f59e0b' : 'var(--text-muted)',
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                transition: 'background 300ms cubic-bezier(0.32,0.72,0,1), color 300ms cubic-bezier(0.32,0.72,0,1)',
-              }}
-            >
-              {agentPermissionMode === "supervised" ? (
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-              ) : (
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 019.9-1" /></svg>
-              )}
-              {agentPermissionMode === "supervised" ? "Safe" : "Auto"}
-            </button>
-
-            {/* New conversation */}
-            <button
-              onClick={() => {
-                if (streamRef.current?.close) streamRef.current.close();
-                if (agentSteps.length > 0) saveAgentHistory();
-                clearAgent();
-                setShowHistory(false);
-              }}
-              title="New conversation"
-              aria-label="New conversation"
-              className="agent-dock-pill"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </button>
-          </div>
-        )}
-
-        {/* Secondary controls — voice, dock, minimize, close */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 4 }}>
-          {/* Voice mode */}
-          <VoiceButton
-            isListening={isListening}
-            onToggle={() => { if (isListening) { stopListening(); stopSpeaking(); } else startListening(); }}
-            supported={sttSupported}
-            size="sm"
-          />
-          {/* Dock buttons */}
-          {DOCK_POSITIONS.map((d) => (
-            <button
-              key={d}
-              onClick={() => setDock(validDock(d))}
-              title={`Dock ${d}`}
-              aria-pressed={dock === d}
-              aria-label={`Dock ${d}`}
-              className="agent-dock-pill"
-              data-active={dock === d || undefined}
-            >
-              {d[0].toUpperCase()}
-            </button>
-          ))}
-
-          {/* Minimize (float and bottom only) */}
-          {(dock === "float" || dock === "bottom") && (
-            <button
-              onClick={() => setMinimized(!minimized)}
-              aria-expanded={!minimized}
-              aria-label={minimized ? "Expand panel" : "Minimize panel"}
-              className="agent-dock-pill"
-              style={{ fontSize: 13, fontFamily: "system-ui, sans-serif" }}
-            >
-              {minimized ? "+" : "\u2013"}
-            </button>
-          )}
-
-          {/* Cancel */}
+        {/* ── Primary controls — Tools popover, Cancel, Close ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {/* Cancel — only while agent is running */}
           {agentLoading && agentChatId && (
             <button
               onClick={async () => {
                 try {
                   await api.agentCancel(agentChatId);
-                } catch (e) { /* ignore - best effort */ }
+                } catch { /* ignore - best effort */ }
                 if (streamRef.current?.close) streamRef.current.close();
                 setAgentLoading(false);
                 useStore.getState().clearAgentWaiting();
               }}
+              title="Stop the agent"
+              aria-label="Stop agent"
               className="ease-spring"
               style={{
                 background: 'var(--status-danger)',
@@ -875,26 +685,210 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
                 border: 'none',
                 borderRadius: 9999,
                 padding: '5px 14px',
-                fontSize: 11,
-                fontWeight: 600,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                fontFamily: "'Outfit', system-ui, sans-serif",
                 cursor: 'pointer',
-                marginLeft: 4,
                 boxShadow: '0 6px 18px -8px rgba(239, 68, 68, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset',
                 transition: 'transform 300ms cubic-bezier(0.32,0.72,0,1)',
               }}
             >
-              Cancel
+              Stop
             </button>
+          )}
+
+          {/* Tools — single popover with everything */}
+          <button
+            ref={overflowTriggerRef}
+            onClick={() => setOverflowOpen((v) => !v)}
+            title="Tools (history, persona, mode, voice, dock)"
+            aria-label="Open tools menu"
+            aria-expanded={overflowOpen}
+            className="agent-dock-pill"
+            data-active={(overflowOpen || agentPersona || agentPermissionMode === "autonomous" || showHistory || isListening) || undefined}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="19" cy="12" r="1.2" />
+            </svg>
+          </button>
+          {overflowOpen && overflowAnchor && createPortal(
+            <div
+              ref={overflowRef}
+              className="agent-overflow-popover"
+              role="menu"
+              style={{
+                position: "fixed",
+                top: overflowAnchor.top,
+                right: overflowAnchor.right,
+                left: "auto",
+                minWidth: 220,
+              }}
+            >
+              {/* SECTION — Conversation */}
+              <div className="agent-overflow-section">Conversation</div>
+              <button
+                className="agent-overflow-row"
+                data-active={showHistory || undefined}
+                onClick={() => { setShowHistory(!showHistory); setOverflowOpen(false); }}
+              >
+                <span className="agent-overflow-row__icon">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </span>
+                {showHistory ? "Back to chat" : "Chat history"}
+              </button>
+              <button
+                className="agent-overflow-row"
+                data-armed={newConvoConfirm.armed || undefined}
+                onClick={() => {
+                  // Only require confirm if there's actually a conversation to lose
+                  if (agentSteps.length === 0) {
+                    clearAgent();
+                    setShowHistory(false);
+                    setOverflowOpen(false);
+                    return;
+                  }
+                  newConvoConfirm.trigger();
+                }}
+              >
+                <span className="agent-overflow-row__icon">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </span>
+                <span style={{ flex: 1 }}>
+                  {newConvoConfirm.armed ? "Confirm new chat?" : "New conversation"}
+                </span>
+                {agentSteps.length > 0 && !newConvoConfirm.armed && (
+                  <span className="agent-overflow-row__hint">saved to history</span>
+                )}
+              </button>
+
+              <div className="agent-overflow-divider" aria-hidden="true" />
+
+              {/* SECTION — Agent behavior */}
+              <div className="agent-overflow-section">Behavior</div>
+              <button
+                className="agent-overflow-row"
+                data-active={agentPermissionMode === "autonomous" || undefined}
+                onClick={() => {
+                  useStore.getState().setAgentPermissionMode(agentPermissionMode === "supervised" ? "autonomous" : "supervised");
+                }}
+              >
+                <span className="agent-overflow-row__icon">
+                  {agentPermissionMode === "supervised" ? (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 019.9-1" /></svg>
+                  )}
+                </span>
+                <span style={{ flex: 1 }}>{agentPermissionMode === "supervised" ? "Safe mode" : "Autonomous mode"}</span>
+                <span className="agent-overflow-row__hint">
+                  {agentPermissionMode === "supervised" ? "asks first" : "acts freely"}
+                </span>
+              </button>
+
+              <div className="agent-overflow-section agent-overflow-section--sub">Persona</div>
+              {[
+                { v: "", l: "Default", desc: "balanced" },
+                { v: "explorer", l: "Explorer", desc: "curious, broad" },
+                { v: "auditor", l: "Auditor", desc: "strict, precise" },
+                { v: "storyteller", l: "Storyteller", desc: "narrative" },
+              ].map((opt) => (
+                <button
+                  key={opt.v || "none"}
+                  className="agent-overflow-row"
+                  data-active={(agentPersona || "") === opt.v || undefined}
+                  onClick={() => {
+                    useStore.getState().setAgentPersona(opt.v || null);
+                  }}
+                >
+                  <span className="agent-overflow-row__icon" />
+                  <span style={{ flex: 1 }}>{opt.l}</span>
+                  <span className="agent-overflow-row__hint">{opt.desc}</span>
+                </button>
+              ))}
+
+              {sttSupported && (
+                <>
+                  <div className="agent-overflow-divider" aria-hidden="true" />
+                  <div className="agent-overflow-section">Voice</div>
+                  <button
+                    className="agent-overflow-row"
+                    data-active={isListening || undefined}
+                    onClick={() => {
+                      if (isListening) { stopListening(); stopSpeaking(); }
+                      else startListening();
+                      setOverflowOpen(false);
+                    }}
+                  >
+                    <span className="agent-overflow-row__icon">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="3" width="6" height="12" rx="3" />
+                        <path d="M5 11a7 7 0 0014 0M12 18v3" />
+                      </svg>
+                    </span>
+                    {isListening ? "Stop listening" : "Start voice mode"}
+                  </button>
+                </>
+              )}
+
+              <div className="agent-overflow-divider" aria-hidden="true" />
+
+              {/* SECTION — Dock */}
+              <div className="agent-overflow-section">Dock position</div>
+              <div className="agent-overflow-dock-grid">
+                {DOCK_POSITIONS.map((d) => {
+                  const LABELS = { float: "Float", right: "Right", bottom: "Bottom", left: "Left" };
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => { setDock(validDock(d)); setOverflowOpen(false); }}
+                      className="agent-overflow-dock-btn"
+                      data-active={dock === d || undefined}
+                      title={`Dock ${d}`}
+                      aria-pressed={dock === d}
+                    >
+                      <span className={`agent-dock-glyph agent-dock-glyph--${d}`} aria-hidden="true" />
+                      {LABELS[d]}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {(dock === "float" || dock === "bottom") && (
+                <>
+                  <div className="agent-overflow-divider" aria-hidden="true" />
+                  <button
+                    className="agent-overflow-row"
+                    onClick={() => { setMinimized(!minimized); setOverflowOpen(false); }}
+                  >
+                    <span className="agent-overflow-row__icon">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                        <path d={minimized ? "M5 12h14M12 5v14" : "M5 12h14"} />
+                      </svg>
+                    </span>
+                    {minimized ? "Expand panel" : "Minimize panel"}
+                  </button>
+                </>
+              )}
+            </div>,
+            document.body
           )}
 
           {/* Close */}
           <button
             onClick={handleClose}
+            title="Close agent panel"
             aria-label="Close agent panel"
             className="agent-dock-pill"
-            style={{ fontSize: 13, fontFamily: "system-ui, sans-serif" }}
           >
-            ×
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
       </div>
@@ -1022,21 +1016,21 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
            agentSteps[agentSteps.length - 1]?.type === 'result' && !showHistory && (
             <div style={{
               display: 'flex',
-              gap: 6,
-              padding: '10px 14px',
+              gap: 8,
+              padding: '14px 18px 16px',
               borderTop: `1px solid ${TOKENS.border.default}`,
               flexWrap: 'wrap',
               alignItems: 'center',
             }}>
               <span style={{
-                fontSize: 9,
-                fontWeight: 600,
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
+                fontSize: 10,
+                fontWeight: 500,
                 color: 'var(--text-muted)',
                 marginRight: 4,
+                fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+                letterSpacing: '-0.005em',
               }}>
-                Next
+                Try next
               </span>
               {['Continue', 'Tell me more', 'Add to dashboard'].map(label => (
                 <button
@@ -1051,7 +1045,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
           )}
 
           {/* Footer input — premium glass composer */}
-          <form onSubmit={handleSubmit} style={{ padding: '12px 14px', borderTop: `1px solid ${TOKENS.border.default}`, flexShrink: 0 }}>
+          <form onSubmit={handleSubmit} style={{ padding: '14px 16px 18px', borderTop: `1px solid ${TOKENS.border.default}`, flexShrink: 0 }}>
             <div className="agent-composer" data-focused={inputFocused || undefined}>
               <input
                 type="text"
@@ -1067,9 +1061,11 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
                   outline: 'none',
                   background: 'transparent',
                   color: TOKENS.text.primary,
-                  fontSize: 13,
-                  padding: '7px 0',
-                  fontFamily: "'Inter', system-ui, sans-serif",
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  padding: '8px 0',
+                  fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+                  letterSpacing: '-0.005em',
                 }}
               />
               {agentLoading ? (
@@ -1106,31 +1102,43 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
                   disabled={!input.trim() || !!agentWaiting}
                   className="ease-spring group"
                   style={{
-                    width: 34,
-                    height: 34,
+                    width: 36,
+                    height: 36,
                     borderRadius: '50%',
-                    background: input.trim() && !agentWaiting ? 'var(--accent)' : 'var(--bg-hover)',
-                    border: 'none',
+                    background: input.trim() && !agentWaiting
+                      ? 'linear-gradient(180deg, #3b82f6, #2563eb 60%, #1d4ed8)'
+                      : 'var(--bg-hover)',
+                    border: input.trim() && !agentWaiting ? '1px solid rgba(37, 99, 235, 0.55)' : '1px solid var(--border-default)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: input.trim() && !agentWaiting ? 'pointer' : 'default',
                     flexShrink: 0,
                     boxShadow: input.trim() && !agentWaiting
-                      ? '0 8px 22px -8px rgba(37, 99, 235, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset'
+                      ? '0 14px 30px -10px rgba(37, 99, 235, 0.65), 0 1px 0 rgba(255,255,255,0.28) inset, 0 -1px 0 rgba(0,0,0,0.18) inset'
                       : 'none',
-                    transition: 'transform 300ms cubic-bezier(0.32,0.72,0,1), background 300ms cubic-bezier(0.32,0.72,0,1)',
-                    opacity: input.trim() && !agentWaiting ? 1 : 0.4,
+                    transition: 'transform 380ms cubic-bezier(0.32,0.72,0,1), background 380ms cubic-bezier(0.32,0.72,0,1), box-shadow 380ms cubic-bezier(0.32,0.72,0,1)',
+                    opacity: input.trim() && !agentWaiting ? 1 : 0.42,
                   }}
                   onMouseEnter={(e) => {
                     if (input.trim() && !agentWaiting) {
-                      e.currentTarget.style.transform = 'scale(1.06) translateY(-1px)';
+                      e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
+                      e.currentTarget.style.boxShadow = '0 20px 40px -12px rgba(37, 99, 235, 0.75), 0 1px 0 rgba(255,255,255,0.32) inset, 0 -1px 0 rgba(0,0,0,0.18) inset';
                     }
                   }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                    if (input.trim() && !agentWaiting) {
+                      e.currentTarget.style.boxShadow = '0 14px 30px -10px rgba(37, 99, 235, 0.65), 0 1px 0 rgba(255,255,255,0.28) inset, 0 -1px 0 rgba(0,0,0,0.18) inset';
+                    }
+                  }}
+                  onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(0.96)'; }}
+                  onMouseUp={(e) => {
+                    if (input.trim() && !agentWaiting) e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
+                  }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.25))' }}>
+                    <path d="M5 12h14M13 5l7 7-7 7" />
                   </svg>
                 </button>
               )}

@@ -23,6 +23,20 @@ const CHART_TYPES = [
   { key: 'radar',          label: 'Radar',          icon: <svg viewBox="0 0 24 24" width="20" height="20"><polygon points="12,3 20,9 18,18 6,18 4,9" fill="currentColor" opacity=".2" stroke="currentColor" strokeWidth="1.5"/><polygon points="12,7 17,11 15,16 9,16 7,11" fill="currentColor" opacity=".4"/></svg> },
   { key: 'scatter',        label: 'Scatter',        icon: <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="6" cy="16" r="2" fill="currentColor"/><circle cx="10" cy="10" r="2" fill="currentColor" opacity=".7"/><circle cx="16" cy="14" r="2" fill="currentColor" opacity=".5"/><circle cx="18" cy="6" r="2" fill="currentColor"/></svg> },
   { key: 'treemap',        label: 'Treemap',        icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="10" height="10" rx="1" fill="currentColor"/><rect x="15" y="3" width="6" height="10" rx="1" fill="currentColor" opacity=".6"/><rect x="3" y="15" width="6" height="6" rx="1" fill="currentColor" opacity=".4"/><rect x="11" y="15" width="10" height="6" rx="1" fill="currentColor" opacity=".7"/></svg> },
+
+  /* ── Dense family — Tableau-class compact tiles ── */
+  { key: 'sparkline_kpi', label: 'Sparkline KPI', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 17l4-4 3 3 5-7 6 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 20h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity=".4"/></svg> },
+  { key: 'scorecard_table', label: 'Scorecard', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="5" width="14" height="2" rx="1" fill="currentColor"/><rect x="19" y="5" width="2" height="2" rx="1" fill="currentColor" opacity=".7"/><rect x="3" y="10" width="10" height="2" rx="1" fill="currentColor" opacity=".75"/><rect x="15" y="10" width="6" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="3" y="15" width="8" height="2" rx="1" fill="currentColor" opacity=".55"/><rect x="13" y="15" width="8" height="2" rx="1" fill="currentColor" opacity=".35"/></svg> },
+  { key: 'hbar_card', label: 'Bar Card', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="4" width="16" height="4" rx="1.5" fill="currentColor"/><rect x="3" y="10" width="11" height="4" rx="1.5" fill="currentColor" opacity=".75"/><rect x="3" y="16" width="18" height="4" rx="1.5" fill="currentColor" opacity=".5"/></svg> },
+  { key: 'heat_matrix', label: 'Heat Matrix', family: 'dense', icon: <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="5" height="5" rx="1" fill="currentColor" opacity=".9"/><rect x="10" y="3" width="5" height="5" rx="1" fill="currentColor" opacity=".5"/><rect x="17" y="3" width="4" height="5" rx="1" fill="currentColor" opacity=".7"/><rect x="3" y="10" width="5" height="5" rx="1" fill="currentColor" opacity=".3"/><rect x="10" y="10" width="5" height="5" rx="1" fill="currentColor" opacity=".85"/><rect x="17" y="10" width="4" height="5" rx="1" fill="currentColor" opacity=".45"/><rect x="3" y="17" width="5" height="4" rx="1" fill="currentColor" opacity=".6"/><rect x="10" y="17" width="5" height="4" rx="1" fill="currentColor" opacity=".4"/><rect x="17" y="17" width="4" height="4" rx="1" fill="currentColor" opacity=".8"/></svg> },
+
+  /* ── Wow-factor family — flagship Phase 4 charts ── */
+  { key: 'scatter_3d', label: '3D Scatter', family: 'wow', icon: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 20L12 4L20 20Z" fill="none" stroke="currentColor" strokeWidth="1.4" opacity=".35"/><circle cx="7" cy="16" r="1.4" fill="currentColor"/><circle cx="12" cy="7" r="1.4" fill="currentColor" opacity=".75"/><circle cx="17" cy="17" r="1.4" fill="currentColor" opacity=".85"/><circle cx="13" cy="13" r="1.4" fill="currentColor" opacity=".55"/><circle cx="9" cy="11" r="1.4" fill="currentColor" opacity=".65"/></svg> },
+  { key: 'hologram_scatter', label: 'Hologram', family: 'wow', icon: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2l10 6v8l-10 6L2 16V8z" fill="none" stroke="currentColor" strokeWidth="1.4" opacity=".5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="8" cy="10" r="1.1" fill="currentColor" opacity=".75"/><circle cx="16" cy="14" r="1.1" fill="currentColor" opacity=".75"/><circle cx="10" cy="15" r="0.9" fill="currentColor" opacity=".55"/></svg> },
+  { key: 'geo_map', label: 'Geo Map', family: 'wow', icon: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 7l5-2 6 2 5-2v12l-5 2-6-2-5 2V7z" fill="none" stroke="currentColor" strokeWidth="1.4" opacity=".5"/><path d="M9 5v14M15 7v14" fill="none" stroke="currentColor" strokeWidth="1" opacity=".35"/><circle cx="9" cy="11" r="2.2" fill="currentColor"/><circle cx="15" cy="14" r="1.6" fill="currentColor" opacity=".8"/><circle cx="12" cy="9" r="1.2" fill="currentColor" opacity=".65"/></svg> },
+  { key: 'ridgeline', label: 'Ridgeline', family: 'wow', icon: <svg viewBox="0 0 24 24" width="20" height="20"><path d="M2 14c2-4 4-4 6 0s4 4 6 0 4-4 6 0 4 4 2 0" fill="none" stroke="currentColor" strokeWidth="1.4" opacity=".45"/><path d="M2 17c2-4 4-4 6 0s4 4 6 0 4-4 6 0 4 4 2 0" fill="none" stroke="currentColor" strokeWidth="1.4" opacity=".65"/><path d="M2 20c2-4 4-4 6 0s4 4 6 0 4-4 6 0 4 4 2 0" fill="none" stroke="currentColor" strokeWidth="1.4"/></svg> },
+  { key: 'particle_flow', label: 'Particle Flow', family: 'wow', icon: <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="5" cy="8" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor" opacity=".8"/><circle cx="14" cy="9" r="1" fill="currentColor" opacity=".9"/><circle cx="18" cy="7" r="1" fill="currentColor" opacity=".7"/><circle cx="6" cy="14" r="1" fill="currentColor" opacity=".85"/><circle cx="11" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="14" r="1" fill="currentColor" opacity=".75"/><circle cx="20" cy="17" r="1" fill="currentColor" opacity=".8"/><circle cx="8" cy="20" r="1" fill="currentColor" opacity=".6"/><circle cx="13" cy="21" r="1" fill="currentColor" opacity=".55"/></svg> },
+  { key: 'liquid_gauge', label: 'Liquid Gauge', family: 'wow', icon: <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.4"/><path d="M4 14c2-1 4 1 6 0s4-1 6 0 4 1 4 0v8H4z" fill="currentColor" opacity=".55"/></svg> },
 ];
 
 const PALETTE_KEYS = Object.keys(CHART_PALETTES);
@@ -452,31 +466,59 @@ export default function TileEditor({ tile, dashboardId, onSave, onClose, onRefre
               <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} style={inputStyle} placeholder="Optional subtitle" />
             </div>
 
-            {/* 2. Chart Type Selector */}
+            {/* 2. Chart Type Selector — Standard + Dense families */}
             <div style={sectionStyle}>
               <label style={labelStyle}>Chart Type</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                {CHART_TYPES.map((ct) => (
-                  <button
-                    key={ct.key}
-                    onClick={() => setChartType(ct.key)}
-                    style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                      padding: '10px 4px', borderRadius: TOKENS.radius.md,
-                      background: chartType === ct.key ? TOKENS.accentGlow : TOKENS.bg.surface,
-                      border: chartType === ct.key
-                        ? `2px solid ${TOKENS.accent}`
-                        : `1px solid ${TOKENS.border.default}`,
-                      color: chartType === ct.key ? TOKENS.accentLight : TOKENS.text.secondary,
-                      cursor: 'pointer', fontSize: '11px', fontWeight: 500,
-                      transition: TOKENS.transition,
-                    }}
-                  >
-                    {ct.icon}
-                    {ct.label}
-                  </button>
-                ))}
-              </div>
+              {['standard', 'dense', 'wow'].map((familyKey) => {
+                const familyCharts = CHART_TYPES.filter((ct) => (ct.family || 'standard') === familyKey);
+                if (familyCharts.length === 0) return null;
+                const familyHeadings = {
+                  dense: 'Dense · Tableau-class',
+                  wow: 'Wow Factor · 3D + Geo + Premium',
+                };
+                const heading = familyHeadings[familyKey];
+                return (
+                  <div key={familyKey} style={{ marginTop: familyKey === 'standard' ? 0 : 14 }}>
+                    {heading && (
+                      <div
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          letterSpacing: '0.22em',
+                          textTransform: 'uppercase',
+                          color: TOKENS.text.muted,
+                          marginBottom: 8,
+                          fontFamily: TOKENS.fontDisplay,
+                        }}
+                      >
+                        {heading}
+                      </div>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                      {familyCharts.map((ct) => (
+                        <button
+                          key={ct.key}
+                          onClick={() => setChartType(ct.key)}
+                          style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                            padding: '10px 4px', borderRadius: TOKENS.radius.md,
+                            background: chartType === ct.key ? TOKENS.accentGlow : TOKENS.bg.surface,
+                            border: chartType === ct.key
+                              ? `2px solid ${TOKENS.accent}`
+                              : `1px solid ${TOKENS.border.default}`,
+                            color: chartType === ct.key ? TOKENS.accentLight : TOKENS.text.secondary,
+                            cursor: 'pointer', fontSize: '11px', fontWeight: 500,
+                            transition: TOKENS.transition,
+                          }}
+                        >
+                          {ct.icon}
+                          {ct.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* 3. Dimensions & Measures */}

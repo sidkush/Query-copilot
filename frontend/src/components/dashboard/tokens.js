@@ -28,13 +28,108 @@ export const TOKENS = {
   warning: 'var(--status-warning)',
   danger: 'var(--status-danger)',
   info: '#06b6d4',
-  radius: { sm: '6px', md: '10px', lg: '14px', xl: '18px' },
+  radius: { sm: '6px', md: '10px', lg: '14px', xl: '18px', pill: '9999px' },
   transition: '200ms cubic-bezier(0.16,1,0.3,1)',
-  // Premium tile defaults
+  // Fonts
+  fontDisplay: "'Outfit', system-ui, sans-serif",
+  fontBody: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+  fontMono: "'JetBrains Mono', ui-monospace, monospace",
+  // Premium tile defaults — theme-aware via CSS vars
   tile: {
-    shadow: '0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04)',
-    shadowHover: '0 4px 16px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06)',
+    // Background: glass card that adapts to theme
+    surface: 'var(--glass-bg-card)',
+    surfaceHover: 'var(--glass-bg-card-hover)',
+    // Border: hairline that reads on both themes
+    border: 'var(--glass-border)',
+    borderHover: 'var(--glass-border-hover)',
+    // Shadow stack — base + hover
+    shadow:
+      '0 1px 0 var(--glass-highlight) inset, 0 22px 44px -28px var(--shadow-deep), 0 6px 14px -10px var(--shadow-soft)',
+    shadowHover:
+      '0 1px 0 var(--glass-highlight) inset, 0 30px 56px -24px var(--shadow-deep), 0 10px 22px -12px var(--shadow-mid)',
+    // Geometry
+    radius: 20,
+    innerRadius: 17, // radius - border width - pad
+    headerHeight: 44,
+    headerPad: '13px 16px',
+    bodyPad: '4px 14px 14px',
+    // Typography
     headerFont: "'Outfit', system-ui, sans-serif",
+    titleSize: 14,
+    titleWeight: 700,
+    titleLetterSpacing: '-0.018em',
+    eyebrowSize: 9,
+    eyebrowLetterSpacing: '0.22em',
+  },
+  // KPI-specific premium tokens
+  kpi: {
+    valueFontSize: 40,
+    valueFontWeight: 800,
+    valueLetterSpacing: '-0.035em',
+    labelFontSize: 9,
+    labelLetterSpacing: '0.22em',
+    pad: '22px 24px 20px',
+  },
+  // Dense tile family — Tableau-class information density.
+  // Consumed by SparklineKPI / ScorecardTable / HBarCard / HeatMatrix.
+  // Grid sizing hints (minW/minH) live on each chartDefs entry; these are
+  // the visual/typographic scales that adapt dense tiles to tight footprints.
+  dense: {
+    // Compact header + body (vs. standard tile 44px header + 14px body pad)
+    headerHeight: 32,
+    headerPad: '8px 12px',
+    bodyPad: '2px 12px 10px',
+    innerGap: 6,
+    // Title typography — one step smaller than standard tile title
+    titleSize: 11.5,
+    titleWeight: 650,
+    titleLetterSpacing: '-0.012em',
+    eyebrowSize: 8,
+    eyebrowLetterSpacing: '0.2em',
+    // Primary metric (the big value in a SparklineKPI)
+    valueSize: 22,
+    valueWeight: 750,
+    valueLetterSpacing: '-0.028em',
+    // Secondary metric (delta chip, sub-label)
+    deltaSize: 10.5,
+    deltaWeight: 600,
+    labelSize: 9.5,
+    labelMuted: 'var(--text-muted)',
+    // Delta chip palette — delta-up reads as success, delta-down as danger
+    deltaUpBg: 'color-mix(in oklab, var(--status-success) 14%, transparent)',
+    deltaUpFg: 'var(--status-success)',
+    deltaDownBg: 'color-mix(in oklab, var(--status-danger) 14%, transparent)',
+    deltaDownFg: 'var(--status-danger)',
+    deltaFlatBg: 'color-mix(in oklab, var(--text-muted) 10%, transparent)',
+    deltaFlatFg: 'var(--text-muted)',
+    // Sparkline / mini-chart stroke + area fill
+    sparkStroke: 'var(--accent)',
+    sparkStrokeWidth: 1.5,
+    sparkArea: 'color-mix(in oklab, var(--accent) 18%, transparent)',
+    sparkAreaMuted: 'color-mix(in oklab, var(--accent) 8%, transparent)',
+    // Inline bar rail (HBarCard + ScorecardTable inline bars)
+    barTrack: 'color-mix(in oklab, var(--text-muted) 14%, transparent)',
+    barFill: 'var(--accent)',
+    barFillAlt: 'color-mix(in oklab, var(--accent) 75%, var(--brand-purple, #a855f7) 25%)',
+    barHeight: 4,
+    barRadius: 2,
+    // Row rhythm for ScorecardTable (8-row default dense list)
+    rowHeight: 22,
+    rowGap: 3,
+    rowHover: 'var(--bg-hover)',
+    rankFg: 'var(--text-muted)',
+    rankSize: 10,
+    // Heat matrix cell defaults
+    heatCellGap: 1,
+    heatCellRadius: 2,
+    heatColdFg: 'color-mix(in oklab, var(--accent) 6%, var(--bg-elevated))',
+    heatHotFg: 'var(--accent)',
+    // Grid sizing — react-grid-layout contract (cols=12, rowHeight=60).
+    // These are FALLBACK defaults; each chartDefs entry overrides via density.{minW,minH}.
+    defaultMinW: 3,
+    defaultMinH: 1,
+    // Text fade for truncated labels (ScorecardTable long names)
+    truncateFade: 'linear-gradient(90deg, transparent 0%, var(--bg-elevated) 92%)',
   },
 };
 

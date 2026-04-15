@@ -366,6 +366,10 @@ export const api = {
   removeDashboardTile: (dashboardId, tileId) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}`, { method: "DELETE" }),
 
+  // ── Phase 2.5 — tile survival telemetry ──
+  auditTileEvent: (payload) =>
+    request('/dashboards/audit/tile-event', { method: "POST", body: JSON.stringify(payload) }),
+
   // ── Dashboard Tabs ──
   addTab: (dashboardId, name) =>
     request(`/dashboards/${dashboardId}/tabs`, { method: "POST", body: JSON.stringify({ name }) }),

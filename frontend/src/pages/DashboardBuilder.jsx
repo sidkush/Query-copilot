@@ -17,6 +17,9 @@ import behaviorEngine from "../lib/behaviorEngine";
 import { TOKENS } from "../components/dashboard/tokens";
 import AgentPanel from "../components/agent/AgentPanel";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
+import DiffOnLoadBanner from "../components/dashboard/DiffOnLoadBanner";
+import { detectHotMetrics } from "../lib/hotMetricDetector";
+import { emitTileCreated, emitTileDeleted, emitTilesSurvived24h } from "../lib/tileSurvivalTelemetry";
 import TabBar from "../components/dashboard/TabBar";
 import Section from "../components/dashboard/Section";
 import GlobalFilterBar from "../components/dashboard/GlobalFilterBar";
@@ -168,6 +171,31 @@ export default function DashboardBuilder() {
   const activeTab =
     activeDashboard?.tabs?.find((t) => t.id === activeTabId) || null;
   const sections = activeTab?.sections || [];
+
+  // ── Hot metric heat map (Phase 2.4) ──
+  // Recomputed when the active tab's tile data changes. Must run AFTER
+  // tile.rows load so snapshots have real numbers, not placeholders.
+  // Note: diffSnapshot is called by detectHotMetrics BEFORE the banner
+  // re-snapshots — this ordering is intentional so the banner sees the
+  // same delta picture the pulse is reacting to.
+  const setTileHeatMap = useStore((s) => s.setTileHeatMap);
+  useEffect(() => {
+    if (!activeDashboard?.id || !activeTab?.tiles?.length) {
+      setTileHeatMap({});
+      return;
+    }
+    const heatMap = detectHotMetrics(activeDashboard.id, activeTab.tiles);
+    setTileHeatMap(heatMap);
+  }, [activeDashboard?.id, activeTab?.tiles, setTileHeatMap]);
+
+  // ── Tile survival telemetry 24h sweep (Phase 2.5) ──
+  // Once per dashboard load, walk the active tab's tiles and emit a
+  // survived_24h event for any tile whose createdAt is > 24h ago.
+  // emitTilesSurvived24h internally dedupes per tile per session.
+  useEffect(() => {
+    if (!activeDashboard?.id || !activeTab?.tiles?.length) return;
+    emitTilesSurvived24h(activeDashboard.id, activeTab.tiles);
+  }, [activeDashboard?.id, activeTab?.id, activeTab?.tiles]);
 
   // ── Load dashboards on mount ──
   useEffect(() => {
@@ -881,6 +909,12 @@ export default function DashboardBuilder() {
           };
         });
 
+        // Survival telemetry — fire and forget
+        if (removedTile) {
+          const ageMs = Date.now() - (Number(removedTile.createdAt) || Date.now());
+          emitTileDeleted(dash.id, tileId, removedTile.chartType, ageMs);
+        }
+
         // Show undo toast with 5s timeout — surgical restore (only re-add the tile)
         if (removedTile) {
           const undoEntry = {
@@ -1264,6 +1298,14 @@ export default function DashboardBuilder() {
           tile
         );
         setActiveDashboard(res);
+        // Survival telemetry — locate newly added tile to get its id
+        const newTile = res?.tabs
+          ?.find((t) => t.id === tabId)
+          ?.sections?.find((s) => s.id === targetSectionId)
+          ?.tiles?.slice(-1)?.[0];
+        if (newTile?.id) {
+          emitTileCreated(dash.id, newTile.id, newTile.chartType || 'bar');
+        }
       } catch (err) {
         void 0;
       }
@@ -2108,6 +2150,14 @@ export default function DashboardBuilder() {
                 onOpenSettings={() => openModal('settings')}
                 onToggleFullscreen={enterFullscreen}
                 onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+              />
+            )}
+
+            {/* Diff-on-load banner — shows top-3 deltas since last visit */}
+            {!fullscreenMode && (
+              <DiffOnLoadBanner
+                dashboardId={activeDashboard?.id}
+                tiles={activeTab?.tiles || []}
               />
             )}
 

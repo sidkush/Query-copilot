@@ -14,6 +14,9 @@ pip install -r requirements.txt
 cp .env.example .env        # fill in ANTHROPIC_API_KEY, JWT_SECRET_KEY, etc.
 uvicorn main:app --reload --port 8002
 
+# ML training worker (separate process, only if using ML Engine async jobs)
+celery -A celery_app worker --loglevel=info
+
 # Frontend (from frontend/)
 npm install
 npm run dev                 # http://localhost:5173 (proxied to backend at localhost:8002)
@@ -93,7 +96,7 @@ Two independent services: FastAPI backend on 8002, React frontend on 5173 (Vite 
 - Consent-gated: user control tracking level via `/api/v1/behavior` routes
 - Profile stored in `.data/user_data/{hash}/behavior_profile.json`
 
-**Routers (`backend/routers/`):** `auth_routes` (OTP + OAuth), `connection_routes` (DB connect/disconnect/save/load), `query_routes` (generate/execute/feedback/suggestions/dashboard-gen), `schema_routes` (table listing/DDL/ER positions), `chat_routes` (session CRUD), `user_routes` (profile/account/billing/tickets), `dashboard_routes` (tile CRUD + layout), `admin_routes` (separate JWT, user/ticket management), `alert_routes` (NL alert CRUD with webhook support), `behavior_routes` (behavior tracking deltas + consent), `agent_routes` (SSE agent streaming + waterfall router singleton).
+**Routers (`backend/routers/`):** `auth_routes` (OTP + OAuth), `connection_routes` (DB connect/disconnect/save/load), `query_routes` (generate/execute/feedback/suggestions/dashboard-gen), `schema_routes` (table listing/DDL/ER positions), `chat_routes` (session CRUD), `user_routes` (profile/account/billing/tickets), `dashboard_routes` (tile CRUD + layout), `admin_routes` (separate JWT, user/ticket management), `alert_routes` (NL alert CRUD with webhook support), `behavior_routes` (behavior tracking deltas + consent), `agent_routes` (SSE agent streaming + waterfall router singleton), `ml_routes` (`/api/v1/ml/train`, `/predict` — direct AutoML), `ml_pipeline_routes` (`/api/v1/ml/pipelines` — workflow CRUD + per-stage exec), `voice_routes` (`/api/v1/voice` WebSocket — text-only wire, browser does Web Speech API audio).
 
 **Alert system (`routers/alert_routes.py`):**
 - NL condition text parsed into SQL + column + operator + threshold
@@ -138,6 +141,8 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 - `.data/schema_cache/{conn_id}.json` — cached schema profiles per connection
 - `.data/turbo_twins/{conn_id}.duckdb` — DuckDB replicas for Turbo Mode
 - `.data/agent_sessions.db` — SQLite (WAL mode) for agent session persistence
+- `.data/ml_models/{user_hash}/` — trained model artifacts (`.joblib`), `dataset.parquet`, run metadata
+- `.data/ml_pipelines/{user_hash}/{pipeline_id}.json` — ML workflow state per user (6 stages: ingest, clean, features, train, evaluate, results)
 - `.data/` and `.chroma/` gitignored — all runtime state lives there. Never commit.
 
 **BYOK (Bring Your Own Key) provider system:**
@@ -153,6 +158,7 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 - `ASKDB_ENV` / `QUERYCOPILOT_ENV` — set to `production`/`staging` to force hard exit on default JWT key
 - `WATERFALL_CAN_ANSWER_BUDGET_MS` (200ms, min 10ms) / `WATERFALL_ANSWER_BUDGET_MS` (1000ms, min 50ms) — tier routing speed budgets with floor to prevent accidental disable
 - `OTP_EXPIRY_SECONDS` (default 600 = 10 min)
+- `ML_ENGINE_ENABLED` (True), `ML_FULL_DATASET_ENABLED` (True), `ML_MAX_TRAINING_ROWS` (10M cap), `ML_DEFAULT_SAMPLE_SIZE` (500K stratified), `ML_TRAINING_QUERY_TIMEOUT` (3600s), `ML_TRAINING_TIMEOUT_SECONDS` (3600s), `ML_WORKER_MAX_MEMORY_MB` (512), `ML_MAX_CONCURRENT_TRAINING_PER_USER` (2), `ML_AUTO_EXCLUDE_PII` (True — drops PII columns from features), `ML_MAX_MODELS_FREE` (3) / `ML_MAX_MODELS_PRO` (10), `ML_MODELS_DIR` / `ML_PIPELINES_DIR`
 
 **Storage abstraction:** `user_storage.py` defines `StorageBackend` ABC with pluggable backends (file, S3, SQLite, Postgres). Default file-based. All per-user data I/O goes through this module.
 
@@ -173,8 +179,8 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 **Routing:** `App.jsx` — React Router v7 with `ProtectedRoute` HOC and `AnimatePresence` page transitions. `ProtectedRoute` gates on `apiKeyStatus` — BYOK users without valid key redirected to setup. Route map:
 - Public: `/` (Landing), `/login`, `/auth/callback`, `/admin/login`, `/admin`, `/shared/:id` (SharedDashboard)
 - Protected (no sidebar): `/tutorial`, `/onboarding`
-- Protected (with `AppLayout` sidebar): `/dashboard`, `/schema`, `/chat`, `/profile`, `/account`, `/billing`, `/analytics`
-- `/dashboard` → `Dashboard.jsx` (view-only, query result tiles); `/analytics` → `DashboardBuilder.jsx` (full drag-resize builder with TileEditor)
+- Protected (with `AppLayout` sidebar): `/dashboard`, `/schema`, `/chat`, `/profile`, `/account`, `/billing`, `/analytics`, `/ml-engine`
+- `/dashboard` → `Dashboard.jsx` (view-only, query result tiles); `/analytics` → `DashboardBuilder.jsx` (full drag-resize builder with TileEditor); `/ml-engine` → `MLEngine.jsx` (AutoML pipeline UI — 6 stages: Ingest → Clean → Features → Train → Evaluate → Results)
 
 **Top-level shared components** (`src/components/`): `AppLayout.jsx` (sidebar + main content wrap), `AppSidebar.jsx`, `DatabaseSwitcher.jsx` (connection picker), `ERDiagram.jsx` (schema viz), `ResultsChart.jsx` + `ResultsTable.jsx` (query result render), `SQLPreview.jsx`, `SchemaExplorer.jsx`, `StatSummaryCard.jsx`, `AskDBLogo.jsx`, `UserDropdown.jsx`.
 
@@ -253,6 +259,35 @@ User question
 **Store** (`store.js`): `agentTierInfo`, `turboStatus`, `queryIntelligence`, `setTurboStatus()`, `setQueryIntelligence()`.
 
 **API** (`api.js`): `enableTurbo()`, `disableTurbo()`, `getTurboStatus()`, `refreshTurbo()`, `getSchemaProfile()`, `refreshSchema()`.
+
+### ML Engine — AutoML Pipeline (`/backend` — 6 modules + 2 routers + Celery)
+
+Optional AutoML subsystem layered onto the same connection model. Polars-native (no pandas in feature engineering — see commit `34a57a5`). Six fixed stages drive both direct training and persisted workflows.
+
+**Modules:**
+- `ml_engine.py` — `MLEngine` orchestrator. Methods: `ingest_from_twin()` (pulls DuckDB twin via Arrow zero-copy), `ingest_from_source()` (live DB query bypassing twin sampling — for >50K row training), `ingest_dataframe()`, plus train/evaluate/predict.
+- `ml_feature_engine.py` — `detect_column_types()`, `analyze_features()`, `prepare_dataset()`. Handles scaling, power transforms, outlier removal, one-hot/label encoding, custom feature creation. String target columns auto-encoded for classification (LabelEncoder).
+- `ml_models.py` — model catalog (`ModelConfig` dataclass). Per-task lists: classification (XGBoost, LightGBM, RandomForest, LogReg), regression (XGBoost, LightGBM, RandomForest), with default hyperparams.
+- `ml_pipeline_store.py` — file-based pipeline workflow CRUD with atomic writes. Stages = `["ingest", "clean", "features", "train", "evaluate", "results"]`. Each stage holds `{status, config, output_summary}`.
+- `ml_tasks.py` + `celery_app.py` + `celery_worker.py` — Celery async training jobs (worker process separate from FastAPI). Required for long-running training that exceeds request timeouts.
+- `arrow_bridge.py` + `datafusion_engine.py` — zero-copy Arrow data movement between DuckDB / Polars / DataFusion. Lets ML pipeline reuse warehouse data without serialization.
+
+**Three ingest modes** (Data Source selector in Training stage):
+1. **Twin** — sampled DuckDB replica (fast, capped at twin size)
+2. **Sample** — stratified sample from live source via `ingest_from_source(stratify_column=...)`
+3. **Full Dataset** — full live source query bypassing twin (`ML_FULL_DATASET_ENABLED`, capped by `ML_MAX_TRAINING_ROWS`). On connector lookup miss, falls back to any active connection for same user (`67397ca`). Errors loudly instead of silent twin fallback when Full Dataset connector unavailable (`3ac69be`).
+
+**PII handling:** `ML_AUTO_EXCLUDE_PII=True` drops PII-flagged columns before training. Uses same masking detection as query path.
+
+**Routers:**
+- `ml_routes.py` (`/api/v1/ml`) — direct one-shot endpoints: `POST /train` (synchronous train + persist), `POST /predict`. Gated on `ML_ENGINE_ENABLED`.
+- `ml_pipeline_routes.py` (`/api/v1/ml/pipelines`) — workflow CRUD + per-stage manual execution. `update_pipeline` field whitelist must include `data_source` and cached URI fields (`255df79`) — extend whitelist when adding new stage config keys.
+
+**BigQuery perf path** (`db_connector.py`): BigQuery uses `google.cloud.bigquery.Client.query().to_arrow()` (Storage Read API) instead of SQLAlchemy REST — 10–50× faster on >10M row ingests. Requires `google-cloud-bigquery-storage`. ML ingest does column pruning (`SELECT col1, col2 …` not `SELECT *`, commit `1b5e092`) and uses `TABLESAMPLE SYSTEM` with dataset-qualified table names (`4e63c0b`). When extending other warehouses, prefer native Arrow paths over SQLAlchemy.
+
+### Voice Mode (`routers/voice_routes.py`)
+
+WebSocket at `/api/v1/voice`. Only **text** flows over the wire — browser handles STT/TTS via Web Speech API. Voice and text share the same `SessionMemory` and `chat_id`, so a voice session can resume in the chat UI and vice versa. Message types: `transcript` (interim or final), `cancel`, `voice_config` (per-session TTS/STT provider override). Per-user active connection count tracked in module-level dict.
 
 ### Dual-Response System (Progressive Dual-Response Data Acceleration)
 

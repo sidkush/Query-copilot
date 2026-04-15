@@ -64,8 +64,28 @@ export default function SchemaView() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Schema explorer</h1>
-          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Drag tables to rearrange &middot; {tables.length} tables discovered</p>
+          <div className="page-hero" style={{ gap: 2 }}>
+            <span className="page-hero__eyebrow">
+              <span className="eyebrow-dot" aria-hidden="true" />
+              Data · Schema
+            </span>
+            <h1 style={{
+              fontSize: 20,
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              fontFamily: "'Outfit', system-ui, sans-serif",
+              letterSpacing: '-0.022em',
+              lineHeight: 1.1,
+              margin: 0,
+            }}>Schema explorer</h1>
+            <p style={{
+              fontSize: 11,
+              color: 'var(--text-muted)',
+              fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+              letterSpacing: '-0.005em',
+              margin: '2px 0 0',
+            }}>Drag tables to rearrange &middot; {tables.length} tables discovered</p>
+          </div>
         </motion.div>
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex items-center gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>

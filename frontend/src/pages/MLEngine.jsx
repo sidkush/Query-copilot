@@ -6,13 +6,29 @@ import DatabaseSwitcher from "../components/DatabaseSwitcher";
 import MLPipeline from "../components/ml/MLPipeline";
 import WorkflowBar from "../components/ml/WorkflowBar";
 import { TOKENS } from "../components/dashboard/tokens";
+import useConfirmAction from "../lib/useConfirmAction";
+
+const FONT_DISPLAY_PAGE = "'Outfit', system-ui, sans-serif";
+const FONT_BODY_PAGE = "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif";
+const FONT_MONO_PAGE = "'JetBrains Mono', ui-monospace, monospace";
 
 /* ── Status badge helper ── */
 function StatusBadge({ label, color }) {
   return (
     <span
-      className="text-xs px-2 py-0.5 rounded-full font-medium"
-      style={{ background: `${color}15`, color }}
+      style={{
+        fontSize: 9,
+        fontWeight: 700,
+        padding: '3px 10px',
+        borderRadius: 9999,
+        letterSpacing: '0.16em',
+        textTransform: 'uppercase',
+        background: `${color}1a`,
+        color,
+        border: `1px solid ${color}3a`,
+        fontFamily: FONT_DISPLAY_PAGE,
+        whiteSpace: 'nowrap',
+      }}
     >
       {label}
     </span>
@@ -29,69 +45,123 @@ function MetricCell({ label, value }) {
       : String(value ?? "—");
   return (
     <div>
-      <span className="block text-xs" style={{ color: TOKENS.text.muted }}>
+      <span style={{
+        display: 'block',
+        fontSize: 8.5,
+        fontWeight: 700,
+        letterSpacing: '0.18em',
+        textTransform: 'uppercase',
+        color: TOKENS.text.muted,
+        fontFamily: FONT_DISPLAY_PAGE,
+        marginBottom: 4,
+      }}>
         {label}
       </span>
-      <span
-        className="block text-sm font-semibold tabular-nums"
-        style={{ color: TOKENS.text.primary }}
-      >
+      <span style={{
+        display: 'block',
+        fontSize: 17,
+        fontWeight: 800,
+        color: TOKENS.text.primary,
+        fontFamily: FONT_DISPLAY_PAGE,
+        letterSpacing: '-0.025em',
+        lineHeight: 1.1,
+        fontVariantNumeric: 'tabular-nums',
+      }}>
         {formatted}
       </span>
     </div>
   );
 }
 
-/* ── Model card ── */
+/* ── Model card — neutral glass, task color as single role-restricted accent ── */
 function ModelCard({ model, onDelete }) {
   const taskColor =
-    model.task_type === "classification" ? TOKENS.brandPurple : TOKENS.info;
+    model.task_type === "classification" ? '#a855f7' : '#06b6d4';
+  const deleteConfirm = useConfirmAction(() => onDelete?.(model.model_id), { timeoutMs: 3500 });
+
+  // Theme-aware shadows via CSS vars — light theme gets slate-tinted shadows
+  const baseShadow =
+    '0 1px 0 var(--glass-highlight) inset, 0 18px 36px -24px var(--shadow-deep), 0 4px 10px -8px var(--shadow-soft)';
+  const hoverShadow =
+    '0 1px 0 var(--glass-highlight) inset, 0 26px 46px -22px var(--shadow-deep), 0 8px 16px -10px var(--shadow-mid)';
 
   return (
     <div
+      className="ml-model-card group"
       style={{
-        borderRadius: TOKENS.radius.lg,
-        border: `1px solid ${TOKENS.border.default}`,
-        background: TOKENS.bg.surface,
-        boxShadow: TOKENS.tile.shadow,
-        transition: `box-shadow ${TOKENS.transition}, border-color ${TOKENS.transition}`,
-        overflow: "hidden",
+        position: 'relative',
+        borderRadius: 20,
+        padding: 0,
+        background: 'var(--glass-bg-card)',
+        border: '1px solid var(--glass-border)',
+        boxShadow: baseShadow,
+        transition: 'transform 380ms cubic-bezier(0.32,0.72,0,1), box-shadow 380ms cubic-bezier(0.32,0.72,0,1), border-color 380ms cubic-bezier(0.32,0.72,0,1)',
+        overflow: 'hidden',
+        backdropFilter: 'blur(14px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(14px) saturate(1.4)',
       }}
-      className="group hover:shadow-lg"
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = TOKENS.tile.shadowHover;
-        e.currentTarget.style.borderColor = TOKENS.border.hover;
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = hoverShadow;
+        e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = TOKENS.tile.shadow;
-        e.currentTarget.style.borderColor = TOKENS.border.default;
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = baseShadow;
+        e.currentTarget.style.borderColor = 'var(--glass-border)';
       }}
     >
-      {/* Header strip */}
-      <div
-        style={{ height: 3, background: taskColor, opacity: 0.6 }}
-        aria-hidden="true"
-      />
+      <div style={{
+        padding: 20,
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Top accent line — single role-restricted hint of task color */}
+        <div style={{
+          position: 'absolute',
+          top: 0, left: 14, right: 14, height: 1,
+          background: `linear-gradient(90deg, transparent, ${taskColor}66 50%, transparent)`,
+          borderRadius: 9999,
+        }} />
 
-      <div style={{ padding: 16 }}>
         {/* Title row */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="min-w-0 flex-1">
-            <h4
-              className="text-sm font-semibold truncate"
-              style={{
-                color: TOKENS.text.primary,
-                fontFamily: TOKENS.tile.headerFont,
-              }}
-            >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, gap: 12 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <span style={{
+              display: 'block',
+              fontSize: 8.5, fontWeight: 700,
+              letterSpacing: '0.20em', textTransform: 'uppercase',
+              color: TOKENS.text.muted,
+              fontFamily: FONT_DISPLAY_PAGE,
+              marginBottom: 5,
+            }}>
+              Trained model
+            </span>
+            <h4 style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: TOKENS.text.primary,
+              fontFamily: FONT_DISPLAY_PAGE,
+              letterSpacing: '-0.022em',
+              lineHeight: 1.2,
+              margin: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
               {model.model_name || model.model_id}
             </h4>
             {model.target_column && (
-              <p
-                className="text-xs mt-0.5 truncate"
-                style={{ color: TOKENS.text.muted }}
-              >
-                Target: {model.target_column}
+              <p style={{
+                fontSize: 11.5, color: TOKENS.text.muted,
+                marginTop: 4,
+                fontFamily: FONT_BODY_PAGE,
+                letterSpacing: '-0.005em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                Target — {model.target_column}
               </p>
             )}
           </div>
@@ -100,10 +170,14 @@ function ModelCard({ model, onDelete }) {
 
         {/* Metrics grid */}
         {model.metrics && Object.keys(model.metrics).length > 0 && (
-          <div
-            className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3 pt-3"
-            style={{ borderTop: `1px solid ${TOKENS.border.default}` }}
-          >
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '14px 16px',
+            marginBottom: 14,
+            paddingTop: 14,
+            borderTop: `1px solid ${TOKENS.border.default}`,
+          }}>
             {Object.entries(model.metrics).map(([key, val]) => (
               <MetricCell key={key} label={key} value={val} />
             ))}
@@ -111,8 +185,18 @@ function ModelCard({ model, onDelete }) {
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-xs" style={{ color: TOKENS.text.muted }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingTop: 4,
+        }}>
+          <span style={{
+            fontSize: 10.5,
+            color: TOKENS.text.muted,
+            fontFamily: FONT_MONO_PAGE,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
             {model.created_at
               ? new Date(model.created_at).toLocaleDateString(undefined, {
                   month: "short",
@@ -122,16 +206,14 @@ function ModelCard({ model, onDelete }) {
               : ""}
           </span>
           <button
-            onClick={() => onDelete?.(model.model_id)}
-            className="text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            style={{
-              color: TOKENS.danger,
-              background: "transparent",
-              border: "none",
-            }}
-            aria-label={`Delete model ${model.model_name || model.model_id}`}
+            onClick={deleteConfirm.trigger}
+            onBlur={deleteConfirm.reset}
+            className="ml-model-delete"
+            data-armed={deleteConfirm.armed || undefined}
+            aria-label={deleteConfirm.armed ? `Confirm delete model ${model.model_name || model.model_id}` : `Delete model ${model.model_name || model.model_id}`}
+            title={deleteConfirm.armed ? "Click again to confirm — this cannot be undone" : "Delete this model"}
           >
-            Delete
+            {deleteConfirm.armed ? "Confirm?" : "Delete"}
           </button>
         </div>
       </div>
@@ -139,35 +221,63 @@ function ModelCard({ model, onDelete }) {
   );
 }
 
-/* ── Empty state ── */
+/* ── Empty state — premium halo ── */
 function EmptyState() {
   return (
-    <div
-      className="flex flex-col items-center justify-center py-20"
-      style={{ color: TOKENS.text.muted }}
-    >
-      {/* Beaker icon */}
-      <svg
-        className="w-12 h-12 mb-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1.2}
-        style={{ opacity: 0.4 }}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M5 14.5l-1.43 1.43a2.25 2.25 0 00-.32 2.817l.122.205a2.25 2.25 0 001.93 1.048h13.396a2.25 2.25 0 001.93-1.048l.122-.205a2.25 2.25 0 00-.32-2.817L19 14.5M5 14.5h14"
-        />
-      </svg>
-      <p className="text-sm font-medium mb-1" style={{ color: TOKENS.text.secondary }}>
-        No models trained yet
-      </p>
-      <p className="text-xs max-w-xs text-center">
-        Use the agent panel to train ML models on your data. Ask something like
-        &ldquo;Train a model to predict churn&rdquo;
-      </p>
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      padding: '64px 24px',
+      gap: 22,
+    }}>
+      {/* Double-bezel halo */}
+      <div style={{
+        padding: 8, borderRadius: 32,
+        background: 'linear-gradient(180deg, rgba(37,99,235,0.20), rgba(37,99,235,0.04))',
+        border: '1px solid rgba(37,99,235,0.22)',
+        boxShadow: '0 26px 60px -28px rgba(37,99,235,0.50), inset 0 1px 0 rgba(255,255,255,0.10)',
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: 26,
+          background: 'radial-gradient(120% 120% at 30% 20%, rgba(37,99,235,0.35), rgba(37,99,235,0.04) 70%)',
+          border: '1px solid rgba(37,99,235,0.30)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.18)',
+          color: TOKENS.accent,
+        }}>
+          <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M5 14.5l-1.43 1.43a2.25 2.25 0 00-.32 2.817l.122.205a2.25 2.25 0 001.93 1.048h13.396a2.25 2.25 0 001.93-1.048l.122-.205a2.25 2.25 0 00-.32-2.817L19 14.5M5 14.5h14" />
+          </svg>
+        </div>
+      </div>
+      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 400 }}>
+        <span style={{
+          fontSize: 9, fontWeight: 700,
+          letterSpacing: '0.24em', textTransform: 'uppercase',
+          color: TOKENS.text.muted,
+          fontFamily: FONT_DISPLAY_PAGE,
+        }}>
+          Ready when you are
+        </span>
+        <div style={{
+          fontSize: 22, fontWeight: 800,
+          color: TOKENS.text.primary,
+          fontFamily: FONT_DISPLAY_PAGE,
+          letterSpacing: '-0.025em',
+          lineHeight: 1.15,
+        }}>
+          Train your first model
+        </div>
+        <p style={{
+          fontSize: 13, color: TOKENS.text.muted,
+          lineHeight: 1.6,
+          fontFamily: FONT_BODY_PAGE,
+          letterSpacing: '-0.005em',
+          margin: 0,
+        }}>
+          Start with <strong style={{ color: TOKENS.text.secondary, fontWeight: 600 }}>Data Ingest</strong> above, or ask the agent panel: <em>&ldquo;Train a model to predict {'{'}target{'}'}.&rdquo;</em>
+        </p>
+      </div>
     </div>
   );
 }
@@ -383,41 +493,101 @@ export default function MLEngine() {
   return (
     <div className="flex h-full overflow-hidden">
       {/* ML Workspace */}
-      <div className="flex-1 overflow-auto" style={{ padding: 24 }}>
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
+      <div className="flex-1 overflow-auto ml-engine-scroll" style={{ padding: 'clamp(18px, 3.2vw, 36px) clamp(16px, 3.2vw, 40px) clamp(32px, 4vw, 52px)' }}>
+        {/* Header — editorial hero with instrument-strip subtitle */}
+        <div className="flex items-start justify-between mb-10 gap-6 flex-wrap">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, flex: 1 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 9,
+              fontSize: 9, fontWeight: 700,
+              letterSpacing: '0.24em', textTransform: 'uppercase',
+              color: TOKENS.text.muted,
+              fontFamily: "'Outfit', system-ui, sans-serif",
+            }}>
+              <span className="eyebrow-dot" aria-hidden="true" />
+              AskDB · AutoML Workspace
+            </span>
             <h1
-              className="text-xl font-semibold"
               style={{
+                fontSize: 'clamp(26px, 4.2vw, 40px)',
+                lineHeight: 1.0,
+                fontWeight: 800,
                 color: TOKENS.text.primary,
-                fontFamily: TOKENS.tile.headerFont,
+                fontFamily: "'Outfit', system-ui, sans-serif",
+                letterSpacing: '-0.035em',
+                margin: 0,
               }}
             >
               ML Engine
             </h1>
-            <p className="text-xs mt-0.5" style={{ color: TOKENS.text.muted }}>
-              Train and manage machine learning models on your data
+            {/* Mono instrument strip — shows the six-stage sequence at a glance */}
+            <div className="ml-hero-strip" aria-hidden="true">
+              {['01 Ingest', '02 Clean', '03 Features', '04 Train', '05 Eval', '06 Results'].map((label, i, arr) => (
+                <span key={label} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <span className="ml-hero-strip__item">{label}</span>
+                  {i < arr.length - 1 && <span className="ml-hero-strip__sep" aria-hidden="true" />}
+                </span>
+              ))}
+            </div>
+            <p style={{
+              fontSize: 13.5,
+              color: TOKENS.text.muted,
+              fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+              letterSpacing: '-0.005em',
+              lineHeight: 1.55,
+              maxWidth: 560,
+              margin: '2px 0 0',
+            }}>
+              Walk each stage in order. Tune what you need, skip what you don\u2019t, and see every decision the model makes along the way.
             </p>
           </div>
           <DatabaseSwitcher connections={connections} activeConnId={activeConnId} onSwitch={setActiveConnId} liveConnIds={new Set(connections.map(c => c.conn_id))} />
         </div>
 
         {/* Workflow management bar */}
-        <WorkflowBar connId={connId} />
+        <div style={{ marginBottom: 22 }}>
+          <WorkflowBar connId={connId} />
+        </div>
 
         {/* Turbo Mode warning banner */}
         {turboWarning && (
-          <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-xl" style={{
-            background: `${TOKENS.warning}10`,
-            border: `1px solid ${TOKENS.warning}30`,
+          <div className="ml-warning-banner" style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '14px 18px',
+            marginBottom: 22,
+            borderRadius: 16,
+            background: 'rgba(245,158,11,0.06)',
+            border: '1px solid rgba(245,158,11,0.22)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.04) inset',
           }}>
-            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ color: TOKENS.warning }}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-            </svg>
-            <p className="text-xs" style={{ color: TOKENS.text.secondary }}>
-              Enable <strong>Turbo Mode</strong> on your connection to train models. Go to the <a href="/dashboard" style={{ color: TOKENS.accent, textDecoration: 'underline' }}>Dashboard</a> to enable it.
-            </p>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: 'rgba(245,158,11,0.16)',
+              border: '1px solid rgba(245,158,11,0.32)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" style={{ color: TOKENS.warning }}>
+                <path d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 9, fontWeight: 700, color: TOKENS.warning,
+                letterSpacing: '0.20em', textTransform: 'uppercase',
+                fontFamily: "'Outfit', system-ui, sans-serif",
+                marginBottom: 3,
+              }}>
+                Turbo Mode is off
+              </div>
+              <div style={{
+                fontSize: 12.5, color: TOKENS.text.secondary,
+                fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+                lineHeight: 1.5, letterSpacing: '-0.005em',
+              }}>
+                Training needs a Turbo twin on this connection. <a href="/dashboard" style={{ color: TOKENS.accent, textDecoration: 'none', borderBottom: '1px solid rgba(37,99,235,0.32)', paddingBottom: 1 }}>Enable it in the Dashboard</a>.
+              </div>
+            </div>
           </div>
         )}
 
@@ -426,31 +596,42 @@ export default function MLEngine() {
 
         {/* Models section */}
         {mlModels.length > 0 ? (
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <h3
-                className="text-sm font-medium"
-                style={{ color: TOKENS.text.secondary }}
-              >
+          <div style={{ marginTop: 36 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <span className="eyebrow-dot" aria-hidden="true" />
+              <span style={{
+                fontSize: 9, fontWeight: 700,
+                letterSpacing: '0.24em', textTransform: 'uppercase',
+                color: TOKENS.text.muted,
+                fontFamily: "'Outfit', system-ui, sans-serif",
+              }}>
                 Trained Models
-              </h3>
-              <span
-                className="text-xs tabular-nums px-1.5 py-0.5 rounded-md"
-                style={{
-                  background: TOKENS.bg.hover,
-                  color: TOKENS.text.muted,
-                }}
-              >
+              </span>
+              <span style={{
+                fontSize: 10, fontWeight: 700,
+                padding: '2px 9px', borderRadius: 9999,
+                background: 'rgba(37,99,235,0.12)',
+                color: TOKENS.accent,
+                border: '1px solid rgba(37,99,235,0.28)',
+                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                fontVariantNumeric: 'tabular-nums',
+              }}>
                 {mlModels.length}
               </span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mlModels.map((model) => (
-                <ModelCard
+            <div className="ml-model-bento">
+              {mlModels.map((model, i) => (
+                <div
                   key={model.model_id}
-                  model={model}
-                  onDelete={handleDelete}
-                />
+                  className="ml-model-bento__cell"
+                  data-span={
+                    /* Asymmetric pattern: 1st and 4th cell span two columns on wide viewports.
+                       Creates a 1-2-1 / 2-1-1 rhythm instead of flat 3-col grid. */
+                    (i % 5 === 0 || i % 5 === 3) ? 'wide' : 'narrow'
+                  }
+                >
+                  <ModelCard model={model} onDelete={handleDelete} />
+                </div>
               ))}
             </div>
           </div>

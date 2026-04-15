@@ -2,14 +2,70 @@ import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense, memo
 import { TOKENS } from './tokens';
 import ResultsChart from '../ResultsChart';
 import KPICard from './KPICard';
+import SparklineKPI from './tiles/SparklineKPI';
+import ScorecardTable from './tiles/ScorecardTable';
+import HBarCard from './tiles/HBarCard';
+import HeatMatrix from './tiles/HeatMatrix';
+import TileBoundary from './TileBoundary';
+import { getChartDef, WOW_FAMILIES } from '../charts/defs/chartDefs';
+import { isEnabled as isChartTypeEnabled } from '../../lib/tileFeatureFlag';
+import useTimeAnimation from '../charts/animation/useTimeAnimation';
+import TimelineScrubber from '../charts/animation/TimelineScrubber';
 import { blendSources } from '../../lib/dataBlender';
 import { mergeFormatting } from '../../lib/formatUtils';
 import { api } from '../../api';
 import { downloadCSV } from '../../lib/exportUtils';
 import { detectAnomalies, formatAnomalyBadge } from '../../lib/anomalyDetector';
 import { isDateColumn } from '../../lib/fieldClassification';
+import { useStore } from '../../store';
+import { acknowledgeTile } from '../../lib/hotMetricDetector';
 
 const CanvasChart = lazy(() => import('./CanvasChart'));
+
+// Wow-factor family — each engine in its own lazy-loaded chunk so the
+// initial tile render never pays the three.js / deck.gl cost unless
+// a user actually opens a 3D / geo / creative tile.
+const ThreeScatter3D = lazy(() => import('../charts/engines/ThreeScatter3D'));
+const ThreeHologram = lazy(() => import('../charts/engines/ThreeHologram'));
+const GeoMap = lazy(() => import('../charts/engines/GeoMap'));
+const D3Ridgeline = lazy(() => import('../charts/engines/D3Ridgeline'));
+const ThreeParticleFlow = lazy(() => import('../charts/engines/ThreeParticleFlow'));
+const LiquidGauge = lazy(() => import('../charts/engines/LiquidGauge'));
+
+const DENSE_TILE_REGISTRY = {
+  sparkline_kpi: SparklineKPI,
+  scorecard_table: ScorecardTable,
+  hbar_card: HBarCard,
+  heat_matrix: HeatMatrix,
+};
+
+const WOW_TILE_REGISTRY = {
+  scatter_3d: ThreeScatter3D,
+  hologram_scatter: ThreeHologram,
+  geo_map: GeoMap,
+  // Legacy alias — any tile saved with chartType='globe_3d' before the
+  // Tableau-style bubble map rewrite still renders via the new engine.
+  // The chartDefs registry only advertises 'geo_map' to new picker
+  // selections.
+  globe_3d: GeoMap,
+  ridgeline: D3Ridgeline,
+  particle_flow: ThreeParticleFlow,
+  liquid_gauge: LiquidGauge,
+};
+
+// Phase 5.4 — 2D ↔ 3D pair map. Used by the toggle pill in the tile
+// header to swap between visual variants of the same semantic chart.
+// Chart types not in this map won't show the toggle even if their
+// chartDef has supports3DToggle: true — both sides of the pair must
+// exist for the swap to make sense.
+const TWIN_MAP = {
+  scatter: 'scatter_3d',
+  scatter_3d: 'scatter',
+};
+
+function is3DChart(chartType) {
+  return chartType?.endsWith('_3d') || chartType === 'hologram_scatter' || chartType === 'particle_flow';
+}
 
 const CHART_TYPES = [
   { id: 'bar',           label: 'Bar',          icon: 'M15.5 2A1.5 1.5 0 0014 3.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0016.5 2h-1zM9.5 6A1.5 1.5 0 008 7.5v9A1.5 1.5 0 009.5 18h1a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0010.5 6h-1zM3.5 10A1.5 1.5 0 002 11.5v5A1.5 1.5 0 003.5 18h1A1.5 1.5 0 006 16.5v-5A1.5 1.5 0 004.5 10h-1z' },
@@ -153,18 +209,60 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
   }, [anomaly, tile?.title, chartColumns, chartRows]);
 
   const isKPI = tile?.chartType === 'kpi';
+  const chartDef = getChartDef(tile?.chartType);
+  const isDense = chartDef?.family === 'dense';
+  const DenseTile = isDense ? DENSE_TILE_REGISTRY[tile.chartType] : null;
+  const isWow = chartDef && WOW_FAMILIES.has(chartDef.family);
+  const WowTile = isWow ? WOW_TILE_REGISTRY[tile.chartType] : null;
+
+  // Phase 5 — time animation. The hook auto-detects a time column and
+  // returns filteredRows that engines consume without knowing they're
+  // being animated. If the chart type doesn't opt into animation via
+  // `supportsTimeAnimation`, the hook still runs but we ignore its
+  // filter so rendering is identical to pre-Phase-5.
+  const timeAnim = useTimeAnimation(chartColumns, chartRows);
+  const supportsAnim = Boolean(chartDef?.supportsTimeAnimation && timeAnim.timeField && timeAnim.frames.length > 1);
+  const effectiveRows = supportsAnim ? timeAnim.filteredRows : chartRows;
+
+  // Hot metric ambient pulse (Phase 2.4) — per-tile selector so tiles
+  // only re-render when their own heat class flips
+  const tileHeat = useStore((s) => s.tileHeatMap?.[tile?.id] || 'cold');
+  const hotMetricsEnabled = useStore((s) => s.hotMetricsEnabled);
+  const appliedHeat = hotMetricsEnabled ? tileHeat : 'cold';
+  const hoverAckTimerRef = useRef(null);
+  const handleHeatHoverEnter = useCallback(() => {
+    if (!appliedHeat.startsWith('hot') || !dashboardId || !tile?.id) return;
+    clearTimeout(hoverAckTimerRef.current);
+    hoverAckTimerRef.current = setTimeout(() => {
+      acknowledgeTile(dashboardId, tile.id);
+    }, 2000);
+  }, [appliedHeat, dashboardId, tile?.id]);
+  const handleHeatHoverLeave = useCallback(() => {
+    clearTimeout(hoverAckTimerRef.current);
+  }, []);
+  useEffect(() => () => clearTimeout(hoverAckTimerRef.current), []);
 
   return (
     <div className="relative overflow-visible group h-full flex flex-col dashboard-tile"
       data-selected={selectedTileId === tile?.id ? "true" : undefined}
+      data-kpi={isKPI || undefined}
+      data-heat={appliedHeat !== 'cold' ? appliedHeat : undefined}
       onClick={() => onSelect?.()}
+      onMouseEnter={handleHeatHoverEnter}
+      onMouseLeave={handleHeatHoverLeave}
       style={{
-        background: fmt.style.background || themeConfig?.background?.tile || TOKENS.bg.elevated,
-        border: `${fmt.style.borderWidth ?? 1}px ${fmt.style.borderStyle || 'solid'} ${fmt.style.borderColor || TOKENS.border.default}`,
-        borderRadius: `${fmt.style.radius ?? themeConfig?.spacing?.tileRadius ?? 16}px`,
+        background: fmt.style.background || themeConfig?.background?.tile || TOKENS.tile.surface,
+        // Hairline border via CSS var — reads on both themes
+        border: fmt.style.borderColor
+          ? `${fmt.style.borderWidth ?? 1}px ${fmt.style.borderStyle || 'solid'} ${fmt.style.borderColor}`
+          : `1px solid ${TOKENS.tile.border}`,
+        borderRadius: `${fmt.style.radius ?? themeConfig?.spacing?.tileRadius ?? TOKENS.tile.radius}px`,
+        // Premium shadow stack — theme-aware via CSS vars
         boxShadow: fmt.style.shadow
-          ? `0 8px ${fmt.style.shadowBlur ?? 24}px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.04) inset`
+          ? `0 1px 0 var(--glass-highlight) inset, 0 28px 56px -28px var(--shadow-deep), 0 10px 22px -12px var(--shadow-mid)`
           : TOKENS.tile.shadow,
+        backdropFilter: 'blur(14px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(14px) saturate(1.4)',
         // Outline handled by .dashboard-tile[data-selected="true"] CSS rule — keep inline off to avoid double-ring
       }}>
       {/* Drag handle */}
@@ -175,8 +273,8 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
         <span className="block w-full h-0.5 rounded" style={{ background: TOKENS.text.muted }}/>
       </div>
       {/* Header */}
-      <div className="flex items-center justify-between px-[14px] pt-[10px]">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between" style={{ padding: TOKENS.tile.headerPad }}>
+        <div className="flex items-center gap-2 min-w-0">
           {titleEditing ? (
             <input
               ref={titleInputRef}
@@ -339,6 +437,24 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
             )}
           </div>
 
+          {/* Phase 5.4 — 2D↔3D toggle (only when chartDef declares support) */}
+          {chartDef?.supports3DToggle && TWIN_MAP[tile?.chartType] && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChangeChart?.(tile.id, TWIN_MAP[tile.chartType]);
+              }}
+              title={`Switch to ${is3DChart(tile?.chartType) ? '2D' : '3D'}`}
+              aria-label={`Switch to ${is3DChart(tile?.chartType) ? '2D' : '3D'} variant`}
+              className="tile-dim-toggle"
+              data-dim={is3DChart(tile?.chartType) ? '3d' : '2d'}
+            >
+              <span data-active={!is3DChart(tile?.chartType) || undefined}>2D</span>
+              <span data-active={is3DChart(tile?.chartType) || undefined}>3D</span>
+            </button>
+          )}
+
           {/* Chart type picker */}
           <div className="relative" ref={pickerRef}>
             <button
@@ -440,17 +556,45 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
         </div>
       )}
 
-      {/* Chart body */}
+      {/* Chart body — wrapped in TileBoundary so one broken tile can't crash the dashboard */}
       <div className="flex-1 min-h-0 overflow-hidden"
         style={{ padding: `4px ${fmt.style.padding ?? 12}px ${fmt.style.padding ?? 8}px` }}>
-        {isKPI ? (
+        <TileBoundary>
+        {!isChartTypeEnabled(tile?.chartType) ? (
+          <div
+            className="h-full flex flex-col items-center justify-center"
+            style={{
+              color: TOKENS.text.muted,
+              fontSize: 12,
+              fontFamily: TOKENS.fontBody,
+              textAlign: 'center',
+              padding: 16,
+              gap: 6,
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx={12} cy={12} r={10} />
+              <path d="M4.93 4.93l14.14 14.14" />
+            </svg>
+            <span style={{ fontWeight: 600, color: TOKENS.text.secondary }}>Chart type disabled</span>
+            <span style={{ fontSize: 10.5, opacity: 0.75 }}>
+              The <code style={{ fontFamily: TOKENS.fontMono }}>{tile?.chartType}</code> renderer is currently killed via feature flag.
+            </span>
+          </div>
+        ) : isKPI ? (
           <KPICard tile={tile} index={index} onEdit={onEdit} formatting={tile.visualConfig} />
-        ) : chartRows?.length > 0 ? (
-          chartRows.length > 1000 && ['scatter', 'heatmap'].includes(tile?.chartType) ? (
+        ) : isDense && DenseTile ? (
+          <DenseTile tile={{ ...tile, columns: chartColumns, rows: effectiveRows }} index={index} formatting={tile.visualConfig} />
+        ) : isWow && WowTile ? (
+          <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: TOKENS.text.muted, fontSize: 11 }}>Loading 3D engine…</div>}>
+            <WowTile tile={{ ...tile, columns: chartColumns, rows: effectiveRows }} index={index} formatting={tile.visualConfig} />
+          </Suspense>
+        ) : effectiveRows?.length > 0 ? (
+          effectiveRows.length > 1000 && ['scatter', 'heatmap'].includes(tile?.chartType) ? (
             <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><span style={{ color: '#5C5F66', fontSize: 12 }}>Loading...</span></div>}>
               <CanvasChart
                 columns={chartColumns}
-                rows={chartRows}
+                rows={effectiveRows}
                 chartType={tile.chartType}
                 formatting={tile.visualConfig}
               />
@@ -458,7 +602,7 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
           ) : (
             <ResultsChart
               key={`${tile.id}-${tile.chartType}-${tile.palette}-${tile.dataSources?.length || 0}-${JSON.stringify(tile.visualConfig?.colors?.measureColors || {})}-${JSON.stringify(tile.visualConfig?.colors?.categoryColors || {})}-${themeConfig?.palette || ''}-${(tile.activeMeasures || []).join(',')}`}
-              columns={chartColumns} rows={chartRows} embedded
+              columns={chartColumns} rows={effectiveRows} embedded
               defaultChartType={tile.chartType} defaultPalette={tile.palette}
               defaultMeasure={tile.selectedMeasure} defaultMeasures={tile.activeMeasures}
               customMetrics={customMetrics}
@@ -489,7 +633,24 @@ function TileWrapper({ tile, index, onEdit, onChangeChart, onRemove, onMove, onC
             <span className="text-xs text-slate-500 mt-1 max-w-[200px] text-center">Add SQL to this tile or use the command bar</span>
           </div>
         )}
+        </TileBoundary>
       </div>
+      {/* Phase 5 — time animation scrubber, mounts only when chart opts in
+          AND data has a detectable time dimension with 2+ frames */}
+      {supportsAnim && (
+        <TimelineScrubber
+          frames={timeAnim.frames}
+          currentIndex={timeAnim.currentIndex}
+          currentFrame={timeAnim.currentFrame}
+          isPlaying={timeAnim.isPlaying}
+          onToggle={timeAnim.toggle}
+          onSetFrame={timeAnim.setFrame}
+          speed={timeAnim.speed}
+          onSetSpeed={timeAnim.setSpeed}
+          loop={timeAnim.loop}
+          onSetLoop={timeAnim.setLoop}
+        />
+      )}
       {/* Resize handle */}
       <div className="absolute bottom-1 right-1 w-3 h-3 opacity-0 group-hover:opacity-40 cursor-se-resize"
         style={{ transition: `opacity ${TOKENS.transition}` }}>

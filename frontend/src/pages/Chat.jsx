@@ -13,6 +13,7 @@ class WebGLErrorBoundary extends Component {
 }
 const Background3D = lazy(() => import("../components/animation/Background3D"));
 import ReactMarkdown from "react-markdown";
+import { MD_COMPONENTS_COMFY, REMARK_PLUGINS } from "../lib/agentMarkdown";
 import SQLPreview from "../components/SQLPreview";
 import ResultsTable from "../components/ResultsTable";
 import ResultsChart from "../components/ResultsChart";
@@ -1355,26 +1356,11 @@ export default function Chat() {
                         Refreshed
                       </div>
                     )}
-                    <ReactMarkdown
-                      components={{
-                        h1: ({ children }) => <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{children}</h2>,
-                        h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3" style={{ color: 'var(--text-primary)' }}>{children}</h2>,
-                        h3: ({ children }) => <h3 className="text-sm font-semibold mb-1.5 mt-2" style={{ color: 'var(--text-primary)' }}>{children}</h3>,
-                        p: ({ children }) => <p className="text-[15px] leading-relaxed mb-2 last:mb-0 font-medium" style={{ color: 'var(--text-primary)' }}>{children}</p>,
-                        ul: ({ children }) => <ul className="list-disc list-outside ml-5 mb-2 space-y-1">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal list-outside ml-5 mb-2 space-y-1">{children}</ol>,
-                        li: ({ children }) => <li className="text-[14px] leading-relaxed font-medium" style={{ color: 'var(--text-primary)' }}>{children}</li>,
-                        strong: ({ children }) => <strong className="font-bold" style={{ color: 'var(--text-primary)' }}>{children}</strong>,
-                        em: ({ children }) => <em className="italic" style={{ color: 'var(--text-secondary)' }}>{children}</em>,
-                        code: ({ children }) => <code className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: 'var(--code-bg)', color: 'var(--code-text)' }}>{children}</code>,
-                        blockquote: ({ children }) => <blockquote className="pl-3 my-2 italic rounded" style={{ color: 'var(--text-secondary)', background: 'rgba(37, 99, 235, 0.06)', padding: '8px 12px' }}>{children}</blockquote>,
-                        table: ({ children }) => <div className="overflow-x-auto my-2"><table className="text-xs border-collapse w-full">{children}</table></div>,
-                        th: ({ children }) => <th className="text-left px-2 py-1 font-medium" style={{ borderBottom: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>{children}</th>,
-                        td: ({ children }) => <td className="px-2 py-1" style={{ borderBottom: '1px solid var(--border-default)', color: 'var(--text-primary)' }}>{children}</td>,
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
+                    <div className={`agent-result-md chat-md-comfy${(msg.content || '').length > 240 ? ' chat-md-comfy--longform' : ''}`}>
+                      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MD_COMPONENTS_COMFY}>
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
                     {msg.rowCount > 0 && (
                       <div className="mt-3 pt-3 flex items-center gap-2" style={{ borderTop: '1px solid var(--border-default)' }}>
                         <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
@@ -1419,15 +1405,8 @@ export default function Chat() {
                           {msg.rowCount.toLocaleString()} row{msg.rowCount !== 1 ? 's' : ''} · {Math.round(msg.latency)}ms
                         </span>
                       </div>
-                      <div className="px-5 py-4">
-                        <ReactMarkdown
-                          components={{
-                            p: ({ children }) => <p className="text-[15px] leading-[1.65] mb-2 last:mb-0" style={{ color: 'var(--text-primary)' }}>{children}</p>,
-                            strong: ({ children }) => <strong className="font-semibold" style={{ color: 'var(--text-primary)' }}>{children}</strong>,
-                            ul: ({ children }) => <ul className="list-disc list-outside ml-5 mb-2 space-y-1">{children}</ul>,
-                            li: ({ children }) => <li className="text-[14px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{children}</li>,
-                          }}
-                        >
+                      <div className="px-5 py-4 agent-result-md chat-md-comfy">
+                        <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MD_COMPONENTS_COMFY}>
                           {msg.summary}
                         </ReactMarkdown>
                       </div>
@@ -1897,7 +1876,7 @@ export default function Chat() {
 
       {/* ── Dashboard Picker Modal ── */}
       {showDashboardPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setShowDashboardPicker(false); setPendingTileData(null); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md" style={{ background: 'rgba(6, 6, 14, 0.72)' }} onClick={() => { setShowDashboardPicker(false); setPendingTileData(null); }}>
           <div className="glass-card rounded-2xl p-6 w-full max-w-sm shadow-2xl fade-scale-in" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Add to Dashboard</h3>
             <p className="text-xs text-[var(--text-muted)] mb-4">Choose a dashboard or create a new one</p>

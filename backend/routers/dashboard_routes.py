@@ -7,6 +7,32 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 from auth import get_current_user
+
+
+def _pick_dialect_for_user(email: str) -> str:
+    """Find the dialect to use for tile-save SQL validation.
+
+    The tile-save endpoints don't receive a conn_id in the body, so we
+    look at the user's active connections on app.state. If exactly one
+    db_type is present, use it. Otherwise default to the one that most
+    likely produced the SQL — in practice BigQuery or Postgres are the
+    overwhelming majority, so if BigQuery is present we pick it (its
+    backticked table names are the format that breaks the default
+    Postgres validator). Falls back to 'postgres' if no active conn.
+    """
+    try:
+        from main import app
+        conns = app.state.connections.get(email, {})
+        db_types = {entry.db_type for entry in conns.values()}
+        if not db_types:
+            return "postgres"
+        if "bigquery" in db_types:
+            return "bigquery"
+        if len(db_types) == 1:
+            return next(iter(db_types))
+        return next(iter(db_types))
+    except Exception:
+        return "postgres"
 from user_storage import (
     list_dashboards, create_dashboard, load_dashboard, update_dashboard,
     delete_dashboard, add_dashboard_tab, add_section_to_tab,
@@ -160,6 +186,51 @@ class SaveBookmark(BaseModel):
     name: str
     state: dict
 
+class TileTelemetryEvent(BaseModel):
+    event: str  # "tile_created" | "tile_deleted" | "tile_survived_24h"
+    dashboardId: str
+    tileId: str
+    chartType: Optional[str] = None
+    ageMs: Optional[int] = None
+
+
+# ── Phase 2.5 — tile survival telemetry ────────────────────────────
+
+_VALID_TILE_EVENTS = {"tile_created", "tile_deleted", "tile_survived_24h"}
+
+
+@router.post("/audit/tile-event")
+async def log_tile_telemetry(
+    body: TileTelemetryEvent,
+    user=Depends(get_current_user),
+):
+    """
+    Append a tile lifecycle event to the audit trail JSONL log.
+
+    Reuses the existing audit_trail writer — no schema change, no new
+    table. Used to compute tile survival rate (Phase 2 falsifiable
+    claim: dense tiles survive 24h > 70% of the time).
+
+    Hashing: user email is sha256-prefixed before writing to preserve
+    the existing audit log's anonymization posture.
+    """
+    if body.event not in _VALID_TILE_EVENTS:
+        raise HTTPException(400, f"Unknown event type: {body.event}")
+
+    import hashlib
+    email_hash = hashlib.sha256(user["email"].encode("utf-8")).hexdigest()[:16]
+
+    from audit_trail import log_tile_event
+    log_tile_event(
+        event_type=body.event,
+        dashboard_id=body.dashboardId,
+        tile_id=body.tileId,
+        chart_type=body.chartType,
+        user_email_hash=email_hash,
+        age_ms=body.ageMs,
+    )
+    return {"ok": True}
+
 
 # ── Dashboard CRUD ──────────────────────────────────────────────────
 
@@ -252,7 +323,8 @@ async def add_tile(dashboard_id: str, tab_id: str, section_id: str, body: AddTil
     # Validate SQL at write time
     if tile_data.get("sql"):
         from sql_validator import SQLValidator
-        is_valid, _cleaned, error = SQLValidator().validate(tile_data["sql"])
+        _dialect = _pick_dialect_for_user(user["email"])
+        is_valid, _cleaned, error = SQLValidator(dialect=_dialect).validate(tile_data["sql"])
         if not is_valid:
             raise HTTPException(400, f"Invalid SQL: {error}")
     tile_data.setdefault("annotations", [])
@@ -287,7 +359,8 @@ async def add_tile_shortcut(dashboard_id: str, body: AddTile, user=Depends(get_c
     # Validate SQL at write time
     if tile_data.get("sql"):
         from sql_validator import SQLValidator
-        is_valid, _cleaned, error = SQLValidator().validate(tile_data["sql"])
+        _dialect = _pick_dialect_for_user(user["email"])
+        is_valid, _cleaned, error = SQLValidator(dialect=_dialect).validate(tile_data["sql"])
         if not is_valid:
             raise HTTPException(400, f"Invalid SQL: {error}")
     tile_data.setdefault("annotations", [])
@@ -304,7 +377,8 @@ async def update_tile_endpoint(dashboard_id: str, tile_id: str, body: UpdateTile
     # Validate SQL at write time
     if updates.get("sql"):
         from sql_validator import SQLValidator
-        is_valid, _cleaned, error = SQLValidator().validate(updates["sql"])
+        _dialect = _pick_dialect_for_user(user["email"])
+        is_valid, _cleaned, error = SQLValidator(dialect=_dialect).validate(updates["sql"])
         if not is_valid:
             raise HTTPException(400, f"Invalid SQL: {error}")
     d = update_tile(user["email"], dashboard_id, tile_id, updates)

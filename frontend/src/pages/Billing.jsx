@@ -68,9 +68,20 @@ export default function Billing() {
         </_WebGLBound>
       </GPUTierProvider>
       <header className="glass-navbar sticky top-0 z-20 flex items-center justify-between px-6 py-3">
-        <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Plans &amp; billing</h1>
-          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Scale your data intelligence</p>
+        <div className="page-hero" style={{ gap: 2 }}>
+          <span className="page-hero__eyebrow">
+            <span className="eyebrow-dot" aria-hidden="true" />
+            Account · Plans
+          </span>
+          <h1 style={{
+            fontSize: 20,
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            fontFamily: "'Outfit', system-ui, sans-serif",
+            letterSpacing: '-0.022em',
+            lineHeight: 1.1,
+            margin: 0,
+          }}>Plans &amp; billing</h1>
         </div>
         <UserDropdown />
       </header>

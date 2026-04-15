@@ -18,6 +18,7 @@ from model_provider import ModelProvider, ContentBlock
 from config import settings
 from waterfall_router import WaterfallRouter, SchemaTier, build_default_router
 from query_memory import QueryMemory, anonymize_sql
+from chart_recommender import recommend_chart_spec
 
 _logger = logging.getLogger(__name__)
 
@@ -2171,6 +2172,20 @@ class AgentEngine:
         except Exception as e:
             _logger.warning("suggest_chart failed: %s", e)
             return json.dumps({"chart_type": "table", "reason": str(e)})
+
+    def _tool_suggest_chart_spec(
+        self,
+        columns: list[dict],
+        sample_rows: list[dict] | None = None,
+    ) -> dict:
+        """Recommend a chart spec for the given columns.
+
+        Returns a ChartSpec v1 dict — the new IR format from Sub-project A.
+        Replaces the legacy _tool_suggest_chart method which returned flat
+        chart_type config. Both methods coexist during Phase 0–3 build, then
+        the legacy method is removed in Phase 4 cutover.
+        """
+        return recommend_chart_spec(columns)
 
     def _tool_ask_user(self, question: str, options: list = None) -> str:
         """Pause the agent loop to ask the user a question."""

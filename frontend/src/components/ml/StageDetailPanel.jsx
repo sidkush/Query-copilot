@@ -4,148 +4,191 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS } from '../dashboard/tokens';
 import { useStore } from '../../store';
 
-/* ── Shared styles ─────────────────────────────────────────── */
+/* ── Shared styles — premium glass design system ───────────── */
+
+const FONT_BODY_ML = "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif";
+const FONT_DISPLAY_ML = "'Outfit', system-ui, sans-serif";
+const FONT_MONO_ML = "'JetBrains Mono', ui-monospace, monospace";
+const EASE_PREMIUM = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
 const panelStyle = {
-  background: TOKENS.bg.surface,
-  border: `1px solid ${TOKENS.border.default}`,
-  borderRadius: TOKENS.radius.lg,
+  background: 'var(--glass-bg-card)',
+  border: '1px solid var(--glass-border)',
+  borderRadius: 22,
   overflow: 'hidden',
+  // Inset highlight only — outer shadow lives on .ml-detail-shell so we
+  // don't double-stack shadows (which was bleeding past the bottom corners).
+  boxShadow: '0 1px 0 var(--glass-highlight, rgba(255,255,255,0.06)) inset',
+  backdropFilter: 'blur(18px) saturate(1.5)',
+  WebkitBackdropFilter: 'blur(18px) saturate(1.5)',
 };
 
 const headerStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '10px 14px',
-  borderBottom: `1px solid ${TOKENS.border.default}`,
+  padding: '16px 22px',
+  borderBottom: '1px solid var(--glass-border)',
+  background: 'var(--surface-glass-soft, linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.005)))',
 };
 
 const titleStyle = {
-  fontSize: 13,
-  fontFamily: TOKENS.tile.headerFont,
-  fontWeight: 600,
+  fontSize: 18,
+  fontFamily: FONT_DISPLAY_ML,
+  fontWeight: 700,
   color: TOKENS.text.primary,
+  letterSpacing: '-0.022em',
+  lineHeight: 1.1,
 };
 
 const bodyStyle = {
-  padding: '12px 14px',
-  maxHeight: 420,
+  padding: '20px 22px 24px',
+  maxHeight: 540,
   overflowY: 'auto',
 };
 
 const statGridStyle = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
-  gap: 10,
+  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+  gap: 12,
 };
 
 const statCardStyle = {
-  padding: '10px 12px',
-  borderRadius: TOKENS.radius.md,
-  background: TOKENS.bg.elevated,
-  border: `1px solid ${TOKENS.border.default}`,
+  padding: '14px 16px',
+  borderRadius: 16,
+  background: 'var(--surface-glass-soft, linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.005)))',
+  border: '1px solid var(--glass-border)',
+  boxShadow:
+    '0 1px 0 var(--glass-highlight, rgba(255,255,255,0.06)) inset, 0 14px 30px -22px var(--shadow-mid, rgba(0,0,0,0.4))',
 };
 
 const statValueStyle = {
-  fontSize: 18,
-  fontWeight: 700,
-  fontFamily: TOKENS.tile.headerFont,
+  fontSize: 24,
+  fontWeight: 800,
+  fontFamily: FONT_DISPLAY_ML,
   color: TOKENS.text.primary,
-  lineHeight: 1.2,
+  lineHeight: 1.1,
+  letterSpacing: '-0.025em',
+  fontVariantNumeric: 'tabular-nums',
 };
 
 const statLabelStyle = {
-  fontSize: 10,
+  fontSize: 9,
   color: TOKENS.text.muted,
-  marginTop: 2,
+  marginTop: 6,
   textTransform: 'uppercase',
-  letterSpacing: '0.04em',
+  letterSpacing: '0.20em',
+  fontWeight: 700,
+  fontFamily: FONT_DISPLAY_ML,
 };
 
 const tableStyle = {
   width: '100%',
-  borderCollapse: 'collapse',
+  borderCollapse: 'separate',
+  borderSpacing: 0,
   fontSize: 12,
+  fontFamily: FONT_BODY_ML,
 };
 
 const thStyle = {
-  padding: '6px 10px',
+  padding: '11px 14px',
   textAlign: 'left',
-  borderBottom: `1px solid ${TOKENS.border.default}`,
+  borderBottom: '1px solid var(--glass-border)',
   color: TOKENS.text.muted,
-  fontWeight: 600,
-  fontSize: 11,
+  fontWeight: 700,
+  fontSize: 9,
+  letterSpacing: '0.18em',
+  textTransform: 'uppercase',
   whiteSpace: 'nowrap',
+  fontFamily: FONT_DISPLAY_ML,
+  background: 'var(--surface-glass-soft, linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.012)))',
+  position: 'sticky',
+  top: 0,
+  zIndex: 1,
 };
 
 const tdStyle = {
-  padding: '5px 10px',
-  borderBottom: `1px solid ${TOKENS.border.default}`,
+  padding: '9px 14px',
+  borderBottom: '1px solid var(--divider-subtle, rgba(148,163,184,0.06))',
   color: TOKENS.text.secondary,
+  fontFamily: FONT_BODY_ML,
+  letterSpacing: '-0.005em',
 };
 
 const inputStyle = {
-  width: 72,
-  padding: '3px 6px',
-  borderRadius: TOKENS.radius.sm,
-  border: `1px solid ${TOKENS.border.default}`,
-  background: TOKENS.bg.elevated,
+  width: 88,
+  padding: '7px 12px',
+  borderRadius: 10,
+  border: '1px solid var(--glass-border)',
+  background: 'var(--surface-input)',
   color: TOKENS.text.primary,
   fontSize: 12,
   outline: 'none',
+  fontFamily: FONT_BODY_ML,
+  fontWeight: 500,
+  boxShadow: '0 1px 0 var(--glass-highlight, rgba(255,255,255,0.05)) inset',
+  transition: `border-color 380ms ${EASE_PREMIUM}, box-shadow 380ms ${EASE_PREMIUM}, background 380ms ${EASE_PREMIUM}`,
 };
 
 const btnPrimary = {
-  padding: '6px 16px',
-  borderRadius: TOKENS.radius.md,
-  background: TOKENS.accent,
+  padding: '11px 22px',
+  borderRadius: 9999,
+  background: 'linear-gradient(180deg, #3b82f6, #2563eb 60%, #1d4ed8)',
   color: '#fff',
   fontSize: 12,
-  fontWeight: 600,
-  border: 'none',
+  fontWeight: 700,
+  border: '1px solid rgba(37, 99, 235, 0.55)',
   cursor: 'pointer',
-  fontFamily: TOKENS.tile.headerFont,
-  transition: `background ${TOKENS.transition}`,
+  fontFamily: FONT_DISPLAY_ML,
+  letterSpacing: '0.02em',
+  boxShadow:
+    '0 14px 30px -10px rgba(37, 99, 235, 0.50), 0 1px 0 rgba(255,255,255,0.30) inset, 0 -1px 0 rgba(0,0,0,0.18) inset',
+  transition: `transform 380ms ${EASE_PREMIUM}, box-shadow 380ms ${EASE_PREMIUM}`,
 };
 
 const btnSecondary = {
-  padding: '6px 12px',
-  borderRadius: TOKENS.radius.md,
-  background: 'transparent',
+  padding: '8px 16px',
+  borderRadius: 9999,
+  background: 'var(--surface-glass-subtle)',
   color: TOKENS.text.secondary,
-  border: `1px solid ${TOKENS.border.default}`,
+  border: '1px solid var(--glass-border)',
   fontSize: 11,
-  fontWeight: 500,
+  fontWeight: 600,
   cursor: 'pointer',
-  transition: `all ${TOKENS.transition}`,
+  fontFamily: FONT_DISPLAY_ML,
+  letterSpacing: '0.02em',
+  boxShadow: '0 1px 0 var(--glass-highlight, rgba(255,255,255,0.05)) inset, 0 6px 14px -8px var(--shadow-mid, rgba(0,0,0,0.30))',
+  transition: `transform 380ms ${EASE_PREMIUM}, background 380ms ${EASE_PREMIUM}, color 380ms ${EASE_PREMIUM}, border-color 380ms ${EASE_PREMIUM}`,
 };
 
 const selectStyle = {
-  padding: '4px 8px',
-  borderRadius: TOKENS.radius.sm,
-  background: TOKENS.bg.elevated,
-  border: `1px solid ${TOKENS.border.default}`,
+  padding: '7px 12px',
+  borderRadius: 10,
+  background: 'var(--surface-input)',
+  border: '1px solid var(--glass-border)',
   color: TOKENS.text.primary,
-  fontSize: 12,
-  fontFamily: TOKENS.tile.headerFont,
+  fontSize: 11.5,
+  fontFamily: FONT_BODY_ML,
+  fontWeight: 500,
   cursor: 'pointer',
   outline: 'none',
-  transition: `border-color ${TOKENS.transition}`,
+  boxShadow: '0 1px 0 var(--glass-highlight, rgba(255,255,255,0.05)) inset',
+  transition: `border-color 380ms ${EASE_PREMIUM}, background 380ms ${EASE_PREMIUM}`,
 };
 
 const btnClose = {
-  width: 24,
-  height: 24,
-  borderRadius: '50%',
-  border: 'none',
-  background: 'transparent',
+  width: 32,
+  height: 32,
+  borderRadius: 9999,
+  border: '1px solid var(--glass-border)',
+  background: 'var(--surface-glass-subtle)',
   color: TOKENS.text.muted,
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  transition: `background ${TOKENS.transition}`,
+  boxShadow: '0 1px 0 var(--glass-highlight, rgba(255,255,255,0.05)) inset',
+  transition: `background 380ms ${EASE_PREMIUM}, color 380ms ${EASE_PREMIUM}, transform 380ms ${EASE_PREMIUM}, border-color 380ms ${EASE_PREMIUM}`,
 };
 
 /* ── Stage content renderers ───────────────────────────────── */
@@ -412,10 +455,13 @@ function CleanContent({ data, onRunStage }) {
           <div style={{ height: 6, borderRadius: 3, background: TOKENS.bg.elevated, overflow: 'hidden' }}>
             <div style={{
               height: '100%',
+              width: '100%',
               borderRadius: 3,
-              width: quality != null ? `${quality}%` : '0%',
               background: quality >= 90 ? TOKENS.success : quality >= 70 ? TOKENS.warning : TOKENS.danger,
-              transition: 'width 0.4s ease-out',
+              transformOrigin: 'left center',
+              transform: `scaleX(${quality != null ? quality / 100 : 0})`,
+              transition: 'transform 520ms cubic-bezier(0.32, 0.72, 0, 1)',
+              willChange: 'transform',
             }} />
           </div>
         </div>
@@ -1337,15 +1383,39 @@ function ResultsContent({ data, onRunStage }) {
   );
 }
 
-/* ── Stage labels ──────────────────────────────────────────── */
+/* ── Stage labels + descriptive eyebrows ───────────────────── */
 
-const STAGE_LABELS = {
-  ingest: 'Data Ingest',
-  clean: 'Data Cleaning',
-  features: 'Feature Engineering',
-  train: 'Training',
-  evaluate: 'Evaluation',
-  results: 'Results',
+const STAGE_META = {
+  ingest: {
+    label: 'Data Ingest',
+    eyebrow: '01 Ingest',
+    desc: 'Choose how much data to load. Twin is instant, Smart Sample is balanced, Full Dataset pulls everything from the source.',
+  },
+  clean: {
+    label: 'Data Cleaning',
+    eyebrow: '02 Clean',
+    desc: 'Pick an imputation strategy per column, then decide on scaling, outliers, and power transforms.',
+  },
+  features: {
+    label: 'Feature Engineering',
+    eyebrow: '03 Features',
+    desc: 'Toggle which columns to include. Add custom derived features if the raw ones aren\u2019t enough.',
+  },
+  train: {
+    label: 'Training',
+    eyebrow: '04 Train',
+    desc: 'Pick a task type and which models to fit. Adjust hyperparameters per model \u2014 defaults work for most runs.',
+  },
+  evaluate: {
+    label: 'Evaluation',
+    eyebrow: '05 Evaluate',
+    desc: 'Compare how each model performed. Rank by the metric that matters for your problem.',
+  },
+  results: {
+    label: 'Results',
+    eyebrow: '06 Results',
+    desc: 'Review the champion model, then finalize to save it for prediction.',
+  },
 };
 
 const STAGE_RENDERERS = {
@@ -1361,66 +1431,133 @@ const STAGE_RENDERERS = {
 
 export default function StageDetailPanel({ stage, data, onClose, onApplyChanges, onRunStage }) {
   const Renderer = STAGE_RENDERERS[stage];
+  const meta = STAGE_META[stage] || { label: stage, eyebrow: '', desc: '' };
 
   return (
     <AnimatePresence>
       {stage && (
         <motion.div
           key="detail-panel"
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-          style={{ overflow: 'hidden' }}
+          initial={{ height: 0, opacity: 0, y: -8 }}
+          animate={{ height: 'auto', opacity: 1, y: 0 }}
+          exit={{ height: 0, opacity: 0, y: -4 }}
+          transition={{ duration: 0.52, ease: [0.16, 1, 0.3, 1] }}
+          // paddingBottom creates room for the shell shadow to render fully
+          // without overflow: hidden clipping it — but the height animation
+          // still uses the content box measurement.
+          style={{ overflow: 'hidden', paddingBottom: 36 }}
         >
-          <div style={{ ...panelStyle, marginTop: 12 }}>
-            {/* Header */}
-            <div style={headerStyle}>
-              <span style={titleStyle}>{STAGE_LABELS[stage] || stage}</span>
-              <button
-                onClick={onClose}
-                style={btnClose}
-                onMouseEnter={(e) => { e.currentTarget.style.background = TOKENS.bg.hover; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                aria-label="Close detail panel"
-              >
-                <svg width={14} height={14} viewBox="0 0 14 14" fill="none">
-                  <path d="M4 4l6 6M10 4l-6 6" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Error banner */}
-            {data?.error && (
-              <div style={{
-                padding: '10px 14px',
-                background: `${TOKENS.danger}10`,
-                borderBottom: `1px solid ${TOKENS.danger}30`,
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 8,
-              }}>
-                <svg width={14} height={14} viewBox="0 0 14 14" fill="none" style={{ marginTop: 1, flexShrink: 0 }}>
-                  <circle cx={7} cy={7} r={6} stroke={TOKENS.danger} strokeWidth={1.5} />
-                  <path d="M7 4v3M7 9h.01" stroke={TOKENS.danger} strokeWidth={1.5} strokeLinecap="round" />
-                </svg>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: TOKENS.danger, marginBottom: 2 }}>Stage Failed</div>
-                  <div style={{ fontSize: 11, color: TOKENS.text.secondary, fontFamily: "'JetBrains Mono', ui-monospace, monospace", wordBreak: 'break-word' }}>
-                    {data.error}
-                  </div>
+          {/* Double-bezel outer shell */}
+          <div className="ml-detail-shell" style={{ marginTop: 18, padding: 6, borderRadius: 28 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.62, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
+              style={panelStyle}
+              className="ml-detail-inner"
+            >
+              {/* Header — eyebrow + display title + subtitle + close */}
+              <div style={headerStyle}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, flex: 1 }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    fontSize: 9, fontWeight: 700,
+                    letterSpacing: '0.22em', textTransform: 'uppercase',
+                    color: TOKENS.text.muted,
+                    fontFamily: FONT_DISPLAY_ML,
+                  }}>
+                    <span className="eyebrow-dot" aria-hidden="true" />
+                    {meta.eyebrow}
+                  </span>
+                  <span style={titleStyle}>{meta.label}</span>
+                  {meta.desc && (
+                    <span style={{
+                      fontSize: 12.5, color: TOKENS.text.muted,
+                      fontFamily: FONT_BODY_ML, lineHeight: 1.55,
+                      letterSpacing: '-0.005em',
+                      maxWidth: 560,
+                    }}>
+                      {meta.desc}
+                    </span>
+                  )}
                 </div>
+                <button
+                  onClick={onClose}
+                  style={btnClose}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239,68,68,0.10)';
+                    e.currentTarget.style.color = TOKENS.danger;
+                    e.currentTarget.style.borderColor = 'rgba(239,68,68,0.32)';
+                    e.currentTarget.style.transform = 'rotate(90deg)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'var(--surface-glass-subtle)';
+                    e.currentTarget.style.color = TOKENS.text.muted;
+                    e.currentTarget.style.borderColor = 'var(--glass-border)';
+                    e.currentTarget.style.transform = 'rotate(0deg)';
+                  }}
+                  aria-label="Close detail panel"
+                >
+                  <svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+                    <path d="M4 4l6 6M10 4l-6 6" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
+                  </svg>
+                </button>
               </div>
-            )}
 
-            {/* Body */}
-            <div style={bodyStyle}>
-              {Renderer ? (
-                <Renderer data={data || {}} onApplyChanges={onApplyChanges} onRunStage={onRunStage} />
-              ) : (
-                <div style={{ fontSize: 12, color: TOKENS.text.muted }}>No details available for this stage.</div>
+              {/* Error banner */}
+              {data?.error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    padding: '14px 22px',
+                    background: 'linear-gradient(180deg, rgba(239,68,68,0.10), rgba(239,68,68,0.04))',
+                    borderBottom: '1px solid rgba(239,68,68,0.28)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: 'rgba(239,68,68,0.16)',
+                    border: '1px solid rgba(239,68,68,0.32)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+                      <path d="M7 4v3M7 9.5h.01" stroke={TOKENS.danger} strokeWidth={1.6} strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{
+                      fontSize: 9, fontWeight: 700, color: TOKENS.danger,
+                      letterSpacing: '0.20em', textTransform: 'uppercase',
+                      fontFamily: FONT_DISPLAY_ML, marginBottom: 4,
+                    }}>
+                      Stage Failed
+                    </div>
+                    <div style={{
+                      fontSize: 12, color: TOKENS.text.secondary,
+                      fontFamily: FONT_MONO_ML, wordBreak: 'break-word',
+                      lineHeight: 1.55,
+                    }}>
+                      {data.error}
+                    </div>
+                  </div>
+                </motion.div>
               )}
-            </div>
+
+              {/* Body */}
+              <div style={bodyStyle} className="ml-detail-body">
+                {Renderer ? (
+                  <Renderer data={data || {}} onApplyChanges={onApplyChanges} onRunStage={onRunStage} />
+                ) : (
+                  <div style={{ fontSize: 12, color: TOKENS.text.muted, fontFamily: FONT_BODY_ML }}>No details available for this stage.</div>
+                )}
+              </div>
+            </motion.div>
           </div>
         </motion.div>
       )}

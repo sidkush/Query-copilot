@@ -1,14 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useId } from 'react';
 import { TOKENS, KPI_ACCENTS } from './tokens';
 
-export default function KPICard({ tile, index = 0, onEdit, formatting }) {
+/**
+ * Premium KPI card — editorial display typography, gradient area sparkline,
+ * tabular numerics, delta pill, bottom context strip. Theme-aware.
+ */
+export default function KPICard({ tile, index = 0, formatting }) {
   const rows = tile?.rows || [];
   const columns = tile?.columns || [];
-  
-  // Try to find value index (assume column 0 is dimension/date, column 1 is measure if >1 cols)
+  const gradientId = useId();
+
   const valIdx = columns.length > 1 ? 1 : 0;
-  
-  // Calculate trend using the last two rows if available
+
   const { currentVal, trendStr, isPositive, trendPct, trendData } = useMemo(() => {
     let currentVal = '--';
     let trendStr = null;
@@ -18,22 +21,19 @@ export default function KPICard({ tile, index = 0, onEdit, formatting }) {
 
     if (rows.length === 0) return { currentVal, trendStr, isPositive, trendPct, trendData };
 
-    // Format data for sparkline (we map the value column)
     trendData = rows.map((r, i) => ({
       name: `T${i}`,
-      value: Number(Object.values(r)[valIdx]) || 0
+      value: Number(Object.values(r)[valIdx]) || 0,
     }));
 
     const latestRow = rows[rows.length - 1];
     const prevRow = rows.length > 1 ? rows[rows.length - 2] : null;
-
     const rawCurrent = Object.values(latestRow)[valIdx];
     currentVal = rawCurrent;
 
     if (prevRow) {
       const c = Number(rawCurrent);
       const p = Number(Object.values(prevRow)[valIdx]);
-
       if (!isNaN(c) && !isNaN(p) && p !== 0) {
         const diff = c - p;
         const pct = (diff / Math.abs(p)) * 100;
@@ -46,80 +46,209 @@ export default function KPICard({ tile, index = 0, onEdit, formatting }) {
     return { currentVal, trendStr, isPositive, trendPct, trendData };
   }, [rows, valIdx]);
 
-  const label = tile?.title || (columns[0] || 'Metric');
+  const label = tile?.title || columns[0] || 'Metric';
+  const hasPrefix = tile?.subtitle?.startsWith('$') || String(currentVal).startsWith('$');
 
   const formatValue = (v) => {
     if (v == null || v === '--') return '--';
     const n = Number(v);
     if (isNaN(n)) return String(v);
-    if (Math.abs(n) >= 1e6) return `${(n/1e6).toFixed(2)}M`;
-    if (Math.abs(n) >= 1e3) return `${(n/1e3).toFixed(1)}K`;
+    if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+    if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+    if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
     if (n % 1 !== 0) return n.toFixed(1);
     return n.toLocaleString();
   };
 
-  const accentColor = KPI_ACCENTS[index % KPI_ACCENTS.length];
+  // Pick accent by index; extract first color for sparkline stroke
+  const accentGradient = KPI_ACCENTS[index % KPI_ACCENTS.length];
+  const accentMatch = accentGradient.match(/#[0-9a-fA-F]{6}/g) || ['#2563EB'];
+  const accentStart = accentMatch[0];
+  const accentEnd = accentMatch[1] || accentStart;
 
-  // Read visual formatting for KPI value styling
-  // Value color: check measureColors for the value column, then fallback to default
+  // Read visual formatting overrides
   const vc = formatting || tile?.visualConfig || {};
   const valueColName = columns[valIdx] || '';
-  const valueColor = vc.colors?.measureColors?.[valueColName] || TOKENS.text.primary;
-  const valueFontSize = vc.typography?.titleFontSize || 32;
+  const customValueColor = vc.colors?.measureColors?.[valueColName];
+  const valueColor = customValueColor || TOKENS.text.primary;
+  const valueFontSize = vc.typography?.titleFontSize || TOKENS.kpi.valueFontSize;
+
+  // Sparkline path — smooth area fill
+  const sparklinePath = useMemo(() => {
+    if (trendData.length < 2) return null;
+    const w = 120;
+    const h = 44;
+    const pad = 2;
+    const maxVal = Math.max(...trendData.map(d => d.value), 1);
+    const minVal = Math.min(...trendData.map(d => d.value), 0);
+    const range = maxVal - minVal || 1;
+    const stepX = (w - pad * 2) / (trendData.length - 1);
+
+    const points = trendData.map((d, i) => ({
+      x: pad + i * stepX,
+      y: h - pad - ((d.value - minVal) / range) * (h - pad * 2),
+    }));
+
+    // Smooth cardinal-ish curve using quadratic midpoint
+    let line = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const p0 = points[i - 1];
+      const p1 = points[i];
+      const cx = (p0.x + p1.x) / 2;
+      line += ` Q ${cx} ${p0.y} ${cx} ${(p0.y + p1.y) / 2}`;
+      line += ` T ${p1.x} ${p1.y}`;
+    }
+
+    const area = `${line} L ${points[points.length - 1].x} ${h} L ${points[0].x} ${h} Z`;
+    return { line, area, w, h, lastPoint: points[points.length - 1] };
+  }, [trendData]);
 
   return (
-    <div className="relative overflow-hidden p-[20px_22px] flex flex-col h-full">
+    <div
+      className="relative overflow-hidden h-full flex flex-col"
+      style={{
+        padding: TOKENS.kpi.pad,
+        fontFamily: TOKENS.fontBody,
+      }}
+    >
+      {/* Gradient accent line — single fade, not a heavy bar */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 14,
+          right: 14,
+          height: 1.5,
+          background: `linear-gradient(90deg, transparent, ${accentStart} 40%, ${accentEnd} 60%, transparent)`,
+          borderRadius: 9999,
+          opacity: 0.85,
+        }}
+      />
 
-      {/* Top accent bar */}
-      <div className="absolute top-0 left-0 right-0 h-[4px]" style={{ background: accentColor }} />
-
-      {/* Label */}
-      <div className="flex items-center justify-between mb-2 mt-1">
-        <span className="text-sm font-semibold" style={{ color: TOKENS.text.muted }}>{label}</span>
+      {/* Eyebrow label */}
+      <div
+        style={{
+          fontSize: TOKENS.kpi.labelFontSize,
+          fontWeight: 700,
+          letterSpacing: TOKENS.kpi.labelLetterSpacing,
+          textTransform: 'uppercase',
+          color: TOKENS.text.muted,
+          fontFamily: TOKENS.fontDisplay,
+          marginBottom: 10,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
       </div>
 
-      {/* Main value and sparkline wrapper */}
-      <div className="flex items-end justify-between flex-1">
-        <div>
-          {/* Main KPI Value */}
-          <div className="font-bold tracking-tight mb-2" style={{ color: valueColor, fontSize: valueFontSize, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', fontFamily: TOKENS.tile.headerFont }}>
-            {tile?.subtitle?.startsWith('$') || String(currentVal).startsWith('$') ? '$' : ''}{formatValue(currentVal).replace('$', '')}
+      {/* Value + delta + sparkline */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: 14,
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        <div style={{ minWidth: 0, flex: 1 }}>
+          {/* Value */}
+          <div
+            style={{
+              fontSize: valueFontSize,
+              fontWeight: TOKENS.kpi.valueFontWeight,
+              letterSpacing: TOKENS.kpi.valueLetterSpacing,
+              lineHeight: 0.95,
+              color: valueColor,
+              fontFamily: TOKENS.fontDisplay,
+              fontVariantNumeric: 'tabular-nums',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {hasPrefix && (
+              <span style={{ fontSize: '0.55em', fontWeight: 700, opacity: 0.55, marginRight: 2, verticalAlign: '0.35em' }}>$</span>
+            )}
+            {formatValue(currentVal).replace('$', '')}
           </div>
 
-          {/* Trend Indicator */}
-          <div className="flex items-center gap-2">
+          {/* Delta row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
             {trendPct && (
-              <span className="flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md"
+              <span
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  padding: '3px 9px',
+                  borderRadius: 9999,
+                  letterSpacing: '0.02em',
                   color: isPositive ? TOKENS.success : TOKENS.danger,
-                  backgroundColor: isPositive ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'
-                }}>
-                <svg className="w-3 h-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={isPositive ? "M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" : "M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"} />
+                  background: isPositive ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  border: `1px solid ${isPositive ? 'rgba(34,197,94,0.28)' : 'rgba(239,68,68,0.28)'}`,
+                  fontFamily: TOKENS.fontDisplay,
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                  {isPositive ? (
+                    <>
+                      <path d="M7 17L17 7" />
+                      <path d="M7 7h10v10" />
+                    </>
+                  ) : (
+                    <>
+                      <path d="M17 7L7 17" />
+                      <path d="M17 17H7V7" />
+                    </>
+                  )}
                 </svg>
                 {trendPct}
               </span>
             )}
-            <span className="text-[11px] font-medium" style={{ color: TOKENS.text.muted }}>
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 500,
+                color: TOKENS.text.muted,
+                fontFamily: TOKENS.fontBody,
+                letterSpacing: '-0.005em',
+              }}
+            >
               {trendStr || tile?.subtitle || ''}
             </span>
           </div>
         </div>
 
-        {/* Sparkline */}
-        {trendData.length > 2 && (
-          <div className="w-[80px] h-[40px] opacity-70 group-hover:opacity-100 transition-opacity">
-            <svg viewBox={`0 0 ${trendData.length * 12} 40`} className="w-full h-full">
-              {(() => {
-                const maxVal = Math.max(...trendData.map(d => d.value), 1);
-                return trendData.map((entry, idx) => {
-                  const barH = Math.max((entry.value / maxVal) * 36, 1);
-                  return (
-                    <rect key={idx} x={idx * 12 + 1} y={40 - barH} width={10} height={barH}
-                      rx={2} fill={accentColor} fillOpacity={idx === trendData.length - 1 ? 1 : 0.4} />
-                  );
-                });
-              })()}
+        {/* Gradient area sparkline */}
+        {sparklinePath && (
+          <div
+            style={{
+              width: 120,
+              height: 44,
+              flexShrink: 0,
+              opacity: 0.9,
+            }}
+          >
+            <svg viewBox={`0 0 ${sparklinePath.w} ${sparklinePath.h}`} className="w-full h-full" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id={`kpi-grad-${gradientId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor={accentStart} stopOpacity="0.45" />
+                  <stop offset="100%" stopColor={accentStart} stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path d={sparklinePath.area} fill={`url(#kpi-grad-${gradientId})`} />
+              <path d={sparklinePath.line} fill="none" stroke={accentStart} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+              {sparklinePath.lastPoint && (
+                <circle cx={sparklinePath.lastPoint.x} cy={sparklinePath.lastPoint.y} r="2.5" fill={accentStart} />
+              )}
             </svg>
           </div>
         )}

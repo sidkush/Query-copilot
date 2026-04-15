@@ -3,16 +3,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { mergeFormatting, resolveColor, resolveCategoryColor, formatTickValue } from '../lib/formatUtils';
 import { injectMetricColumns } from '../lib/metricEvaluator';
 import { useStore } from "../store";
+import { CHART_DEFS, MIN_SCORE, rankChartsForData } from './charts/defs/chartDefs';
+import { isCoordinatePair } from '../lib/fieldClassification';
 
 const ReactECharts = lazy(() => import('echarts-for-react'));
 
-/* ── Color Palettes (corporate blue-first) ── */
+/* ── Color Palettes — premium editorial tuned for readability on dark + light ── */
 const PALETTES = {
-  default:    ["#2563EB", "#0369A1", "#0EA5E9", "#38BDF8", "#1E40AF", "#3B82F6", "#06B6D4", "#0284C7"],
-  ocean:      ["#06b6d4", "#0ea5e9", "#38bdf8", "#7dd3fc", "#0284c7", "#0369a1", "#22d3ee", "#67e8f9"],
-  sunset:     ["#f59e0b", "#ef4444", "#f97316", "#fb923c", "#dc2626", "#ea580c", "#d97706", "#fbbf24"],
-  forest:     ["#059669", "#10b981", "#34d399", "#6ee7b7", "#047857", "#065f46", "#14b8a6", "#2dd4bf"],
-  mono:       ["#94a3b8", "#cbd5e1", "#64748b", "#475569", "#334155", "#1e293b", "#e2e8f0", "#f1f5f9"],
+  // Premium default — coordinated but varied. Base blue, secondary purple, then
+  // warm/cool alternation. Saturation dialed to ~70% so nothing screams.
+  default:    ["#2563EB", "#A855F7", "#10B981", "#F59E0B", "#06B6D4", "#EC4899", "#6366F1", "#14B8A6"],
+  ocean:      ["#0EA5E9", "#06B6D4", "#14B8A6", "#22D3EE", "#0284C7", "#0891B2", "#0D9488", "#155E75"],
+  sunset:     ["#F97316", "#EF4444", "#EC4899", "#F59E0B", "#DC2626", "#DB2777", "#D97706", "#BE123C"],
+  forest:     ["#22C55E", "#16A34A", "#10B981", "#4ADE80", "#059669", "#15803D", "#84CC16", "#65A30D"],
+  mono:       ["#64748B", "#94A3B8", "#475569", "#CBD5E1", "#334155", "#E2E8F0", "#1E293B", "#F1F5F9"],
   colorblind: ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#F0E442", "#000000"],
 };
 
@@ -74,138 +78,19 @@ function analyzeData(columns, rows, labelCol) {
     if (max > 0) hasVariance = (max - min) / max > 0.1;
   }
 
-  return { numericCols, rowCount, metricCount, isDateLike, allPositive, avgLabelLen, hasVariance };
+  // Phase 4 — geo detection for Globe scoring
+  const hasCoordinates = Boolean(isCoordinatePair(columns, rows));
+
+  return { numericCols, rowCount, metricCount, isDateLike, allPositive, avgLabelLen, hasVariance, hasCoordinates };
 }
 
-/* ── Chart type definitions with relevance scoring ── */
-const CHART_DEFS = [
-  {
-    key: "bar", label: "Bar", group: "comparison",
-    icon: "M3 13h2v8H3zM8 8h2v13H8zM13 11h2v10h-2zM18 5h2v16h-2z",
-    score: (a) => {
-      let s = 60;
-      if (a.rowCount >= 2 && a.rowCount <= 20) s += 20;
-      if (a.metricCount >= 2) s += 15; // grouped bars are great for comparison
-      if (a.isDateLike) s -= 10;
-      if (a.rowCount > 20) s -= 20;
-      return s;
-    },
-  },
-  {
-    key: "bar_h", label: "H-Bar", group: "comparison",
-    icon: "M3 3v2h8V3zM3 8v2h13V8zM3 13v2h10V13zM3 18v2h16V18z",
-    score: (a) => {
-      let s = 40;
-      if (a.avgLabelLen > 10) s += 25; // long labels work better horizontal
-      if (a.rowCount >= 5 && a.rowCount <= 15) s += 15;
-      if (a.metricCount === 1) s += 10;
-      if (a.isDateLike) s -= 30;
-      return s;
-    },
-  },
-  {
-    key: "stacked", label: "Stacked", group: "composition",
-    icon: "M3 13h2v8H3zM8 6h2v15H8zM13 9h2v12h-2zM18 3h2v18h-2z",
-    score: (a) => {
-      let s = 30;
-      if (a.metricCount >= 2) s += 35; // stacked needs multiple metrics
-      if (a.rowCount >= 3 && a.rowCount <= 15) s += 15;
-      if (a.metricCount < 2) s -= 50; // hide if only 1 metric
-      return s;
-    },
-  },
-  {
-    key: "line", label: "Line", group: "trend",
-    icon: "M3 17l6-6 4 4 8-8",
-    score: (a) => {
-      let s = 50;
-      if (a.isDateLike) s += 35; // lines are ideal for time series
-      if (a.rowCount > 5) s += 15;
-      if (a.rowCount <= 2) s -= 30;
-      return s;
-    },
-  },
-  {
-    key: "area", label: "Area", group: "trend",
-    icon: "M3 17l6-6 4 4 8-8v11H3z",
-    score: (a) => {
-      let s = 40;
-      if (a.isDateLike) s += 30;
-      if (a.rowCount > 5) s += 15;
-      if (a.metricCount === 1) s += 5;
-      if (a.rowCount <= 2) s -= 30;
-      return s;
-    },
-  },
-  {
-    key: "pie", label: "Pie", group: "proportion",
-    icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18V12h10c0 5.52-4.48 10-10 10z",
-    score: (a) => {
-      let s = 30;
-      if (a.rowCount >= 2 && a.rowCount <= 8 && a.allPositive) s += 40;
-      if (a.hasVariance) s += 10;
-      if (a.rowCount > 10) s -= 40;
-      if (!a.allPositive) s -= 50;
-      return s;
-    },
-  },
-  {
-    key: "donut", label: "Donut", group: "proportion",
-    icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6z",
-    score: (a) => {
-      let s = 35;
-      if (a.rowCount >= 2 && a.rowCount <= 8 && a.allPositive) s += 35;
-      if (a.hasVariance) s += 10;
-      if (a.rowCount > 10) s -= 40;
-      if (!a.allPositive) s -= 50;
-      return s;
-    },
-  },
-  {
-    key: "radar", label: "Radar", group: "comparison",
-    icon: "M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14 2 9.27l6.91-1.01z",
-    score: (a) => {
-      let s = 20;
-      if (a.rowCount >= 3 && a.rowCount <= 10 && a.metricCount >= 2) s += 40;
-      if (a.metricCount < 2) s -= 30;
-      if (a.rowCount > 10) s -= 20;
-      if (a.rowCount < 3) s -= 30;
-      return s;
-    },
-  },
-  {
-    key: "treemap", label: "Treemap", group: "proportion",
-    icon: "M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v3h-8zM3 13h5v8H3zM10 13h11v8H10z",
-    score: (a) => {
-      let s = 25;
-      if (a.rowCount >= 4 && a.rowCount <= 20 && a.allPositive) s += 30;
-      if (a.rowCount > 20) s -= 10;
-      if (!a.allPositive) s -= 50;
-      return s;
-    },
-  },
-  {
-    key: "scatter", label: "Scatter", group: "correlation",
-    icon: "M7 14a2 2 0 100-4 2 2 0 000 4zM14 8a2 2 0 100-4 2 2 0 000 4zM18 16a2 2 0 100-4 2 2 0 000 4zM11 19a2 2 0 100-4 2 2 0 000 4z",
-    score: (a) => {
-      let s = 15;
-      if (a.metricCount >= 2 && a.rowCount > 5) s += 35;
-      if (a.metricCount < 2) s -= 50;
-      return s;
-    },
-  },
-];
-
-/* Minimum relevance score to show a chart type */
-const MIN_SCORE = 35;
-
-/* (ECharts handles tooltips, pie labels, treemap content natively via option config) */
+/* CHART_DEFS + MIN_SCORE + rankChartsForData live in ./charts/defs/chartDefs.js.
+   Imported at the top so this file can focus on rendering, not registry. */
 
 /* ── Chart Export (ECharts native) ── */
 function exportChart(echartsRef, format = "png") {
   const instance = echartsRef.current?.getEchartsInstance?.();
   if (!instance) {
-    return false;
     return false;
   }
   const exportBg = getComputedStyle(document.documentElement).getPropertyValue('--chart-export-bg').trim() || '#111827';
@@ -229,7 +114,7 @@ const COMBO_TYPES = [
 ];
 
 function MeasureSelector({ measures, selected, onSelect, colors, mode = "single", seriesTypes = {}, onSeriesTypeChange = null }) {
-  if (measures.length <= 1 && !onSeriesTypeChange) return null;
+  // Hooks must be called unconditionally — keep above any early return.
   const [openPicker, setOpenPicker] = useState(null);
   const pickerContainerRef = useRef(null);
 
@@ -242,6 +127,9 @@ function MeasureSelector({ measures, selected, onSelect, colors, mode = "single"
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [openPicker]);
+
+  // Early bailout after all hooks have been called.
+  if (measures.length <= 1 && !onSeriesTypeChange) return null;
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -322,10 +210,37 @@ export default function ResultsChart({
   const chartRef = useRef(null);
   const resolvedTheme = useStore((s) => s.resolvedTheme);
 
-  // Theme-aware chart colors (ECharts needs raw hex, not CSS vars)
+  // Theme-aware chart colors — premium tuned. Grid = nearly invisible dashed.
+  // Axis labels muted. Tooltip reads as a premium glass pill.
   const chartColors = useMemo(() => resolvedTheme === 'light'
-    ? { axis: '#6b7280', grid: '#e5e7eb', tooltipBg: '#ffffff', tooltipBorder: '#d1d5db', tooltipText: '#1f2937', pieBorder: '#ffffff', nameText: '#6b7280', labelText: '#6b7280', treemapBorder: '#f8fafc', axisLine: '#d1d5db', legendText: '#6b7280', splitAreaLine: '#e5e7eb' }
-    : { axis: '#94a3b8', grid: '#1e293b', tooltipBg: '#0f172a', tooltipBorder: '#334155', tooltipText: '#e2e8f0', pieBorder: '#111827', nameText: '#94a3b8', labelText: '#9ca3af', treemapBorder: '#0B1120', axisLine: '#1e293b', legendText: '#9ca3af', splitAreaLine: '#1e293b' },
+    ? {
+        axis: '#64748B',          // slate-500 — readable on white without being dark
+        grid: 'rgba(15,23,42,0.06)', // near-invisible split lines
+        tooltipBg: 'rgba(255,255,255,0.96)',
+        tooltipBorder: 'rgba(15,23,42,0.08)',
+        tooltipText: '#0F172A',
+        pieBorder: '#FFFFFF',
+        nameText: '#94A3B8',
+        labelText: '#64748B',
+        treemapBorder: '#F8FAFC',
+        axisLine: 'rgba(15,23,42,0.12)',
+        legendText: '#64748B',
+        splitAreaLine: 'rgba(15,23,42,0.04)',
+      }
+    : {
+        axis: '#94A3B8',          // slate-400 — muted on vantablack
+        grid: 'rgba(148,163,184,0.08)',
+        tooltipBg: 'rgba(15,15,20,0.92)',
+        tooltipBorder: 'rgba(255,255,255,0.08)',
+        tooltipText: '#F1F5F9',
+        pieBorder: 'rgba(6,6,14,0.9)',
+        nameText: '#94A3B8',
+        labelText: '#94A3B8',
+        treemapBorder: 'rgba(6,6,14,0.9)',
+        axisLine: 'rgba(148,163,184,0.18)',
+        legendText: '#94A3B8',
+        splitAreaLine: 'rgba(148,163,184,0.06)',
+      },
   [resolvedTheme]);
 
   // Coerce data
@@ -402,13 +317,8 @@ export default function ResultsChart({
   const analysis = useMemo(() => analyzeData(augColumns, data, labelCol), [augColumns, data, labelCol]);
   const { numericCols } = analysis;
 
-  // Score & sort chart types, filter by relevance
-  const rankedCharts = useMemo(() => {
-    return CHART_DEFS
-      .map((def) => ({ ...def, relevance: def.score(analysis) }))
-      .filter((d) => d.relevance >= MIN_SCORE)
-      .sort((a, b) => b.relevance - a.relevance);
-  }, [analysis]);
+  // Score & sort chart types, filter by relevance (logic lives in chartDefs registry)
+  const rankedCharts = useMemo(() => rankChartsForData(analysis), [analysis]);
 
   // State
   const [activeType, setActiveType] = useState(defaultChartType);
@@ -416,23 +326,29 @@ export default function ResultsChart({
   const [activeMeasures, setActiveMeasures] = useState(
     defaultMeasures?.length ? defaultMeasures : numericCols
   );
+  // Sync activeMeasures when the parent tile updates (e.g. after TileEditor save).
+  // Adjusting state during render — React short-circuits and restarts without committing.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevDefaultMeasures, setPrevDefaultMeasures] = useState(defaultMeasures);
+  if (defaultMeasures !== prevDefaultMeasures) {
+    setPrevDefaultMeasures(defaultMeasures);
+    if (defaultMeasures?.length) setActiveMeasures(defaultMeasures);
+  }
+
   const [palette, setPalette] = useState(defaultPalette);
   const [measureSeriesTypes, setMeasureSeriesTypes] = useState(formatting?.seriesTypes || {});
+  // Sync seriesTypes when formatting changes (e.g. after TileEditor save) — same render-time pattern.
+  const [prevSeriesTypes, setPrevSeriesTypes] = useState(formatting?.seriesTypes);
+  if (formatting?.seriesTypes !== prevSeriesTypes) {
+    setPrevSeriesTypes(formatting?.seriesTypes);
+    setMeasureSeriesTypes(formatting?.seriesTypes || {});
+  }
+
   const [showGrid, setShowGrid] = useState(true);
   const [showLegend, setShowLegend] = useState(!embedded);
   const [showSettings, setShowSettings] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exportError, setExportError] = useState(null);
-
-  // Sync activeMeasures when the parent tile updates (e.g. after TileEditor save)
-  useEffect(() => {
-    if (defaultMeasures?.length) setActiveMeasures(defaultMeasures);
-  }, [defaultMeasures]);
-
-  // Sync seriesTypes when formatting changes (e.g. after TileEditor save)
-  useEffect(() => {
-    setMeasureSeriesTypes(formatting?.seriesTypes || {});
-  }, [formatting?.seriesTypes]);
 
   const handleSeriesTypeChange = useCallback((measure, type) => {
     setMeasureSeriesTypes((prev) => ({ ...prev, [measure]: type }));
@@ -485,27 +401,61 @@ export default function ResultsChart({
     }).filter(Boolean).filter((rl) => isFinite(rl.value));
   }, [fmt.referenceLines, sortedData, displayMeasures]);
 
-  const fmtTickFn = fmt.axis.tickFormat !== 'auto'
-    ? (v) => formatTickValue(v, fmt.axis.tickFormat, fmt.axis.tickDecimals)
-    : formatTick;
+  const fmtTickFn = useMemo(
+    () => (fmt.axis.tickFormat !== 'auto'
+      ? (v) => formatTickValue(v, fmt.axis.tickFormat, fmt.axis.tickDecimals)
+      : formatTick),
+    [fmt.axis.tickFormat, fmt.axis.tickDecimals]
+  );
 
   /* ── ECharts option builder ── */
   const echartsOption = useMemo(() => {
     const labels = chartData.map((r) => r[labelCol]);
-    const axisLabelStyle = { color: chartColors.axis, fontSize: fmt.typography.axisFontSize };
-    const axisLineStyle = { lineStyle: { color: chartColors.axisLine } };
+    // Premium axis label — Plus Jakarta Sans, slightly smaller, muted color
+    const axisLabelStyle = {
+      color: chartColors.axis,
+      fontSize: fmt.typography.axisFontSize || 10.5,
+      fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+      fontWeight: 500,
+    };
+    const axisLineStyle = { lineStyle: { color: chartColors.axisLine, width: 1 } };
+    // Split lines dashed, barely-there — let content breathe
     const splitLineStyle = showGrid && fmt.grid.show
-      ? { show: true, lineStyle: { color: fmt.grid.color, type: fmt.grid.style === 'dotted' ? 'dotted' : fmt.grid.style === 'dashed' ? 'dashed' : 'solid' } }
+      ? {
+          show: true,
+          lineStyle: {
+            color: fmt.grid.color || chartColors.grid,
+            type: fmt.grid.style === 'dotted' ? 'dotted' : 'dashed',
+            width: 1,
+          },
+        }
       : { show: false };
 
+    // Premium tooltip — glass pill with rounded corners, deep shadow, Outfit font.
+    // appendToBody escapes tile overflow: hidden so tooltips are never clipped
+    // by dashboard tile boundaries.
     const tooltipCfg = fmt.tooltip.show ? {
       trigger: ['pie', 'donut', 'treemap', 'scatter'].includes(chartType) ? 'item' : 'axis',
+      appendToBody: true,
+      confine: false,
       backgroundColor: chartColors.tooltipBg,
       borderColor: chartColors.tooltipBorder,
-      borderRadius: 8,
-      padding: [10, 14],
-      textStyle: { color: chartColors.tooltipText, fontSize: 12, fontFamily: "'Inter', system-ui, sans-serif" },
-      extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.12);',
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: [12, 16],
+      textStyle: {
+        color: chartColors.tooltipText,
+        fontSize: 11.5,
+        fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+        fontWeight: 500,
+      },
+      extraCssText:
+        'z-index: 9999 !important; box-shadow: 0 22px 44px -18px rgba(0,0,0,0.50), 0 6px 14px -8px rgba(0,0,0,0.30); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); pointer-events: none;',
+      axisPointer: {
+        type: 'line',
+        lineStyle: { color: chartColors.axisLine, width: 1, type: 'dashed' },
+        crossStyle: { color: chartColors.axisLine },
+      },
       ...(fmt.tooltip.template ? {
         formatter: (params) => {
           const row = Array.isArray(params) ? params[0]?.data : params.data;
@@ -524,7 +474,16 @@ export default function ResultsChart({
     // and each chip is clickable to toggle visibility.
     const legendCfg = (embedded && showLegend && fmt.legend.show && displayMeasures.length > 1) ? {
       show: true,
-      textStyle: { color: fmt.legend.color || chartColors.legendText, fontSize: fmt.legend.fontSize || 11 },
+      textStyle: {
+        color: fmt.legend.color || chartColors.legendText,
+        fontSize: fmt.legend.fontSize || 10.5,
+        fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+        fontWeight: 500,
+      },
+      itemGap: 18,
+      itemWidth: 14,
+      itemHeight: 8,
+      icon: 'roundRect',
       ...(fmt.legend.position === 'top' ? { top: 0 } : fmt.legend.position === 'left' ? { left: 0, orient: 'vertical' } : fmt.legend.position === 'right' ? { right: 0, orient: 'vertical' } : { bottom: 0 }),
     } : { show: false };
 
@@ -542,7 +501,7 @@ export default function ResultsChart({
       formatter: (p) => formatTickValue(p.value, fmt.dataLabels.format, null),
     } : { show: false };
 
-    const baseGrid = { left: 60, right: 20, top: 30, bottom: 40 };
+    const baseGrid = { left: 52, right: 28, top: 24, bottom: 36, containLabel: true };
 
     switch (chartType) {
       case "bar":
@@ -921,7 +880,7 @@ export default function ResultsChart({
         };
       }
     }
-  }, [chartType, chartData, labelCol, displayMeasures, currentMeasure, colors, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn, chartColors, measureSeriesTypes, hasMixedTypes]);
+  }, [chartType, embedded, chartData, labelCol, displayMeasures, currentMeasure, fmt, showGrid, showLegend, computedRefLines, pieColorMap, dashboardPalette, fmtTickFn, chartColors, measureSeriesTypes, hasMixedTypes]);
 
   /* ── ECharts event handlers for cross-filter ── */
   const onChartEvents = useMemo(() => {
