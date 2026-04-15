@@ -54,7 +54,12 @@ export default function EditorCanvas({ spec, resultSet }) {
       }}
     >
       {rendererId === "vega-lite" && (
-        <VegaRenderer spec={spec} resultSet={resultSet} rendererBackend={strategy.rendererBackend} />
+        <VegaRenderer
+          spec={spec}
+          resultSet={resultSet}
+          rendererBackend={strategy.rendererBackend}
+          strategy={strategy}
+        />
       )}
       {rendererId === "maplibre" && <MapLibreRenderer spec={spec} />}
       {rendererId === "deckgl" && <DeckRenderer spec={spec} />}

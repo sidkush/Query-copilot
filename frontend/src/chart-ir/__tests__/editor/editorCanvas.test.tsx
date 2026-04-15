@@ -69,11 +69,16 @@ describe('EditorCanvas routing via routeSpecWithStrategy', () => {
     expect(placeholder.getAttribute('data-title')).toBe('Creative (Three.js) renderer');
   });
 
-  it('renders compiled Vega-Lite JSON for cartesian spec (VegaRenderer stub contract)', () => {
+  it('mounts the real VegaLite view for a cartesian spec (B2.2 contract)', () => {
     render(<EditorCanvas spec={SIMPLE_BAR} resultSet={resultSet} />);
-    const jsonPre = screen.getByTestId('vega-renderer-json');
-    expect(jsonPre.textContent).toContain('vega.github.io/schema/vega-lite/v5.json');
-    expect(jsonPre.textContent).toContain('"mark": "bar"');
+    const view = screen.getByTestId('vega-renderer-view');
+    expect(view).toBeDefined();
+    // The VegaLite component renders into the view wrapper. Assert its
+    // presence without depending on Vega's internal DOM structure.
+    const renderer = screen.getByTestId('vega-renderer');
+    expect(renderer.getAttribute('data-vega-backend')).toMatch(/svg|canvas/);
+    expect(Number(renderer.getAttribute('data-row-count'))).toBe(3);
+    expect(Number(renderer.getAttribute('data-downsampled-to'))).toBe(3);
   });
 
   it('shows empty state when no spec provided', () => {
