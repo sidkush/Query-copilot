@@ -730,8 +730,13 @@ class SchemaIntelligence:
 # Column profiling — for chart recommendation
 # Added 2026-04-15 as part of Sub-project A Phase 0
 # ============================================================================
-
-import pandas as pd
+#
+# NOTE: pandas is lazy-imported inside the function bodies below to avoid a
+# native DLL conflict with ChromaDB on Windows. Importing pandas at module
+# scope would defeat the workaround because schema_intelligence is imported
+# early by other backend modules. Type annotations (pd.Series / pd.DataFrame)
+# are safe because `from __future__ import annotations` is in effect at the
+# top of this file, which defers annotation evaluation.
 
 
 def _classify_dtype(series: pd.Series) -> tuple[str, str, str]:
@@ -741,6 +746,7 @@ def _classify_dtype(series: pd.Series) -> tuple[str, str, str]:
     role:            dimension | measure
     semantic_type:   nominal | ordinal | quantitative | temporal | geographic
     """
+    import pandas as pd  # Lazy: avoids DLL conflict with ChromaDB on Windows
     if pd.api.types.is_datetime64_any_dtype(series):
         return ('date', 'dimension', 'temporal')
     if pd.api.types.is_bool_dtype(series):
@@ -767,6 +773,7 @@ def profile_columns(df: pd.DataFrame, sample_size: int = 5) -> list[dict]:
         List of {name, dtype, role, semantic_type, cardinality, null_pct,
         sample_values} dicts, one per column.
     """
+    import pandas as pd  # Lazy: avoids DLL conflict with ChromaDB on Windows
     profiles: list[dict] = []
     row_count = len(df)
 

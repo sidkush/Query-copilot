@@ -6,7 +6,7 @@ The output is a ChartSpec dict that conforms to the v1 JSON Schema.
 
 Reference: docs/chart_systems_research.md §2.2 (Mackinlay rules)
 """
-from typing import Any
+from __future__ import annotations
 
 HIGH_CARDINALITY_THRESHOLD = 20
 
@@ -55,6 +55,8 @@ def recommend_chart_spec(columns: list[dict]) -> dict:
 
     Returns:
         A ChartSpec dict with $schema, type, mark, and encoding populated.
+        Missing channels are omitted entirely (never emitted as null) to
+        satisfy the frontend chartSpecSchema which rejects null FieldRefs.
     """
     shape = _analyze_shape(columns)
 
@@ -80,18 +82,20 @@ def recommend_chart_spec(columns: list[dict]) -> dict:
     if shape['has_date'] and shape['n_measures'] >= 1:
         date = _first_dim(columns, 'temporal')
         measure = _first_measure(columns)
+        encoding: dict = {}
+        if date is not None:
+            encoding['x'] = {'field': date['name'], 'type': 'temporal'}
+        if measure is not None:
+            encoding['y'] = {
+                'field': measure['name'],
+                'type': 'quantitative',
+                'aggregate': 'sum',
+            }
         return {
             '$schema': 'askdb/chart-spec/v1',
             'type': 'cartesian',
             'mark': 'line',
-            'encoding': {
-                'x': {'field': date['name'], 'type': 'temporal'} if date else None,
-                'y': {
-                    'field': measure['name'],
-                    'type': 'quantitative',
-                    'aggregate': 'sum',
-                } if measure else None,
-            },
+            'encoding': encoding,
         }
 
     # 2 measures + 0 dims → scatter
@@ -110,16 +114,18 @@ def recommend_chart_spec(columns: list[dict]) -> dict:
     # Default: nominal dim + measure → bar
     dim = _first_dim(columns, 'nominal') or _first_dim(columns)
     measure = _first_measure(columns)
+    encoding: dict = {}
+    if dim is not None:
+        encoding['x'] = {'field': dim['name'], 'type': dim['semantic_type']}
+    if measure is not None:
+        encoding['y'] = {
+            'field': measure['name'],
+            'type': 'quantitative',
+            'aggregate': 'sum',
+        }
     return {
         '$schema': 'askdb/chart-spec/v1',
         'type': 'cartesian',
         'mark': 'bar',
-        'encoding': {
-            'x': {'field': dim['name'], 'type': dim['semantic_type']} if dim else None,
-            'y': {
-                'field': measure['name'],
-                'type': 'quantitative',
-                'aggregate': 'sum',
-            } if measure else None,
-        },
+        'encoding': encoding,
     }
