@@ -166,3 +166,33 @@ def test_lttb_sql_wraps_input():
     sql = lttb_sql("SELECT ts, val FROM metrics", "ts", "val", 500)
     assert "SELECT ts, val FROM metrics" in sql
     assert "WITH _src AS" in sql
+
+
+# ─── _wrap() merging behavior ─────────────────────────────────────────────
+#
+# Both lttb_sql and pixel_min_max_sql have bodies that begin with WITH.
+# Standard SQL does not allow two stacked WITH clauses — _wrap must merge
+# them into a single WITH clause. These tests pin that behavior so the
+# generated SQL is always parseable.
+
+
+def test_wrapped_sql_has_exactly_one_WITH_keyword_for_pixel_min_max():
+    sql = pixel_min_max_sql("SELECT * FROM t", "ts", "val", 800)
+    # Count top-level WITH tokens. Inside CTEs we may have sub-CTEs but _wrap
+    # should merge them into ONE top-level WITH clause.
+    tokens = sql.upper().split()
+    top_level_with = tokens.count("WITH")
+    assert top_level_with == 1, f"expected 1 top-level WITH, got {top_level_with} in:\n{sql}"
+
+
+def test_wrapped_sql_has_exactly_one_WITH_keyword_for_lttb():
+    sql = lttb_sql("SELECT * FROM t", "ts", "val", 500)
+    tokens = sql.upper().split()
+    top_level_with = tokens.count("WITH")
+    assert top_level_with == 1, f"expected 1 top-level WITH, got {top_level_with} in:\n{sql}"
+
+
+def test_wrapped_sql_for_uniform_is_single_WITH():
+    sql = uniform_sql("SELECT * FROM t", 1000)
+    tokens = sql.upper().split()
+    assert tokens.count("WITH") == 1

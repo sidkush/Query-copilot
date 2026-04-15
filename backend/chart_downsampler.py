@@ -98,7 +98,23 @@ def pick_strategy(
 # (backed by SQLValidator + column_profile from query_engine).
 
 def _wrap(inner_sql: str, body: str) -> str:
-    """Wrap inner_sql as a CTE named _src and append the body."""
+    """Wrap inner_sql as a CTE named _src and append the body.
+
+    SQL does not allow two stacked WITH clauses at the same level. If the
+    body itself begins with `WITH`, we strip its leading `WITH` keyword and
+    merge its CTEs into the same clause as _src:
+
+        body = "WITH _bounds AS (...)\\nSELECT ..."
+        →  WITH _src AS (<inner>),
+           _bounds AS (...)
+           SELECT ...
+
+    Otherwise body is appended as-is after the _src CTE.
+    """
+    stripped_body = body.lstrip()
+    if stripped_body[:4].upper() == "WITH":
+        remainder = stripped_body[4:].lstrip()
+        return f"WITH _src AS (\n{inner_sql}\n),\n{remainder}"
     return f"WITH _src AS (\n{inner_sql}\n)\n{body}"
 
 
