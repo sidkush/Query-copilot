@@ -54,6 +54,9 @@ export interface VegaRendererProps {
   };
   rendererBackend?: RendererBackend;
   strategy?: RenderStrategy;
+  /** Called with the Vega View instance when it's ready. Used by
+   *  OnObjectOverlay for scenegraph hit-testing. */
+  onViewReady?: (view: View) => void;
 }
 
 type Row = Record<string, unknown>;
@@ -65,6 +68,7 @@ export default function VegaRenderer({
   resultSet,
   rendererBackend = 'svg',
   strategy,
+  onViewReady,
 }: VegaRendererProps) {
   const compiled = useMemo(() => {
     try {
@@ -144,14 +148,16 @@ export default function VegaRenderer({
   // happens once per spec+data change pair — a reasonable proxy for paint
   // pressure during interactive editing.
   const lastViewTsRef = useRef<number>(0);
-  const handleNewView = useCallback((_view: View) => {
+  const handleNewView = useCallback((view: View) => {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const prev = lastViewTsRef.current;
     if (prev > 0) {
       globalFrameBudgetTracker.recordFrameTime(now - prev);
     }
     lastViewTsRef.current = now;
-  }, []);
+    // Expose the view to OnObjectOverlay for scenegraph hit-testing.
+    if (onViewReady) onViewReady(view);
+  }, [onViewReady]);
 
   const handleError = useCallback(
     (err: Error, _container: HTMLDivElement) => {

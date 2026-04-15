@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { routeSpecWithStrategy } from "../../chart-ir";
 import { getGPUTier } from "../../lib/gpuDetect";
 import VegaRenderer from "./renderers/VegaRenderer";
@@ -15,6 +15,8 @@ import OnObjectOverlay from "./onobject/OnObjectOverlay";
  * integration lands.
  */
 export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
+  const [vegaView, setVegaView] = useState(null);
+  const handleViewReady = useCallback((view) => setVegaView(view), []);
   const resultProfile = useMemo(() => buildResultProfile(spec, resultSet), [spec, resultSet]);
 
   const routing = useMemo(() => {
@@ -55,12 +57,13 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
       }}
     >
       {rendererId === "vega-lite" && (
-        <OnObjectOverlay spec={spec} onSpecChange={onSpecChange}>
+        <OnObjectOverlay view={vegaView} spec={spec} onSpecChange={onSpecChange}>
           <VegaRenderer
             spec={spec}
             resultSet={resultSet}
             rendererBackend={strategy.rendererBackend}
             strategy={strategy}
+            onViewReady={handleViewReady}
           />
         </OnObjectOverlay>
       )}
