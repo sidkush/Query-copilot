@@ -49,3 +49,6 @@ logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
+
+# Git worktrees for parallel feature development
+.worktrees/
