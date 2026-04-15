@@ -105,6 +105,17 @@ export default function AnalystWorkbenchLayout({
     [onLayoutChange],
   );
 
+  // Memoized tile lookup — MUST be above any early return so the hook
+  // call order is stable across renders (React rules of hooks).
+  const tilesById = useMemo(() => {
+    const m = new Map();
+    tiles.forEach((tile, i) => {
+      const key = String(tile.id ?? i);
+      m.set(key, tile);
+    });
+    return m;
+  }, [tiles]);
+
   if (tiles.length === 0) {
     return (
       <div
@@ -121,15 +132,6 @@ export default function AnalystWorkbenchLayout({
       </div>
     );
   }
-
-  const tilesById = useMemo(() => {
-    const m = new Map();
-    tiles.forEach((tile, i) => {
-      const key = String(tile.id ?? i);
-      m.set(key, tile);
-    });
-    return m;
-  }, [tiles]);
 
   return (
     <div
