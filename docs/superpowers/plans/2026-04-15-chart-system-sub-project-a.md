@@ -3437,3 +3437,57 @@ No fixes needed — all consistent within their respective layers, with the snak
 **2. Inline Execution** — Execute tasks in this session using executing-plans, batch execution with checkpoints. Best for tighter iteration if you want to stop and tweak between tasks.
 
 **Which approach?**
+
+---
+
+## Phase 0 Technical Debt (for Phase 1 writing-plans to consume)
+
+This section captures the known follow-ups surfaced during Phase 0 per-bundle code reviews and the final holistic review. These are NOT blockers for merging `v0-foundations` — Phase 0 is architecturally sound and passes all tests — but they should be the first items on Phase 1's plan so they don't get lost.
+
+### Chart recommender / Show Me correctness (from Tasks 8-10 reviews)
+
+1. **Pie chart uses `y` channel for the measure, not Vega-Lite's canonical `theta`** — `frontend/src/chart-ir/recommender/chartTypes.ts`, `pie.autoAssign()`. Vega-Lite arc marks use `theta` for the angular measure; `y` works in some inference paths but isn't idiomatic. Either fix the autoAssign to emit `theta`, or add a compiler-side `y → theta` remap specifically for `arc` marks. Impact: any real pie chart rendered in Phase 1 will emit non-standard Vega-Lite and may not render correctly in some themes.
+
+2. **Pie chart score gate uses `maxDimensionCardinality` but requires gate uses `rowCount`** — `frontend/src/chart-ir/recommender/showMe.ts` (`scoreChart`) vs `chartTypes.ts` (`requires: { maxRows: 8 }`). These are different metrics that usually coincide in grouped results but can diverge. Align them so the gate and the scorer use the same variable.
+
+3. **Pie `autoAssign` missing non-nominal fallback** — `chartTypes.ts`, `pie.autoAssign`. Uses `firstDim(shape, 'nominal')` with no `??` fallback (unlike `bar` which has `?? firstDim(shape)`). If the `requires.minDims: 1` gate passes an ordinal-only dim through, the autoAssign produces `color: undefined`. Either tighten the gate with a `requiresNominal: true` predicate or mirror the bar fallback.
+
+4. **`ChartRecommendation.disabled: false` is a dead field** — `frontend/src/chart-ir/recommender/showMe.ts`. The type declares `disabled: false` as a literal and `recommendCharts` filters to available-only recommendations, so the field never varies. Either remove it (and drop the test assertion at `showMe.test.ts:79-80` that reads it) or document it as intentional symmetry with `ChartAvailability.available`.
+
+### Schema hygiene (from Tasks 8-10 + 11-12 reviews)
+
+5. **Ajv `useDefaults: true` is a latent input-mutation footgun** — `frontend/src/chart-ir/schema.ts:17`. No `default` keywords in the schema currently, so it's a no-op today, but the moment someone adds one, `validateChartSpec()` will silently mutate its input object. Either remove `useDefaults: true` or rename the function to `validateAndFillDefaults()` and document the mutation contract.
+
+6. **Schema enum drift risk** — `schema.ts` redeclares `MARKS`, `SEMANTIC_TYPES`, `AGGREGATES` as `as const` tuples rather than deriving them from `types.ts`. If a new `Mark` is added to TypeScript without updating the schema, Ajv will silently reject the new mark at runtime. Either (a) generate the schema enums from the TypeScript types via `typescript-json-schema` at build time, or (b) add a cross-check test asserting `schema.MARKS.length === (Mark union arity)`.
+
+7. **`encoding.color.scheme` leaks into all FieldRefs via shared `fieldRefSchema`** — `schema.ts:79-86`. `types.ts` declares `color?: FieldRef & { scheme?: string }` with `scheme` only on color, but the JSON Schema uses the shared `fieldRefSchema` (which includes `scheme`) for every encoding channel. Either move `scheme` out of `fieldRefSchema` into a color-specific extension, or loosen `types.ts` to put `scheme` on all FieldRefs.
+
+8. **`map.layers` validator under-specified** — `schema.ts:130`. `layers: { type: 'array' }` with no `items` constraint. `types.ts` has a `MapLayer` interface with a discriminated union on `type`. Phase 0's scope didn't exercise the validator against real map specs, but Phase 1 renderers will. Add `items: { type: 'object', required: ['type', 'source'] }` at minimum.
+
+### Backend profiling heuristics (from Tasks 13-14 reviews)
+
+9. **`_classify_dtype` always treats integers as measures** — `backend/schema_intelligence.py`. An `id` / `customer_id` / `product_id` column gets `role: 'measure'`, `semantic_type: 'quantitative'`, which will generate absurd default charts ("sum of customer_id") when the agent picks a bar chart for an `id + value` query. Add a heuristic to detect ID columns (e.g., name suffix `_id`, integer + cardinality == row_count, integer + monotonically-increasing) and classify them as nominal dimensions instead. Frontend Show Me has the same limitation — fix in parallel.
+
+### Toolchain + DX
+
+10. **Missing `type-check` npm script** — `frontend/package.json`. The Phase 2.5 toolchain commit added `test:chart-ir` but not a standalone `tsc --noEmit` script. Because `tsconfig.json` has `noEmit: true + isolatedModules: true`, Vite/esbuild skips full type-checking at build time — an explicit `tsc` invocation is needed to catch type errors in CI or pre-commit. Add `"type-check": "tsc --noEmit -p tsconfig.json"` to `package.json` scripts.
+
+### Wire-in for frontend/backend integration
+
+11. **snake_case ↔ camelCase adapter at the `column_profile` boundary** — Backend `profile_columns()` emits snake_case (`semantic_type`, `null_pct`, `sample_values`) per spec §596-629; frontend `ColumnProfile` interface in `resultShape.ts` uses camelCase (`semanticType`, `nullPct`, `sampleValues`). No adapter exists today because no production code path consumes the `column_profile` field yet. Phase 1's first task that wires the query response into `analyzeResultShape` must either (a) add a `toColumnProfile()` adapter in `frontend/src/api.js`, or (b) rename the backend field names to match the frontend (cleaner, no runtime overhead, but requires updating all backend tests).
+
+### Two recommendation options for Phase 1 plan ordering
+
+**Option A — fix debt before editor shell.** Spend the first 2-3 days of Phase 1 on a "Phase 0 cleanup" mini-phase that resolves items 1-10, then start Phase 1's Task 1 (three-pane shell) on a clean substrate. Pro: no rework later. Con: delays the visible UI work.
+
+**Option B — tactical fixes as needed.** Start Phase 1's Task 1 immediately. Fix items 1-3 before the chart picker UI lands (item 1 is most critical for pie rendering). Fix items 5-8 before the server-side validation wire-in. Fix item 9 before the first chart picker demo. Fix item 10 in any pre-CI commit. Item 11 goes in the first wire-in commit. Pro: momentum. Con: risk of forgetting one.
+
+**Recommendation:** Option B. Items 1-10 are small and scoped; the holistic reviewer already categorized them as "non-blocking for Phase 1 start." Each can land as a small focused commit alongside its related Phase 1 task. Item 11 is unavoidable — Phase 1's very first wire-in needs to resolve the camelCase/snake_case question.
+
+---
+
+## Holistic review verdict
+
+**Phase 0 merge readiness:** Yes, with the cleanup commit that captures this Technical Debt section and includes the previously-missing `docs/chart_systems_research.md` in git tracking.
+
+Final review confirmed: 21 commits, 58 frontend + 14 chart-ir backend tests passing, ESLint baseline unchanged at 154, zero circular imports, zero production imports of the chart-ir module (safe feature-flag posture by construction), `_tool_suggest_chart_spec` exists but is not yet wired into the agent tool list (expected for Phase 0).

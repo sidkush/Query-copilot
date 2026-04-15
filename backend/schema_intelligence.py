@@ -724,3 +724,89 @@ class SchemaIntelligence:
             "complexity_score": round(complexity, 3),
             "notes": notes,
         }
+
+
+# ============================================================================
+# Column profiling — for chart recommendation
+# Added 2026-04-15 as part of Sub-project A Phase 0
+# ============================================================================
+#
+# NOTE: pandas is lazy-imported inside the function bodies below to avoid a
+# native DLL conflict with ChromaDB on Windows. Importing pandas at module
+# scope would defeat the workaround because schema_intelligence is imported
+# early by other backend modules. Type annotations (pd.Series / pd.DataFrame)
+# are safe because `from __future__ import annotations` is in effect at the
+# top of this file, which defers annotation evaluation.
+
+
+def _classify_dtype(series: pd.Series) -> tuple[str, str, str]:
+    """Return (dtype, role, semantic_type) for a pandas Series.
+
+    dtype:           int | float | string | date | bool | geo
+    role:            dimension | measure
+    semantic_type:   nominal | ordinal | quantitative | temporal | geographic
+    """
+    import pandas as pd  # Lazy: avoids DLL conflict with ChromaDB on Windows
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return ('date', 'dimension', 'temporal')
+    if pd.api.types.is_bool_dtype(series):
+        return ('bool', 'dimension', 'nominal')
+    if pd.api.types.is_integer_dtype(series):
+        return ('int', 'measure', 'quantitative')
+    if pd.api.types.is_float_dtype(series):
+        return ('float', 'measure', 'quantitative')
+    # Object / string
+    return ('string', 'dimension', 'nominal')
+
+
+def profile_columns(df: pd.DataFrame, sample_size: int = 5) -> list[dict]:
+    """Profile each column of a DataFrame for the chart recommender.
+
+    Returns a list of column profile dicts matching the frontend
+    ColumnProfile interface in chart-ir/recommender/resultShape.ts.
+
+    Args:
+        df: Result DataFrame from query execution.
+        sample_size: Number of sample values to include per column (max).
+
+    Returns:
+        List of {name, dtype, role, semantic_type, cardinality, null_pct,
+        sample_values} dicts, one per column.
+    """
+    import pandas as pd  # Lazy: avoids DLL conflict with ChromaDB on Windows
+    profiles: list[dict] = []
+    row_count = len(df)
+
+    for col in df.columns:
+        series = df[col]
+        dtype, role, semantic_type = _classify_dtype(series)
+
+        non_null = series.dropna()
+        cardinality = int(non_null.nunique()) if row_count > 0 else 0
+        null_pct = float(series.isna().mean()) if row_count > 0 else 0.0
+
+        # Sample values: distinct values up to sample_size
+        sample_raw = non_null.drop_duplicates().head(sample_size).tolist()
+        # Convert datetime/numpy types to JSON-serializable forms
+        sample_values: list = []
+        for v in sample_raw:
+            if pd.isna(v):
+                continue
+            if hasattr(v, 'isoformat'):
+                sample_values.append(v.isoformat())
+            elif isinstance(v, (int, float, str, bool)):
+                sample_values.append(v)
+            else:
+                sample_values.append(str(v))
+
+        profiles.append({
+            'name': col,
+            'dtype': dtype,
+            'role': role,
+            'semantic_type': semantic_type,
+            'cardinality': cardinality,
+            'null_pct': null_pct,
+            'sample_values': sample_values,
+        })
+
+    return profiles
