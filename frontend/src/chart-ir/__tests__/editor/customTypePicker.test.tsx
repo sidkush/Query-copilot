@@ -4,13 +4,13 @@ import CustomTypePicker from '../../../components/editor/CustomTypePicker';
 import { globalUserChartTypeRegistry } from '../../../chart-ir';
 
 vi.mock('../../../api', () => ({
-  default: {
+  api: {
     listChartTypes: vi.fn(),
   },
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-import api from '../../../api';
+import { api } from '../../../api';
 
 const SAMPLE_TYPE = {
   id: 'org:waterfall',

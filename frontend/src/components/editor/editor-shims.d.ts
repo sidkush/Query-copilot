@@ -198,7 +198,7 @@ declare module '*/components/dashboard/lib/DashboardTileCanvas' {
 
 // api.js — minimal shim for the Sub-project C/D calls the tests exercise
 declare module '*/api' {
-  const api: {
+  export const api: {
     listChartTypes: () => Promise<{ chart_types: any[] }>;
     saveChartType: (type: any) => Promise<any>;
     deleteChartType: (id: string) => Promise<any>;
@@ -207,5 +207,4 @@ declare module '*/api' {
     deleteSemanticModel: (id: string) => Promise<any>;
     [key: string]: any;
   };
-  export default api;
 }

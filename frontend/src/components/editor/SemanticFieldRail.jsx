@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../../store";
-import api from "../../api";
+import { api } from "../../api";
 
 /**
  * SemanticFieldRail — Sub-project D UI hook (Phase 4c).

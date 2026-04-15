@@ -4,13 +4,13 @@ import SemanticFieldRail from '../../../components/editor/SemanticFieldRail';
 import { useStore } from '../../../store';
 
 vi.mock('../../../api', () => ({
-  default: {
+  api: {
     listSemanticModels: vi.fn(),
   },
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-import api from '../../../api';
+import { api } from '../../../api';
 
 const SAMPLE_MODEL = {
   id: 'retail',
