@@ -80,3 +80,46 @@ export interface FieldRef {
   /** Display title — overrides the field name in axis labels and legends. */
   title?: string;
 }
+
+/**
+ * Visual encoding channels — map data fields to visual properties.
+ * Mirrors Vega-Lite encoding shape with AskDB-specific constraints.
+ *
+ * The 'detail' channel is special: it splits marks by the field WITHOUT
+ * any visible encoding (no color, size, or position change). Used for
+ * level-of-detail aggregation control. Tableau-equivalent: Marks card
+ * Detail well.
+ */
+export interface Encoding {
+  /** Horizontal position. */
+  x?: FieldRef;
+  /** Vertical position. */
+  y?: FieldRef;
+  /** End of horizontal range (for bars, area). */
+  x2?: FieldRef;
+  /** End of vertical range. */
+  y2?: FieldRef;
+  /** Color encoding. Optional 'scheme' property names a palette. */
+  color?: FieldRef & { scheme?: string };
+  /** Mark size (radius for points, thickness for bars). */
+  size?: FieldRef;
+  /** Glyph shape for point marks. */
+  shape?: FieldRef;
+  /** Mark transparency. */
+  opacity?: FieldRef;
+  /**
+   * Level-of-detail split with no visible encoding. Multiple fields stack.
+   * Use to disaggregate marks without introducing a color/shape encoding.
+   */
+  detail?: FieldRef[];
+  /** Fields surfaced in hover tooltip. Order matters — first field is title. */
+  tooltip?: FieldRef[];
+  /** Text content for text marks. */
+  text?: FieldRef;
+  /** Facet by row (small multiples). */
+  row?: FieldRef;
+  /** Facet by column (small multiples). */
+  column?: FieldRef;
+  /** Mark drawing order (e.g., line connection order, stack order). */
+  order?: FieldRef;
+}

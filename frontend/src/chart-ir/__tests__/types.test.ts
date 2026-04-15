@@ -83,3 +83,48 @@ describe('FieldRef', () => {
     expect(typeof ref.sort).toBe('object');
   });
 });
+
+import type { Encoding } from '../types';
+
+describe('Encoding', () => {
+  it('accepts a minimal x/y encoding', () => {
+    const enc: Encoding = {
+      x: { field: 'date', type: 'temporal' },
+      y: { field: 'revenue', type: 'quantitative', aggregate: 'sum' },
+    };
+    expect(enc.x?.field).toBe('date');
+  });
+
+  it('accepts color, size, and detail channels', () => {
+    const enc: Encoding = {
+      x: { field: 'date', type: 'temporal' },
+      y: { field: 'revenue', type: 'quantitative' },
+      color: { field: 'region', type: 'nominal', scheme: 'tableau10' },
+      size: { field: 'volume', type: 'quantitative' },
+      detail: [{ field: 'customer_id', type: 'nominal' }],
+    };
+    expect(enc.color?.scheme).toBe('tableau10');
+  });
+
+  it('accepts faceting via row/column channels', () => {
+    const enc: Encoding = {
+      x: { field: 'date', type: 'temporal' },
+      y: { field: 'revenue', type: 'quantitative' },
+      column: { field: 'region', type: 'nominal' },
+    };
+    expect(enc.column?.field).toBe('region');
+  });
+
+  it('accepts multiple tooltip fields', () => {
+    const enc: Encoding = {
+      x: { field: 'date', type: 'temporal' },
+      y: { field: 'revenue', type: 'quantitative' },
+      tooltip: [
+        { field: 'date', type: 'temporal' },
+        { field: 'revenue', type: 'quantitative' },
+        { field: 'region', type: 'nominal' },
+      ],
+    };
+    expect(enc.tooltip?.length).toBe(3);
+  });
+});
