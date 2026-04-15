@@ -4,15 +4,16 @@ import { TOKENS, CHART_PALETTES } from './tokens';
 import ResultsChart from '../ResultsChart';
 import KPICard from './KPICard';
 import DashboardTileCanvas from './lib/DashboardTileCanvas';
+import { scoreTile as sharedScoreTile } from './lib/importanceScoring';
 
-/* ── Tile importance scoring ── */
+/* ── Tile importance scoring ──
+ * Delegates to the shared importanceScoring module (Phase 4c). The
+ * shared version recognizes both the legacy shape (chartType + rows +
+ * sql) and the new ChartSpec shape (chart_spec with encoding), so
+ * migrated dashboards don't silently score 0.
+ */
 function scoreTile(tile) {
-  if (!tile?.rows?.length && !tile?.sql) return 0;
-  if (tile.chartType === 'kpi') return 100;
-  if (tile.chartType === 'table') return 30;
-  if (tile.rows?.length > 0) return 70; // chart with data
-  if (tile.sql) return 20; // has SQL but no data yet
-  return 10;
+  return sharedScoreTile(tile);
 }
 
 /* ── Bin-pack tiles into 16:9 slide pages ── */
