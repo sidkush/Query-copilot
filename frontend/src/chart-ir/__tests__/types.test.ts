@@ -186,7 +186,7 @@ describe('Selection', () => {
   });
 });
 
-import type { ChartSpec, SpecType } from '../types';
+import type { ChartSpec } from '../types';
 
 describe('ChartSpec', () => {
   it('accepts a cartesian bar chart spec', () => {
