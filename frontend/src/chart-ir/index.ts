@@ -67,6 +67,42 @@ export type { PixelMinMaxOptions } from './transforms/pixelMinMax';
 export { aggregateBinRows } from './transforms/aggregateBin';
 export type { BinAggregate, AggregateBinOptions } from './transforms/aggregateBin';
 
+// Sub-project D — semantic layer
+export { validateSemanticModel } from './semantic/validator';
+export type { SemanticValidationResult } from './semantic/validator';
+export {
+  resolveSemanticRef,
+  compileSemanticSpec,
+  SemanticResolutionError,
+} from './semantic/resolver';
+export type { ResolveResult } from './semantic/resolver';
+export type {
+  SemanticModel,
+  Dimension,
+  Measure,
+  Metric,
+  SemanticFieldRef,
+} from './semantic/types';
+
+// Sub-project C — user-authored chart types
+export { validateUserChartType, collectPlaceholders } from './userTypes/schema';
+export type { UserTypeValidationResult } from './userTypes/schema';
+export {
+  instantiateUserChartType,
+  InstantiationError,
+} from './userTypes/instantiate';
+export {
+  UserChartTypeRegistry,
+  globalUserChartTypeRegistry,
+} from './userTypes/registry';
+export type { RegisterResult } from './userTypes/registry';
+export type {
+  UserChartType,
+  UserChartTypeParam,
+  UserChartTypeParamKind,
+  InstantiateParams,
+} from './userTypes/types';
+
 // Voice — Phase 3 tier abstraction + stub adapters
 export {
   registerVoiceProvider,

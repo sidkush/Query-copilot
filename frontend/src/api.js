@@ -751,6 +751,26 @@ export const api = {
   migrateDashboard: (dashboardId) =>
     request(`/dashboards/${dashboardId}/migrate`, { method: "POST" }),
 
+  // Sub-project C — user-authored chart types
+  listChartTypes: () => request("/chart-types"),
+  saveChartType: (chartType) =>
+    request("/chart-types", {
+      method: "POST",
+      body: JSON.stringify(chartType),
+    }),
+  deleteChartType: (typeId) =>
+    request(`/chart-types/${encodeURIComponent(typeId)}`, { method: "DELETE" }),
+
+  // Sub-project D — semantic models
+  listSemanticModels: () => request("/semantic-models"),
+  saveSemanticModel: (model) =>
+    request("/semantic-models", {
+      method: "POST",
+      body: JSON.stringify(model),
+    }),
+  deleteSemanticModel: (modelId) =>
+    request(`/semantic-models/${encodeURIComponent(modelId)}`, { method: "DELETE" }),
+
   // Health
   health: () => request("/health"),
 };
