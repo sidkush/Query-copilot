@@ -82,7 +82,7 @@ def test_uniform_sql_wraps_input_and_uses_sample_repeatable():
     sql = uniform_sql("SELECT * FROM events", 1000)
     assert "WITH _src AS" in sql
     assert "SELECT * FROM events" in sql
-    assert "USING SAMPLE 1000 ROWS REPEATABLE (42)" in sql
+    assert "USING SAMPLE reservoir(1000 ROWS) REPEATABLE (42)" in sql
 
 
 def test_uniform_sql_raises_on_non_positive_target():

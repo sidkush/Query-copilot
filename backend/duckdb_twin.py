@@ -700,6 +700,130 @@ class DuckDBTwin:
             "truncated": truncated,
         }
 
+    def query_twin_downsampled(
+        self,
+        conn_id: str,
+        sql: str,
+        target_points: int,
+        x_col: Optional[str] = None,
+        x_type: Optional[str] = None,
+        y_col: Optional[str] = None,
+        y_type: Optional[str] = None,
+        has_bin_transform: bool = False,
+        pixel_width: Optional[int] = None,
+        strategy: Optional["DownsampleStrategy"] = None,  # forward ref
+    ) -> Dict[str, Any]:
+        """
+        Wrap the caller's SQL in a downsampling CTE and execute via query_twin().
+
+        Reuses query_twin()'s SQLValidator + Arrow zero-copy + read-only
+        enforcement — the wrapped SQL goes through the same validation path, so
+        any DuckDB filesystem function (read_csv_auto, etc.) the wrapper SQL
+        might try to introduce is still blocked.
+
+        Chooses a strategy via chart_downsampler.pick_strategy() unless one is
+        explicitly supplied. Falls back to uniform sampling if the chosen
+        strategy's required columns (x_col, y_col) are missing.
+
+        Augments the return dict with two new fields:
+            - downsample_method: str — the strategy name used ('lttb', 'uniform', ...)
+            - downsampled: bool      — True if the input SQL was actually wrapped
+
+        INVARIANT-2 still applies: caller must run mask_dataframe() on any rows
+        returned here before surfacing them to users or the LLM.
+        """
+        # Lazy import to avoid circular deps and keep module import fast
+        from chart_downsampler import (
+            DownsampleStrategy,
+            pick_strategy,
+            uniform_sql,
+            aggregate_bin_sql,
+            pixel_min_max_sql,
+            lttb_sql,
+        )
+
+        if target_points <= 0:
+            return {"status": "error", "message": "target_points must be > 0"}
+
+        # First, estimate the row count by running a COUNT(*) on the inner SQL.
+        # This lets pick_strategy choose NONE when the input is already small,
+        # avoiding unnecessary wrapping. The count query goes through the same
+        # SQLValidator + read-only path via a nested query_twin call.
+        count_sql = f"SELECT COUNT(*) AS n FROM ({sql}) _count_src"
+        count_result = self.query_twin(conn_id, count_sql)
+        if count_result.get("status") == "error":
+            return count_result
+        row_count_estimate = 0
+        if count_result.get("rows"):
+            first_row = count_result["rows"][0]
+            row_count_estimate = int(first_row[0]) if first_row else 0
+        elif count_result.get("record_batch") is not None:
+            # Arrow path returns a RecordBatch; pull the scalar out
+            try:
+                row_count_estimate = int(count_result["record_batch"].column(0)[0].as_py())
+            except Exception:
+                row_count_estimate = 0
+
+        # Pick a strategy (unless explicitly provided)
+        if strategy is None:
+            strategy = pick_strategy(
+                row_count=row_count_estimate,
+                target_points=target_points,
+                x_col=x_col,
+                x_type=x_type,
+                y_col=y_col,
+                y_type=y_type,
+                has_bin_transform=has_bin_transform,
+                pixel_width=pixel_width,
+            )
+
+        # If strategy is NONE, execute the inner SQL unchanged.
+        if strategy == DownsampleStrategy.NONE:
+            result = self.query_twin(conn_id, sql)
+            if result.get("status") != "error":
+                result["downsample_method"] = "none"
+                result["downsampled"] = False
+                result["original_row_count_estimate"] = row_count_estimate
+            return result
+
+        # Build the wrapped SQL based on strategy
+        try:
+            if strategy == DownsampleStrategy.LTTB:
+                if not x_col or not y_col:
+                    # Fallback — downgrade to uniform
+                    wrapped = uniform_sql(sql, target_points)
+                    applied_method = "uniform"
+                else:
+                    wrapped = lttb_sql(sql, x_col, y_col, target_points)
+                    applied_method = "lttb"
+            elif strategy == DownsampleStrategy.PIXEL_MIN_MAX:
+                if not x_col or not y_col or not pixel_width:
+                    wrapped = uniform_sql(sql, target_points)
+                    applied_method = "uniform"
+                else:
+                    wrapped = pixel_min_max_sql(sql, x_col, y_col, pixel_width)
+                    applied_method = "pixel_min_max"
+            elif strategy == DownsampleStrategy.AGGREGATE_BIN:
+                if not x_col:
+                    wrapped = uniform_sql(sql, target_points)
+                    applied_method = "uniform"
+                else:
+                    wrapped = aggregate_bin_sql(sql, x_col, target_points, y_col=y_col)
+                    applied_method = "aggregate_bin"
+            else:  # UNIFORM
+                wrapped = uniform_sql(sql, target_points)
+                applied_method = "uniform"
+        except ValueError as exc:
+            logger.warning("query_twin_downsampled(%s): fragment builder rejected inputs — %s", conn_id, exc)
+            return {"status": "error", "message": f"Downsample fragment error: {exc}"}
+
+        result = self.query_twin(conn_id, wrapped)
+        if result.get("status") != "error":
+            result["downsample_method"] = applied_method
+            result["downsampled"] = True
+            result["original_row_count_estimate"] = row_count_estimate
+        return result
+
     def refresh_twin(
         self,
         conn_id: str,

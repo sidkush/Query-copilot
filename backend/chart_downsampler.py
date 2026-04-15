@@ -119,10 +119,15 @@ def _wrap(inner_sql: str, body: str) -> str:
 
 
 def uniform_sql(inner_sql: str, target_points: int) -> str:
-    """Random uniform sample via DuckDB's native USING SAMPLE REPEATABLE."""
+    """Random uniform sample via DuckDB's native USING SAMPLE reservoir.
+
+    Uses `reservoir(N ROWS) REPEATABLE (42)` syntax which is supported across
+    DuckDB 0.9+. The older shorthand `N ROWS REPEATABLE (42)` was removed in
+    DuckDB 1.x — using the named method form avoids the syntax error.
+    """
     if target_points <= 0:
         raise ValueError("target_points must be > 0")
-    body = f"SELECT * FROM _src USING SAMPLE {int(target_points)} ROWS REPEATABLE (42)"
+    body = f"SELECT * FROM _src USING SAMPLE reservoir({int(target_points)} ROWS) REPEATABLE (42)"
     return _wrap(inner_sql, body)
 
 
