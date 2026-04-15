@@ -34,15 +34,31 @@ export default function DashboardTileCanvas({
   height = "100%",
   showTitleBar = true,
   onTileClick,
+  resultSetOverride,
 }) {
   const spec = tile?.chart_spec || tile?.chartSpec || null;
 
   const resultSet = useMemo(() => {
+    // resultSetOverride wins when supplied (e.g. WorkbookLayout blends
+    // filter-bar-driven SQL re-exec results in without mutating the
+    // parent tile object). Falls back to the legacy tile fields.
+    if (resultSetOverride && typeof resultSetOverride === "object") {
+      const columns = Array.isArray(resultSetOverride.columns)
+        ? resultSetOverride.columns
+        : [];
+      const rows = Array.isArray(resultSetOverride.rows)
+        ? resultSetOverride.rows
+        : [];
+      const columnProfile = Array.isArray(resultSetOverride.columnProfile)
+        ? resultSetOverride.columnProfile
+        : [];
+      return { columns, rows, columnProfile };
+    }
     const columns = Array.isArray(tile?.columns) ? tile.columns : [];
     const rows = Array.isArray(tile?.rows) ? tile.rows : [];
     const columnProfile = Array.isArray(tile?.columnProfile) ? tile.columnProfile : [];
     return { columns, rows, columnProfile };
-  }, [tile?.columns, tile?.rows, tile?.columnProfile]);
+  }, [tile?.columns, tile?.rows, tile?.columnProfile, resultSetOverride]);
 
   const handleClick = () => {
     if (onTileClick) onTileClick(tile);

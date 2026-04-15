@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useStore } from "../../../store";
+import { api } from "../../../api";
 import DashboardTileCanvas from "../lib/DashboardTileCanvas";
 import {
   WorkbookFilterProvider,
@@ -29,88 +31,183 @@ function groupByTab(tiles) {
   return out;
 }
 
-export default function WorkbookLayout({ tiles = [], onTileClick }) {
+export default function WorkbookLayout({
+  tiles = [],
+  onTileClick,
+  dashboardId = null,
+}) {
+  return (
+    <WorkbookFilterProvider>
+      <WorkbookLayoutInner
+        tiles={tiles}
+        onTileClick={onTileClick}
+        dashboardId={dashboardId}
+      />
+    </WorkbookFilterProvider>
+  );
+}
+
+function WorkbookLayoutInner({ tiles, onTileClick, dashboardId }) {
   const tabs = useMemo(() => groupByTab(tiles), [tiles]);
   const tabIds = Object.keys(tabs);
   const [activeTab, setActiveTab] = useState(tabIds[0] || "Tab 1");
+  const [resultSetByTileId, setResultSetByTileId] = useState({});
+  const [refreshError, setRefreshError] = useState(null);
+
+  const { filters } = useWorkbookFilters();
+  const activeConnId = useStore((s) => s.activeConnId);
+
+  // Batch-refresh all visible tiles whenever the filter array changes.
+  // Defer the call until there is at least one filter AND a dashboardId
+  // AND an active conn — otherwise fall through to the tile's own rows.
+  useEffect(() => {
+    if (!dashboardId) return undefined;
+    if (!Array.isArray(filters) || filters.length === 0) {
+      // Filters cleared → drop any blended overrides.
+      setResultSetByTileId({});
+      setRefreshError(null);
+      return undefined;
+    }
+    const tileIds = tiles.map((t) => t.id).filter(Boolean);
+    if (tileIds.length === 0) return undefined;
+
+    const backendFilters = {
+      fields: filters
+        .map((f) => ({
+          column: f.field,
+          operator: f.op,
+          value: f.value,
+        }))
+        .filter((f) => f.column && f.operator),
+    };
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setRefreshError(null);
+        const res = await api.batchRefreshTiles(
+          dashboardId,
+          tileIds,
+          activeConnId || null,
+          backendFilters,
+        );
+        if (cancelled) return;
+        const next = {};
+        const resultsMap = res?.results || res || {};
+        for (const [tileId, result] of Object.entries(resultsMap)) {
+          if (result && !result.error) {
+            next[tileId] = {
+              columns: result.columns || [],
+              rows: result.rows || [],
+              columnProfile: [],
+            };
+          }
+        }
+        setResultSetByTileId(next);
+      } catch (err) {
+        if (!cancelled) {
+          setRefreshError(err instanceof Error ? err.message : String(err));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters, dashboardId, activeConnId, tiles]);
 
   return (
-    <WorkbookFilterProvider>
+    <div
+      data-testid="layout-workbook"
+      data-active-tab={activeTab}
+      data-filter-blend-count={Object.keys(resultSetByTileId).length}
+      style={{
+        padding: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        minHeight: "100%",
+        background: "#f0f0f4",
+        color: "#0c0c13",
+      }}
+    >
+      <WorkbookFilterBar />
+      {refreshError && (
+        <div
+          data-testid="workbook-filter-refresh-error"
+          style={{
+            padding: "4px 10px",
+            fontSize: 10,
+            color: "#dc2626",
+            background: "rgba(220,38,38,0.08)",
+            borderRadius: 3,
+          }}
+        >
+          Filter refresh failed: {refreshError}
+        </div>
+      )}
       <div
-        data-testid="layout-workbook"
-        data-active-tab={activeTab}
+        role="tablist"
+        aria-label="Workbook tabs"
         style={{
-          padding: 12,
           display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          minHeight: "100%",
-          background: "#f0f0f4",
-          color: "#0c0c13",
+          gap: 2,
+          borderBottom: "1px solid rgba(12,12,19,0.12)",
+          paddingBottom: 4,
         }}
       >
-        <WorkbookFilterBar />
-        <div
-          role="tablist"
-          aria-label="Workbook tabs"
-          style={{
-            display: "flex",
-            gap: 2,
-            borderBottom: "1px solid rgba(12,12,19,0.12)",
-            paddingBottom: 4,
-          }}
-        >
-          {(tabIds.length > 0 ? tabIds : ["Tab 1"]).map((tab) => {
-            const active = tab === activeTab;
-            return (
-              <button
-                key={tab}
-                role="tab"
-                aria-selected={active}
-                data-testid={`workbook-tab-${tab}`}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: "6px 16px",
-                  fontSize: 11,
-                  background: active ? "#ffffff" : "transparent",
-                  color: active ? "#0c0c13" : "rgba(12,12,19,0.55)",
-                  border: "none",
-                  borderBottom: active
-                    ? "2px solid #3b82f6"
-                    : "2px solid transparent",
-                  cursor: "pointer",
-                  fontWeight: active ? 600 : 400,
-                  boxShadow: active ? "0 -1px 2px rgba(0,0,0,0.04)" : "none",
-                }}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gap: 12,
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gridAutoRows: "minmax(200px, auto)",
-          }}
-        >
-          {(tabs[activeTab] || []).length === 0 && (
-            <EmptyTab />
-          )}
-          {(tabs[activeTab] || []).map((tile, i) => (
-            <div
-              key={tile.id || i}
-              data-testid={`layout-workbook-tile-${tile.id || i}`}
-              style={{ minHeight: 200 }}
+        {(tabIds.length > 0 ? tabIds : ["Tab 1"]).map((tab) => {
+          const active = tab === activeTab;
+          return (
+            <button
+              key={tab}
+              role="tab"
+              aria-selected={active}
+              data-testid={`workbook-tab-${tab}`}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: "6px 16px",
+                fontSize: 11,
+                background: active ? "#ffffff" : "transparent",
+                color: active ? "#0c0c13" : "rgba(12,12,19,0.55)",
+                border: "none",
+                borderBottom: active
+                  ? "2px solid #3b82f6"
+                  : "2px solid transparent",
+                cursor: "pointer",
+                fontWeight: active ? 600 : 400,
+                boxShadow: active ? "0 -1px 2px rgba(0,0,0,0.04)" : "none",
+              }}
             >
-              <DashboardTileCanvas tile={tile} onTileClick={onTileClick} />
-            </div>
-          ))}
-        </div>
+              {tab}
+            </button>
+          );
+        })}
       </div>
-    </WorkbookFilterProvider>
+      <div
+        style={{
+          display: "grid",
+          gap: 12,
+          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          gridAutoRows: "minmax(200px, auto)",
+        }}
+      >
+        {(tabs[activeTab] || []).length === 0 && <EmptyTab />}
+        {(tabs[activeTab] || []).map((tile, i) => (
+          <div
+            key={tile.id || i}
+            data-testid={`layout-workbook-tile-${tile.id || i}`}
+            style={{ minHeight: 200 }}
+          >
+            <DashboardTileCanvas
+              tile={tile}
+              onTileClick={onTileClick}
+              resultSetOverride={resultSetByTileId[tile.id]}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
