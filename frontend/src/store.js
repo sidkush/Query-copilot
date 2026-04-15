@@ -427,4 +427,37 @@ export const useStore = create((set, get) => ({
   // Progress state for continue/resume UI
   agentSessionProgress: null,
   setAgentSessionProgress: (p) => set({ agentSessionProgress: p }),
+
+  // --- chartEditor slice (Sub-project A Phase 1) -----------------------
+  // Holds the current ChartSpec under edit, a linear history stack for
+  // undo/redo, mode (default/pro/stage), and the stub setters. Real
+  // undo/redo logic lands in Phase 2 alongside the Marks card.
+  chartEditor: {
+    currentSpec: null,
+    history: [],
+    historyIndex: -1,
+    mode: "default",
+  },
+  setChartEditorSpec: (nextSpec) =>
+    set((s) => ({
+      chartEditor: { ...s.chartEditor, currentSpec: nextSpec },
+    })),
+  pushChartEditorHistory: (spec) =>
+    set((s) => {
+      // Phase 2 will implement real history stack management with
+      // branch truncation + bounded length. This stub is intentionally
+      // a no-op wrapper so callers can wire the API surface now.
+      void spec;
+      return s;
+    }),
+  undoChartEditor: () => {
+    // Stub — Phase 2 wires real history traversal.
+  },
+  redoChartEditor: () => {
+    // Stub — Phase 2 wires real history traversal.
+  },
+  setChartEditorMode: (mode) =>
+    set((s) => ({
+      chartEditor: { ...s.chartEditor, mode },
+    })),
 }));
