@@ -58,6 +58,9 @@ export { compileToVegaLite } from './compiler/toVegaLite';
 export { applySpecPatch, parsePointer, PatchError } from './applySpecPatch';
 export type { Patch, PatchOp } from './applySpecPatch';
 
+export { lttb, uniformSample, lttbRows } from './transforms/lttb';
+export type { Point } from './transforms/lttb';
+
 export {
   analyzeResultShape,
   HIGH_CARDINALITY_THRESHOLD,
