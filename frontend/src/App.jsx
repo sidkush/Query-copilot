@@ -21,7 +21,6 @@ const Account = lazy(() => import("./pages/Account"));
 const Billing = lazy(() => import("./pages/Billing"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const DashboardBuilder = lazy(() => import("./pages/DashboardBuilder"));
 const AnalyticsShell = lazy(() => import("./pages/AnalyticsShell"));
 const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
@@ -66,9 +65,6 @@ function AnimatedRoutes() {
   const location = useLocation();
   const token = useStore((s) => s.token);
   const setFeatureFlags = useStore((s) => s.setFeatureFlags);
-  const newChartEditorEnabled = useStore(
-    (s) => s.featureFlags.NEW_CHART_EDITOR_ENABLED,
-  );
 
   // Initialize theme (light/dark/system)
   useThemeInit();
@@ -124,16 +120,7 @@ function AnimatedRoutes() {
           <Route path="/profile" element={<AppPage><PageTransition><Profile /></PageTransition></AppPage>} />
           <Route path="/account" element={<AppPage><PageTransition><Account /></PageTransition></AppPage>} />
           <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
-          <Route
-            path="/analytics"
-            element={
-              <AppPage>
-                <PageTransition>
-                  {newChartEditorEnabled ? <AnalyticsShell /> : <DashboardBuilder />}
-                </PageTransition>
-              </AppPage>
-            }
-          />
+          <Route path="/analytics" element={<AppPage><PageTransition><AnalyticsShell /></PageTransition></AppPage>} />
           <Route path="/ml-engine" element={<AppPage><PageTransition><MLEngine /></PageTransition></AppPage>} />
 
           {/* Admin */}
