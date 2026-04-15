@@ -22,6 +22,33 @@ declare module '*/components/editor/ChartEditor' {
   const ChartEditor: JsxEditorComponent;
   export default ChartEditor;
 }
+declare module '*/components/editor/MarksCard' {
+  const MarksCard: JsxEditorComponent;
+  export default MarksCard;
+}
+declare module '*/components/editor/Pill' {
+  const Pill: JsxEditorComponent;
+  export default Pill;
+}
+declare module '*/components/editor/ChannelSlot' {
+  const ChannelSlot: JsxEditorComponent;
+  export default ChannelSlot;
+}
+declare module '*/components/editor/useChartEditorHotkeys' {
+  const useChartEditorHotkeys: (opts: {
+    undo?: () => void;
+    redo?: () => void;
+    enabled?: boolean;
+  }) => void;
+  export default useChartEditorHotkeys;
+}
+
+// Zustand store (plain .js) — minimal shim so .ts tests can import it.
+// The store is its own source of truth; this declaration just unblocks
+// type-check on the test surface.
+declare module '*/store' {
+  export const useStore: any;
+}
 declare module '*/components/editor/ChartEditorTopbar' {
   const ChartEditorTopbar: JsxEditorComponent;
   export default ChartEditorTopbar;

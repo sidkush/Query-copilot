@@ -10,6 +10,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
     include: [
       'src/chart-ir/__tests__/**/*.test.ts',
       'src/chart-ir/__tests__/**/*.test.tsx',
