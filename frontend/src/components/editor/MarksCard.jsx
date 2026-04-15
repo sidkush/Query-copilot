@@ -1,6 +1,7 @@
 import { useCallback } from "react";
-import { applySpecPatch } from "../../chart-ir";
+import { applySpecPatch, resolveSemanticRef } from "../../chart-ir";
 import ChannelSlot from "./ChannelSlot";
+import CustomTypePicker from "./CustomTypePicker";
 
 /**
  * MarksCard — the encoding tray. Hosts positional (X/Y) + channel slots
@@ -32,7 +33,12 @@ const CHANNELS = [
   { channel: "column", label: "Column" },
 ];
 
-export default function MarksCard({ spec, onSpecChange }) {
+export default function MarksCard({
+  spec,
+  onSpecChange,
+  columnProfile = [],
+  activeSemanticModel = null,
+}) {
   const encoding = spec?.encoding || {};
   const isCartesian = spec?.type === "cartesian";
 
@@ -79,20 +85,88 @@ export default function MarksCard({ spec, onSpecChange }) {
     [dispatchPatch],
   );
 
+  const handleSpecReplace = useCallback(
+    (nextSpec) => {
+      if (onSpecChange && nextSpec) onSpecChange(nextSpec);
+    },
+    [onSpecChange],
+  );
+
+  /**
+   * Semantic drop handler (Sub-project D Phase 4c):
+   *   1. Resolve the semantic ref against the active model → FieldRef + transforms
+   *   2. Build a patch that sets the encoding channel + appends any
+   *      calculate transforms (deduped by `calculate.as`).
+   *   3. Dispatch via applySpecPatch → onSpecChange.
+   *
+   * If there is no active model, the drop is a no-op (caller should be
+   * gating the semantic field rail behind an active model anyway).
+   */
+  const handleSemanticDrop = useCallback(
+    (semanticRef, channel) => {
+      if (!activeSemanticModel || !spec) return;
+      let resolved;
+      try {
+        resolved = resolveSemanticRef(activeSemanticModel, semanticRef);
+      } catch {
+        return;
+      }
+      const ops = [];
+      if (!spec.encoding) {
+        ops.push({ op: "add", path: "/encoding", value: { [channel]: resolved.fieldRef } });
+      } else if (encoding[channel] !== undefined) {
+        ops.push({ op: "replace", path: `/encoding/${channel}`, value: resolved.fieldRef });
+      } else {
+        ops.push({ op: "add", path: `/encoding/${channel}`, value: resolved.fieldRef });
+      }
+      if (resolved.extraTransforms && resolved.extraTransforms.length > 0) {
+        const existingSet = new Set(
+          (spec.transform || [])
+            .map((t) => t?.calculate?.as)
+            .filter(Boolean),
+        );
+        const toAppend = resolved.extraTransforms.filter(
+          (t) => t?.calculate?.as && !existingSet.has(t.calculate.as),
+        );
+        if (toAppend.length > 0) {
+          if (Array.isArray(spec.transform)) {
+            toAppend.forEach((t) => ops.push({ op: "add", path: "/transform/-", value: t }));
+          } else {
+            ops.push({ op: "add", path: "/transform", value: toAppend });
+          }
+        }
+      }
+      dispatchPatch(ops);
+    },
+    [activeSemanticModel, spec, encoding, dispatchPatch],
+  );
+
   if (!isCartesian) {
     return (
       <div
         data-testid="marks-card-disabled"
         style={{
-          padding: 12,
-          fontSize: 11,
-          color: "var(--text-muted, rgba(255,255,255,0.4))",
-          fontStyle: "italic",
-          borderRadius: 4,
-          border: "1px dashed var(--border-subtle, rgba(255,255,255,0.08))",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
         }}
       >
-        Marks card only applies to cartesian specs. Current type: {spec?.type || "unknown"}
+        <div
+          style={{
+            padding: 12,
+            fontSize: 11,
+            color: "var(--text-muted, rgba(255,255,255,0.4))",
+            fontStyle: "italic",
+            borderRadius: 4,
+            border: "1px dashed var(--border-subtle, rgba(255,255,255,0.08))",
+          }}
+        >
+          Marks card only applies to cartesian specs. Current type: {spec?.type || "unknown"}
+        </div>
+        <CustomTypePicker
+          onSpecChange={handleSpecReplace}
+          columnProfile={columnProfile}
+        />
       </div>
     );
   }
@@ -134,6 +208,7 @@ export default function MarksCard({ spec, onSpecChange }) {
             onDrop={handleDrop}
             onRemove={handleRemove}
             onChange={handleChange}
+            onSemanticDrop={handleSemanticDrop}
           />
         ))}
       </Section>
@@ -147,9 +222,14 @@ export default function MarksCard({ spec, onSpecChange }) {
             onDrop={handleDrop}
             onRemove={handleRemove}
             onChange={handleChange}
+            onSemanticDrop={handleSemanticDrop}
           />
         ))}
       </Section>
+      <CustomTypePicker
+        onSpecChange={handleSpecReplace}
+        columnProfile={columnProfile}
+      />
     </div>
   );
 }

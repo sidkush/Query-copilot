@@ -171,3 +171,41 @@ declare module '*/lib/gpuDetect' {
   export const GPUTierProvider: any;
   export function useGPUTier(): 'low' | 'medium' | 'high' | null;
 }
+
+// Phase 4c — Sub-project C + D editor UI hooks
+declare module '*/components/editor/CustomTypePicker' {
+  const CustomTypePicker: JsxEditorComponent;
+  export default CustomTypePicker;
+}
+declare module '*/components/editor/SemanticFieldRail' {
+  const SemanticFieldRail: JsxEditorComponent;
+  export default SemanticFieldRail;
+}
+
+// Phase 4c — dashboard/lib helpers (plain JS)
+declare module '*/components/dashboard/lib/importanceScoring' {
+  export function scoreTile(tile: any): number;
+  export function sortByImportance(tiles: any[]): any[];
+  export function packIntoSlides(tiles: any[], maxPerSlide?: number): any[][];
+  export function briefingGridPlacement(
+    tiles: any[],
+  ): Array<{ tile: any; colSpan: number; rowHint: string }>;
+}
+declare module '*/components/dashboard/lib/DashboardTileCanvas' {
+  const DashboardTileCanvas: JsxEditorComponent;
+  export default DashboardTileCanvas;
+}
+
+// api.js — minimal shim for the Sub-project C/D calls the tests exercise
+declare module '*/api' {
+  const api: {
+    listChartTypes: () => Promise<{ chart_types: any[] }>;
+    saveChartType: (type: any) => Promise<any>;
+    deleteChartType: (id: string) => Promise<any>;
+    listSemanticModels: () => Promise<{ semantic_models: any[] }>;
+    saveSemanticModel: (model: any) => Promise<any>;
+    deleteSemanticModel: (id: string) => Promise<any>;
+    [key: string]: any;
+  };
+  export default api;
+}
