@@ -1,0 +1,65 @@
+/**
+ * Ambient module shims for Sub-project A Phase 1 editor JSX components.
+ *
+ * The chart-ir tsconfig scope is narrow — it only includes .ts/.tsx under
+ * `src/chart-ir/**` and `src/components/editor/**`. The editor shell itself
+ * is authored in plain JSX (to match the rest of `src/components/**`),
+ * while the one file that consumes chart-ir types (VegaRenderer.tsx) is
+ * TypeScript. These ambient declarations let the TS renderer + the TSX
+ * tests import the JSX shell components without TS complaining that the
+ * module can't be found / that props are required.
+ *
+ * Each module is declared with `any` props on purpose: the .jsx files are
+ * the source of truth, and enforcing a prop contract from a .d.ts shim
+ * would introduce a drift surface. Phase 2 can replace this with real
+ * typed props if/when the editor shell is migrated to .tsx.
+ */
+
+type JsxEditorComponent = (props: any) => any;
+
+// Editor shell
+declare module '*/components/editor/ChartEditor' {
+  const ChartEditor: JsxEditorComponent;
+  export default ChartEditor;
+}
+declare module '*/components/editor/ChartEditorTopbar' {
+  const ChartEditorTopbar: JsxEditorComponent;
+  export default ChartEditorTopbar;
+}
+declare module '*/components/editor/DataRail' {
+  const DataRail: JsxEditorComponent;
+  export default DataRail;
+}
+declare module '*/components/editor/EditorCanvas' {
+  const EditorCanvas: JsxEditorComponent;
+  export default EditorCanvas;
+}
+declare module '*/components/editor/BottomDock' {
+  const BottomDock: JsxEditorComponent;
+  export default BottomDock;
+}
+declare module '*/components/editor/Inspector/InspectorRoot' {
+  const InspectorRoot: JsxEditorComponent;
+  export default InspectorRoot;
+}
+
+// Placeholder renderers (JSX; only VegaRenderer is .tsx)
+declare module '*/components/editor/renderers/MapLibreRenderer' {
+  const MapLibreRenderer: JsxEditorComponent;
+  export default MapLibreRenderer;
+}
+declare module '*/components/editor/renderers/DeckRenderer' {
+  const DeckRenderer: JsxEditorComponent;
+  export default DeckRenderer;
+}
+declare module '*/components/editor/renderers/CreativeRenderer' {
+  const CreativeRenderer: JsxEditorComponent;
+  export default CreativeRenderer;
+}
+
+// GPU tier util (JSX; consumed by both .tsx and .jsx)
+declare module '*/lib/gpuDetect' {
+  export function getGPUTier(): 'low' | 'medium' | 'high' | null;
+  export const GPUTierProvider: any;
+  export function useGPUTier(): 'low' | 'medium' | 'high' | null;
+}

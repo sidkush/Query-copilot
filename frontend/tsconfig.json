@@ -18,7 +18,9 @@
   },
   "include": [
     "src/chart-ir/**/*.ts",
-    "src/chart-ir/**/*.tsx"
+    "src/chart-ir/**/*.tsx",
+    "src/components/editor/**/*.ts",
+    "src/components/editor/**/*.tsx"
   ],
   "exclude": [
     "node_modules",
