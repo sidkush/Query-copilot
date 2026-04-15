@@ -1,17 +1,68 @@
-"""Voice Mode — WebSocket endpoint for continuous conversation.
+"""Voice Mode — WebSocket endpoint + ephemeral token mint.
 
-Only TEXT flows over the wire. Browser handles audio via Web Speech API.
-Voice and text share the same SessionMemory and chat_id.
+The WebSocket endpoint (/ws/{chat_id}) handles the continuous voice
+conversation loop. Only TEXT flows over the wire — browser handles
+audio via Web Speech API or whisper.cpp WASM.
+
+The HTTP endpoint POST /session mints short-lived ephemeral tokens
+for the hybrid voice tier stack (whisper-local / deepgram / openai-
+realtime) — Sub-project A Phase 3. Voice and text share the same
+SessionMemory and chat_id.
 """
 import json
 import logging
 from typing import Optional
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
+from pydantic import BaseModel
 
+from auth import get_current_user
 from config import settings
+from voice_registry import (
+    EphemeralToken,
+    VoiceProviderError,
+    is_valid_tier,
+    mint_ephemeral_token,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/voice", tags=["voice"])
+
+
+class VoiceSessionRequest(BaseModel):
+    tier: str
+
+
+class VoiceSessionResponse(BaseModel):
+    tier: str
+    token: str
+    expiresAt: int
+
+
+@router.post("/session", response_model=VoiceSessionResponse)
+async def voice_session_mint(
+    body: VoiceSessionRequest,
+    user: dict = Depends(get_current_user),
+) -> VoiceSessionResponse:
+    """Mint a short-lived ephemeral token for the requested voice tier."""
+    if not settings.VOICE_MODE_ENABLED:
+        raise HTTPException(status_code=403, detail="Voice mode disabled")
+    if not is_valid_tier(body.tier):
+        raise HTTPException(status_code=400, detail=f"Unknown voice tier: {body.tier!r}")
+
+    user_email = user.get("email") or user.get("sub")
+    if not user_email:
+        raise HTTPException(status_code=401, detail="No user email in token")
+
+    try:
+        token: EphemeralToken = mint_ephemeral_token(user_email, body.tier)
+    except VoiceProviderError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return VoiceSessionResponse(
+        tier=token.tier,
+        token=token.token,
+        expiresAt=token.expires_at,
+    )
 
 _active_connections: dict[str, int] = {}
 

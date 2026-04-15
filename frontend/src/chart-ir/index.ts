@@ -61,6 +61,30 @@ export type { Patch, PatchOp } from './applySpecPatch';
 export { lttb, uniformSample, lttbRows } from './transforms/lttb';
 export type { Point } from './transforms/lttb';
 
+// Voice — Phase 3 tier abstraction + stub adapters
+export {
+  registerVoiceProvider,
+  getVoiceProviderFactory,
+  availableVoiceTiers,
+  createVoiceProvider,
+} from './voice/voiceProvider';
+export type {
+  VoiceTier,
+  VoiceTranscript,
+  TranscriptListener,
+  VoiceProvider,
+  VoiceProviderOptions,
+  VoiceProviderFactory,
+} from './voice/voiceProvider';
+export { StubVoiceProvider } from './voice/stubs';
+export {
+  isWakeWordAvailable,
+  startWakeWordSession,
+} from './voice/wakeWord';
+export type { WakeWordTrigger, WakeWordOptions, WakeWordSession } from './voice/wakeWord';
+export { mintEphemeralToken } from './voice/ephemeralToken';
+export type { EphemeralTokenResponse } from './voice/ephemeralToken';
+
 export {
   analyzeResultShape,
   HIGH_CARDINALITY_THRESHOLD,

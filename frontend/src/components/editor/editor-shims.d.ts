@@ -68,6 +68,10 @@ declare module '*/components/editor/onobject/popoverShell' {
   const PopoverShell: JsxEditorComponent;
   export default PopoverShell;
 }
+declare module '*/components/editor/AgentPanel' {
+  const AgentPanel: JsxEditorComponent;
+  export default AgentPanel;
+}
 
 // Zustand store (plain .js) — minimal shim so .ts tests can import it.
 // The store is its own source of truth; this declaration just unblocks
