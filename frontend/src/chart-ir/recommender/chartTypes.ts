@@ -154,15 +154,15 @@ export const CHART_TYPES: ChartTypeDef[] = [
     description: 'Show parts of a whole.',
     requires: { minDims: 1, minMeasures: 1, maxRows: 8 },
     autoAssign(shape) {
-      const dim = firstDim(shape, 'nominal');
+      const dim = firstDim(shape, 'nominal') ?? firstDim(shape);
       const measure = firstMeasure(shape);
       return {
         $schema: 'askdb/chart-spec/v1',
         type: 'cartesian',
         mark: 'arc',
         encoding: {
-          color: dim ? { field: dim.name, type: 'nominal' } : undefined,
-          y: measure
+          color: dim ? { field: dim.name, type: dim.semanticType } : undefined,
+          theta: measure
             ? { field: measure.name, type: 'quantitative', aggregate: 'sum' }
             : undefined,
         },

@@ -34,13 +34,13 @@ npm run preview
 **Tests (pytest):**
 ```bash
 cd backend
-python -m pytest tests/ -v              # full suite (112 tests)
+python -m pytest tests/ -v              # full suite (276+ tests)
 python -m pytest tests/test_adv_*.py -v # adversarial hardening tests only
 python -m pytest tests/test_bug_*.py -v # backlog bug fix tests only
 python -m pytest tests/test_adv_otp_hash.py -v  # single test file
 ```
 
-100+ auto tests across 30+ files in `backend/tests/`. All security-focused — adversarial regression guards for OTP hashing, PII masking, SQL anonymization, file permissions, rate limiting, connection limits, more. Run full suite after any security change. Naming: `test_adv_*` = adversarial hardening, `test_bug_{round}_{number}_*` = backlog bug fixes (round 1–4, numbered).
+276+ auto tests across 30+ files in `backend/tests/`. Security-focused + dashboard migration + chart customization — adversarial regression guards for OTP hashing, PII masking, SQL anonymization, file permissions, rate limiting, connection limits, more. Run full suite after any security change. Naming: `test_adv_*` = adversarial hardening, `test_bug_{round}_{number}_*` = backlog bug fixes (round 1–4, numbered).
 
 **Manual test scripts** (not pytest — run one-by-one from `backend/`):
 ```bash
@@ -77,7 +77,7 @@ Two independent services: FastAPI backend on 8002, React frontend on 5173 (Vite 
 
 **Agent system (`agent_engine.py`):**
 - `AgentEngine` — multi-step tool-use loop using Anthropic native tool-use API with SSE streaming
-- 6 core tools + 5 dashboard tools: `find_relevant_tables` (ChromaDB vector search), `inspect_schema` (live DDL + samples), `run_sql` (validated run), `suggest_chart`, `ask_user` (interactive pause), `summarize_results`, `list_dashboards`, `get_dashboard_tiles`, `create_dashboard_tile`, `update_dashboard_tile`, `delete_dashboard_tile`
+- 6 core tools + 9 dashboard tools: `find_relevant_tables` (ChromaDB vector search), `inspect_schema` (live DDL + samples), `run_sql` (validated run), `suggest_chart`, `ask_user` (interactive pause), `summarize_results`, `list_dashboards`, `get_dashboard_tiles`, `create_dashboard_tile`, `update_dashboard_tile`, `delete_dashboard_tile`, `create_custom_metric`, `create_section`, `move_tile`, `rename_section`, `set_dashboard_mode`, `set_dashboard_theme`
 - `SessionMemory` auto-compacts at ~8K tokens
 - **Dynamic tool budget**: heuristic initial (dashboard=20, complex=15, simple=8), auto-extend in increments of 10, safety cap 100. Extensions logged to audit trail.
 - **Lightweight planning**: Complex/dashboard queries trigger Sonnet planning call that generates task list. Plan emitted as `AgentStep(type="plan")` shown as checklist in UI. Auto-executes, no user gate.
@@ -96,7 +96,9 @@ Two independent services: FastAPI backend on 8002, React frontend on 5173 (Vite 
 - Consent-gated: user control tracking level via `/api/v1/behavior` routes
 - Profile stored in `.data/user_data/{hash}/behavior_profile.json`
 
-**Routers (`backend/routers/`):** `auth_routes` (OTP + OAuth), `connection_routes` (DB connect/disconnect/save/load), `query_routes` (generate/execute/feedback/suggestions/dashboard-gen), `schema_routes` (table listing/DDL/ER positions), `chat_routes` (session CRUD), `user_routes` (profile/account/billing/tickets), `dashboard_routes` (tile CRUD + layout), `admin_routes` (separate JWT, user/ticket management), `alert_routes` (NL alert CRUD with webhook support), `behavior_routes` (behavior tracking deltas + consent), `agent_routes` (SSE agent streaming + waterfall router singleton), `ml_routes` (`/api/v1/ml/train`, `/predict` — direct AutoML), `ml_pipeline_routes` (`/api/v1/ml/pipelines` — workflow CRUD + per-stage exec), `voice_routes` (`/api/v1/voice` WebSocket — text-only wire, browser does Web Speech API audio).
+**Routers (`backend/routers/`):** `auth_routes` (OTP + OAuth), `connection_routes` (DB connect/disconnect/save/load), `query_routes` (generate/execute/feedback/suggestions/dashboard-gen), `schema_routes` (table listing/DDL/ER positions), `chat_routes` (session CRUD), `user_routes` (profile/account/billing/tickets), `dashboard_routes` (tile CRUD + layout + migration + feature-flags), `admin_routes` (separate JWT, user/ticket management), `alert_routes` (NL alert CRUD with webhook support), `behavior_routes` (behavior tracking deltas + consent), `agent_routes` (SSE agent streaming + waterfall router singleton), `ml_routes` (`/api/v1/ml/train`, `/predict` — direct AutoML), `ml_pipeline_routes` (`/api/v1/ml/pipelines` — workflow CRUD + per-stage exec), `voice_routes` (`/api/v1/voice` WebSocket + `POST /session` ephemeral token mint), `chart_customization_routes` (`/api/v1/chart-types` + `/api/v1/semantic-models` — Sub-projects C + D CRUD).
+
+**Backend modules (chart system):** `dashboard_migration.py` — `legacy_to_chart_spec()` converter + `migrate_user_dashboards()` walker. `chart_customization.py` — per-user storage for user-authored chart types (C) + semantic models (D). `voice_registry.py` — 3-tier ephemeral token mint for BYOK voice.
 
 **Alert system (`routers/alert_routes.py`):**
 - NL condition text parsed into SQL + column + operator + threshold
@@ -143,6 +145,8 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 - `.data/agent_sessions.db` — SQLite (WAL mode) for agent session persistence
 - `.data/ml_models/{user_hash}/` — trained model artifacts (`.joblib`), `dataset.parquet`, run metadata
 - `.data/ml_pipelines/{user_hash}/{pipeline_id}.json` — ML workflow state per user (6 stages: ingest, clean, features, train, evaluate, results)
+- `.data/user_data/{hash}/chart_customizations.json` — per-user chart types (C) + semantic models (D)
+- `.data/user_data/{hash}/dashboards.backup.{ts}.json` — pre-migration snapshot (created by dashboard_migration)
 - `.data/` and `.chroma/` gitignored — all runtime state lives there. Never commit.
 
 **BYOK (Bring Your Own Key) provider system:**
@@ -164,9 +168,9 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 
 ### Frontend — React 19 + Vite 8 (`/frontend`)
 
-**Pure JavaScript** — no TypeScript. No frontend test suite (no Vitest/Jest).
+**Mostly JavaScript** with a TypeScript carve-out for `chart-ir/**` and `components/editor/renderers/*.tsx`. Vitest 2.x test suite: **305+ tests across 40 files** (`npm run test:chart-ir`). tsconfig scope: `src/chart-ir/**` + `src/components/editor/**/*.{ts,tsx}`. Rest of `src/components/` stays `.jsx`.
 
-**State:** Zustand store (`store.js`) — auth, connections, chat, profile, agent, theme. Token persisted to localStorage. Agent slice properties:
+**State:** Zustand store (`store.js`) — auth, connections, chat, profile, agent, theme, chartEditor, activeSemanticModel. Token persisted to localStorage. chartEditor slice: `{currentSpec, history, historyIndex, mode, historyCap}` + `setChartEditorSpec`/`initChartEditorSpec`/`undoChartEditor`/`redoChartEditor`/`setChartEditorMode`. Agent slice properties:
 - Core: `agentSteps`, `agentLoading`, `agentError`, `agentWaiting`, `agentWaitingOptions`, `agentAutoExecute`, `agentChatId`
 - UI panel: `agentDock` (float/right/bottom/left), `agentPanelWidth`, `agentPanelHeight`, `agentPanelOpen`, `agentResizing`
 - Progress: `agentChecklist`, `agentPhase`, `agentElapsedMs`, `agentEstimatedMs`, `agentSessionProgress`, `agentVerification`
@@ -180,9 +184,10 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 - Public: `/` (Landing), `/login`, `/auth/callback`, `/admin/login`, `/admin`, `/shared/:id` (SharedDashboard)
 - Protected (no sidebar): `/tutorial`, `/onboarding`
 - Protected (with `AppLayout` sidebar): `/dashboard`, `/schema`, `/chat`, `/profile`, `/account`, `/billing`, `/analytics`, `/ml-engine`
-- `/dashboard` → `Dashboard.jsx` (view-only, query result tiles); `/analytics` → `DashboardBuilder.jsx` (full drag-resize builder with TileEditor); `/ml-engine` → `MLEngine.jsx` (AutoML pipeline UI — 6 stages: Ingest → Clean → Features → Train → Evaluate → Results)
+- `/dashboard` → `Dashboard.jsx` (view-only, query result tiles); `/analytics` → `AnalyticsShell.jsx` → `DashboardShell.jsx` (6-mode archetype shell with ChartEditor tiles — Vega-Lite rendering, no ECharts); `/ml-engine` → `MLEngine.jsx` (AutoML pipeline UI — 6 stages: Ingest → Clean → Features → Train → Evaluate → Results)
+- Dev-only (import.meta.env.DEV): `/dev/chart-editor` (ChartEditor smoke test), `/dev/dashboard-shell` (DashboardShell smoke test)
 
-**Top-level shared components** (`src/components/`): `AppLayout.jsx` (sidebar + main content wrap), `AppSidebar.jsx`, `DatabaseSwitcher.jsx` (connection picker), `ERDiagram.jsx` (schema viz), `ResultsChart.jsx` + `ResultsTable.jsx` (query result render), `SQLPreview.jsx`, `SchemaExplorer.jsx`, `StatSummaryCard.jsx`, `AskDBLogo.jsx`, `UserDropdown.jsx`.
+**Top-level shared components** (`src/components/`): `AppLayout.jsx` (sidebar + main content wrap), `AppSidebar.jsx`, `DatabaseSwitcher.jsx` (connection picker), `ERDiagram.jsx` (schema viz), `ResultsTable.jsx` (query result table), `SQLPreview.jsx`, `SchemaExplorer.jsx`, `StatSummaryCard.jsx`, `AskDBLogo.jsx`, `UserDropdown.jsx`.
 
 **Agent UI** (`src/components/agent/`):
 - `AgentPanel.jsx` — draggable/resizable dockable panel (float/right/bottom/left)
@@ -193,10 +198,20 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 **Animation system** (`src/components/animation/`): Three.js 3D backgrounds (`Background3D`, `SectionBackground3D`, `FrostedBackground3D`, `NeonBackground3D`) lazy-loaded with `WebGLErrorBoundary` fallback to `AnimatedBackground` (2D). Also: `PageTransition`, `StaggerContainer`, `MotionButton`, `AnimatedCounter`, `SkeletonLoader`, `useScrollReveal` hook.
 
 **Dashboard subsystem** (`src/components/dashboard/`):
-- `tokens.js` (`src/components/dashboard/tokens.js`) — single source of truth for design tokens (colors, radii, transitions, chart palettes). Import `TOKENS` and `CHART_PALETTES` from here; never hardcode hex in dashboard components.
-- Uses `react-grid-layout` for drag-resize tiles, `html2canvas` + `jspdf` for export.
-- `PresentationEngine.jsx` — importance-scored tile bin-packing into 16:9 slides with animated transitions (KPI > chart > table > SQL-only scoring).
+- `DashboardShell.jsx` — top-level shell that swaps between 6 archetype layouts via `DashboardModeToggle.jsx`.
+- `modes/ExecBriefingLayout.jsx` — importance-scored 12-col bin-packing (KPI cards 3-col, hero chart 12-col, supporting 6-col).
+- `modes/AnalystWorkbenchLayout.jsx` — `react-grid-layout` drag-resize, ResizeObserver width measure, layout persistence.
+- `modes/LiveOpsLayout.jsx` — 5s auto-refresh via SSE (`useDashboardRefresh` hook) with connected/disconnected indicator.
+- `modes/StoryLayout.jsx` — IntersectionObserver scrollytelling, sticky annotation column, chapter activation.
+- `modes/PitchLayout.jsx` — wraps `PresentationEngine.jsx` with a ChartSpec → legacy-tile adapter.
+- `modes/WorkbookLayout.jsx` — multi-tab with `WorkbookFilterProvider` context pushing filters to tiles.
+- `lib/importanceScoring.js` — shared tile-scoring heuristic (used by Briefing + Pitch).
+- `lib/DashboardTileCanvas.jsx` — shared tile renderer mounting ChartEditor per tile.
+- `lib/useDashboardRefresh.js` — SSE/interval refresh hook for LiveOps.
+- `lib/workbookFilterContext.jsx` — React context for workbook-level filter bar.
+- `PresentationEngine.jsx` — 16:9 slide-style bin-packing (reused by PitchLayout).
 - `AlertManager.jsx` — NL alert create/test/list UI with webhook config.
+- `tokens.js` — design tokens (colors, radii, transitions, chart palettes).
 
 **Onboarding flow** (`src/components/onboarding/`, `src/pages/Onboarding.jsx`): Multi-step wizard — Welcome → Tour → API Key setup → DB Connect → First Query. Guide new users through BYOK key entry and first connection. Has Skip button for users who want to explore first.
 
@@ -204,9 +219,11 @@ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, CockroachDB, Snowflake\*, BigQuery\*,
 
 **Dashboard lib utilities** (`src/lib/`): `dataBlender.js` — client-side left-join across multiple query result sets; `metricEvaluator.js` — KPI threshold/conditional logic; `visibilityRules.js` — tile show/hide rule engine; `formatUtils.js` — number/date formatting; `anomalyDetector.js` — client-side anomaly detection; `formulaSandbox.js` + `formulaWorker.js` — sandboxed formula eval (Web Worker); `exportUtils.js` — dashboard export helpers; `gpuDetect.jsx` — `GPUTierProvider` context for conditional 3D rendering; `behaviorEngine.js` — client-side behavior tracking utils; `fieldClassification.js` — column type classification for auto chart suggestions.
 
-**Charts:** ECharts only (`echarts-for-react`). Used in `ResultsChart.jsx` and `CanvasChart.jsx`. Never introduce second chart library.
+**Charts:** Vega-Lite via `react-vega` rendered through `VegaRenderer.tsx`. ECharts fully removed (Sub-project A Phase 4c). Chart IR (`src/chart-ir/`) defines `ChartSpec` types, compiler (`compileToVegaLite`), Render Strategy Router (RSR), recommender (`showMe`), JSON Patch helper (`applySpecPatch`), transforms (LTTB, uniform, pixel_min_max, aggregate_bin), user-authored types (Sub-project C), and semantic layer (Sub-project D).
 
-**Theme system:** Light/dark/system preference in Zustand (`theme`/`resolvedTheme`), persisted to `localStorage("askdb-theme")`. `useThemeInit` hook in `App.jsx` toggles `.light` class on `<html>`. CSS variables in `index.css` handle both modes. Dashboard tokens in `tokens.js` adapt to resolved theme.
+**ChartEditor** (`src/components/editor/`): 3-pane Tableau-class editor shell. ChartEditor.jsx (CSS grid, mode toggle Default/Pro/Stage), DataRail.jsx (field pills), EditorCanvas.jsx (RSR dispatch → VegaRenderer), MarksCard.jsx (encoding channel slots + drag-drop), Pill.jsx + ChannelSlot.jsx (drag source + drop target), Inspector/InspectorRoot.jsx (Setup tab with MarksCard + SemanticFieldRail, Style tab stub), BottomDock.jsx (text input + mic), AgentPanel.jsx (editor-scoped agent conversation), onobject/ (OnObjectOverlay + AxisPopover + LegendPopover + SeriesPopover + TitleInlineEditor), renderers/ (VegaRenderer.tsx real mount, MapLibre/Deck/Creative placeholders).
+
+**Theme system:** 8-theme registry in `components/editor/themes/`: 2 base (light/dark Editorial) + 6 Stage Mode themes (quiet-executive, iron-man, bloomberg, mission-control, cyberpunk, vision-pro). `ThemeProvider.jsx` applies CSS custom properties via inline style. Creative-lane registry (`creativeRegistry.js`) lazy-loads ThreeHologram + ThreeParticleFlow for Stage Mode. Light/dark system preference in Zustand (`theme`/`resolvedTheme`), persisted to `localStorage("askdb-theme")`.
 
 **Styling:** Tailwind CSS 4.2 + custom glassmorphism classes in `index.css`. Dark theme default (`#06060e` bg). Fonts: Outfit (headings) + Inter (body). Animations: Framer Motion + GSAP. Three.js for 3D landing backgrounds.
 
@@ -285,9 +302,16 @@ Optional AutoML subsystem layered onto the same connection model. Polars-native 
 
 **BigQuery perf path** (`db_connector.py`): BigQuery uses `google.cloud.bigquery.Client.query().to_arrow()` (Storage Read API) instead of SQLAlchemy REST — 10–50× faster on >10M row ingests. Requires `google-cloud-bigquery-storage`. ML ingest does column pruning (`SELECT col1, col2 …` not `SELECT *`, commit `1b5e092`) and uses `TABLESAMPLE SYSTEM` with dataset-qualified table names (`4e63c0b`). When extending other warehouses, prefer native Arrow paths over SQLAlchemy.
 
-### Voice Mode (`routers/voice_routes.py`)
+### Voice Mode — Hybrid Tiered (`routers/voice_routes.py` + `voice_registry.py`)
 
-WebSocket at `/api/v1/voice`. Only **text** flows over the wire — browser handles STT/TTS via Web Speech API. Voice and text share the same `SessionMemory` and `chat_id`, so a voice session can resume in the chat UI and vice versa. Message types: `transcript` (interim or final), `cancel`, `voice_config` (per-session TTS/STT provider override). Per-user active connection count tracked in module-level dict.
+Three-tier BYOK voice stack per Sub-project A Phase 3:
+- **whisper-local** — whisper.cpp WASM in-browser via Web Worker. Free, private, ~2-3s latency. Model at `public/voice-models/whisper-tiny-en/`.
+- **deepgram** — Deepgram streaming WebSocket. BYOK key (Fernet-encrypted in user profile). Backend mints ephemeral token via `POST /api/v1/voice/session`.
+- **openai-realtime** — OpenAI Realtime API WebSocket. Same BYOK + ephemeral token pattern.
+
+Frontend tier abstraction: `chart-ir/voice/voiceProvider.ts` (interface + registry), `whisperLocal.ts`, `deepgramStreaming.ts`, `openaiRealtime.ts` (real adapters, self-register at import). `stubs.ts` provides test-safe fallbacks.
+
+Backend: `voice_registry.py` — `mint_ephemeral_token(email, tier)` with 5-min TTL. WebSocket at `/api/v1/voice/ws/{chat_id}` for text-flow continuous conversation (legacy path, still works). Voice and text share the same `SessionMemory` and `chat_id`.
 
 ### Dual-Response System (Progressive Dual-Response Data Acceleration)
 
@@ -300,7 +324,7 @@ When waterfall tier (memory/turbo) answers a query, system can simultaneously st
 
 ### Feature Flags (`config.py`)
 
-20+ feature flags control predictive intelligence. Enabled by default: `FEATURE_PREDICTIONS` (suggestions), `FEATURE_ADAPTIVE_COMPLEXITY` (skill detect), `FEATURE_INTENT_DISAMBIGUATION`, `FEATURE_ANALYST_TONE`, `FEATURE_TIME_PATTERNS`, `FEATURE_AGENT_DASHBOARD` (agent tile control), `FEATURE_PERMISSION_SYSTEM` (supervised/autonomous). Disabled by default: session tracking, consent flow, autocomplete, personas, insight chains, collaborative predictions, style matching, data prep, workflow templates, skill gaps, anomaly alerts, auto-switch, smart preload. Check `config.py` for full list — flags grouped with numbered comments referencing design doc origins.
+20+ feature flags control predictive intelligence + chart system cutover. `NEW_CHART_EDITOR_ENABLED` (default True) — chart system cutover flag; /analytics uses the new DashboardShell + ChartEditor + Vega-Lite path. Enabled by default: `FEATURE_PREDICTIONS` (suggestions), `FEATURE_ADAPTIVE_COMPLEXITY` (skill detect), `FEATURE_INTENT_DISAMBIGUATION`, `FEATURE_ANALYST_TONE`, `FEATURE_TIME_PATTERNS`, `FEATURE_AGENT_DASHBOARD` (agent tile control), `FEATURE_PERMISSION_SYSTEM` (supervised/autonomous). Disabled by default: session tracking, consent flow, autocomplete, personas, insight chains, collaborative predictions, style matching, data prep, workflow templates, skill gaps, anomaly alerts, auto-switch, smart preload. Check `config.py` for full list.
 
 ### Reference Documents (`/docs`)
 
@@ -341,7 +365,7 @@ When waterfall tier (memory/turbo) answers a query, system can simultaneously st
 
 ### Infrastructure & Config
 
-- **Vite proxy** → `http://localhost:8002`. Backend must run on 8002 during dev. `vite.config.js` has manual chunk splitting for echarts, framer-motion, three.js, export libs — keep when adding large deps.
+- **Vite proxy** → `http://localhost:8002`. Backend must run on 8002 during dev. `vite.config.js` has manual chunk splitting for framer-motion, three.js, deck.gl, d3, export libs — keep when adding large deps.
 - **CORS** configured for `localhost:5173`, `localhost:3000`, `FRONTEND_URL`. Update for production.
 - **OAuth redirect URI** defaults to `http://localhost:5173/auth/callback` (configurable via `OAUTH_REDIRECT_URI`).
 - **Redis optional** — `redis_client.py` degrades gracefully. Redis features must have in-memory fallbacks.

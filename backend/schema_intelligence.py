@@ -752,6 +752,21 @@ def _classify_dtype(series: pd.Series) -> tuple[str, str, str]:
     if pd.api.types.is_bool_dtype(series):
         return ('bool', 'dimension', 'nominal')
     if pd.api.types.is_integer_dtype(series):
+        # Detect ID columns — suffix heuristic + cardinality == row_count.
+        # ID columns treated as nominal dimensions so the chart recommender
+        # doesn't suggest "sum of customer_id" as a bar chart.
+        name_lower = series.name.lower() if isinstance(series.name, str) else ''
+        is_id_by_name = (
+            name_lower.endswith('_id')
+            or name_lower == 'id'
+            or name_lower.startswith('id_')
+        )
+        is_id_by_cardinality = (
+            len(series) > 0
+            and series.nunique() >= len(series) * 0.95
+        )
+        if is_id_by_name or is_id_by_cardinality:
+            return ('int', 'dimension', 'nominal')
         return ('int', 'measure', 'quantitative')
     if pd.api.types.is_float_dtype(series):
         return ('float', 'measure', 'quantitative')
