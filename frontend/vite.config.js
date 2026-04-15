@@ -13,7 +13,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/echarts') || id.includes('echarts-for-react')) return 'vendor-echarts';
+          if (id.includes('node_modules/vega') || id.includes('node_modules/react-vega')) return 'vendor-vega';
           if (id.includes('node_modules/framer-motion')) return 'vendor-motion';
           if (id.includes('node_modules/html2canvas') || id.includes('node_modules/jspdf')) return 'vendor-export';
           if (id.includes('node_modules/three') || id.includes('@react-three')) return 'vendor-three';

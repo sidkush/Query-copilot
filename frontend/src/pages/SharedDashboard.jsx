@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { TOKENS, CHART_PALETTES } from '../components/dashboard/tokens';
-import ResultsChart from '../components/ResultsChart';
+import { TOKENS } from '../components/dashboard/tokens';
+import LegacyResultChart from '../components/dashboard/lib/LegacyResultChart';
 import KPICard from '../components/dashboard/KPICard';
 import { api } from '../api';
 
-function ReadOnlyTile({ tile, index, themeConfig }) {
+function ReadOnlyTile({ tile, index }) {
   const isKPI = tile?.chartType === 'kpi';
-  const hasData = tile?.rows?.length > 0;
+  const hasData = tile?.rows?.length > 0 || tile?.chart_spec;
 
   return (
     <div style={{
-      background: themeConfig?.background?.tile || TOKENS.bg.elevated,
+      background: TOKENS.bg.elevated,
       borderRadius: 16,
       border: `1px solid ${TOKENS.border.default}`,
       overflow: 'hidden',
@@ -19,35 +19,41 @@ function ReadOnlyTile({ tile, index, themeConfig }) {
       flexDirection: 'column',
       minHeight: 200,
     }}>
-      <div style={{ padding: '14px 20px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 15, fontWeight: 600, color: TOKENS.text.primary }}>
-          {tile?.title || 'Untitled'}
-        </span>
-        {tile?.subtitle && (
-          <span style={{ fontSize: 12, color: TOKENS.text.muted }}>{tile.subtitle}</span>
-        )}
-      </div>
-      <div style={{ flex: 1, minHeight: 0, padding: isKPI ? 0 : '0 12px 12px' }}>
-        {isKPI ? (
-          <KPICard tile={tile} index={index} />
-        ) : hasData ? (
-          <ResultsChart
-            columns={tile.columns || []}
-            rows={tile.rows || []}
-            embedded
-            defaultChartType={tile.chartType}
-            defaultPalette={tile.palette}
-            defaultMeasure={tile.selectedMeasure}
-            defaultMeasures={tile.activeMeasures}
-            formatting={tile.visualConfig}
-            dashboardPalette={themeConfig?.palette || 'default'}
-          />
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: TOKENS.text.muted, fontSize: 13 }}>
+      {isKPI ? (
+        <>
+          <div style={{ padding: '14px 20px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: TOKENS.text.primary }}>
+              {tile?.title || 'Untitled'}
+            </span>
+            {tile?.subtitle && (
+              <span style={{ fontSize: 12, color: TOKENS.text.muted }}>{tile.subtitle}</span>
+            )}
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <KPICard tile={tile} index={index} />
+          </div>
+        </>
+      ) : hasData ? (
+        <LegacyResultChart
+          columns={tile.columns || []}
+          rows={tile.rows || []}
+          title={tile?.title}
+          subtitle={tile?.subtitle}
+          chartSpec={tile.chart_spec || tile.chartSpec || null}
+          height="100%"
+        />
+      ) : (
+        <>
+          <div style={{ padding: '14px 20px 8px' }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: TOKENS.text.primary }}>
+              {tile?.title || 'Untitled'}
+            </span>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: TOKENS.text.muted, fontSize: 13 }}>
             No data
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -93,7 +99,6 @@ export default function SharedDashboard() {
     );
   }
 
-  const themeConfig = dashboard?.themeConfig || {};
   const activeTab = dashboard?.tabs?.find(t => t.id === activeTabId) || dashboard?.tabs?.[0];
   const sections = activeTab?.sections || [];
 
@@ -147,7 +152,7 @@ export default function SharedDashboard() {
             )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: 16 }}>
               {(section.tiles || []).map((tile, i) => (
-                <ReadOnlyTile key={tile.id} tile={tile} index={i} themeConfig={themeConfig} />
+                <ReadOnlyTile key={tile.id} tile={tile} index={i} />
               ))}
             </div>
           </div>

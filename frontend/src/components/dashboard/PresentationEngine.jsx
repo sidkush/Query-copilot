@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS, CHART_PALETTES } from './tokens';
-import ResultsChart from '../ResultsChart';
 import KPICard from './KPICard';
 import DashboardTileCanvas from './lib/DashboardTileCanvas';
+import LegacyResultChart from './lib/LegacyResultChart';
 import { scoreTile as sharedScoreTile } from './lib/importanceScoring';
 
 /* ── Tile importance scoring ──
@@ -93,33 +93,22 @@ const slideVariants = {
   exit: (direction) => ({ x: direction < 0 ? '100%' : '-100%', opacity: 0 }),
 };
 
-/* ── Presentation Tile — renders a single tile in presentation mode ── */
+/* ── Presentation Tile — renders a single tile in presentation mode ──
+ *
+ * Phase 4c+3: every non-KPI tile renders via the new VegaRenderer path.
+ *   1. If the tile carries a `chart_spec`, mount DashboardTileCanvas
+ *      directly (fast path, post-migration + post-cutover).
+ *   2. Otherwise, mount LegacyResultChart with the tile's columns+rows
+ *      — the bridge recomputes a ChartSpec on the fly via the Show Me
+ *      recommender so un-migrated tiles still render.
+ *   3. KPI tiles keep the standalone KPICard renderer.
+ *
+ * The legacy ResultsChart + ECharts branch has been removed entirely.
+ */
 function PresentationTile({ tile, index, themeConfig, gridArea }) {
   const isKPI = tile?.chartType === 'kpi';
-  const hasData = tile?.rows?.length > 0;
-  // Phase 4c: new-path tiles carry a chart_spec — render via the new
-  // ChartEditor path (DashboardTileCanvas → EditorCanvas → VegaRenderer).
-  // Legacy tiles fall through to ResultsChart below (rollback safety).
   const hasChartSpec = Boolean(tile?.chart_spec || tile?.chartSpec);
-
-  if (hasChartSpec && !isKPI) {
-    return (
-      <div
-        style={{
-          gridArea,
-          background: themeConfig?.background?.tile || TOKENS.bg.elevated,
-          borderRadius: 16,
-          border: `1px solid ${TOKENS.border.default}`,
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-        }}
-      >
-        <DashboardTileCanvas tile={tile} height="100%" />
-      </div>
-    );
-  }
+  const hasRows = Array.isArray(tile?.rows) && tile.rows.length > 0;
 
   return (
     <div
@@ -134,52 +123,49 @@ function PresentationTile({ tile, index, themeConfig, gridArea }) {
         minHeight: 0,
       }}
     >
-      {/* Title bar */}
-      <div style={{
-        padding: '14px 20px 8px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-      }}>
-        <span style={{
-          fontSize: isKPI ? 13 : 15,
-          fontWeight: 600,
-          color: TOKENS.text.primary,
-          letterSpacing: '-0.01em',
-        }}>
-          {tile?.title || 'Untitled'}
-        </span>
-        {tile?.subtitle && (
-          <span style={{ fontSize: 12, color: TOKENS.text.muted }}>{tile.subtitle}</span>
-        )}
-      </div>
-
-      {/* Chart body */}
-      <div style={{ flex: 1, minHeight: 0, padding: isKPI ? 0 : '0 12px 12px' }}>
-        {isKPI ? (
-          <KPICard tile={tile} index={index} />
-        ) : hasData ? (
-          <ResultsChart
-            columns={tile.columns || []}
-            rows={tile.rows || []}
-            embedded
-            defaultChartType={tile.chartType}
-            defaultPalette={tile.palette}
-            defaultMeasure={tile.selectedMeasure}
-            defaultMeasures={tile.activeMeasures}
-            formatting={tile.visualConfig}
-            dashboardPalette={themeConfig?.palette || 'default'}
-          />
-        ) : tile?.sql ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: TOKENS.text.muted, fontSize: 13 }}>
+      {isKPI ? (
+        <>
+          <div style={{ padding: '14px 20px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: TOKENS.text.primary, letterSpacing: '-0.01em' }}>
+              {tile?.title || 'Untitled'}
+            </span>
+            {tile?.subtitle && (
+              <span style={{ fontSize: 12, color: TOKENS.text.muted }}>{tile.subtitle}</span>
+            )}
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <KPICard tile={tile} index={index} />
+          </div>
+        </>
+      ) : hasChartSpec ? (
+        <DashboardTileCanvas tile={tile} height="100%" />
+      ) : hasRows ? (
+        <LegacyResultChart
+          columns={tile.columns || []}
+          rows={tile.rows || []}
+          title={tile?.title}
+          subtitle={tile?.subtitle}
+          height="100%"
+        />
+      ) : tile?.sql ? (
+        <div style={{ padding: '14px 20px' }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: TOKENS.text.primary }}>
+            {tile?.title || 'Untitled'}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 160, color: TOKENS.text.muted, fontSize: 13 }}>
             Loading data...
           </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: TOKENS.text.muted, fontSize: 13 }}>
+        </div>
+      ) : (
+        <div style={{ padding: '14px 20px' }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: TOKENS.text.primary }}>
+            {tile?.title || 'Untitled'}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 160, color: TOKENS.text.muted, fontSize: 13 }}>
             No data
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

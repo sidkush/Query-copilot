@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { TOKENS } from '../dashboard/tokens';
 import { MD_COMPONENTS, REMARK_PLUGINS, FONT_BODY } from '../../lib/agentMarkdown';
 
-const ResultsChart = lazy(() => import('../ResultsChart'));
+const LegacyResultChart = lazy(() => import('../dashboard/lib/LegacyResultChart'));
 
 export default function ProgressiveResult({ step, compact }) {
   let resultData = null;
@@ -54,7 +54,11 @@ export default function ProgressiveResult({ step, compact }) {
       {hasChart && (
         <Suspense fallback={<div style={{ fontSize: 11, color: TOKENS.text.muted, marginTop: 10, fontFamily: FONT_BODY }}>Loading chart...</div>}>
           <div style={{ marginTop: 12, height: compact ? 220 : 320 }}>
-            <ResultsChart columns={resultData?.columns} rows={resultData?.rows} chartSuggestion={hasChart} />
+            <LegacyResultChart
+              columns={resultData?.columns || []}
+              rows={resultData?.rows || []}
+              showTitleBar={false}
+            />
           </div>
         </Suspense>
       )}

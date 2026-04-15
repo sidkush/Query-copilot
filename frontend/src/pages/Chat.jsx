@@ -16,7 +16,7 @@ import ReactMarkdown from "react-markdown";
 import { MD_COMPONENTS_COMFY, REMARK_PLUGINS } from "../lib/agentMarkdown";
 import SQLPreview from "../components/SQLPreview";
 import ResultsTable from "../components/ResultsTable";
-import ResultsChart from "../components/ResultsChart";
+import LegacyResultChart from "../components/dashboard/lib/LegacyResultChart";
 import SchemaExplorer from "../components/SchemaExplorer";
 import ERDiagram from "../components/ERDiagram";
 import UserDropdown from "../components/UserDropdown";
@@ -1419,13 +1419,14 @@ export default function Chat() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0.08 }}
                       >
-                        <ResultsChart
-                          columns={msg.columns}
-                          rows={msg.rows}
-                          onAddToDashboard={handleAddToDashboard}
-                          question={msg.question}
-                          sql={msg.sql}
-                        />
+                        <div style={{ height: 360 }}>
+                          <LegacyResultChart
+                            columns={msg.columns}
+                            rows={msg.rows}
+                            title={msg.question}
+                            subtitle={msg.sql}
+                          />
+                        </div>
                       </motion.div>
                       <motion.div
                         initial={{ opacity: 0, y: 12 }}

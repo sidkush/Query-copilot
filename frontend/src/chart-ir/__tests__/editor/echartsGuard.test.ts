@@ -3,35 +3,16 @@ import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, resolve } from 'path';
 
 /**
- * ECharts guard — Phase 4c cutover hardening.
+ * ECharts guard — Phase 4c+3 (full cutover).
  *
- * The new editor paths must stay echarts-free so the cutover can
- * eventually drop the legacy chart library entirely (Phase 4c+1). This
- * test walks every file under the new-editor directories and fails if
- * any `echarts` / `echarts-for-react` import sneaks in.
- *
- * Allowed (rollback safety — excluded from this scan):
- *   - src/components/ResultsChart.jsx
- *   - src/components/dashboard/CanvasChart.jsx
- *   - src/components/dashboard/TileEditor.jsx
- *   - src/components/charts/defs/chartDefs.js
- *
- * Scanned directories:
- *   - src/components/editor/**
- *   - src/components/dashboard/DashboardShell.jsx
- *   - src/components/dashboard/modes/**
- *   - src/components/dashboard/lib/**
+ * Scope expanded after Phase 4c+3 deletion of the entire legacy chart
+ * stack. ECharts and `echarts-for-react` are uninstalled from
+ * package.json; this test walks every file in `src/` and fails if any
+ * import re-introduces the dependency. No carve-outs remain.
  */
 const FRONTEND_SRC = resolve(__dirname, '..', '..', '..', '..', 'src');
-const SCAN_DIRS = [
-  join(FRONTEND_SRC, 'components', 'editor'),
-  join(FRONTEND_SRC, 'components', 'dashboard', 'modes'),
-  join(FRONTEND_SRC, 'components', 'dashboard', 'lib'),
-];
-const SCAN_FILES = [
-  join(FRONTEND_SRC, 'components', 'dashboard', 'DashboardShell.jsx'),
-  join(FRONTEND_SRC, 'components', 'dashboard', 'DashboardModeToggle.jsx'),
-];
+const SCAN_DIRS = [FRONTEND_SRC];
+const SCAN_FILES: string[] = [];
 
 const ECHARTS_PATTERN = /(?:from\s+['"](?:echarts|echarts-for-react)(?:\/[^'"]*)?['"]|import\s*\(\s*['"](?:echarts|echarts-for-react))/;
 
