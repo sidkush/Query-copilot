@@ -40,6 +40,28 @@ function isDropAllowed(channel, payload) {
   return false;
 }
 
+/**
+ * Semantic-aware drop validation — measure/metric → quantitative,
+ * dimension → whatever semanticType the dimension declares. Falls back
+ * to default-allow for the "any" channels.
+ */
+function isSemanticDropAllowed(channel, semanticPayload) {
+  const rule = CHANNEL_ALLOW[channel];
+  if (!rule) return true;
+  if (rule.any) return true;
+  const semantic = semanticPayload?.semantic || {};
+  // Measures + metrics are always quantitative.
+  if (semantic.measure || semantic.metric) {
+    return rule.semanticTypes?.includes("quantitative") ?? false;
+  }
+  // Dimensions carry their semanticType inline on the payload.
+  if (semantic.dimension) {
+    const st = semanticPayload?.semanticType || "nominal";
+    return rule.semanticTypes?.includes(st) ?? false;
+  }
+  return false;
+}
+
 export default function ChannelSlot({
   channel,           // 'x' | 'y' | 'color' | …
   label,             // display label, e.g. 'X', 'Color'
@@ -47,6 +69,7 @@ export default function ChannelSlot({
   onDrop,            // (fieldRef: FieldRef, channel: string) => void
   onRemove,          // (channel: string) => void
   onChange,          // (fieldRef: FieldRef, channel: string) => void (aggregation edits)
+  onSemanticDrop,    // (semanticRef: { dimension|measure|metric }, channel: string) => void
 }) {
   const [over, setOver] = useState(false);
   const [invalid, setInvalid] = useState(false);
@@ -76,6 +99,19 @@ export default function ChannelSlot({
     } catch {
       return;
     }
+
+    // Phase 4c: semantic envelope — delegate resolution to the caller
+    // (MarksCard uses the activeSemanticModel to compile).
+    if (payload.semantic) {
+      if (!isSemanticDropAllowed(channel, payload)) {
+        setInvalid(true);
+        setTimeout(() => setInvalid(false), 800);
+        return;
+      }
+      onSemanticDrop && onSemanticDrop(payload.semantic, channel);
+      return;
+    }
+
     if (!isDropAllowed(channel, payload)) {
       setInvalid(true);
       setTimeout(() => setInvalid(false), 800);

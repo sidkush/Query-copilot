@@ -97,7 +97,11 @@ export default function ChartEditor({
 
       {showInspector && (
         <div style={{ gridArea: "inspector", minWidth: 0, overflow: "hidden" }}>
-          <InspectorRoot spec={spec} onSpecChange={onSpecChange} />
+          <InspectorRoot
+            spec={spec}
+            onSpecChange={onSpecChange}
+            columnProfile={resultSet?.columnProfile || []}
+          />
         </div>
       )}
 

@@ -506,4 +506,14 @@ export const useStore = create((set, get) => ({
     set((s) => ({
       chartEditor: { ...s.chartEditor, mode },
     })),
+
+  // --- activeSemanticModel slice (Sub-project D Phase 4c) ----------------
+  // Holds the currently-active SemanticModel for the editor. Sibling to
+  // chartEditor so history stays spec-scoped. Hydrated via api.listSemanticModels
+  // on Inspector mount; semantic field drops resolve against this.
+  activeSemanticModel: null,
+  availableSemanticModels: [],
+  setActiveSemanticModel: (model) => set({ activeSemanticModel: model }),
+  setAvailableSemanticModels: (models) =>
+    set({ availableSemanticModels: Array.isArray(models) ? models : [] }),
 }));
