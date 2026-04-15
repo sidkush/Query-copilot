@@ -1,63 +1,110 @@
+import { useMemo, useState } from "react";
+import PresentationEngine from "../PresentationEngine";
+
 /**
- * PitchLayout — Phase 4a skeleton.
+ * PitchLayout — Phase 4c real implementation.
  *
- * Target experience (spec S7.5): wraps the existing PresentationEngine
- * binning logic to render tiles as 16:9 slides. Phase 4b will actually
- * mount <PresentationEngine /> with the new ChartEditor tiles instead
- * of ResultsChart tiles — for Phase 4a we show a slide-frame scaffold
- * so the shell + toggle works end-to-end.
+ * Spec S7.5: wraps PresentationEngine (existing 16:9 bin-packing + slide
+ * navigation + auto-play) and feeds it new-shape ChartSpec tiles. The
+ * adapter converts the flat tiles[] prop that the dashboard shell
+ * provides into the nested dashboard shape PresentationEngine walks
+ * (tabs[].sections[].tiles[]), grouping by the optional tile.tab field.
  *
- * TODO(a4b): mount PresentationEngine with ChartSpec tiles.
+ * The chart renderer inside PresentationEngine.PresentationTile now
+ * branches on `tile.chart_spec` — Phase 4c-edited — so new-path tiles
+ * render via DashboardTileCanvas (→ EditorCanvas → VegaRenderer). Legacy
+ * tiles still fall through to ResultsChart for rollback safety.
+ *
+ * PitchLayout adds a local exit affordance (since the dashboard shell
+ * itself stays mounted): pressing Escape or clicking Exit returns the
+ * dashboard mode toggle to the previous mode via `onExit`.
  */
-export default function PitchLayout({ tiles = [] }) {
+function adaptTilesToDashboard(tiles, dashboardName) {
+  const tabsMap = new Map();
+  tiles.forEach((tile) => {
+    const tabName = tile.tab || "Main";
+    if (!tabsMap.has(tabName)) {
+      tabsMap.set(tabName, []);
+    }
+    tabsMap.get(tabName).push(tile);
+  });
+
+  const tabs = Array.from(tabsMap.entries()).map(([name, tabTiles], i) => ({
+    id: `pitch-tab-${i}`,
+    name,
+    sections: [
+      {
+        id: `pitch-section-${i}-0`,
+        name,
+        tiles: tabTiles,
+      },
+    ],
+  }));
+
+  return {
+    id: "pitch-preview",
+    name: dashboardName || "Presentation",
+    tabs,
+  };
+}
+
+export default function PitchLayout({
+  tiles = [],
+  dashboardName = "Presentation",
+  themeConfig,
+  onExit,
+}) {
+  const [closed, setClosed] = useState(false);
+
+  const dashboard = useMemo(
+    () => adaptTilesToDashboard(tiles, dashboardName),
+    [tiles, dashboardName],
+  );
+
+  const handleExit = () => {
+    setClosed(true);
+    if (onExit) onExit();
+  };
+
+  if (tiles.length === 0) {
+    return (
+      <div
+        data-testid="layout-pitch"
+        style={{
+          padding: 40,
+          textAlign: "center",
+          fontSize: 13,
+          color: "var(--text-muted, rgba(255,255,255,0.5))",
+          fontStyle: "italic",
+        }}
+      >
+        Pitch mode empty. Add tiles to the dashboard to present.
+      </div>
+    );
+  }
+
+  if (closed) {
+    return (
+      <div
+        data-testid="layout-pitch"
+        style={{ padding: 24, color: "var(--text-muted, rgba(255,255,255,0.5))" }}
+      >
+        Pitch closed.
+      </div>
+    );
+  }
+
   return (
     <div
       data-testid="layout-pitch"
-      style={{
-        padding: 24,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        minHeight: "100%",
-      }}
+      data-tile-count={tiles.length}
+      style={{ position: "relative", height: "100%", width: "100%" }}
     >
-      <div
-        style={{
-          width: "min(960px, 100%)",
-          aspectRatio: "16 / 9",
-          borderRadius: 8,
-          background: "var(--bg-elev-1, rgba(255,255,255,0.02))",
-          border: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
-          display: "flex",
-          flexDirection: "column",
-          padding: 24,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 10,
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-            color: "var(--text-muted, rgba(255,255,255,0.4))",
-            marginBottom: 10,
-          }}
-        >
-          Slide 1 of {Math.max(tiles.length, 1)}
-        </div>
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 14,
-            color: "var(--text-secondary, #b0b0b6)",
-          }}
-        >
-          {tiles[0]?.title || "Pitch mode — PresentationEngine integration lands in Phase 4b."}
-        </div>
-      </div>
+      <PresentationEngine
+        dashboard={dashboard}
+        themeConfig={themeConfig}
+        onExit={handleExit}
+      />
     </div>
   );
 }

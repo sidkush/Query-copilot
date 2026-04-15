@@ -1,69 +1,90 @@
+import { useMemo } from "react";
+import { briefingGridPlacement } from "../lib/importanceScoring";
+import DashboardTileCanvas from "../lib/DashboardTileCanvas";
+
 /**
- * ExecBriefingLayout — Phase 4a skeleton.
+ * ExecBriefingLayout — Phase 4c real implementation.
  *
- * Target experience (spec S7.1): importance-scored bin-packing into
- * 16:9 slide-style frames. KPI cards dominate, charts below, tables
- * last. Phase 4b wires real bin-packing reusing PresentationEngine's
- * scoring logic.
+ * Spec S7.1: importance-scored bin-packing on a 12-column grid.
+ *   KPI cards    →  3 cols (4-up row)
+ *   Hero chart   → 12 cols (first chart of the briefing)
+ *   Supporting  →  6 cols (2-up)
+ *   Table       → 12 cols (full width)
  *
- * Phase 4a: renders tiles in a simple CSS grid with KPI-first order so
- * downstream work (drag-drop placement, importance scoring, slide-
- * aware layout) has a scaffold to slot into.
+ * Each tile renders a real chart via DashboardTileCanvas (which mounts
+ * EditorCanvas → VegaRenderer). No ECharts in this path.
  *
- * TODO(a4b): importance scoring + bin-packing.
+ * Tile shape accepted: { id, title, chart_spec, rows?, columns? }.
+ * Uses briefingGridPlacement() from lib/importanceScoring.js for the
+ * shared ranking heuristic (also used by PitchLayout).
  */
-export default function ExecBriefingLayout({ tiles = [] }) {
+export default function ExecBriefingLayout({ tiles = [], onTileClick }) {
+  const placement = useMemo(() => briefingGridPlacement(tiles), [tiles]);
+
+  if (placement.length === 0) {
+    return (
+      <div
+        data-testid="layout-briefing"
+        style={{
+          padding: 24,
+          display: "grid",
+          gridTemplateColumns: "repeat(12, 1fr)",
+          gap: 16,
+        }}
+      >
+        <EmptyBriefing />
+      </div>
+    );
+  }
+
   return (
     <div
       data-testid="layout-briefing"
+      data-tile-count={placement.length}
       style={{
+        padding: 24,
         display: "grid",
-        gap: 12,
-        padding: 16,
-        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        gridTemplateColumns: "repeat(12, 1fr)",
+        gridAutoRows: "minmax(180px, auto)",
+        gap: 16,
+        background: "var(--bg-page, #06060e)",
+        minHeight: "100%",
       }}
     >
-      {tiles.length === 0 && <EmptyLayout mode="Exec Briefing" />}
-      {tiles.map((tile, i) => (
-        <TilePlaceholder key={tile.id || i} tile={tile} />
+      {placement.map((entry, idx) => (
+        <div
+          key={entry.tile.id || idx}
+          data-testid={`layout-briefing-tile-${entry.tile.id || idx}`}
+          data-row-hint={entry.rowHint}
+          data-col-span={entry.colSpan}
+          style={{
+            gridColumn: `span ${entry.colSpan}`,
+            minHeight: entry.rowHint === "hero" ? 280 : 180,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <DashboardTileCanvas tile={entry.tile} onTileClick={onTileClick} />
+        </div>
       ))}
     </div>
   );
 }
 
-function TilePlaceholder({ tile }) {
-  return (
-    <div
-      data-testid={`layout-briefing-tile-${tile.id || "tile"}`}
-      style={{
-        padding: 12,
-        borderRadius: 6,
-        background: "var(--bg-elev-1, rgba(255,255,255,0.02))",
-        border: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
-        minHeight: 140,
-      }}
-    >
-      <div style={{ fontSize: 11, color: "var(--text-muted, rgba(255,255,255,0.5))" }}>
-        {tile.title || tile.id || "Untitled tile"}
-      </div>
-    </div>
-  );
-}
-
-function EmptyLayout({ mode }) {
+function EmptyBriefing() {
   return (
     <div
       data-testid="layout-empty"
       style={{
         gridColumn: "1 / -1",
-        padding: 24,
-        fontSize: 12,
+        padding: 40,
+        fontSize: 13,
         color: "var(--text-muted, rgba(255,255,255,0.5))",
         fontStyle: "italic",
         textAlign: "center",
       }}
     >
-      No tiles yet. {mode} layout will auto-pack charts when data arrives.
+      Executive briefing empty. Add KPI cards + hero chart to start.
     </div>
   );
 }

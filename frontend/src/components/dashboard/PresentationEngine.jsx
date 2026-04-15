@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS, CHART_PALETTES } from './tokens';
 import ResultsChart from '../ResultsChart';
 import KPICard from './KPICard';
+import DashboardTileCanvas from './lib/DashboardTileCanvas';
 
 /* ── Tile importance scoring ── */
 function scoreTile(tile) {
@@ -95,6 +96,29 @@ const slideVariants = {
 function PresentationTile({ tile, index, themeConfig, gridArea }) {
   const isKPI = tile?.chartType === 'kpi';
   const hasData = tile?.rows?.length > 0;
+  // Phase 4c: new-path tiles carry a chart_spec — render via the new
+  // ChartEditor path (DashboardTileCanvas → EditorCanvas → VegaRenderer).
+  // Legacy tiles fall through to ResultsChart below (rollback safety).
+  const hasChartSpec = Boolean(tile?.chart_spec || tile?.chartSpec);
+
+  if (hasChartSpec && !isKPI) {
+    return (
+      <div
+        style={{
+          gridArea,
+          background: themeConfig?.background?.tile || TOKENS.bg.elevated,
+          borderRadius: 16,
+          border: `1px solid ${TOKENS.border.default}`,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+        }}
+      >
+        <DashboardTileCanvas tile={tile} height="100%" />
+      </div>
+    );
+  }
 
   return (
     <div
