@@ -302,6 +302,53 @@ DASHBOARD_TOOL_DEFINITIONS = [
             "required": ["dashboard_id", "tab_id", "section_id", "new_name"],
         },
     },
+    {
+        "name": "set_dashboard_mode",
+        "description": (
+            "Switch a dashboard's display mode. Modes: briefing (executive), "
+            "workbench (dense analyst), ops (live refresh), story (scrollytelling), "
+            "pitch (presentation slides), workbook (tabbed Excel-style). "
+            "This changes the layout archetype — tiles stay the same."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "dashboard_id": {"type": "string", "description": "Dashboard ID from list_dashboards."},
+                "mode": {
+                    "type": "string",
+                    "enum": ["briefing", "workbench", "ops", "story", "pitch", "workbook"],
+                    "description": "Dashboard mode archetype to switch to.",
+                },
+            },
+            "required": ["dashboard_id", "mode"],
+        },
+    },
+    {
+        "name": "set_dashboard_theme",
+        "description": (
+            "Apply a visual theme to the dashboard. Available themes: "
+            "light (editorial light), dark (editorial dark), "
+            "stage-quiet-executive, stage-iron-man, stage-bloomberg, "
+            "stage-mission-control, stage-cyberpunk, stage-vision-pro."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "dashboard_id": {"type": "string", "description": "Dashboard ID from list_dashboards."},
+                "theme": {
+                    "type": "string",
+                    "enum": [
+                        "light", "dark",
+                        "stage-quiet-executive", "stage-iron-man",
+                        "stage-bloomberg", "stage-mission-control",
+                        "stage-cyberpunk", "stage-vision-pro",
+                    ],
+                    "description": "Theme ID to apply.",
+                },
+            },
+            "required": ["dashboard_id", "theme"],
+        },
+    },
 ]
 
 # ML agent tools — only included when ML_ENGINE_ENABLED is on
@@ -1069,6 +1116,8 @@ class AgentEngine:
             "create_section": self._tool_create_section,
             "move_tile": self._tool_move_tile,
             "rename_section": self._tool_rename_section,
+            "set_dashboard_mode": self._tool_set_dashboard_mode,
+            "set_dashboard_theme": self._tool_set_dashboard_theme,
             "ml_analyze_features": self._tool_ml_analyze_features,
             "ml_train": self._tool_ml_train,
             "ml_evaluate": self._tool_ml_evaluate,
@@ -2536,6 +2585,59 @@ class AgentEngine:
             _logger.exception("rename_section failed")
             return json.dumps({"error": str(e)[:100]})
 
+
+    # ── Dashboard mode + theme tools (Sub-project A Phase 4c) ───
+
+    def _tool_set_dashboard_mode(self, dashboard_id: str, mode: str) -> str:
+        """Switch a dashboard's display mode archetype."""
+        from user_storage import _load_dashboards, _save_dashboards
+
+        valid_modes = {"briefing", "workbench", "ops", "story", "pitch", "workbook"}
+        if mode not in valid_modes:
+            return json.dumps({"error": f"Invalid mode '{mode}'. Valid: {', '.join(sorted(valid_modes))}"})
+        try:
+            dashboards = _load_dashboards(self.email)
+            for d in dashboards:
+                if d["id"] == dashboard_id:
+                    old_mode = d.get("mode", "briefing")
+                    d["mode"] = mode
+                    _save_dashboards(self.email, dashboards)
+                    return json.dumps({
+                        "success": True,
+                        "message": f"Dashboard mode changed from '{old_mode}' to '{mode}'",
+                    })
+            return json.dumps({"error": f"Dashboard '{dashboard_id}' not found"})
+        except Exception as e:
+            _logger.exception("set_dashboard_mode failed")
+            return json.dumps({"error": str(e)[:100]})
+
+    def _tool_set_dashboard_theme(self, dashboard_id: str, theme: str) -> str:
+        """Apply a visual theme to the dashboard."""
+        from user_storage import _load_dashboards, _save_dashboards
+
+        valid_themes = {
+            "light", "dark",
+            "stage-quiet-executive", "stage-iron-man",
+            "stage-bloomberg", "stage-mission-control",
+            "stage-cyberpunk", "stage-vision-pro",
+        }
+        if theme not in valid_themes:
+            return json.dumps({"error": f"Invalid theme '{theme}'. Valid: {', '.join(sorted(valid_themes))}"})
+        try:
+            dashboards = _load_dashboards(self.email)
+            for d in dashboards:
+                if d["id"] == dashboard_id:
+                    old_theme = d.get("theme", "dark")
+                    d["theme"] = theme
+                    _save_dashboards(self.email, dashboards)
+                    return json.dumps({
+                        "success": True,
+                        "message": f"Dashboard theme changed from '{old_theme}' to '{theme}'",
+                    })
+            return json.dumps({"error": f"Dashboard '{dashboard_id}' not found"})
+        except Exception as e:
+            _logger.exception("set_dashboard_theme failed")
+            return json.dumps({"error": str(e)[:100]})
 
     # ── ML Tool Handlers ─────────────────────────────────────────
 

@@ -119,6 +119,14 @@ export type {
   VoiceProviderFactory,
 } from './voice/voiceProvider';
 export { StubVoiceProvider } from './voice/stubs';
+// Real voice adapters are NOT barrel-exported here. They self-register
+// via registerVoiceProvider() at import time, overriding the stubs.
+// Import them explicitly where needed:
+//   import '@/chart-ir/voice/whisperLocal';
+//   import '@/chart-ir/voice/deepgramStreaming';
+//   import '@/chart-ir/voice/openaiRealtime';
+// This prevents the test environment from accidentally loading
+// browser APIs (MediaStream, WebSocket) at barrel import time.
 export {
   isWakeWordAvailable,
   startWakeWordSession,
