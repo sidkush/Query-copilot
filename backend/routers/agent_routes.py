@@ -14,9 +14,9 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import pydantic
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from config import settings
 from auth import get_current_user
@@ -142,6 +142,18 @@ class AgentContinueRequest(BaseModel):
     conn_id: Optional[str] = None
     persona: Optional[str] = None
     permission_mode: Optional[str] = "supervised"
+
+
+class ChartStreamRequest(BaseModel):
+    """Request body for the Arrow IPC chart streaming endpoint (Phase B4)."""
+    conn_id: str
+    sql: str
+    target_points: int = Field(default=4000, ge=3, le=100_000)
+    x_col: Optional[str] = None
+    y_col: Optional[str] = None
+    x_type: Optional[str] = None
+    y_type: Optional[str] = None
+    batch_rows: int = Field(default=5000, ge=1, le=50_000)
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -310,6 +322,69 @@ async def agent_run(req: AgentRunRequest, request: Request,
                     _active_agents.pop(email, None)
                 else:
                     _active_agents[email] = count - 1
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/charts/stream")
+async def chart_stream(
+    req: ChartStreamRequest,
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """Stream query results as Arrow IPC chunks via SSE (Phase B4).
+
+    Looks up the DuckDB twin for the given connection, then calls
+    arrow_stream.stream_query() and forwards each event dict as an
+    SSE frame:  ``event: <type>\\ndata: <json>\\n\\n``
+    """
+    from main import app
+    from arrow_stream import stream_query
+
+    email = user.get("email", "")
+    user_conns = app.state.connections.get(email, {})
+    conn_entry = user_conns.get(req.conn_id)
+    if conn_entry is None:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": f"Connection '{req.conn_id}' not found"},
+        )
+
+    twin = getattr(conn_entry, "duckdb_twin", None)
+    if twin is None:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Turbo Mode (DuckDB twin) is not enabled for this connection"},
+        )
+
+    async def event_generator():
+        try:
+            async for evt in stream_query(
+                twin=twin,
+                conn_id=req.conn_id,
+                sql=req.sql,
+                target_points=req.target_points,
+                x_col=req.x_col,
+                y_col=req.y_col,
+                x_type=req.x_type,
+                y_type=req.y_type,
+                batch_rows=req.batch_rows,
+            ):
+                evt_type = evt.get("event", "chart_chunk")
+                data = json.dumps(evt.get("data", evt), default=str)
+                yield f"event: {evt_type}\ndata: {data}\n\n"
+        except Exception as exc:
+            _logger.exception("chart_stream SSE error for conn=%s", req.conn_id)
+            error_data = json.dumps({"message": str(exc)[:200]})
+            yield f"event: chart_error\ndata: {error_data}\n\n"
 
     return StreamingResponse(
         event_generator(),
