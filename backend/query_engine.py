@@ -107,9 +107,92 @@ class QueryResult:
                             if non_null_conv >= non_null_orig * 0.8:
                                 df[col] = converted
                 result["rows"] = df.to_dict(orient="records")
+                # Sub-project B: chart_hints feed the frontend Render Strategy
+                # Router. Keep the detection cheap — the hints are advisory,
+                # RSR re-validates on the client. If inference fails for any
+                # reason, emit empty hints rather than erroring.
+                try:
+                    result["chart_hints"] = _build_chart_hints(df, self.row_count)
+                except Exception:
+                    result["chart_hints"] = {
+                        "row_count_estimate": self.row_count,
+                        "x_column": None,
+                        "x_type": None,
+                        "y_column": None,
+                        "y_type": None,
+                    }
             else:
                 result["rows"] = []
+                result["chart_hints"] = {
+                    "row_count_estimate": self.row_count,
+                    "x_column": None,
+                    "x_type": None,
+                    "y_column": None,
+                    "y_type": None,
+                }
         return result
+
+
+def _build_chart_hints(df, row_count: int) -> dict:
+    """Infer x/y column + semantic type hints from a pandas DataFrame.
+
+    Sub-project B. Advisory hints — the frontend Render Strategy Router
+    re-validates before using them. Heuristic:
+    - first temporal column (dtype is datetime-like) → x, xType='temporal'
+    - else first non-numeric column → x, xType='nominal'
+    - first numeric column that is NOT the x → y, yType='quantitative'
+    - if no y found, leave y_column/y_type as None
+    """
+    import pandas as pd  # Lazy — same reason as to_dict
+
+    if df is None or df.empty:
+        return {
+            "row_count_estimate": row_count,
+            "x_column": None,
+            "x_type": None,
+            "y_column": None,
+            "y_type": None,
+        }
+
+    temporal_col = None
+    nominal_col = None
+    numeric_cols = []
+    for col in df.columns:
+        dtype = df[col].dtype
+        if pd.api.types.is_datetime64_any_dtype(dtype):
+            if temporal_col is None:
+                temporal_col = col
+        elif pd.api.types.is_numeric_dtype(dtype):
+            numeric_cols.append(col)
+        else:
+            if nominal_col is None:
+                nominal_col = col
+
+    if temporal_col is not None:
+        x_column = temporal_col
+        x_type = "temporal"
+    elif nominal_col is not None:
+        x_column = nominal_col
+        x_type = "nominal"
+    elif numeric_cols:
+        # All-numeric result: first numeric becomes x (quantitative)
+        x_column = numeric_cols[0]
+        x_type = "quantitative"
+        numeric_cols = numeric_cols[1:]
+    else:
+        x_column = None
+        x_type = None
+
+    y_column = numeric_cols[0] if numeric_cols else None
+    y_type = "quantitative" if y_column else None
+
+    return {
+        "row_count_estimate": row_count,
+        "x_column": x_column,
+        "x_type": x_type,
+        "y_column": y_column,
+        "y_type": y_type,
+    }
 
 
 class QueryEngine:
