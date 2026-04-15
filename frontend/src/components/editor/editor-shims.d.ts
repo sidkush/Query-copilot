@@ -182,6 +182,12 @@ declare module '*/components/editor/SemanticFieldRail' {
   export default SemanticFieldRail;
 }
 
+// Phase 4c+1 — production route-level wrapper mounting DashboardShell
+declare module '*/pages/AnalyticsShell' {
+  const AnalyticsShell: JsxEditorComponent;
+  export default AnalyticsShell;
+}
+
 // Phase 4c — dashboard/lib helpers (plain JS)
 declare module '*/components/dashboard/lib/importanceScoring' {
   export function scoreTile(tile: any): number;

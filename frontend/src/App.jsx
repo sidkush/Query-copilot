@@ -22,6 +22,7 @@ const Billing = lazy(() => import("./pages/Billing"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const DashboardBuilder = lazy(() => import("./pages/DashboardBuilder"));
+const AnalyticsShell = lazy(() => import("./pages/AnalyticsShell"));
 const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const MLEngine = lazy(() => import("./pages/MLEngine"));
@@ -64,6 +65,10 @@ function AppPage({ children }) {
 function AnimatedRoutes() {
   const location = useLocation();
   const token = useStore((s) => s.token);
+  const setFeatureFlags = useStore((s) => s.setFeatureFlags);
+  const newChartEditorEnabled = useStore(
+    (s) => s.featureFlags.NEW_CHART_EDITOR_ENABLED,
+  );
 
   // Initialize theme (light/dark/system)
   useThemeInit();
@@ -79,6 +84,19 @@ function AnimatedRoutes() {
     }
     return () => behaviorEngine.stop();
   }, [token]);
+
+  // Hydrate dashboard feature flags on boot. Defaults all-false so a
+  // missing or failing endpoint leaves the legacy routes in place.
+  useEffect(() => {
+    if (!token) return;
+    api
+      .getDashboardFeatureFlags()
+      .then((flags) => setFeatureFlags(flags || {}))
+      .catch(() => {
+        // Stay on legacy routes if the flag endpoint is unreachable.
+        setFeatureFlags({ NEW_CHART_EDITOR_ENABLED: false });
+      });
+  }, [token, setFeatureFlags]);
 
   // Track page navigation
   useEffect(() => {
@@ -106,7 +124,16 @@ function AnimatedRoutes() {
           <Route path="/profile" element={<AppPage><PageTransition><Profile /></PageTransition></AppPage>} />
           <Route path="/account" element={<AppPage><PageTransition><Account /></PageTransition></AppPage>} />
           <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
-          <Route path="/analytics" element={<AppPage><PageTransition><DashboardBuilder /></PageTransition></AppPage>} />
+          <Route
+            path="/analytics"
+            element={
+              <AppPage>
+                <PageTransition>
+                  {newChartEditorEnabled ? <AnalyticsShell /> : <DashboardBuilder />}
+                </PageTransition>
+              </AppPage>
+            }
+          />
           <Route path="/ml-engine" element={<AppPage><PageTransition><MLEngine /></PageTransition></AppPage>} />
 
           {/* Admin */}

@@ -516,4 +516,20 @@ export const useStore = create((set, get) => ({
   setActiveSemanticModel: (model) => set({ activeSemanticModel: model }),
   setAvailableSemanticModels: (models) =>
     set({ availableSemanticModels: Array.isArray(models) ? models : [] }),
+
+  // --- featureFlags slice (Phase 4c+1) -----------------------------------
+  // Dashboard feature-flag state hydrated from /api/v1/dashboards/feature-flags
+  // on app boot. The primary flag is NEW_CHART_EDITOR_ENABLED which gates
+  // route-level switching between the legacy DashboardBuilder and the new
+  // DashboardShell. Defaults are all-false (legacy path) so production
+  // stays unchanged until the server explicitly returns `true`.
+  featureFlags: {
+    NEW_CHART_EDITOR_ENABLED: false,
+  },
+  featureFlagsLoaded: false,
+  setFeatureFlags: (flags) =>
+    set((s) => ({
+      featureFlags: { ...s.featureFlags, ...(flags || {}) },
+      featureFlagsLoaded: true,
+    })),
 }));
