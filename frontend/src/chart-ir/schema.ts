@@ -14,7 +14,11 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import type { ChartSpec } from './types';
 
-const ajv = new Ajv({ allErrors: true, useDefaults: true, strict: false });
+// useDefaults removed — it silently mutates the input object when a schema
+// property has a `default` keyword, violating the immutability contract
+// callers expect from validateChartSpec(). If defaults are needed later,
+// add a separate `fillDefaults()` helper that deep-clones first.
+const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
 
 const MARKS = [
@@ -67,12 +71,27 @@ const fieldRefSchema = {
     },
     format: { type: 'string' },
     title: { type: 'string' },
+    // `scheme` intentionally NOT here — it's color-only. See colorFieldRefSchema below.
+  },
+};
+
+// Color channel extension — adds `scheme` (e.g. 'tableau10') which is
+// only meaningful on the color encoding. Previously all FieldRefs had
+// `scheme`, leaking it onto x/y/size/etc.
+const colorFieldRefSchema = {
+  ...fieldRefSchema,
+  properties: {
+    ...fieldRefSchema.properties,
     scheme: { type: 'string' },
   },
 };
 
+// theta channel — used by arc marks (pie / donut). Same shape as a
+// regular FieldRef but lives on a separate key from y.
+const thetaFieldRefSchema = fieldRefSchema;
+
 const encodingChannels = [
-  'x', 'y', 'x2', 'y2', 'color', 'size', 'shape', 'opacity',
+  'x', 'y', 'x2', 'y2', 'size', 'shape', 'opacity',
   'tooltip', 'text', 'row', 'column', 'order',
 ];
 
@@ -81,6 +100,8 @@ const encodingSchema = {
   additionalProperties: false,
   properties: {
     ...Object.fromEntries(encodingChannels.map((c) => [c, fieldRefSchema])),
+    color: colorFieldRefSchema,
+    theta: thetaFieldRefSchema,
     detail: { type: 'array', items: fieldRefSchema },
   },
 };
@@ -127,13 +148,40 @@ export const chartSpecSchema = {
         style: { type: 'string' },
         center: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
         zoom: { type: 'number', minimum: 0, maximum: 22 },
-        layers: { type: 'array' },
+        layers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['type', 'source'],
+            properties: {
+              type: { type: 'string', enum: ['symbol', 'fill', 'line', 'circle', 'heatmap'] },
+              source: { type: 'string' },
+            },
+          },
+        },
       },
     },
     overlay: {
       type: 'object',
       required: ['layers'],
-      properties: { layers: { type: 'array' } },
+      properties: {
+        layers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: ['type'],
+            properties: {
+              type: {
+                type: 'string',
+                enum: [
+                  'ScatterplotLayer', 'HexagonLayer', 'ArcLayer', 'PathLayer',
+                  'PolygonLayer', 'TripsLayer', 'GridLayer', 'HeatmapLayer',
+                ],
+              },
+            },
+          },
+        },
+      },
     },
     creative: {
       type: 'object',
