@@ -123,3 +123,37 @@ export interface Encoding {
   /** Mark drawing order (e.g., line connection order, stack order). */
   order?: FieldRef;
 }
+
+/**
+ * Data transformation step applied before rendering.
+ * Executed in order. Multiple transforms compose into a pipeline.
+ */
+export interface Transform {
+  /** Filter rows where field matches the predicate. */
+  filter?: { field: string; op: string; value: unknown };
+  /** Bin a quantitative field into buckets. */
+  bin?: { field: string; maxbins?: number };
+  /** Compute an aggregate, output as new field. */
+  aggregate?: { field: string; op: Aggregate; as: string };
+  /** Sample N rows. method='lttb' preserves visual peaks; 'uniform' is random. */
+  sample?: { n: number; method: 'lttb' | 'uniform' };
+  /** Calculate a derived field via sandboxed expression. */
+  calculate?: { as: string; expr: string };
+}
+
+/**
+ * Interactive selection — drives cross-filtering, highlighting, brushing.
+ * Vega-Lite-compatible selection grammar.
+ */
+export interface Selection {
+  /** Unique selection name (referenced by other charts in dashboard). */
+  name: string;
+  /** 'interval' = brush rectangle; 'point' = click-to-select. */
+  type: 'interval' | 'point';
+  /** Trigger event. */
+  on?: 'click' | 'hover';
+  /** Which encoding channels participate in the selection. */
+  encodings?: (keyof Encoding)[];
+  /** How to clear the selection. */
+  clear?: 'dblclick' | 'escape';
+}
