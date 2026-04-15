@@ -3,6 +3,7 @@ import globals from 'globals'
 import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
@@ -35,4 +36,11 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  // TypeScript linting scoped strictly to chart-ir (sub-project A Phase 0).
+  // Applies typescript-eslint's recommended rules only to files inside
+  // src/chart-ir/ — the rest of the frontend remains pure JavaScript.
+  ...tseslint.configs.recommended.map((cfg) => ({
+    ...cfg,
+    files: ['src/chart-ir/**/*.ts'],
+  })),
 ])
