@@ -1,12 +1,14 @@
 /**
  * Thresholds for the Render Strategy Router decision tree.
  *
- * Defaults are duplicated in backend/config.py as CHART_* settings so the
- * server-side downsampling agrees with the client-side strategy. Don't
- * change one without changing the other.
+ * Defaults mirror backend CHART_* settings in backend/config.py so server-side
+ * downsampling stays in agreement with client-side strategy. Change here ==
+ * change there.
  */
 
-export const THRESHOLDS = Object.freeze({
+import type { Mark } from '../types';
+
+export const THRESHOLDS = {
   // Marks budget per tier
   T0_MAX_MARKS: 4_000,
   T1_MAX_MARKS: 80_000,
@@ -34,10 +36,10 @@ export const THRESHOLDS = Object.freeze({
 
   // Cooldown after escalation to prevent oscillation
   ESCALATION_COOLDOWN_MS: 30_000,
-});
+} as const;
 
 /** Mark types that deck.gl can render natively. */
-export const DECK_ELIGIBLE_MARKS = new Set([
+export const DECK_ELIGIBLE_MARKS: ReadonlySet<Mark> = new Set<Mark>([
   'point',
   'circle',
   'square',

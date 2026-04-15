@@ -1,51 +1,53 @@
 /**
- * Render Strategy Router — pure function that picks the rendering strategy
- * for a chart based on data shape, GPU tier, frame budget, and pool pressure.
+ * Render Strategy Router (RSR) — pure function picking a rendering strategy
+ * from (spec, data shape, GPU tier, frame budget, pool pressure).
  *
- * See strategy.js for the input/output types and thresholds.js for the
- * decision cutoffs. This file is pure — no DOM access, no globals, no I/O.
- * Easy to unit test; easy for telemetry to log.
+ * See strategy.ts for input/output types, thresholds.ts for cutoffs.
+ * Pure — no DOM, no globals, no I/O. Unit-testable and telemetry-friendly.
  */
 
-import { THRESHOLDS, DECK_ELIGIBLE_MARKS } from './thresholds.js';
+import type { ChartSpec, Mark } from '../types';
+import type {
+  DownsampleDecision,
+  RenderStrategy,
+  RenderStrategyInput,
+  RendererBackend,
+  RendererFamily,
+  StrategyTier,
+} from './strategy';
+import { DECK_ELIGIBLE_MARKS, THRESHOLDS } from './thresholds';
 
-/**
- * @param {any} spec
- * @returns {string}
- */
-function getMarkType(spec) {
-  if (!spec) return 'unknown';
-  if (typeof spec.mark === 'string') return spec.mark;
-  if (spec.mark && typeof spec.mark === 'object' && typeof spec.mark.type === 'string') {
-    return spec.mark.type;
+function getMarkType(spec: ChartSpec): Mark | 'unknown' {
+  const { mark } = spec;
+  if (typeof mark === 'string') return mark;
+  if (mark && typeof mark === 'object' && typeof mark.type === 'string') {
+    return mark.type;
   }
   return 'unknown';
 }
 
-/**
- * @param {string} specType
- * @returns {import('./strategy.js').RendererFamily | null}
- */
-function fixedFamily(specType) {
+function fixedFamily(specType: string): RendererFamily | null {
   if (specType === 'map') return 'maplibre';
   if (specType === 'creative') return 'creative';
   if (specType === 'geo-overlay') return 'deck';
   return null;
 }
 
-/**
- * @param {number} rowCount
- * @param {number} targetPoints
- * @param {string | undefined} xType
- * @param {string | undefined} yType
- * @param {number | undefined} pixelWidth
- * @returns {import('./strategy.js').DownsampleDecision}
- */
-function pickDownsample(rowCount, targetPoints, xType, yType, pixelWidth) {
+function pickDownsample(
+  rowCount: number,
+  targetPoints: number,
+  xType: string | undefined,
+  yType: string | undefined,
+  pixelWidth: number | undefined,
+): DownsampleDecision {
   if (rowCount <= targetPoints) {
     return { enabled: false, method: 'none', targetPoints };
   }
-  if (pixelWidth && (xType === 'temporal' || xType === 'quantitative') && yType === 'quantitative') {
+  if (
+    pixelWidth &&
+    (xType === 'temporal' || xType === 'quantitative') &&
+    yType === 'quantitative'
+  ) {
     return { enabled: true, method: 'pixel_min_max', targetPoints };
   }
   if ((xType === 'temporal' || xType === 'quantitative') && yType === 'quantitative') {
@@ -54,37 +56,31 @@ function pickDownsample(rowCount, targetPoints, xType, yType, pixelWidth) {
   return { enabled: true, method: 'uniform', targetPoints };
 }
 
-/**
- * @param {import('./strategy.js').StrategyTier} tier
- * @returns {import('./strategy.js').StrategyTier}
- */
-function downshift(tier) {
+function downshift(tier: StrategyTier): StrategyTier {
   if (tier === 't3') return 't2';
   if (tier === 't2') return 't1';
   if (tier === 't1') return 't0';
   return 't0';
 }
 
-/**
- * @param {import('./strategy.js').StrategyTier} tier
- * @returns {import('./strategy.js').StrategyTier}
- */
-function escalate(tier) {
+function escalate(tier: StrategyTier): StrategyTier {
   if (tier === 't0') return 't1';
   if (tier === 't1') return 't2';
   if (tier === 't2') return 't3';
   return 't3';
 }
 
-/**
- * Pick the render strategy for a chart. Pure function — no side effects.
- *
- * @param {import('./strategy.js').RenderStrategyInput} input
- * @returns {import('./strategy.js').RenderStrategy}
- */
-export function pickRenderStrategy(input) {
-  const { spec, resultProfile, gpuTier, frameBudgetState, instancePressure, hint, pixelWidth } = input;
-  const reasons = [];
+export function pickRenderStrategy(input: RenderStrategyInput): RenderStrategy {
+  const {
+    spec,
+    resultProfile,
+    gpuTier,
+    frameBudgetState,
+    instancePressure,
+    hint,
+    pixelWidth,
+  } = input;
+  const reasons: string[] = [];
 
   // 1. Fixed families for non-cartesian spec types
   const fixed = fixedFamily(spec.type);
@@ -136,7 +132,10 @@ export function pickRenderStrategy(input) {
 
   // 2. Cartesian — RSR decides
   const markName = getMarkType(spec);
-  const markEligible = Boolean(resultProfile.markEligibleForDeck) && DECK_ELIGIBLE_MARKS.has(markName);
+  const markEligible =
+    Boolean(resultProfile.markEligibleForDeck) &&
+    markName !== 'unknown' &&
+    DECK_ELIGIBLE_MARKS.has(markName as Mark);
   const targetPoints = THRESHOLDS.DEFAULT_TARGET_POINTS;
 
   // 2a. Hint override (sanity-checked).
@@ -151,10 +150,8 @@ export function pickRenderStrategy(input) {
       reasons.push(`hint=${hint} refused: mark not deck-eligible`);
       // fall through to normal decision tree
     } else {
-      /** @type {import('./strategy.js').RendererFamily} */
-      const family = (hint === 't2' || hint === 't3') ? 'deck' : 'vega';
-      /** @type {import('./strategy.js').RendererBackend} */
-      const backend = hint === 't0' ? 'svg' : (hint === 't1' ? 'canvas' : 'webgl');
+      const family: RendererFamily = hint === 't2' || hint === 't3' ? 'deck' : 'vega';
+      const backend: RendererBackend = hint === 't0' ? 'svg' : hint === 't1' ? 'canvas' : 'webgl';
       return {
         tier: hint,
         rendererFamily: family,
@@ -178,8 +175,7 @@ export function pickRenderStrategy(input) {
   }
 
   // 2b. Initial tier from row count
-  /** @type {import('./strategy.js').StrategyTier} */
-  let tier;
+  let tier: StrategyTier;
   if (resultProfile.rowCount <= THRESHOLDS.T0_MAX_MARKS) {
     tier = 't0';
     reasons.push(`rowCount ${resultProfile.rowCount} <= T0 cap`);
@@ -194,7 +190,9 @@ export function pickRenderStrategy(input) {
     reasons.push(`rowCount ${resultProfile.rowCount} > T2 cap + deck-eligible -> streaming`);
   } else {
     tier = 't1';
-    reasons.push(`rowCount ${resultProfile.rowCount} > T1 cap but not deck-eligible -> server LTTB to T1`);
+    reasons.push(
+      `rowCount ${resultProfile.rowCount} > T1 cap but not deck-eligible -> server LTTB to T1`,
+    );
   }
 
   // 2c. GPU tier clamp
@@ -210,7 +208,9 @@ export function pickRenderStrategy(input) {
   ) {
     const before = tier;
     tier = downshift(tier);
-    reasons.push(`pressureRatio ${instancePressure.pressureRatio.toFixed(2)} > ${THRESHOLDS.INSTANCE_PRESSURE_DOWNSHIFT} -> downshift ${before} to ${tier}`);
+    reasons.push(
+      `pressureRatio ${instancePressure.pressureRatio.toFixed(2)} > ${THRESHOLDS.INSTANCE_PRESSURE_DOWNSHIFT} -> downshift ${before} to ${tier}`,
+    );
   }
 
   // 2e. Frame budget escalation (only if mark is deck-eligible)
@@ -220,10 +220,8 @@ export function pickRenderStrategy(input) {
     reasons.push(`frame budget tight -> escalate ${before} to ${tier}`);
   }
 
-  /** @type {import('./strategy.js').RendererFamily} */
-  const family = (tier === 't2' || tier === 't3') ? 'deck' : 'vega';
-  /** @type {import('./strategy.js').RendererBackend} */
-  const backend = tier === 't0' ? 'svg' : (tier === 't1' ? 'canvas' : 'webgl');
+  const family: RendererFamily = tier === 't2' || tier === 't3' ? 'deck' : 'vega';
+  const backend: RendererBackend = tier === 't0' ? 'svg' : tier === 't1' ? 'canvas' : 'webgl';
 
   return {
     tier,

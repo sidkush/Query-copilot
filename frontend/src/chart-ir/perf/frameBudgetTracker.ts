@@ -2,57 +2,51 @@
  * FrameBudgetTracker — rolling p95 frame time measurement.
  *
  * Measures how long the browser is taking to paint frames and exposes
- * a three-way state (`loose` / `normal` / `tight`) that the Render Strategy
+ * a three-way state (loose / normal / tight) that the Render Strategy
  * Router uses to decide whether to escalate a chart to a heavier-but-faster
  * renderer.
  *
- * Implementation notes:
  * - 60-frame circular buffer (one second of history at 60fps)
  * - p95 computed on sorted buffer
- * - Hysteresis hold prevents single-frame GC pauses from causing oscillation
+ * - Hysteresis hold prevents single-frame GC pauses from oscillating
  * - SSR-safe: rAF loop only starts when window + requestAnimationFrame exist
- * - Pub/sub for Zustand/React integration without introducing a dep
+ * - Pub/sub for Zustand/React integration without a new dep
  */
 
-import { THRESHOLDS } from '../rsr/thresholds.js';
+import type { FrameBudgetState } from '../rsr/strategy';
+import { THRESHOLDS } from '../rsr/thresholds';
 
 const BUFFER_SIZE = 60;
 
-/**
- * @typedef {import('../rsr/strategy.js').FrameBudgetState} FrameBudgetState
- */
+export interface FrameBudgetTrackerOptions {
+  /** Hysteresis hold time (ms) before a state change propagates. */
+  holdMs?: number;
+}
 
-/**
- * @typedef {Object} FrameBudgetTrackerOptions
- * @property {number} [holdMs] - Hysteresis hold time in ms before a state change propagates.
- */
+type Listener = (state: FrameBudgetState) => void;
 
 export class FrameBudgetTracker {
-  /**
-   * @param {FrameBudgetTrackerOptions} [options]
-   */
-  constructor(options = {}) {
-    /** @type {number[]} */
-    this.buffer = [];
-    this.writeIndex = 0;
-    /** @type {FrameBudgetState} */
-    this.state = 'normal';
-    /** @type {FrameBudgetState} */
-    this.pendingState = 'normal';
-    this.pendingSince = 0;
+  private buffer: number[] = [];
+  private writeIndex = 0;
+  private state: FrameBudgetState = 'normal';
+  private pendingState: FrameBudgetState = 'normal';
+  private pendingSince = 0;
+  private holdMs: number;
+  private listeners = new Set<Listener>();
+  private rafId: number | null = null;
+  private lastFrameTs = 0;
+
+  constructor(options: FrameBudgetTrackerOptions = {}) {
     this.holdMs = options.holdMs ?? THRESHOLDS.FRAME_BUDGET_HYSTERESIS_MS;
-    /** @type {Set<(state: FrameBudgetState) => void>} */
-    this.listeners = new Set();
-    /** @type {number | null} */
-    this.rafId = null;
-    this.lastFrameTs = 0;
   }
 
   /** Start the rAF loop. Safe to call multiple times. */
-  start() {
+  start(): void {
     if (this.rafId !== null) return;
-    if (typeof window === 'undefined' || typeof requestAnimationFrame === 'undefined') return;
-    const tick = (ts) => {
+    if (typeof window === 'undefined' || typeof requestAnimationFrame === 'undefined') {
+      return;
+    }
+    const tick = (ts: number): void => {
       if (this.lastFrameTs > 0) this.recordFrameTime(ts - this.lastFrameTs);
       this.lastFrameTs = ts;
       this.rafId = requestAnimationFrame(tick);
@@ -60,7 +54,7 @@ export class FrameBudgetTracker {
     this.rafId = requestAnimationFrame(tick);
   }
 
-  stop() {
+  stop(): void {
     if (this.rafId !== null && typeof cancelAnimationFrame !== 'undefined') {
       cancelAnimationFrame(this.rafId);
     }
@@ -68,10 +62,7 @@ export class FrameBudgetTracker {
     this.lastFrameTs = 0;
   }
 
-  /**
-   * @param {number} ms
-   */
-  recordFrameTime(ms) {
+  recordFrameTime(ms: number): void {
     if (this.buffer.length < BUFFER_SIZE) {
       this.buffer.push(ms);
     } else {
@@ -81,26 +72,23 @@ export class FrameBudgetTracker {
     this.evaluate();
   }
 
-  /** @returns {FrameBudgetState} */
-  getState() {
+  getState(): FrameBudgetState {
     return this.state;
   }
 
-  /**
-   * @param {(state: FrameBudgetState) => void} listener
-   * @returns {() => void} unsubscribe fn
-   */
-  subscribe(listener) {
+  subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
-  evaluate() {
+  private evaluate(): void {
     if (this.buffer.length < 10) return; // wait for signal
     const sorted = [...this.buffer].sort((a, b) => a - b);
-    const p95 = sorted[Math.floor(sorted.length * 0.95)];
-    /** @type {FrameBudgetState} */
-    let next;
+    const p95Index = Math.floor(sorted.length * 0.95);
+    const p95 = sorted[p95Index] ?? 0;
+    let next: FrameBudgetState;
     if (p95 >= THRESHOLDS.FRAME_BUDGET_TIGHT_MS) next = 'tight';
     else if (p95 < THRESHOLDS.FRAME_BUDGET_LOOSE_MS) next = 'loose';
     else next = 'normal';
@@ -117,7 +105,7 @@ export class FrameBudgetTracker {
       return;
     }
 
-    if (this.holdMs === 0 || (Date.now() - this.pendingSince) >= this.holdMs) {
+    if (this.holdMs === 0 || Date.now() - this.pendingSince >= this.holdMs) {
       this.state = next;
       for (const l of this.listeners) {
         try {

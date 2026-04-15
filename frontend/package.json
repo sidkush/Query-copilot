@@ -8,7 +8,6 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:unit": "node --test \"src/**/*.test.js\"",
     "test:chart-ir": "vitest run src/chart-ir/__tests__/"
   },
   "dependencies": {

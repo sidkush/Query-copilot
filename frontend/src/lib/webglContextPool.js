@@ -11,7 +11,7 @@
  * (vega-canvas/maplibre/deck) use the new InstancePool API directly.
  */
 
-import { globalInstancePool } from '../chart-ir/perf/instancePool.js';
+import { globalInstancePool } from '../chart-ir/perf/instancePool';
 
 export function acquireContext(id, onEvict) {
   globalInstancePool.acquireSlot('three', id, onEvict ?? (() => {}));
