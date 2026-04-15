@@ -129,4 +129,59 @@ describe('AnalyticsShell', () => {
     const errEl = screen.getByTestId('analytics-shell-error');
     expect(errEl.textContent).toMatch(/boom/);
   });
+
+  it('swaps the dashboard in-place when dispatch(dashboard-reload) carries a fresh detail', async () => {
+    render(<AnalyticsShell />);
+    await waitFor(() => screen.getByTestId('analytics-shell'));
+    const fresh = {
+      ...DASHBOARD,
+      name: 'Retail analytics (agent-updated)',
+      tabs: [
+        {
+          id: 'tab-1',
+          name: 'Main',
+          sections: [
+            {
+              id: 'sec-1',
+              name: 'main',
+              layout: [],
+              tiles: [
+                {
+                  id: 'fresh-tile',
+                  title: 'Fresh tile from agent',
+                  chart_spec: {
+                    $schema: 'askdb/chart-spec/v1',
+                    type: 'cartesian',
+                    mark: 'bar',
+                    encoding: {
+                      x: { field: 'x', type: 'nominal' },
+                      y: { field: 'y', type: 'quantitative', aggregate: 'sum' },
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    window.dispatchEvent(
+      new CustomEvent('dashboard-reload', { detail: { dashboard: fresh } }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId('layout-workbench-tile-fresh-tile')).not.toBeNull(),
+    );
+  });
+
+  it('re-fetches the dashboard from the server when dispatch(dashboard-reload) has no detail payload', async () => {
+    render(<AnalyticsShell />);
+    await waitFor(() => screen.getByTestId('analytics-shell'));
+    const callsBefore = vi.mocked(api.getDashboard).mock.calls.length;
+    window.dispatchEvent(new CustomEvent('dashboard-reload'));
+    await waitFor(() =>
+      expect(vi.mocked(api.getDashboard).mock.calls.length).toBeGreaterThan(
+        callsBefore,
+      ),
+    );
+  });
 });

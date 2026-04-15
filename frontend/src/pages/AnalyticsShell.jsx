@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { api } from "../api";
 import DashboardShell from "../components/dashboard/DashboardShell";
@@ -46,40 +46,58 @@ export default function AnalyticsShell() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboard, setDashboard] = useState(null);
+  const dashboardIdRef = useRef(null);
 
+  const fetchDashboard = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await api.getDashboards();
+      const list = res?.dashboards || [];
+      if (list.length === 0) {
+        setDashboard(null);
+        dashboardIdRef.current = null;
+        return;
+      }
+      const targetId = activeDashboardId || list[0].id;
+      const full = await api.getDashboard(targetId);
+      setDashboard(full);
+      dashboardIdRef.current = full.id;
+      setActiveDashboardId(full.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [activeDashboardId, setActiveDashboardId]);
+
+  // Initial load — runs once on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      setError(null);
-      try {
-        const res = await api.getDashboards();
-        const list = res?.dashboards || [];
-        if (list.length === 0) {
-          if (!cancelled) {
-            setDashboard(null);
-            setLoading(false);
-          }
-          return;
-        }
-        const targetId = activeDashboardId || list[0].id;
-        const full = await api.getDashboard(targetId);
-        if (cancelled) return;
-        setDashboard(full);
-        setActiveDashboardId(full.id);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      await fetchDashboard();
+      if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Agent dashboard-edit tool calls (create_tile / update_tile / etc.)
+  // dispatch a 'dashboard-reload' window event carrying the fresh
+  // dashboard. Legacy DashboardBuilder listens for this; mirror the
+  // pattern here so the new shell refreshes when the agent edits.
+  useEffect(() => {
+    const handleReload = (e) => {
+      const fresh = e.detail?.dashboard;
+      if (fresh && fresh.id === dashboardIdRef.current) {
+        setDashboard(fresh);
+        return;
+      }
+      fetchDashboard();
+    };
+    window.addEventListener("dashboard-reload", handleReload);
+    return () => window.removeEventListener("dashboard-reload", handleReload);
+  }, [fetchDashboard]);
 
   const tiles = useMemo(() => flattenTilesForShell(dashboard), [dashboard]);
 
