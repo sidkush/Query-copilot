@@ -205,6 +205,15 @@ class Settings(BaseSettings):
     WATERFALL_CAN_ANSWER_BUDGET_MS: int = Field(default=200, ge=10)   # P1 NEMESIS: min 10ms prevents accidental disable
     WATERFALL_ANSWER_BUDGET_MS: int = Field(default=1000, ge=50)     # P1 NEMESIS: min 50ms prevents accidental disable
 
+    # ── Sub-project B (chart performance) ─────────────────────────
+    CHART_PERF_ENABLED: bool = Field(default=False)
+    CHART_DOWNSAMPLE_ENABLED: bool = Field(default=True)
+    CHART_DOWNSAMPLE_DEFAULT_TARGET_POINTS: int = Field(default=4000)
+    CHART_STREAM_BATCH_ROWS: int = Field(default=5000)
+    CHART_FRAME_BUDGET_TIGHT_MS: int = Field(default=16)
+    CHART_FRAME_BUDGET_LOOSE_MS: int = Field(default=33)
+    CHART_INSTANCE_POOL_MAX: int = Field(default=12)
+
     # ── Dual-Response (Progressive Dual-Response Data Acceleration) ──
     DUAL_RESPONSE_ENABLED: bool = Field(default=True)                # T1: master toggle for cached+live dual-stream
     DUAL_RESPONSE_STALENESS_TTL_SECONDS: int = Field(default=300)    # T2: cache age threshold for staleness gate
