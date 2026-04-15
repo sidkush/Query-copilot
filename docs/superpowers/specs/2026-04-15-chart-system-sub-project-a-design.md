@@ -806,21 +806,29 @@ The following are explicitly NOT in Sub-project A. Each has its own scheduled ta
 
 ---
 
-## 18. Open Questions for Review
+## 18. Resolved Decisions (formerly Open Questions)
 
-These are decisions I made on user behalf during the spec write-up that I'd like sid23 to explicitly confirm before invoking writing-plans:
+All 9 decisions resolved with sid23 on 2026-04-15:
 
-1. **Vega-Lite version.** Latest stable (v5.x as of April 2026)? Or pin to a specific version with a known-good release? I assumed latest stable.
-2. **MapLibre version.** Latest stable. Same question.
-3. **Default base tile provider for MapLibre.** OpenStreetMap raster tiles are free but legally require attribution. Free vector tile providers (e.g., MapTiler free tier) need a key. I assumed OSM raster as the no-key default; users with a MapTiler/Mapbox/Google key get vector tiles. Confirm OK.
-4. **`@floating-ui/react` for popover positioning.** Standard React popover lib. Or do you have an existing preference (e.g., already using Radix UI)?
-5. **Storybook vs Ladle for visual regression CI.** Ladle is faster + smaller; Storybook has more tooling. I assumed Ladle.
-6. **Default voice tier when no key configured.** Whisper Local downloads ~75MB on first session. Is that acceptable? Or should we ask user permission first ("Download voice model? 75MB")?
-7. **Custom wake-word vendor.** openWakeWord is FOSS but training a custom phrase requires a small dataset. Alternative: Picovoice Porcupine which has commercial pricing for custom phrases. I assumed openWakeWord with a "premium custom wake words" upgrade path via Porcupine BYOK.
-8. **Agent SSE event format extension.** New tool-call cards need a `type: "dashboard_action"` event variant. Confirm extending the existing SSE schema is OK vs versioning it.
-9. **Tile schema migration backward compatibility.** Once migrated, can the old TileEditor still read the new ChartSpec format (for emergency rollback)? I assumed yes — we keep a `legacy_chart_type` field on the migrated tile pointing to the closest old equivalent.
+1. **Vega-Lite version: latest stable.** Pinned to whatever is current at the start of Phase 0. CI bundle-size gate enforces ceiling.
+2. **MapLibre version: latest stable.** Same policy.
+3. **Default base tile provider: OpenStreetMap raster tiles** (`tile.openstreetmap.org`) for development and zero-key users. Cost: $0. Legal under OSMF tile usage policy as long as we attribute (`© OpenStreetMap contributors` shown in every map's bottom-right corner) and don't generate production-scale traffic. Workspace BYOK upgrades unlock premium tile providers via the same pattern as the voice stack:
+   - Connect MapTiler key → free 100k req/mo, then $25/mo
+   - Connect Mapbox key → matches Tableau's quality (Tableau uses Mapbox), $0.50/1000 loads after free tier
+   - Connect Google Maps key → premium Google brand tiles, $7/1000 loads after free $200/mo credit
+   - All keys Fernet-encrypted, stored per-workspace. AskDB pays $0 for map tiles regardless of user count.
+   - Each user is responsible for their tile provider ToS compliance.
+4. **Floating UI library: `@floating-ui/react`** (MIT, ~30KB gzipped, headless). The underlying primitive that Radix/Headless UI/Mantine build on. Headless choice gives full pixel control for the editor's polished aesthetic.
+5. **Visual regression CI: Storybook** (industry standard, mature Chromatic integration, rich docs site). Quality preference wins over Ladle's speed.
+6. **Whisper Local download: ask user permission first.** First time a user clicks the voice mic, a modal appears: *"Voice requires a 75MB one-time download for the Whisper speech recognition model. The model runs entirely in your browser — your audio never leaves your device. Download now?"* + Cancel / Download buttons. Cached in IndexedDB for subsequent sessions. Until the user accepts, voice mic is hidden and only text input works.
+7. **Wake word: single brand phrase, `"Hey Vega"`** for the entire AskDB product. NOT per-workspace custom (Porcupine commercial pricing too expensive).
+   - **Rationale for "Hey Vega":** connects to AskDB's Vega-Lite chart substrate (the voice IS the chart engine). Vega is also a first-magnitude star in Lyra constellation — sophisticated, slightly retro-futurist, brand-coherent. Phonetically clean for wake-word detection (V + EE + G + AH, distinct phonemes). Zero conflicts with Alexa/Google/Siri/Cortana voice assistant brands.
+   - **Implementation:** use **openWakeWord** (MIT, FOSS). Train a single "Hey Vega" model on a free Google Colab notebook (one-time ~3 hours of compute). Output a ~150KB ONNX model file shipped with the AskDB frontend. The training script + dataset live in `frontend/voice-models/hey-vega/` and are versioned in git for reproducibility.
+   - **Future upgrade path:** enterprise customers wanting their own brand wake word ("Hey Acme") can pay for a Porcupine BYOK custom phrase as a paid upsell. Out of scope for Sub-project A.
+8. **Agent SSE event format: extend the existing union, do NOT version.** Add new event variants (`dashboard_action`, `tile_create`, `tile_update`, `tile_move`, `tile_delete`, `theme_changed`, `mode_changed`) to the existing event type discriminator. Existing consumers (legacy `AgentPanel` in production) ignore unknown event types — that's standard SSE forward-compat. No breaking change, no v2 schema, no migration.
+9. **Tile schema backward compatibility: yes.** Migrated tiles carry a `legacy_chart_type` field pointing to the closest old chartDef equivalent (e.g., a `bar` ChartSpec gets `legacy_chart_type: 'bar_h'` if it was originally a horizontal bar). Emergency rollback to old TileEditor still renders the tile via the legacy field, with reduced fidelity but no data loss.
 
-If any of these need different answers, tell me before I invoke writing-plans.
+All decisions locked. Ready for writing-plans skill invocation.
 
 ---
 
