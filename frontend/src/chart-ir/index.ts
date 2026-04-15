@@ -61,6 +61,12 @@ export type { Patch, PatchOp } from './applySpecPatch';
 export { lttb, uniformSample, lttbRows } from './transforms/lttb';
 export type { Point } from './transforms/lttb';
 
+export { pixelMinMaxRows } from './transforms/pixelMinMax';
+export type { PixelMinMaxOptions } from './transforms/pixelMinMax';
+
+export { aggregateBinRows } from './transforms/aggregateBin';
+export type { BinAggregate, AggregateBinOptions } from './transforms/aggregateBin';
+
 // Voice — Phase 3 tier abstraction + stub adapters
 export {
   registerVoiceProvider,

@@ -6,6 +6,8 @@ import {
   globalFrameBudgetTracker,
   lttbRows,
   uniformSample,
+  pixelMinMaxRows,
+  aggregateBinRows,
 } from '../../../chart-ir';
 import type {
   ChartSpec,
@@ -315,6 +317,34 @@ function applyDownsample(
 
   if (method === 'uniform') {
     return uniformSample(rows, targetPoints);
+  }
+
+  if (method === 'pixel_min_max' && xField && yField) {
+    return pixelMinMaxRows(
+      rows,
+      (r) => {
+        const v = r[xField];
+        return typeof v === 'number' ? v : Number(v ?? 0);
+      },
+      (r) => {
+        const v = r[yField];
+        return typeof v === 'number' ? v : Number(v ?? 0);
+      },
+      { pixelWidth: 800 }, // sensible default until the renderer measures its own width
+    );
+  }
+
+  if (method === 'aggregate_bin' && xField && yField) {
+    const yAgg = spec.encoding?.y?.aggregate;
+    const binAggregate = (yAgg && ['sum', 'avg', 'min', 'max', 'count'].includes(yAgg)
+      ? yAgg
+      : 'avg') as 'sum' | 'avg' | 'min' | 'max' | 'count';
+    return aggregateBinRows(rows, {
+      targetPoints,
+      xField,
+      yField,
+      aggregate: binAggregate,
+    });
   }
 
   if ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) {
