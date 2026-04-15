@@ -185,3 +185,115 @@ describe('Selection', () => {
     expect(s.on).toBe('click');
   });
 });
+
+import type { ChartSpec, SpecType } from '../types';
+
+describe('ChartSpec', () => {
+  it('accepts a cartesian bar chart spec', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'cartesian',
+      mark: 'bar',
+      encoding: {
+        x: { field: 'product', type: 'nominal' },
+        y: { field: 'revenue', type: 'quantitative', aggregate: 'sum' },
+      },
+    };
+    expect(spec.type).toBe('cartesian');
+    expect(spec.mark).toBe('bar');
+  });
+
+  it('accepts a layered cartesian spec with multiple charts stacked', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'cartesian',
+      layer: [
+        {
+          $schema: 'askdb/chart-spec/v1',
+          type: 'cartesian',
+          mark: 'line',
+          encoding: {
+            x: { field: 'date', type: 'temporal' },
+            y: { field: 'revenue', type: 'quantitative' },
+          },
+        },
+        {
+          $schema: 'askdb/chart-spec/v1',
+          type: 'cartesian',
+          mark: 'point',
+          encoding: {
+            x: { field: 'date', type: 'temporal' },
+            y: { field: 'revenue', type: 'quantitative' },
+          },
+        },
+      ],
+    };
+    expect(spec.layer?.length).toBe(2);
+  });
+
+  it('accepts a faceted spec with row + column', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'cartesian',
+      facet: {
+        row: { field: 'region', type: 'nominal' },
+        column: { field: 'category', type: 'nominal' },
+        spec: {
+          $schema: 'askdb/chart-spec/v1',
+          type: 'cartesian',
+          mark: 'bar',
+          encoding: {
+            x: { field: 'product', type: 'nominal' },
+            y: { field: 'revenue', type: 'quantitative' },
+          },
+        },
+      },
+    };
+    expect(spec.facet?.row?.field).toBe('region');
+  });
+
+  it('accepts a map spec with MapLibre provider', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'map',
+      map: {
+        provider: 'maplibre',
+        style: 'osm-bright',
+        center: [-122.4, 37.8],
+        zoom: 10,
+        layers: [],
+      },
+    };
+    expect(spec.map?.provider).toBe('maplibre');
+  });
+
+  it('accepts a creative Stage Mode spec', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'creative',
+      creative: {
+        engine: 'r3f',
+        component: 'hologram',
+        props: { rotationSpeed: 0.5 },
+      },
+    };
+    expect(spec.creative?.engine).toBe('r3f');
+  });
+
+  it('accepts config with theme + density', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'cartesian',
+      mark: 'bar',
+      encoding: {
+        x: { field: 'product', type: 'nominal' },
+        y: { field: 'revenue', type: 'quantitative' },
+      },
+      config: {
+        theme: 'dark',
+        density: 'compact',
+      },
+    };
+    expect(spec.config?.density).toBe('compact');
+  });
+});

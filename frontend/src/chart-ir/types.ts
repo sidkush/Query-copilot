@@ -157,3 +157,115 @@ export interface Selection {
   /** How to clear the selection. */
   clear?: 'dblclick' | 'escape';
 }
+
+/** Top-level discriminator for which renderer pipeline handles the spec. */
+export type SpecType = 'cartesian' | 'map' | 'geo-overlay' | 'creative';
+
+/** Map tile provider. Default 'maplibre' uses OSM tiles (free, no key). */
+export type MapProvider = 'maplibre' | 'mapbox' | 'google';
+
+/** A single map layer (markers, choropleth, lines). */
+export interface MapLayer {
+  type: 'symbol' | 'fill' | 'line' | 'circle' | 'heatmap';
+  source: 'data' | string;
+  paint?: Record<string, unknown>;
+  layout?: Record<string, unknown>;
+  filter?: unknown[];
+}
+
+/** A single deck.gl layer for high-density geo overlays. */
+export interface DeckLayer {
+  type: 'ScatterplotLayer' | 'HexagonLayer' | 'ArcLayer' | 'PathLayer'
+      | 'PolygonLayer' | 'TripsLayer' | 'GridLayer' | 'HeatmapLayer';
+  data?: unknown[];
+  props?: Record<string, unknown>;
+}
+
+/**
+ * ChartSpec — the canonical AskDB chart description.
+ *
+ * Discriminated by `type`. Cartesian specs use Vega-Lite's grammar
+ * (mark + encoding + transform + layer + facet + concat). Map specs route
+ * to MapLibre. Geo-overlay specs render deck.gl layers over a base map.
+ * Creative specs invoke registered Stage Mode visuals (Three.js / r3f).
+ */
+export interface ChartSpec {
+  /** Schema version pin for forward-compat. */
+  $schema: 'askdb/chart-spec/v1';
+
+  /** Discriminator: which renderer handles this spec. */
+  type: SpecType;
+
+  /** Display title shown in tile header. */
+  title?: string;
+  /** Subtitle / description. */
+  description?: string;
+
+  // -------- Cartesian / statistical (Vega-Lite subset) --------
+
+  /** Mark type — primitive shape. */
+  mark?: Mark | { type: Mark; [prop: string]: unknown };
+
+  /** Visual encoding channels. */
+  encoding?: Encoding;
+
+  /** Data transformation pipeline. */
+  transform?: Transform[];
+
+  /** Interactive selection definitions. */
+  selection?: Selection[];
+
+  /** Layered specs — each layer rendered on top of the previous. */
+  layer?: ChartSpec[];
+
+  /** Faceting (small multiples) — row, column, or both. */
+  facet?: { row?: FieldRef; column?: FieldRef; spec: ChartSpec };
+
+  /** Horizontal concatenation. */
+  hconcat?: ChartSpec[];
+
+  /** Vertical concatenation. */
+  vconcat?: ChartSpec[];
+
+  // -------- Map (MapLibre / Mapbox / Google) --------
+
+  map?: {
+    provider: MapProvider;
+    /** Tile style URL or built-in style name. */
+    style: string;
+    /** Initial map center [lng, lat]. */
+    center: [number, number];
+    /** Initial zoom level (0–22). */
+    zoom: number;
+    /** Map layers. */
+    layers: MapLayer[];
+  };
+
+  // -------- Geo overlay (deck.gl on top of base map) --------
+
+  overlay?: {
+    layers: DeckLayer[];
+  };
+
+  // -------- Creative (Stage Mode visuals) --------
+
+  creative?: {
+    /** Renderer engine. */
+    engine: 'three' | 'r3f';
+    /** Component identifier from the creative-lane registry. */
+    component: string;
+    /** Props passed to the component. */
+    props: Record<string, unknown>;
+  };
+
+  // -------- Global config --------
+
+  config?: {
+    /** Theme name — 'light', 'dark', or one of the 6 Stage themes. */
+    theme?: string;
+    /** Color palette name. */
+    palette?: string;
+    /** Density preference. */
+    density?: 'comfortable' | 'compact';
+  };
+}
