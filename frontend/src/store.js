@@ -428,34 +428,80 @@ export const useStore = create((set, get) => ({
   agentSessionProgress: null,
   setAgentSessionProgress: (p) => set({ agentSessionProgress: p }),
 
-  // --- chartEditor slice (Sub-project A Phase 1) -----------------------
-  // Holds the current ChartSpec under edit, a linear history stack for
-  // undo/redo, mode (default/pro/stage), and the stub setters. Real
-  // undo/redo logic lands in Phase 2 alongside the Marks card.
+  // --- chartEditor slice (Sub-project A Phase 1 + Phase 2) -------------
+  // Holds the ChartSpec under edit + a linear undo/redo history stack.
+  //
+  // History model: array of snapshots, historyIndex points at the spec
+  // currently shown. pushChartEditorHistory truncates any forward-of-index
+  // branch (standard linear undo), then appends. Bounded at 100 snapshots
+  // per A spec §12 Phase 2 — oldest entry dropped when cap reached.
   chartEditor: {
     currentSpec: null,
     history: [],
     historyIndex: -1,
     mode: "default",
+    historyCap: 100,
   },
-  setChartEditorSpec: (nextSpec) =>
-    set((s) => ({
-      chartEditor: { ...s.chartEditor, currentSpec: nextSpec },
-    })),
-  pushChartEditorHistory: (spec) =>
+  setChartEditorSpec: (nextSpec, { pushHistory = true } = {}) =>
     set((s) => {
-      // Phase 2 will implement real history stack management with
-      // branch truncation + bounded length. This stub is intentionally
-      // a no-op wrapper so callers can wire the API surface now.
-      void spec;
-      return s;
+      const editor = s.chartEditor;
+      if (!pushHistory) {
+        return { chartEditor: { ...editor, currentSpec: nextSpec } };
+      }
+      // Truncate forward branch, append, enforce cap.
+      const truncated = editor.history.slice(0, editor.historyIndex + 1);
+      truncated.push(nextSpec);
+      let nextHistory = truncated;
+      let nextIndex = truncated.length - 1;
+      if (nextHistory.length > editor.historyCap) {
+        const overflow = nextHistory.length - editor.historyCap;
+        nextHistory = nextHistory.slice(overflow);
+        nextIndex = nextHistory.length - 1;
+      }
+      return {
+        chartEditor: {
+          ...editor,
+          currentSpec: nextSpec,
+          history: nextHistory,
+          historyIndex: nextIndex,
+        },
+      };
     }),
-  undoChartEditor: () => {
-    // Stub — Phase 2 wires real history traversal.
-  },
-  redoChartEditor: () => {
-    // Stub — Phase 2 wires real history traversal.
-  },
+  initChartEditorSpec: (spec) =>
+    set((s) => ({
+      chartEditor: {
+        ...s.chartEditor,
+        currentSpec: spec,
+        history: [spec],
+        historyIndex: 0,
+      },
+    })),
+  undoChartEditor: () =>
+    set((s) => {
+      const editor = s.chartEditor;
+      if (editor.historyIndex <= 0) return s;
+      const nextIndex = editor.historyIndex - 1;
+      return {
+        chartEditor: {
+          ...editor,
+          historyIndex: nextIndex,
+          currentSpec: editor.history[nextIndex],
+        },
+      };
+    }),
+  redoChartEditor: () =>
+    set((s) => {
+      const editor = s.chartEditor;
+      if (editor.historyIndex >= editor.history.length - 1) return s;
+      const nextIndex = editor.historyIndex + 1;
+      return {
+        chartEditor: {
+          ...editor,
+          historyIndex: nextIndex,
+          currentSpec: editor.history[nextIndex],
+        },
+      };
+    }),
   setChartEditorMode: (mode) =>
     set((s) => ({
       chartEditor: { ...s.chartEditor, mode },
