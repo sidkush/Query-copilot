@@ -39,6 +39,10 @@ export default function DashboardShell({
   tiles = [],
   initialMode = "briefing",
   onModeChange,
+  dashboardId = null,
+  dashboardName,
+  onTileClick,
+  onLayoutChange,
 }) {
   const [mode, setMode] = useState(initialMode);
 
@@ -82,7 +86,13 @@ export default function DashboardShell({
         />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        <Layout tiles={tiles} />
+        <Layout
+          tiles={tiles}
+          dashboardId={dashboardId}
+          dashboardName={dashboardName}
+          onTileClick={onTileClick}
+          onLayoutChange={onLayoutChange}
+        />
       </div>
     </div>
   );

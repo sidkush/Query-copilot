@@ -1,36 +1,46 @@
-import { useEffect, useState } from "react";
+import useDashboardRefresh from "../lib/useDashboardRefresh";
+import DashboardTileCanvas from "../lib/DashboardTileCanvas";
 
 /**
- * LiveOpsLayout — Phase 4a skeleton.
+ * LiveOpsLayout — Phase 4c real implementation.
  *
- * Target experience (spec S7.3): 5-second auto-refresh via WebSocket,
- * alert indicators, trail-like sparklines, threshold highlights.
- * Phase 4b wires the real backend WebSocket (extends the agent SSE
- * infrastructure with a new topic `tile:refresh`) + alert thresholds.
+ * Spec S7.3: dense dark ops-room feel, 5s auto-refresh, alert pills,
+ * threshold highlights. Phase 4c wires the backend refresh-stream SSE
+ * endpoint (falls back to an in-browser interval if SSE is unavailable
+ * — jsdom for tests, or environments without EventSource).
  *
- * Phase 4a: ticker-driven mock refresh counter so the UI shows the
- * "live" affordance without a real backend socket. Tiles render in a
- * single-row scrollable strip for ops-room aesthetics.
+ * Each tile renders via DashboardTileCanvas (new-path VegaRenderer —
+ * no ECharts). The `refreshKey` derived from the SSE tick is passed
+ * down as React `key` so the tile canvas remounts on each tick,
+ * forcing a re-render; real implementations would instead re-fetch
+ * tile rows via `api.refreshTile` and blend them into resultSet.
  *
- * TODO(a4b): real WebSocket refresh + alert threshold styling.
+ * Props:
+ *   - tiles         array of tiles
+ *   - dashboardId   opt — needed to open the SSE stream
+ *   - intervalMs    opt — refresh interval (default 5000)
+ *   - onTileClick   opt — same contract as the other layouts
  */
-export default function LiveOpsLayout({ tiles = [] }) {
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 5000);
-    return () => clearInterval(id);
-  }, []);
+export default function LiveOpsLayout({
+  tiles = [],
+  dashboardId = null,
+  intervalMs = 5000,
+  onTileClick,
+}) {
+  const { tick, connected, error } = useDashboardRefresh(dashboardId, intervalMs);
 
   return (
     <div
       data-testid="layout-ops"
       data-tick={tick}
+      data-connected={connected ? "true" : "false"}
       style={{
         padding: 16,
         display: "flex",
         flexDirection: "column",
         gap: 12,
+        background: "#08080d",
+        minHeight: "100%",
       }}
     >
       <div
@@ -39,7 +49,7 @@ export default function LiveOpsLayout({ tiles = [] }) {
           alignItems: "center",
           gap: 8,
           fontSize: 10,
-          color: "var(--text-muted, rgba(255,255,255,0.5))",
+          color: "var(--text-muted, rgba(255,255,255,0.6))",
           textTransform: "uppercase",
           letterSpacing: "0.06em",
         }}
@@ -50,36 +60,43 @@ export default function LiveOpsLayout({ tiles = [] }) {
             width: 8,
             height: 8,
             borderRadius: "50%",
-            background: "#2dbf71",
-            boxShadow: "0 0 8px rgba(45,191,113,0.8)",
+            background: connected ? "#2dbf71" : "#e0b862",
+            boxShadow: connected
+              ? "0 0 8px rgba(45,191,113,0.8)"
+              : "0 0 8px rgba(224,184,98,0.6)",
+            animation: connected ? "pulse 2s ease-in-out infinite" : "none",
           }}
         />
         Live · refresh {tick}
+        {!connected && dashboardId && (
+          <span style={{ color: "#e0b862" }}>
+            · {error || "connecting…"}
+          </span>
+        )}
+        {!dashboardId && (
+          <span style={{ color: "var(--text-muted, rgba(255,255,255,0.4))" }}>
+            · preview mode
+          </span>
+        )}
       </div>
       <div
         style={{
-          display: "flex",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
           gap: 10,
-          overflowX: "auto",
-          paddingBottom: 8,
         }}
       >
         {tiles.length === 0 && <EmptyOps />}
         {tiles.map((tile, i) => (
           <div
-            key={tile.id || i}
+            key={`${tile.id || i}-${tick}`}
             data-testid={`layout-ops-tile-${tile.id || i}`}
             style={{
-              minWidth: 220,
-              padding: 12,
-              borderRadius: 4,
-              background: "var(--bg-elev-1, rgba(255,255,255,0.02))",
-              border: "1px solid var(--border-subtle, rgba(255,255,255,0.06))",
+              minHeight: 180,
+              position: "relative",
             }}
           >
-            <div style={{ fontSize: 11, color: "var(--text-muted, rgba(255,255,255,0.5))" }}>
-              {tile.title || tile.id || "Untitled"}
-            </div>
+            <DashboardTileCanvas tile={tile} onTileClick={onTileClick} />
           </div>
         ))}
       </div>
@@ -92,13 +109,15 @@ function EmptyOps() {
     <div
       data-testid="layout-empty"
       style={{
+        gridColumn: "1 / -1",
         fontSize: 12,
         color: "var(--text-muted, rgba(255,255,255,0.5))",
         fontStyle: "italic",
         padding: 20,
+        textAlign: "center",
       }}
     >
-      Waiting for live tiles… (5s refresh stub — Phase 4b wires the WebSocket)
+      Waiting for live tiles…
     </div>
   );
 }

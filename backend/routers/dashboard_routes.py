@@ -1542,3 +1542,52 @@ async def get_dashboard_feature_flags():
     return {
         "NEW_CHART_EDITOR_ENABLED": settings.NEW_CHART_EDITOR_ENABLED,
     }
+
+
+# ── Sub-project A Phase 4c — LiveOps refresh stream ────────────────────
+
+@router.get("/{dashboard_id}/refresh-stream")
+async def refresh_stream(
+    dashboard_id: str,
+    interval: int = 5,
+    user=Depends(get_current_user),
+):
+    """SSE heartbeat stream that signals the Live Ops layout to re-run
+    its tiles on a fixed interval (default 5s).
+
+    Phase 4c ships a heartbeat-only variant: the event body is a JSON
+    tick `{tile_ids: "*", ts: <iso>, tick: N}`. Tiles react by calling
+    `refreshTile()` on the active connection to pull fresh rows. The
+    event loop stops cleanly on client disconnect (StreamingResponse
+    handles that via `CancelledError`).
+
+    Interval is clamped to [1, 60] to prevent pathological refresh
+    rates. Dashboards that belong to a different user still stream (no
+    ownership check beyond auth) — same contract as
+    `/subscribe`, which leaves authorization to the app layer.
+    """
+    clamped_interval = max(1, min(60, int(interval)))
+
+    async def event_generator():
+        tick = 0
+        try:
+            while True:
+                tick += 1
+                payload = _json.dumps(
+                    {
+                        "dashboard_id": dashboard_id,
+                        "tile_ids": "*",
+                        "tick": tick,
+                        "interval_s": clamped_interval,
+                    }
+                )
+                yield f"event: refresh\ndata: {payload}\n\n"
+                await asyncio.sleep(clamped_interval)
+        except asyncio.CancelledError:
+            pass
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
