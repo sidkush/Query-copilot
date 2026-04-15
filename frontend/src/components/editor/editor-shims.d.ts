@@ -107,6 +107,23 @@ declare module '*/components/dashboard/modes/WorkbookLayout' {
   export default WorkbookLayout;
 }
 
+// Phase 5 — Stage Mode theme registry + provider + creative lane
+declare module '*/components/editor/themes/themeRegistry' {
+  export function getThemeTokens(id: string): any;
+  export function listThemes(): any[];
+  export function listStageThemes(): any[];
+  export function listBaseThemes(): any[];
+  export function themeToCssVars(tokens: any): Record<string, string>;
+}
+declare module '*/components/editor/themes/ThemeProvider' {
+  const ThemeProvider: JsxEditorComponent;
+  export default ThemeProvider;
+}
+declare module '*/components/editor/themes/creativeRegistry' {
+  export function getCreativeComponent(name: string): any;
+  export function listCreativeComponents(): string[];
+}
+
 // Zustand store (plain .js) — minimal shim so .ts tests can import it.
 // The store is its own source of truth; this declaration just unblocks
 // type-check on the test surface.

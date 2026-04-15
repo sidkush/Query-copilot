@@ -61,12 +61,15 @@ describe('EditorCanvas routing via routeSpecWithStrategy', () => {
     expect(placeholder.getAttribute('data-title')).toBe('deck.gl renderer');
   });
 
-  it('routes a creative spec to CreativeRenderer placeholder', () => {
+  it('routes a creative spec to CreativeRenderer and resolves via the creative registry', () => {
     render(<EditorCanvas spec={CREATIVE_SPEC} resultSet={resultSet} />);
     const canvas = screen.getByTestId('editor-canvas');
     expect(canvas.getAttribute('data-renderer-id')).toBe('three');
+    // In jsdom getGPUTier() returns 'low' (no canvas context), so the
+    // creative renderer renders the placeholder card with the
+    // registry-resolved component name in its title.
     const placeholder = screen.getByTestId('renderer-placeholder');
-    expect(placeholder.getAttribute('data-title')).toBe('Creative (Three.js) renderer');
+    expect(placeholder.getAttribute('data-title')).toContain('Hologram');
   });
 
   it('mounts the real VegaLite view for a cartesian spec (B2.2 contract)', () => {
