@@ -744,6 +744,13 @@ export const api = {
     }),
   mlCatalog: () => request("/ml/pipelines/catalog"),
 
+  // Sub-project A Phase 4b — chart-system feature flags + migration
+  getDashboardFeatureFlags: () => request("/dashboards/feature-flags"),
+  migrateAllDashboards: () =>
+    request("/dashboards/migrate", { method: "POST" }),
+  migrateDashboard: (dashboardId) =>
+    request(`/dashboards/${dashboardId}/migrate`, { method: "POST" }),
+
   // Health
   health: () => request("/health"),
 };

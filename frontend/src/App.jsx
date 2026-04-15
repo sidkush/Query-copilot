@@ -26,9 +26,12 @@ const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const MLEngine = lazy(() => import("./pages/MLEngine"));
 
-// Dev-only route — tree-shaken in production builds (import.meta.env.DEV === false).
+// Dev-only routes — tree-shaken in production builds (import.meta.env.DEV === false).
 const DevChartEditor = import.meta.env.DEV
   ? lazy(() => import("./pages/DevChartEditor"))
+  : null;
+const DevDashboardShell = import.meta.env.DEV
+  ? lazy(() => import("./pages/DevDashboardShell"))
   : null;
 
 function ProtectedRoute({ children }) {
@@ -113,6 +116,11 @@ function AnimatedRoutes() {
           {/* Dev-only — A Phase 1 editor shell smoke-test route */}
           {import.meta.env.DEV && DevChartEditor && (
             <Route path="/dev/chart-editor" element={<DevChartEditor />} />
+          )}
+
+          {/* Dev-only — A Phase 4b dashboard shell smoke-test route */}
+          {import.meta.env.DEV && DevDashboardShell && (
+            <Route path="/dev/dashboard-shell" element={<DevDashboardShell />} />
           )}
 
           {/* Fallback */}

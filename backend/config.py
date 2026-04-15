@@ -251,6 +251,13 @@ class Settings(BaseSettings):
     FEATURE_AUTO_SWITCH: bool = Field(default=False)  # #6: connection switching prediction
     FEATURE_SMART_PRELOAD: bool = Field(default=False)  # #8: dashboard pre-loading
 
+    # Sub-project A — new chart editor + ChartSpec IR cutover (Phase 4b).
+    # Default False through Phases 0-4a. Flipped to True in staging once
+    # the migration script has processed existing dashboards and visual
+    # regression has passed. Until then the legacy TileEditor + ResultsChart
+    # + ECharts path remains the production surface.
+    NEW_CHART_EDITOR_ENABLED: bool = Field(default=False)
+
     # Demo login guard — must be explicitly enabled
     DEMO_ENABLED: bool = Field(default=False)
 

@@ -1499,3 +1499,46 @@ async def subscribe_tile_updates(dashboard_id: str, user: dict = Depends(get_cur
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Sub-project A Phase 4b — dashboard migration ─────────────────────
+
+@router.post("/migrate")
+async def migrate_all_dashboards(user=Depends(get_current_user)):
+    """Migrate every dashboard owned by the caller to attach ChartSpec
+    to each legacy tile. Idempotent — tiles that already have a
+    chart_spec key are skipped. Backs up dashboards.json before
+    writing.
+    """
+    from dashboard_migration import migrate_user_dashboards
+    email = user.get("email") or user.get("sub")
+    if not email:
+        raise HTTPException(status_code=401, detail="No user email in token")
+    return migrate_user_dashboards(email)
+
+
+@router.post("/{dashboard_id}/migrate")
+async def migrate_one_dashboard(dashboard_id: str, user=Depends(get_current_user)):
+    """Migrate a single dashboard by id. Same contract as /migrate but
+    only touches the matching dashboard; useful for re-running a
+    migration on a single tile after fixing a legacy field.
+    """
+    from dashboard_migration import migrate_user_dashboards
+    email = user.get("email") or user.get("sub")
+    if not email:
+        raise HTTPException(status_code=401, detail="No user email in token")
+    return migrate_user_dashboards(email, dashboard_id=dashboard_id)
+
+
+@router.get("/feature-flags")
+async def get_dashboard_feature_flags():
+    """Return the chart-system cutover flags so the frontend can
+    gate the new DashboardShell + ChartEditor surfaces in production.
+    Sub-project A Phase 4b — the primary flag is
+    NEW_CHART_EDITOR_ENABLED. Other chart-system flags live here too
+    as they come online.
+    """
+    from config import settings
+    return {
+        "NEW_CHART_EDITOR_ENABLED": settings.NEW_CHART_EDITOR_ENABLED,
+    }
