@@ -74,6 +74,8 @@ export interface VegaLiteSpec {
 function compileField(f: FieldRef): VegaLiteEncodingEntry {
   const out: VegaLiteEncodingEntry = {
     field: f.field,
+    // Vega-Lite has no 'geographic' type; treat as nominal
+    // (geo rendering goes through map/geo-overlay renderers, not Vega-Lite).
     type: f.type === 'geographic' ? 'nominal' : f.type,
   };
   if (f.aggregate && f.aggregate !== 'none') out.aggregate = f.aggregate;
@@ -115,6 +117,11 @@ function compileEncoding(enc: Encoding): VegaLiteEncoding {
  *
  * The output uses a named data source ('askdb_data') — the renderer
  * injects actual rows via react-vega's data prop.
+ *
+ * `$schema` and `data` are only emitted on the root spec. Recursive
+ * children (layers, faceted inner specs, hconcat/vconcat members)
+ * inherit `data` from the parent and must not redeclare `$schema`
+ * per Vega-Lite convention.
  */
 export function compileToVegaLite(spec: ChartSpec): VegaLiteSpec {
   if (spec.type !== 'cartesian') {
@@ -124,38 +131,65 @@ export function compileToVegaLite(spec: ChartSpec): VegaLiteSpec {
     );
   }
 
-  const out: VegaLiteSpec = {
+  const inner = compileInner(spec);
+  // Faceted root specs omit top-level `data` — the inner spec
+  // inherits it from the renderer-provided dataset at render time,
+  // and redeclaring it here would shadow that inheritance.
+  if (inner.facet) {
+    return {
+      $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+      ...inner,
+    };
+  }
+  return {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
     data: { name: 'askdb_data' },
+    ...inner,
   };
+}
+
+/**
+ * Compile a cartesian ChartSpec without emitting `$schema` or `data`.
+ * Used recursively for children (layers, facet inner, hconcat/vconcat)
+ * that inherit those fields from the root spec.
+ */
+function compileInner(spec: ChartSpec): VegaLiteSpec {
+  if (spec.type !== 'cartesian') {
+    throw new Error(
+      `Cannot compile non-cartesian spec to Vega-Lite (type: ${spec.type}). ` +
+        `Use the appropriate renderer via the IR router.`,
+    );
+  }
+
+  const out: VegaLiteSpec = {};
 
   if (spec.title) out.title = spec.title;
   if (spec.description) out.description = spec.description;
 
-  // Layered specs
+  // Layered specs — children inherit data from parent.
   if (spec.layer) {
-    out.layer = spec.layer.map((s) => compileToVegaLite(s));
+    out.layer = spec.layer.map((s) => compileInner(s));
     return out;
   }
 
-  // Faceted specs — the inner spec inherits the data source, so we
-  // drop the outer data binding to avoid duplication.
+  // Faceted specs — the inner spec inherits the data source from
+  // the faceted parent, so no data field is emitted at either level
+  // of the facet wrapper here.
   if (spec.facet) {
     out.facet = {};
     if (spec.facet.row) out.facet.row = compileField(spec.facet.row);
     if (spec.facet.column) out.facet.column = compileField(spec.facet.column);
-    out.spec = compileToVegaLite(spec.facet.spec);
-    delete out.data;
+    out.spec = compileInner(spec.facet.spec);
     return out;
   }
 
-  // Concat specs
+  // Concat specs — children inherit data from parent.
   if (spec.hconcat) {
-    out.hconcat = spec.hconcat.map((s) => compileToVegaLite(s));
+    out.hconcat = spec.hconcat.map((s) => compileInner(s));
     return out;
   }
   if (spec.vconcat) {
-    out.vconcat = spec.vconcat.map((s) => compileToVegaLite(s));
+    out.vconcat = spec.vconcat.map((s) => compileInner(s));
     return out;
   }
 
@@ -164,9 +198,18 @@ export function compileToVegaLite(spec: ChartSpec): VegaLiteSpec {
   if (spec.encoding) out.encoding = compileEncoding(spec.encoding);
   if (spec.transform) out.transform = spec.transform;
   if (spec.selection) {
-    // Vega-Lite v5 renamed `selection` to `params` — alias here so the
-    // renderer doesn't have to know about the legacy shape.
-    out.params = spec.selection;
+    // Vega-Lite v5 uses 'params' with nested 'select' object.
+    // AskDB's Selection has flat fields (name/type/on/encodings/clear);
+    // we reshape into { name, select: { type, on, clear, encodings } }.
+    (out as Record<string, unknown>).params = spec.selection.map((s) => ({
+      name: s.name,
+      select: {
+        type: s.type,
+        ...(s.on !== undefined && { on: s.on }),
+        ...(s.clear !== undefined && { clear: s.clear }),
+        ...(s.encodings !== undefined && { encodings: s.encodings }),
+      },
+    }));
   }
   if (spec.config) out.config = spec.config;
 
