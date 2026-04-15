@@ -244,6 +244,21 @@ async def create_new_dashboard(body: CreateDashboard, user=Depends(get_current_u
         raise HTTPException(400, "Dashboard name is required")
     return create_dashboard(user["email"], body.name.strip()[:200])
 
+# NOTE: Literal routes MUST be declared before parametric ones or
+# FastAPI matches `/{dashboard_id}` first and /feature-flags becomes a
+# 404 "Dashboard not found". Phase 4c+1 regression — do not move below.
+@router.get("/feature-flags")
+async def get_dashboard_feature_flags():
+    """Return chart-system cutover flags so the frontend can gate the
+    new DashboardShell + ChartEditor surfaces in production. Primary
+    flag is NEW_CHART_EDITOR_ENABLED. Additional chart-system flags
+    land here as they come online.
+    """
+    from config import settings
+    return {
+        "NEW_CHART_EDITOR_ENABLED": settings.NEW_CHART_EDITOR_ENABLED,
+    }
+
 @router.get("/{dashboard_id}")
 async def get_dashboard(dashboard_id: str, user=Depends(get_current_user)):
     d = load_dashboard(user["email"], dashboard_id)
@@ -1528,20 +1543,6 @@ async def migrate_one_dashboard(dashboard_id: str, user=Depends(get_current_user
     if not email:
         raise HTTPException(status_code=401, detail="No user email in token")
     return migrate_user_dashboards(email, dashboard_id=dashboard_id)
-
-
-@router.get("/feature-flags")
-async def get_dashboard_feature_flags():
-    """Return the chart-system cutover flags so the frontend can
-    gate the new DashboardShell + ChartEditor surfaces in production.
-    Sub-project A Phase 4b — the primary flag is
-    NEW_CHART_EDITOR_ENABLED. Other chart-system flags live here too
-    as they come online.
-    """
-    from config import settings
-    return {
-        "NEW_CHART_EDITOR_ENABLED": settings.NEW_CHART_EDITOR_ENABLED,
-    }
 
 
 # ── Sub-project A Phase 4c — LiveOps refresh stream ────────────────────
