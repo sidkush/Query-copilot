@@ -35,3 +35,15 @@ if (typeof HTMLCanvasElement !== 'undefined') {
     getContext: (contextType: string) => unknown;
   }).getContext = () => null;
 }
+
+// ResizeObserver polyfill — jsdom v25 does not implement ResizeObserver
+// which `react-grid-layout` + `AnalystWorkbenchLayout`'s container-width
+// hook both use. A no-op stub is enough for component smoke tests.
+if (typeof globalThis !== 'undefined' && typeof (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver === 'undefined') {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverStub;
+}
