@@ -55,6 +55,9 @@ export type { InstanceKind, InstancePoolOptions } from './perf/instancePool';
 
 export { compileToVegaLite } from './compiler/toVegaLite';
 
+export { applySpecPatch, parsePointer, PatchError } from './applySpecPatch';
+export type { Patch, PatchOp } from './applySpecPatch';
+
 export {
   analyzeResultShape,
   HIGH_CARDINALITY_THRESHOLD,
