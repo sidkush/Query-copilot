@@ -53,6 +53,14 @@ export type { FrameBudgetTrackerOptions } from './perf/frameBudgetTracker';
 export { InstancePool, globalInstancePool } from './perf/instancePool';
 export type { InstanceKind, InstancePoolOptions } from './perf/instancePool';
 
+// Sub-project B Phase B4 — Arrow streaming
+export { ArrowChunkReceiver } from './perf/arrowChunkReceiver';
+export type {
+  ArrowChunkReceiverOptions,
+  ChunkEvent,
+  DoneEvent,
+} from './perf/arrowChunkReceiver';
+
 export { compileToVegaLite } from './compiler/toVegaLite';
 
 export { applySpecPatch, parsePointer, PatchError } from './applySpecPatch';
