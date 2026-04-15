@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { VegaLite } from 'react-vega';
 import {
   compileToVegaLite,
@@ -8,6 +8,7 @@ import {
   uniformSample,
   pixelMinMaxRows,
   aggregateBinRows,
+  ArrowChunkReceiver,
 } from '../../../chart-ir';
 import type {
   ChartSpec,
@@ -63,6 +64,22 @@ type Row = Record<string, unknown>;
 
 const DEFAULT_CANVAS_SIZE = { width: 520, height: 320 };
 
+async function decodeArrowChunk(base64Data: string, columns: string[]): Promise<Row[]> {
+  const { tableFromIPC } = await import('apache-arrow');
+  const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+  const table = tableFromIPC(bytes);
+  const rows: Row[] = [];
+  for (let i = 0; i < table.numRows; i++) {
+    const row: Row = {};
+    for (const col of columns) {
+      const vec = table.getChild(col);
+      row[col] = vec ? vec.get(i) : null;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
 export default function VegaRenderer({
   spec,
   resultSet,
@@ -105,6 +122,12 @@ export default function VegaRenderer({
     }
     return applyDownsample(rows, spec, ds.method, ds.targetPoints);
   }, [rowObjects, strategy, spec]);
+
+  const viewRef = useRef<View | null>(null);
+  const streamingRef = useRef(false);
+  const [streamingComplete, setStreamingComplete] = useState(false);
+
+  const isStreaming = strategy?.streaming?.enabled === true;
 
   // Resolve the actual Vega backend: 'webgl' falls back to canvas because
   // Vega-Lite's runtime only supports svg|canvas. This keeps the RSR
@@ -159,6 +182,61 @@ export default function VegaRenderer({
     if (onViewReady) onViewReady(view);
   }, [onViewReady]);
 
+  // Store the view from onNewView so the streaming hook can insert rows.
+  const handleNewViewWrapped = useCallback((view: View) => {
+    viewRef.current = view;
+    handleNewView(view);
+  }, [handleNewView]);
+
+  useEffect(() => {
+    if (!isStreaming || !resultSet?.columns) return;
+
+    const columns = resultSet.columns;
+    streamingRef.current = true;
+    setStreamingComplete(false);
+
+    // Build the request body from the spec's encoding hints.
+    const connId = (window as unknown as Record<string, string>).__askdb_active_conn_id ?? '';
+    const body = {
+      conn_id: connId,
+      sql: (window as unknown as Record<string, string>).__askdb_last_sql ?? '',
+      target_points: strategy?.downsample?.targetPoints ?? 4000,
+      x_col: spec.encoding?.x?.field,
+      y_col: spec.encoding?.y?.field,
+      x_type: spec.encoding?.x?.type,
+      y_type: spec.encoding?.y?.type,
+      batch_rows: strategy?.streaming?.batchRows ?? 5000,
+    };
+
+    const receiver = new ArrowChunkReceiver({
+      url: '/api/v1/agent/charts/stream',
+      body,
+      onChunk: async (base64Data) => {
+        try {
+          const newRows = await decodeArrowChunk(base64Data, columns);
+          const view = viewRef.current;
+          if (view && newRows.length > 0) {
+            const changeset = (await import('vega')).changeset();
+            view.change('askdb_data', changeset.insert(newRows)).run();
+          }
+        } catch (err) {
+          console.warn('[VegaRenderer] streaming chunk decode error:', err);
+        }
+      },
+      onDone: () => {
+        streamingRef.current = false;
+        setStreamingComplete(true);
+      },
+      onError: (msg) => {
+        console.warn('[VegaRenderer] streaming error:', msg);
+        streamingRef.current = false;
+      },
+    });
+
+    receiver.start();
+    return () => receiver.abort();
+  }, [isStreaming, resultSet?.columns, spec, strategy]);
+
   const handleError = useCallback(
     (err: Error, _container: HTMLDivElement) => {
       // Swallow and log — render error UI via the compiled.ok === false path.
@@ -188,6 +266,10 @@ export default function VegaRenderer({
       </div>
     );
   }
+
+  const vegaData = isStreaming && !streamingComplete
+    ? { askdb_data: [] as Row[] }
+    : { askdb_data: downsampledRows };
 
   const rowCount = rowObjects.length;
   const downsampledCount = downsampledRows.length;
@@ -252,10 +334,10 @@ export default function VegaRenderer({
       >
         <VegaLite
           spec={compiled.vl as unknown as Parameters<typeof VegaLite>[0]['spec']}
-          data={{ askdb_data: downsampledRows }}
+          data={vegaData}
           renderer={vegaBackend}
           actions={false}
-          onNewView={handleNewView}
+          onNewView={handleNewViewWrapped}
           onError={handleError}
           width={DEFAULT_CANVAS_SIZE.width}
           height={DEFAULT_CANVAS_SIZE.height}
