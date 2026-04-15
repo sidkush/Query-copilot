@@ -5,6 +5,7 @@ import VegaRenderer from "./renderers/VegaRenderer";
 import MapLibreRenderer from "./renderers/MapLibreRenderer";
 import DeckRenderer from "./renderers/DeckRenderer";
 import CreativeRenderer from "./renderers/CreativeRenderer";
+import OnObjectOverlay from "./onobject/OnObjectOverlay";
 
 /**
  * EditorCanvas — center pane. Dispatches to a renderer via
@@ -13,7 +14,7 @@ import CreativeRenderer from "./renderers/CreativeRenderer";
  * other three renderers render placeholder cards explaining when the real
  * integration lands.
  */
-export default function EditorCanvas({ spec, resultSet }) {
+export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
   const resultProfile = useMemo(() => buildResultProfile(spec, resultSet), [spec, resultSet]);
 
   const routing = useMemo(() => {
@@ -54,12 +55,14 @@ export default function EditorCanvas({ spec, resultSet }) {
       }}
     >
       {rendererId === "vega-lite" && (
-        <VegaRenderer
-          spec={spec}
-          resultSet={resultSet}
-          rendererBackend={strategy.rendererBackend}
-          strategy={strategy}
-        />
+        <OnObjectOverlay spec={spec} onSpecChange={onSpecChange}>
+          <VegaRenderer
+            spec={spec}
+            resultSet={resultSet}
+            rendererBackend={strategy.rendererBackend}
+            strategy={strategy}
+          />
+        </OnObjectOverlay>
       )}
       {rendererId === "maplibre" && <MapLibreRenderer spec={spec} />}
       {rendererId === "deckgl" && <DeckRenderer spec={spec} />}

@@ -1,8 +1,12 @@
 import { motion } from "framer-motion";
+import TitleInlineEditor from "./onobject/TitleInlineEditor";
 
 /**
  * Top bar: breadcrumb + mode toggle + Save/Share buttons.
  * Buttons are Phase 1 stubs — wired to agent/save pipeline in later phases.
+ *
+ * Phase 2b: the "Untitled chart" crumb is replaced by a click-to-edit
+ * TitleInlineEditor driven by spec.title and onSpecChange.
  */
 const MODES = [
   { id: "default", label: "Default" },
@@ -10,7 +14,7 @@ const MODES = [
   { id: "stage", label: "Stage" },
 ];
 
-export default function ChartEditorTopbar({ mode = "default", onModeChange }) {
+export default function ChartEditorTopbar({ mode = "default", onModeChange, spec, onSpecChange }) {
   return (
     <div
       data-testid="chart-editor-topbar"
@@ -36,7 +40,7 @@ export default function ChartEditorTopbar({ mode = "default", onModeChange }) {
       >
         <span>Dashboard</span>
         <span style={{ opacity: 0.5 }}>/</span>
-        <span style={{ color: "var(--text-primary, #e7e7ea)" }}>Untitled chart</span>
+        <TitleInlineEditor spec={spec} onSpecChange={onSpecChange} />
       </div>
 
       <div

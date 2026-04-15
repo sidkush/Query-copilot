@@ -77,7 +77,7 @@ export default function ChartEditor({
       }}
     >
       <div style={{ gridArea: "topbar", minWidth: 0 }}>
-        <ChartEditorTopbar mode={mode} />
+        <ChartEditorTopbar mode={mode} spec={spec} onSpecChange={onSpecChange} />
       </div>
 
       {showDataRail && (
@@ -93,6 +93,7 @@ export default function ChartEditor({
           onSpecChange={onSpecChange}
         />
       </div>
+
 
       {showInspector && (
         <div style={{ gridArea: "inspector", minWidth: 0, overflow: "hidden" }}>

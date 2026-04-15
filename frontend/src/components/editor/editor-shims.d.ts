@@ -43,6 +43,32 @@ declare module '*/components/editor/useChartEditorHotkeys' {
   export default useChartEditorHotkeys;
 }
 
+// On-object popovers
+declare module '*/components/editor/onobject/OnObjectOverlay' {
+  const OnObjectOverlay: JsxEditorComponent;
+  export default OnObjectOverlay;
+}
+declare module '*/components/editor/onobject/AxisPopover' {
+  const AxisPopover: JsxEditorComponent;
+  export default AxisPopover;
+}
+declare module '*/components/editor/onobject/LegendPopover' {
+  const LegendPopover: JsxEditorComponent;
+  export default LegendPopover;
+}
+declare module '*/components/editor/onobject/SeriesPopover' {
+  const SeriesPopover: JsxEditorComponent;
+  export default SeriesPopover;
+}
+declare module '*/components/editor/onobject/TitleInlineEditor' {
+  const TitleInlineEditor: JsxEditorComponent;
+  export default TitleInlineEditor;
+}
+declare module '*/components/editor/onobject/popoverShell' {
+  const PopoverShell: JsxEditorComponent;
+  export default PopoverShell;
+}
+
 // Zustand store (plain .js) — minimal shim so .ts tests can import it.
 // The store is its own source of truth; this declaration just unblocks
 // type-check on the test surface.
