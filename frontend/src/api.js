@@ -458,6 +458,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ tile_ids: tileIds, conn_id: connId, filters, parameters }),
     }),
+  // Workbook shared-filter batch refresh — wraps each tile SQL in a subquery
+  // with the supplied filter conditions applied as WHERE clauses.
+  // filters: Array<{ field: string, op: string, value: string }>
+  refreshTilesBatch: (dashboardId, tileIds, filters) =>
+    request(`/dashboards/${dashboardId}/tiles/refresh-batch`, {
+      method: "POST",
+      body: JSON.stringify({ tile_ids: tileIds, filters }),
+    }),
   refreshAllBackground: (dashboardId, connId) =>
     request(`/dashboards/${dashboardId}/refresh-all`, {
       method: "POST",

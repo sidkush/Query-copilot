@@ -1186,6 +1186,202 @@ async def batch_refresh_tiles(dashboard_id: str, body: BatchRefreshBody, user=De
     return {"results": results, "errors": errors}
 
 
+# ── Workbook Batch Refresh (filter→SQL subquery wrapper) ───────────
+
+class WorkbookFilterItem(BaseModel):
+    field: str
+    op: str  # "=" | "!=" | ">" | "<" | ">=" | "<=" | "LIKE" | "IN"
+    value: str
+
+
+class RefreshBatchBody(BaseModel):
+    tile_ids: list  # list of tile_id strings
+    filters: list = []  # list of WorkbookFilterItem dicts
+
+
+_WORKBOOK_ALLOWED_OPS = {"=", "!=", ">", "<", ">=", "<=", "LIKE", "IN"}
+
+
+def _build_filter_conditions(filters: list) -> str:
+    """Translate workbook filter list into SQL WHERE conditions.
+
+    Each filter uses the subquery-wrapper pattern:
+      SELECT * FROM ({original_sql}) AS _filtered WHERE {conditions}
+
+    Returns the combined condition string (e.g. "col = 'val' AND col2 > 5"),
+    or an empty string if no valid filters.
+
+    Values are escaped (single-quote doubling) and operator-validated.
+    Injection is additionally blocked by running the assembled SQL through
+    SQLValidator before execution.
+    """
+    import re as _re_wf
+
+    def _esc(v: str) -> str:
+        return v.replace("'", "''")
+
+    conditions = []
+    for f in filters:
+        if isinstance(f, dict):
+            field = f.get("field", "")
+            op = (f.get("op") or "=").upper()
+            value = str(f.get("value", ""))
+        else:
+            # WorkbookFilterItem pydantic model
+            field = f.field
+            op = (f.op or "=").upper()
+            value = str(f.value)
+
+        if not field or op not in _WORKBOOK_ALLOWED_OPS:
+            continue
+        # Validate field name: only safe SQL identifier chars
+        if not _re_wf.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*$', field):
+            continue
+
+        if op == "IN":
+            elements = [e.strip() for e in value.split(",") if e.strip()]
+            safe_elems = []
+            for elem in elements:
+                try:
+                    float(elem)
+                    safe_elems.append(elem)
+                except ValueError:
+                    safe_elems.append(f"'{_esc(elem)}'")
+            if safe_elems:
+                conditions.append(f"{field} IN ({', '.join(safe_elems)})")
+        elif op == "LIKE":
+            conditions.append(f"{field} LIKE '{_esc(value)}'")
+        else:
+            try:
+                float(value)
+                conditions.append(f"{field} {op} {value}")
+            except ValueError:
+                conditions.append(f"{field} {op} '{_esc(value)}'")
+
+    return " AND ".join(conditions)
+
+
+@router.post("/{dashboard_id}/tiles/refresh-batch")
+async def refresh_tiles_batch(
+    dashboard_id: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+):
+    """Re-execute tile SQL with additional WHERE filters applied via subquery wrapper.
+
+    Body: {"tile_ids": ["t1", "t2"], "filters": [{"field": "region", "op": "=", "value": "Europe"}]}
+
+    Each tile's SQL is wrapped as:
+      SELECT * FROM ({original_sql}) AS _filtered WHERE {conditions}
+
+    Filter values are escaped and all SQL is re-validated through SQLValidator
+    to prevent injection attacks. Results are not persisted (filtered data is
+    always transient).
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    email = user["email"]
+    tile_ids = body.get("tile_ids", [])
+    raw_filters = body.get("filters", [])
+
+    if not isinstance(tile_ids, list):
+        raise HTTPException(400, "tile_ids must be a list")
+    if not isinstance(raw_filters, list):
+        raise HTTPException(400, "filters must be a list")
+
+    d = load_dashboard(email, dashboard_id)
+    if not d:
+        raise HTTPException(404, "Dashboard not found")
+
+    # Resolve connection
+    import main as app_module
+    app = app_module.app
+    connections = app.state.connections.get(email, {})
+    if connections:
+        entry = next(iter(connections.values()))
+    else:
+        entry = _auto_reconnect(email, app)
+        if not entry:
+            raise HTTPException(400, "No active database connection. Please connect to a database first.")
+
+    # Build tile lookup
+    tile_map = {}
+    for tab in d.get("tabs", []):
+        for sec in tab.get("sections", []):
+            for tile in sec.get("tiles", []):
+                if tile["id"] in tile_ids:
+                    tile_map[tile["id"]] = tile
+
+    from sql_validator import SQLValidator
+    from pii_masking import mask_dataframe
+    from decimal import Decimal
+
+    _dialect = (
+        entry.connector.db_type.value
+        if hasattr(entry.connector, "db_type") and hasattr(entry.connector.db_type, "value")
+        else "postgres"
+    )
+    validator = SQLValidator(dialect=_dialect)
+
+    # Build WHERE condition string once (shared across all tiles)
+    condition_str = _build_filter_conditions(raw_filters)
+
+    def _refresh_one(tile_id: str) -> dict:
+        tile = tile_map.get(tile_id)
+        if not tile or not tile.get("sql"):
+            return {"error": "Tile not found or has no SQL"}
+
+        original_sql = tile["sql"].rstrip().rstrip(";").rstrip()
+
+        # Wrap in subquery if filters are present
+        if condition_str:
+            target_sql = f"SELECT * FROM ({original_sql}) AS _filtered WHERE {condition_str}"
+        else:
+            target_sql = original_sql
+
+        # Validate assembled SQL through the full validator to block injection
+        is_valid, validated_sql, err = validator.validate(target_sql)
+        if not is_valid:
+            return {"error": f"SQL validation failed: {err}"}
+
+        try:
+            exec_sql = validator.apply_limit(validated_sql)
+            _logger.info("refresh_batch tile=%s sql=%s", tile_id, exec_sql[:200])
+            df = entry.connector.execute_query(exec_sql)
+            df = mask_dataframe(df)
+            rows = df.head(5000).to_dict("records")
+            for row in rows:
+                for k, v in row.items():
+                    if isinstance(v, Decimal):
+                        row[k] = float(v)
+            columns = list(df.columns)
+            # Never persist filtered results — filtered data is always transient
+            _publish_tile_update(dashboard_id, tile_id, columns, rows)
+            return {"columns": columns, "rows": rows, "rowCount": len(df)}
+        except Exception as exc:
+            _logger.warning("refresh_batch tile=%s error=%s", tile_id, exc)
+            return {"error": str(exc)[:200]}
+
+    results = {}
+    errors = {}
+    max_workers = min(5, max(1, len(tile_ids)))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_id = {executor.submit(_refresh_one, tid): tid for tid in tile_ids}
+        for future in as_completed(future_to_id):
+            tid = future_to_id[future]
+            try:
+                result = future.result()
+                if "error" in result:
+                    errors[tid] = result["error"]
+                else:
+                    results[tid] = result
+            except Exception as exc:
+                errors[tid] = str(exc)[:200]
+
+    return _sanitize_nan({"results": results, "errors": errors})
+
+
 # ── Bookmarks ──────────────────────────────────────────────────────
 
 @router.post("/{dashboard_id}/bookmarks")
