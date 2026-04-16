@@ -53,6 +53,10 @@ export type { FrameBudgetTrackerOptions } from './perf/frameBudgetTracker';
 export { InstancePool, globalInstancePool } from './perf/instancePool';
 export type { InstanceKind, InstancePoolOptions } from './perf/instancePool';
 
+// Sub-project B Phase B5 — renderer telemetry
+export { reportRenderTelemetry } from './perf/rendererTelemetry';
+export type { RenderTelemetryPayload } from './perf/rendererTelemetry';
+
 // Sub-project B Phase B4 — Arrow streaming
 export { ArrowChunkReceiver } from './perf/arrowChunkReceiver';
 export type {
