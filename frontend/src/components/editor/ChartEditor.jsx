@@ -38,6 +38,7 @@ export default function ChartEditor({
   mode = "default",
   surface = "dashboard-tile",
   onSpecChange,
+  onModeChange,
 }) {
   const connId = useStore((s) => s.activeConnId);
 
@@ -81,7 +82,7 @@ export default function ChartEditor({
       }}
     >
       <div style={{ gridArea: "topbar", minWidth: 0 }}>
-        <ChartEditorTopbar mode={mode} spec={spec} onSpecChange={onSpecChange} />
+        <ChartEditorTopbar mode={mode} onModeChange={onModeChange} spec={spec} onSpecChange={onSpecChange} />
       </div>
 
       {showDataRail && (

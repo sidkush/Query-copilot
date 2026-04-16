@@ -28,6 +28,47 @@ const ChartEditor = lazy(() => import("../components/editor/ChartEditor"));
  * already accepts a nested `tabs` payload with section-level `layout`
  * arrays, so we rebuild the full dashboard shape and send it back.
  */
+/**
+ * Build a resultSet with columnProfile for the ChartEditor DataRail.
+ * Tiles store {columns, rows} but may lack columnProfile.
+ * We infer it from the data so the DataRail populates dimensions/measures.
+ */
+function buildTileResultSet(tile) {
+  const columns = Array.isArray(tile?.columns) ? tile.columns : [];
+  let rows = Array.isArray(tile?.rows) ? tile.rows : [];
+
+  // If rows are objects, extract columns from first row
+  if (rows.length > 0 && !Array.isArray(rows[0]) && typeof rows[0] === 'object') {
+    if (columns.length === 0) {
+      // columns not stored — derive from row keys
+      const firstRow = rows[0];
+      columns.push(...Object.keys(firstRow));
+    }
+  }
+
+  // Build columnProfile if missing
+  let columnProfile = Array.isArray(tile?.columnProfile) && tile.columnProfile.length > 0
+    ? tile.columnProfile
+    : columns.map(name => {
+        // Sample first row value to infer type
+        const sample = rows[0];
+        const val = Array.isArray(sample) ? sample[columns.indexOf(name)] : sample?.[name];
+        const isNumeric = typeof val === 'number' || (typeof val === 'string' && !isNaN(Number(val)) && val.trim() !== '');
+        const isDate = typeof val === 'string' && /^\d{4}-\d{2}/.test(val);
+        return {
+          name,
+          dtype: isDate ? 'date' : isNumeric ? 'float' : 'string',
+          role: isDate ? 'dimension' : isNumeric ? 'measure' : 'dimension',
+          semanticType: isDate ? 'temporal' : isNumeric ? 'quantitative' : 'nominal',
+          cardinality: Math.min(rows.length, 20),
+          nullPct: 0,
+          sampleValues: rows.slice(0, 5).map(r => Array.isArray(r) ? r[columns.indexOf(name)] : r?.[name]),
+        };
+      });
+
+  return { columns, rows, columnProfile };
+}
+
 function flattenTilesForShell(dashboard) {
   if (!dashboard?.tabs) return [];
   const out = [];
@@ -222,63 +263,33 @@ export default function AnalyticsShell() {
               flexDirection: "column",
             }}
           >
-            {/* Editor header with close + mode switcher */}
+            {/* Minimal header — just a close button. Mode toggle is inside ChartEditor's topbar. */}
             <div style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 16px",
-              borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
-              flexShrink: 0,
+              position: "absolute", top: 8, left: 8, zIndex: 210,
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <button
-                  onClick={() => setSelectedTile(null)}
-                  style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    color: "var(--text-secondary, #b0b0b6)", fontSize: 18, padding: "4px 8px",
-                    borderRadius: 6, display: "flex", alignItems: "center",
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.06))"}
-                  onMouseLeave={e => e.currentTarget.style.background = "none"}
-                  aria-label="Close editor"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-                </button>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary, #e7e7ea)" }}>
-                  {selectedTile.title || "Edit Chart"}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                {["default", "pro", "stage"].map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setEditorMode(m)}
-                    style={{
-                      padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 500,
-                      cursor: "pointer", textTransform: "capitalize",
-                      background: editorMode === m ? "var(--accent-light, rgba(99,102,241,0.15))" : "transparent",
-                      color: editorMode === m ? "var(--accent, #6366f1)" : "var(--text-secondary, #b0b0b6)",
-                      border: editorMode === m ? "1px solid var(--accent, #6366f1)" : "1px solid transparent",
-                      transition: "all 150ms ease",
-                    }}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
+              <button
+                onClick={() => setSelectedTile(null)}
+                style={{
+                  background: "var(--bg-elev-2, rgba(255,255,255,0.06))", border: "1px solid var(--border-subtle, rgba(255,255,255,0.1))",
+                  cursor: "pointer", color: "var(--text-secondary, #b0b0b6)", fontSize: 16,
+                  padding: "5px 10px", borderRadius: 6, display: "flex", alignItems: "center", gap: 6,
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.12))"}
+                onMouseLeave={e => e.currentTarget.style.background = "var(--bg-elev-2, rgba(255,255,255,0.06))"}
+                aria-label="Close editor"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+                <span style={{ fontSize: 11, fontWeight: 500 }}>Back</span>
+              </button>
             </div>
-            {/* ChartEditor in selected mode */}
+            {/* ChartEditor fills the overlay — mode toggle is inside its topbar */}
             <div style={{ flex: 1, minHeight: 0, height: '100%', overflow: 'hidden' }}>
               <ChartEditor
                 spec={selectedTile.chart_spec || selectedTile.chartSpec || { $schema: "askdb/chart-spec/v1", type: "cartesian", mark: "bar", encoding: {} }}
-                resultSet={{
-                  columns: Array.isArray(selectedTile.columns) ? selectedTile.columns : [],
-                  rows: Array.isArray(selectedTile.rows) ? selectedTile.rows : [],
-                  columnProfile: Array.isArray(selectedTile.columnProfile) ? selectedTile.columnProfile : [],
-                }}
+                resultSet={buildTileResultSet(selectedTile)}
                 mode={editorMode}
                 surface="dashboard-tile"
+                onModeChange={setEditorMode}
                 onSpecChange={(next) => {
                   setChartEditorSpec(next);
                   setSelectedTile(prev => prev ? { ...prev, chart_spec: next } : null);
