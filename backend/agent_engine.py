@@ -1232,6 +1232,80 @@ class AgentEngine:
                 self.memory._running = False
                 self.memory._waiting_for_user = False
 
+    def _build_semantic_context(self) -> str:
+        """Build semantic context block for agent system prompt."""
+        try:
+            from semantic_layer import hydrate
+            conn_id = getattr(self.connection_entry, 'conn_id', '')
+            if not conn_id or not self.email:
+                return ""
+
+            data = hydrate(self.email, conn_id)
+            linguistic = data.get("linguistic")
+            color_map = data.get("color_map")
+            model = data.get("model")
+
+            if not linguistic and not color_map and not model:
+                return ""
+
+            parts = ["\n\n=== Workspace Semantic Context ===\n"]
+
+            if linguistic:
+                synonyms = linguistic.get("synonyms", {})
+                # Table synonyms
+                table_syns = synonyms.get("tables", {})
+                if table_syns:
+                    entries = [f"{t} (aka {', '.join(s)})" for t, s in table_syns.items() if s]
+                    if entries:
+                        parts.append(f"Tables: {' | '.join(entries[:20])}")
+                # Column synonyms
+                col_syns = synonyms.get("columns", {})
+                if col_syns:
+                    entries = [f"{c} (aka {', '.join(s)})" for c, s in col_syns.items() if s]
+                    if entries:
+                        parts.append(f"Columns: {' | '.join(entries[:30])}")
+                # Value synonyms
+                val_syns = synonyms.get("values", {})
+                if val_syns:
+                    entries = [f"{k} (aka {', '.join(s)})" for k, s in val_syns.items() if s]
+                    if entries:
+                        parts.append(f"Values: {' | '.join(entries[:20])}")
+                # Phrasings (accepted/user_created only)
+                accepted = [p for p in linguistic.get("phrasings", [])
+                            if p.get("status") in ("accepted", "user_created")]
+                if accepted:
+                    parts.append(f"Relationships: {' | '.join(p.get('template', '') for p in accepted[:10])}")
+                # Sample questions (accepted/user_created only)
+                accepted_qs = [q for q in linguistic.get("sampleQuestions", [])
+                               if q.get("status") in ("accepted", "user_created")]
+                if accepted_qs:
+                    parts.append("Example questions:")
+                    for q in accepted_qs[:10]:
+                        parts.append(f"  - {q.get('table', '')}: \"{q.get('question', '')}\"")
+
+            if model:
+                metrics = model.get("metrics", [])
+                if metrics:
+                    parts.append(f"Metrics: {' | '.join(f'{m.get(\"label\", m.get(\"id\", \"?\"))} = {m.get(\"formula\", \"?\")}' for m in metrics[:10])}")
+
+            if color_map:
+                assignments = color_map.get("assignments", {})
+                if assignments:
+                    entries = [f"{k}={v}" for k, v in list(assignments.items())[:20]]
+                    parts.append(f"Color assignments: {' | '.join(entries)}")
+
+            parts.append("=== End Semantic Context ===")
+            block = "\n".join(parts)
+
+            # Cap at ~800 tokens (~3200 chars)
+            if len(block) > 3200:
+                block = block[:3200] + "\n... (truncated)\n=== End Semantic Context ==="
+
+            return block
+        except Exception as exc:
+            _logger.debug("_build_semantic_context failed (non-fatal): %s", exc)
+            return ""
+
     def _run_inner(self, question: str):
         """Inner generator for the agent loop. Separated so run() can wrap in try/finally."""
         # Compact memory before starting
@@ -1521,6 +1595,11 @@ class AgentEngine:
                 pass
 
         system_prompt += prefetch_context
+
+        # ── Semantic layer context (Sub-project D Phase D1) ──────
+        semantic_context = self._build_semantic_context()
+        if semantic_context:
+            system_prompt += semantic_context
 
         # ── Dialect-aware SQL hints (Task 8) ──────────────────────
         db_type = getattr(self.connection_entry, 'db_type', '') or ''
