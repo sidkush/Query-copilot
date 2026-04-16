@@ -777,6 +777,32 @@ export const api = {
     }).then(r => r.blob());
   },
 
+  // Sub-project C4 — community gallery
+  listGalleryTypes: (params = {}) =>
+    request(`/gallery/types?${new URLSearchParams(params)}`),
+
+  getGalleryType: (id) =>
+    request(`/gallery/types/${encodeURIComponent(id)}`),
+
+  rateGalleryType: (id, stars) =>
+    request(`/gallery/types/${encodeURIComponent(id)}/rate`, {
+      method: "POST",
+      body: JSON.stringify({ stars }),
+    }),
+
+  installFromGallery: async (id) => {
+    const blob = await fetch(`${API_BASE}/gallery/types/${encodeURIComponent(id)}/download`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    }).then(r => r.blob());
+    const fd = new FormData();
+    fd.append('file', blob, `${id}.askdbviz`);
+    return fetch(`${API_BASE}/chart-types/import`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: fd,
+    }).then(r => r.json());
+  },
+
   // Sub-project D — semantic models (global catalog)
   listSemanticModels: () => request("/semantic-models"),
   saveSemanticModel: (model) =>

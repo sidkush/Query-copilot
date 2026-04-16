@@ -27,6 +27,7 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const MLEngine = lazy(() => import("./pages/MLEngine"));
 const SemanticSettingsPage = lazy(() => import("./pages/SemanticSettingsPage"));
 const ChartTypeComposerPage = lazy(() => import("./pages/ChartTypeComposerPage"));
+const GalleryPage = lazy(() => import("./pages/GalleryPage"));
 
 // Dev-only routes — tree-shaken in production builds (import.meta.env.DEV === false).
 const DevChartEditor = import.meta.env.DEV
@@ -126,6 +127,7 @@ function AnimatedRoutes() {
           <Route path="/ml-engine" element={<AppPage><PageTransition><MLEngine /></PageTransition></AppPage>} />
           <Route path="/semantic-settings" element={<AppPage><PageTransition><SemanticSettingsPage /></PageTransition></AppPage>} />
           <Route path="/chart-types/new" element={<AppPage><PageTransition><ChartTypeComposerPage /></PageTransition></AppPage>} />
+          <Route path="/gallery" element={<AppPage><PageTransition><GalleryPage /></PageTransition></AppPage>} />
 
           {/* Admin */}
           <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
