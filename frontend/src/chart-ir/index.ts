@@ -69,6 +69,8 @@ export type {
 export { initDuckDBWasm, localLttbDownsample, isDuckDBWasmAvailable } from './perf/duckdbWasm';
 
 export { compileToVegaLite } from './compiler/toVegaLite';
+export { compileToVizQL, compileField as compileVizQLField, compileEncoding as compileVizQLEncoding, compileUnit as compileVizQLUnit } from './compiler/toVizQL';
+export type { VizQLField, VizQLEncoding, VizQLSpec } from './compiler/toVizQL';
 
 export { applySpecPatch, parsePointer, PatchError } from './applySpecPatch';
 export type { Patch, PatchOp } from './applySpecPatch';
