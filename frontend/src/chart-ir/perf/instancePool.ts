@@ -12,7 +12,7 @@
  * resource on most GPUs.
  */
 
-export type InstanceKind = 'vega-svg' | 'vega-canvas' | 'maplibre' | 'deck' | 'three';
+export type InstanceKind = 'vega-svg' | 'vega-canvas' | 'maplibre' | 'deck' | 'three' | 'custom-iframe';
 
 interface SlotEntry {
   kind: InstanceKind;
@@ -32,6 +32,7 @@ const WEIGHTS: Record<InstanceKind, InstanceWeight> = {
   maplibre: { webglContext: 1, estimatedMb: 60 },
   deck: { webglContext: 1, estimatedMb: 80 },
   three: { webglContext: 1, estimatedMb: 50 },
+  'custom-iframe': { webglContext: 0, estimatedMb: 30 },
 };
 
 export interface InstancePoolOptions {
