@@ -107,6 +107,8 @@ export type {
   Metric,
   SemanticFieldRef,
 } from './semantic/types';
+export { resolveColor, validateColorMap, buildColorScale } from './semantic/colorMap';
+export type { ColorMap, ColorMapValidationResult } from './semantic/colorMap';
 
 // Sub-project C — user-authored chart types
 export { validateUserChartType, collectPlaceholders } from './userTypes/schema';
