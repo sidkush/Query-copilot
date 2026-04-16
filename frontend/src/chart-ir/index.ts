@@ -110,6 +110,9 @@ export type {
 export { resolveColor, validateColorMap, buildColorScale } from './semantic/colorMap';
 export type { ColorMap, ColorMapValidationResult } from './semantic/colorMap';
 
+export { detectCorrections } from './semantic/correctionDetector';
+export type { CorrectionSuggestion, CorrectionType } from './semantic/correctionDetector';
+
 // Sub-project C — user-authored chart types
 export { validateUserChartType, collectPlaceholders } from './userTypes/schema';
 export type { UserTypeValidationResult } from './userTypes/schema';
