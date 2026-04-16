@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useStore } from "../store";
 import { api } from "../api";
 import DashboardShell from "../components/dashboard/DashboardShell";
+
+const AgentPanel = lazy(() => import("../components/agent/AgentPanel"));
 
 /**
  * AnalyticsShell — new-path production page for /analytics.
@@ -42,6 +44,7 @@ function flattenTilesForShell(dashboard) {
 export default function AnalyticsShell() {
   const activeDashboardId = useStore((s) => s.activeDashboardId);
   const setActiveDashboardId = useStore((s) => s.setActiveDashboardId);
+  const agentPanelOpen = useStore((s) => s.agentPanelOpen);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -181,6 +184,11 @@ export default function AnalyticsShell() {
         onSwitchDashboard={switchDashboard}
         initialMode="workbench"
       />
+      {agentPanelOpen && (
+        <Suspense fallback={null}>
+          <AgentPanel />
+        </Suspense>
+      )}
     </div>
   );
 }
