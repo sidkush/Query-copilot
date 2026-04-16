@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useStore } from "../../store";
 import { api } from "../../api";
 
@@ -26,7 +27,7 @@ import { api } from "../../api";
  *     semantic: { dimension|measure|metric: '<id>' }
  *   }
  */
-export default function SemanticFieldRail() {
+export default function SemanticFieldRail({ connId }) {
   const activeSemanticModel = useStore((s) => s.activeSemanticModel);
   const availableSemanticModels = useStore((s) => s.availableSemanticModels);
   const setActiveSemanticModel = useStore((s) => s.setActiveSemanticModel);
@@ -35,18 +36,30 @@ export default function SemanticFieldRail() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [open, setOpen] = useState(true);
+  const [schemaStale, setSchemaStale] = useState(false);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const resp = await api.listSemanticModels();
+        // Fetch semantic models + (if connId provided) freshness in parallel.
+        const modelsPromise = api.listSemanticModels();
+        const freshnessPromise = connId
+          ? api.getSemanticFreshness(connId).catch(() => null)
+          : Promise.resolve(null);
+
+        const [resp, freshness] = await Promise.all([modelsPromise, freshnessPromise]);
         const models = resp?.semantic_models || [];
         if (cancelled) return;
         setAvailableSemanticModels(models);
         if (!activeSemanticModel && models.length > 0) {
           setActiveSemanticModel(models[0]);
+        }
+        if (freshness?.stale === true) {
+          setSchemaStale(true);
         }
         setLoadError(null);
       } catch (err) {
@@ -61,7 +74,7 @@ export default function SemanticFieldRail() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [connId]);
 
   const handleModelChange = (e) => {
     const id = e.target.value;
@@ -128,6 +141,31 @@ export default function SemanticFieldRail() {
             >
               {suggestedCount}
             </span>
+          )}
+          {schemaStale && (
+            <button
+              type="button"
+              data-testid="semantic-field-rail-stale-badge"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate("/semantic-settings");
+              }}
+              style={{
+                background: "#f97316",
+                color: "#000",
+                fontSize: 10,
+                fontWeight: 700,
+                padding: "1px 6px",
+                borderRadius: 10,
+                marginLeft: 6,
+                border: "none",
+                cursor: "pointer",
+                lineHeight: 1.4,
+              }}
+              title="The database schema has changed — some semantic fields may be stale. Click to review."
+            >
+              Schema changed
+            </button>
           )}
         </span>
         <span

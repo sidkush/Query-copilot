@@ -617,6 +617,93 @@ class SchemaIntelligence:
         return {"stale": True, "refreshed": True}
 
     # ------------------------------------------------------------------
+    # Semantic drift detection
+    # ------------------------------------------------------------------
+
+    def detect_schema_drift(self, conn_id: str, email: str) -> Dict[str, Any]:
+        """Detect stale references in the linguistic model for *conn_id*.
+
+        Compares tables and columns referenced by the stored linguistic model
+        (``semantic_layer.load_linguistic``) against the cached schema profile.
+
+        Returns a dict::
+
+            {
+                "stale": bool,
+                "missing_tables": [...],   # table names in linguistic but not schema
+                "missing_columns": [...],  # "table.column" refs in linguistic but not schema
+            }
+
+        Returns ``{"stale": False, "missing_tables": [], "missing_columns": []}``
+        when no linguistic model exists or the schema cache is absent.
+        """
+        import semantic_layer  # lazy import — avoids circular deps at module load
+
+        empty: Dict[str, Any] = {
+            "stale": False,
+            "missing_tables": [],
+            "missing_columns": [],
+        }
+
+        # Load the cached schema profile; bail out gracefully if absent.
+        profile = self._read_cache(conn_id)
+        if profile is None:
+            logger.debug(
+                "detect_schema_drift: no schema cache for '%s'; returning not-stale.",
+                conn_id,
+            )
+            return empty
+
+        # Load the linguistic model; no model → nothing to drift.
+        linguistic = semantic_layer.load_linguistic(email, conn_id)
+        if linguistic is None:
+            return empty
+
+        # Build fast-lookup sets from the cached schema profile.
+        schema_tables: set[str] = {t.name.lower() for t in profile.tables}
+        schema_columns: set[str] = set()
+        for tbl in profile.tables:
+            for col in tbl.columns:
+                col_name = col.get("name", "")
+                if col_name:
+                    schema_columns.add(f"{tbl.name.lower()}.{col_name.lower()}")
+
+        missing_tables: List[str] = []
+        missing_columns: List[str] = []
+
+        # Check table_synonyms — keys are table names.
+        table_synonyms: Dict[str, Any] = linguistic.get("table_synonyms") or {}
+        for tbl_name in table_synonyms:
+            if tbl_name.lower() not in schema_tables:
+                missing_tables.append(tbl_name)
+
+        # Check column_synonyms — keys are "table.column" strings.
+        column_synonyms: Dict[str, Any] = linguistic.get("column_synonyms") or {}
+        for col_ref in column_synonyms:
+            # col_ref may be "table.column"; only validate refs that contain a dot.
+            if "." in col_ref:
+                if col_ref.lower() not in schema_columns:
+                    missing_columns.append(col_ref)
+            else:
+                # Bare column name (no table qualifier) — skip; cannot validate.
+                logger.debug(
+                    "detect_schema_drift: unqualified column ref '%s'; skipping.", col_ref
+                )
+
+        stale = bool(missing_tables or missing_columns)
+        if stale:
+            logger.info(
+                "Semantic drift detected for conn '%s': missing_tables=%s missing_columns=%s",
+                conn_id, missing_tables, missing_columns,
+            )
+
+        return {
+            "stale": stale,
+            "missing_tables": missing_tables,
+            "missing_columns": missing_columns,
+        }
+
+    # ------------------------------------------------------------------
     # Query-time estimation
     # ------------------------------------------------------------------
 

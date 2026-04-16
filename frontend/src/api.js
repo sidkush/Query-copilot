@@ -843,6 +843,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(correction),
     }),
+  getSemanticFreshness: (connId) =>
+    request(`/connections/${connId}/semantic/freshness`),
 
   // Health
   health: () => request("/health"),

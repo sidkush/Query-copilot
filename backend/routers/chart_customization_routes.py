@@ -274,6 +274,25 @@ async def put_connection_semantic_model(
     return saved
 
 
+@router.get("/connections/{conn_id}/semantic/freshness")
+async def get_semantic_freshness(
+    conn_id: str, user: dict = Depends(get_current_user)
+):
+    """Return whether the stored linguistic model references stale schema objects.
+
+    Response shape::
+
+        {"stale": bool, "missing_tables": [...], "missing_columns": [...]}
+
+    ``stale`` is False when no linguistic model is saved (nothing to drift).
+    """
+    email = _require_email(user)
+    from schema_intelligence import SchemaIntelligence
+
+    si = SchemaIntelligence()
+    return si.detect_schema_drift(conn_id, email)
+
+
 # ── Gallery (Sub-project C — community type registry) ─────────────────
 
 
