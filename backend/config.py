@@ -206,7 +206,7 @@ class Settings(BaseSettings):
     WATERFALL_ANSWER_BUDGET_MS: int = Field(default=1000, ge=50)     # P1 NEMESIS: min 50ms prevents accidental disable
 
     # ── Sub-project B (chart performance) ─────────────────────────
-    CHART_PERF_ENABLED: bool = Field(default=False)
+    CHART_PERF_ENABLED: bool = Field(default=True)
     CHART_DOWNSAMPLE_ENABLED: bool = Field(default=True)
     CHART_DOWNSAMPLE_DEFAULT_TARGET_POINTS: int = Field(default=4000)
     CHART_STREAM_BATCH_ROWS: int = Field(default=5000)

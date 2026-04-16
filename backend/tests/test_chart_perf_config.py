@@ -26,6 +26,6 @@ def test_chart_instance_pool_max():
     assert settings.CHART_INSTANCE_POOL_MAX >= 6
 
 
-def test_chart_perf_enabled_default_false():
-    """B feature flag — gates RSR injection + downsampling. Default off until B5."""
-    assert settings.CHART_PERF_ENABLED is False
+def test_chart_perf_enabled_default_true():
+    """B feature flag — gates RSR injection + downsampling. Flipped to True in B5."""
+    assert settings.CHART_PERF_ENABLED is True
