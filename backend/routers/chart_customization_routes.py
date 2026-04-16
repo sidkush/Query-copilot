@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from auth import get_current_user
@@ -116,6 +116,29 @@ async def get_connection_semantic(
 ):
     email = _require_email(user)
     return semantic_hydrate(email, conn_id)
+
+
+@router.post("/connections/{conn_id}/semantic/bootstrap")
+async def bootstrap_semantic(
+    conn_id: str, request: Request, user: dict = Depends(get_current_user)
+):
+    email = _require_email(user)
+    from main import app
+    conn_entry = app.state.connections.get(email, {}).get(conn_id)
+    if conn_entry is None:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    schema_profile = conn_entry.schema_profile
+    if not schema_profile:
+        raise HTTPException(status_code=400, detail="Connection not profiled yet — run schema profiling first")
+    from provider_registry import resolve_provider
+    provider = resolve_provider(email, model_tier="fast")
+    from semantic_bootstrap import bootstrap_linguistic
+    linguistic = bootstrap_linguistic(schema_profile=schema_profile, provider=provider)
+    try:
+        saved = save_linguistic(email, conn_id, linguistic)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"linguistic": saved}
 
 
 @router.put("/connections/{conn_id}/semantic/linguistic")
