@@ -25,6 +25,7 @@ const AnalyticsShell = lazy(() => import("./pages/AnalyticsShell"));
 const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const MLEngine = lazy(() => import("./pages/MLEngine"));
+const SemanticSettingsPage = lazy(() => import("./pages/SemanticSettingsPage"));
 
 // Dev-only routes — tree-shaken in production builds (import.meta.env.DEV === false).
 const DevChartEditor = import.meta.env.DEV
@@ -122,6 +123,7 @@ function AnimatedRoutes() {
           <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
           <Route path="/analytics" element={<AppPage><PageTransition><AnalyticsShell /></PageTransition></AppPage>} />
           <Route path="/ml-engine" element={<AppPage><PageTransition><MLEngine /></PageTransition></AppPage>} />
+          <Route path="/semantic-settings" element={<AppPage><PageTransition><SemanticSettingsPage /></PageTransition></AppPage>} />
 
           {/* Admin */}
           <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
