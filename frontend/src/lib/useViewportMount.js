@@ -1,36 +1,33 @@
 import { useState, useEffect, useRef } from 'react';
 
 /**
- * useViewportMount — IntersectionObserver-based lazy mount for
- * expensive chart engines (three.js, deck.gl, d3 force layouts).
+ * useViewportMount — IntersectionObserver-based mount/unmount for
+ * expensive chart renderers on dashboard tiles.
+ *
+ * Bidirectional: mounts when scrolled into view (with rootMargin head-start),
+ * unmounts when scrolled fully out of view. This lets InstancePool reclaim
+ * slots from off-screen tiles on 500-tile dashboards.
+ *
+ * Options:
+ *   rootMargin: string  — IntersectionObserver rootMargin (default '200px')
+ *   once: boolean       — if true, revert to mount-once behavior (never unmount)
  *
  * Usage:
- *   const { ref, mounted } = useViewportMount({ rootMargin: '200px' });
+ *   const { ref, mounted } = useViewportMount();
  *   return (
  *     <div ref={ref} style={{ height: 400 }}>
  *       {mounted ? <ExpensiveChart /> : <SkeletonPlaceholder />}
  *     </div>
  *   );
- *
- * 200px rootMargin default gives the chart a head-start to begin
- * compiling shaders / allocating buffers just before it scrolls into
- * view, so the user rarely sees a blank frame.
- *
- * Once mounted, the observer is disconnected — we don't un-mount when
- * scrolled away again. If you want true unload-on-scroll-away use a
- * different hook; this one is "lazy on first appearance" only.
- *
- * SSR-safe: falls back to mounted=true if IntersectionObserver isn't
- * available, preserving existing render behavior.
  */
-export default function useViewportMount({ rootMargin = '200px' } = {}) {
+export default function useViewportMount({ rootMargin = '200px', once = false } = {}) {
   const ref = useRef(null);
   const [mounted, setMounted] = useState(
     typeof window === 'undefined' || typeof IntersectionObserver === 'undefined'
   );
 
   useEffect(() => {
-    if (mounted || !ref.current || typeof IntersectionObserver === 'undefined') return;
+    if (typeof IntersectionObserver === 'undefined' || !ref.current) return;
 
     const node = ref.current;
     const observer = new IntersectionObserver(
@@ -38,8 +35,11 @@ export default function useViewportMount({ rootMargin = '200px' } = {}) {
         for (const e of entries) {
           if (e.isIntersecting) {
             setMounted(true);
-            observer.disconnect();
-            break;
+            if (once) {
+              observer.disconnect();
+            }
+          } else if (!once) {
+            setMounted(false);
           }
         }
       },
@@ -47,7 +47,7 @@ export default function useViewportMount({ rootMargin = '200px' } = {}) {
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [mounted, rootMargin]);
+  }, [rootMargin, once]);
 
   return { ref, mounted };
 }

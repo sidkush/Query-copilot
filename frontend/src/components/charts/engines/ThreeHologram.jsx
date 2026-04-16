@@ -70,7 +70,7 @@ function HologramPoints({ points, colors }) {
 }
 
 export default function ThreeHologram({ tile }) {
-  const { ref: wrapperRef, mounted } = useViewportMount({ rootMargin: '250px' });
+  const { ref: wrapperRef, mounted } = useViewportMount({ rootMargin: '250px', once: true });
   const gpu = useGPUTier();
   const [evicted, setEvicted] = useState(false);
   const tileIdRef = useRef(null);
