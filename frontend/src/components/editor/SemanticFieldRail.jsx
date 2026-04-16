@@ -69,6 +69,12 @@ export default function SemanticFieldRail() {
     if (model) setActiveSemanticModel(model);
   };
 
+  const suggestedCount = [
+    ...(activeSemanticModel?.dimensions || []),
+    ...(activeSemanticModel?.measures || []),
+    ...(activeSemanticModel?.metrics || []),
+  ].filter((e) => e.status === "suggested").length;
+
   return (
     <div
       data-testid="semantic-field-rail"
@@ -105,7 +111,25 @@ export default function SemanticFieldRail() {
           cursor: "pointer",
         }}
       >
-        <span>Semantic fields</span>
+        <span style={{ display: "flex", alignItems: "center" }}>
+          Semantic fields
+          {suggestedCount > 0 && (
+            <span
+              data-testid="semantic-field-rail-suggested-badge"
+              style={{
+                background: "#f59e0b",
+                color: "#000",
+                fontSize: 10,
+                fontWeight: 700,
+                padding: "1px 6px",
+                borderRadius: 10,
+                marginLeft: 6,
+              }}
+            >
+              {suggestedCount}
+            </span>
+          )}
+        </span>
         <span
           style={{
             fontSize: 8,
@@ -175,6 +199,18 @@ export default function SemanticFieldRail() {
           {activeSemanticModel && (
             <SemanticModelFields model={activeSemanticModel} />
           )}
+          <a
+            href="/semantic-settings"
+            style={{
+              fontSize: 11,
+              color: "#3b82f6",
+              marginTop: 8,
+              display: "block",
+              textDecoration: "none",
+            }}
+          >
+            Edit semantic model →
+          </a>
         </div>
       )}
     </div>
