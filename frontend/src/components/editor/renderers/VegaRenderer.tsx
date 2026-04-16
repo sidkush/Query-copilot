@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { VegaLite } from 'react-vega';
+import MiniChartTooltip from '../onobject/MiniChartTooltip';
 import {
   compileToVegaLite,
   globalInstancePool,
@@ -149,6 +151,12 @@ export default function VegaRenderer({
   const viewRef = useRef<View | null>(null);
   const streamingRef = useRef(false);
   const [streamingComplete, setStreamingComplete] = useState(false);
+  const [tooltipState, setTooltipState] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    datum: Record<string, unknown> | null;
+  }>({ visible: false, x: 0, y: 0, datum: null });
   const firstPaintTsRef = useRef<number>(0);
   const telemetryFiredRef = useRef(false);
 
@@ -252,6 +260,15 @@ export default function VegaRenderer({
         }
       }
     }
+    // Viz-in-Tooltip: show a mini sparkline tooltip on data point hover.
+    view.addEventListener('mouseover', (event: MouseEvent, item: { datum?: Record<string, unknown> } | null) => {
+      if (item?.datum) {
+        setTooltipState({ visible: true, x: event.clientX, y: event.clientY, datum: item.datum });
+      }
+    });
+    view.addEventListener('mouseout', () => {
+      setTooltipState(prev => ({ ...prev, visible: false }));
+    });
   }, [handleNewView, spec, onDrillthrough, onBrush]);
 
   useEffect(() => {
@@ -438,6 +455,35 @@ export default function VegaRenderer({
           height={DEFAULT_CANVAS_SIZE.height}
         />
       </div>
+      {typeof document !== 'undefined' && createPortal(
+        <MiniChartTooltip
+          x={tooltipState.x}
+          y={tooltipState.y}
+          visible={tooltipState.visible}
+          datum={tooltipState.datum}
+          seriesData={downsampledRows}
+          xField={(spec as { encoding?: { x?: { field?: string } } }).encoding?.x?.field}
+          yField={(spec as { encoding?: { y?: { field?: string } } }).encoding?.y?.field}
+          label={
+            tooltipState.datum?.[
+              (spec as { encoding?: { color?: { field?: string }; x?: { field?: string } } })
+                .encoding?.color?.field ||
+              (spec as { encoding?: { x?: { field?: string } } }).encoding?.x?.field ||
+              ''
+            ] != null
+              ? String(
+                  tooltipState.datum[
+                    (spec as { encoding?: { color?: { field?: string }; x?: { field?: string } } })
+                      .encoding?.color?.field ||
+                    (spec as { encoding?: { x?: { field?: string } } }).encoding?.x?.field ||
+                    ''
+                  ],
+                )
+              : ''
+          }
+        />,
+        document.body,
+      )}
     </div>
   );
 }
