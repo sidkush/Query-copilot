@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useStore } from "../store";
 import { api } from "../api";
 import DashboardShell from "../components/dashboard/DashboardShell";
 
 const AgentPanel = lazy(() => import("../components/agent/AgentPanel"));
+const ChartEditor = lazy(() => import("../components/editor/ChartEditor"));
 
 /**
  * AnalyticsShell — new-path production page for /analytics.
@@ -48,6 +49,7 @@ export default function AnalyticsShell() {
   const setChartEditorSpec = useStore((s) => s.setChartEditorSpec);
   const setChartEditorMode = useStore((s) => s.setChartEditorMode);
   const [selectedTile, setSelectedTile] = useState(null);
+  const [editorMode, setEditorMode] = useState("pro");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -204,6 +206,111 @@ export default function AnalyticsShell() {
           <AgentPanel />
         </Suspense>
       )}
+
+      {/* Full-screen ChartEditor overlay — opens on tile click */}
+      {selectedTile && (
+        <Suspense fallback={<div style={{position:'fixed',inset:0,zIndex:200,background:'#06060e',color:'#f87171',padding:40,fontFamily:'monospace',fontSize:12}}>Loading editor…</div>}>
+          <EditorErrorBoundary onClose={() => setSelectedTile(null)}>
+          <div
+            data-testid="chart-editor-overlay"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 200,
+              background: "var(--bg-page, #06060e)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Editor header with close + mode switcher */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "8px 16px",
+              borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
+              flexShrink: 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button
+                  onClick={() => setSelectedTile(null)}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-secondary, #b0b0b6)", fontSize: 18, padding: "4px 8px",
+                    borderRadius: 6, display: "flex", alignItems: "center",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.06))"}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}
+                  aria-label="Close editor"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+                </button>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary, #e7e7ea)" }}>
+                  {selectedTile.title || "Edit Chart"}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {["default", "pro", "stage"].map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setEditorMode(m)}
+                    style={{
+                      padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 500,
+                      cursor: "pointer", textTransform: "capitalize",
+                      background: editorMode === m ? "var(--accent-light, rgba(99,102,241,0.15))" : "transparent",
+                      color: editorMode === m ? "var(--accent, #6366f1)" : "var(--text-secondary, #b0b0b6)",
+                      border: editorMode === m ? "1px solid var(--accent, #6366f1)" : "1px solid transparent",
+                      transition: "all 150ms ease",
+                    }}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* ChartEditor in selected mode */}
+            <div style={{ flex: 1, minHeight: 0, height: '100%', overflow: 'hidden' }}>
+              <ChartEditor
+                spec={selectedTile.chart_spec || selectedTile.chartSpec || { $schema: "askdb/chart-spec/v1", type: "cartesian", mark: "bar", encoding: {} }}
+                resultSet={{
+                  columns: Array.isArray(selectedTile.columns) ? selectedTile.columns : [],
+                  rows: Array.isArray(selectedTile.rows) ? selectedTile.rows : [],
+                  columnProfile: Array.isArray(selectedTile.columnProfile) ? selectedTile.columnProfile : [],
+                }}
+                mode={editorMode}
+                surface="dashboard-tile"
+                onSpecChange={(next) => {
+                  setChartEditorSpec(next);
+                  setSelectedTile(prev => prev ? { ...prev, chart_spec: next } : null);
+                }}
+              />
+            </div>
+          </div>
+          </EditorErrorBoundary>
+        </Suspense>
+      )}
     </div>
   );
+}
+
+/** Error boundary to catch ChartEditor render errors */
+class EditorErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#06060e', padding: 40, fontFamily: 'monospace', fontSize: 12 }}>
+          <div style={{ color: '#f87171', marginBottom: 16 }}>ChartEditor failed to render:</div>
+          <pre style={{ color: '#fbbf24', whiteSpace: 'pre-wrap', maxHeight: '60vh', overflow: 'auto' }}>{String(this.state.error?.message || this.state.error)}</pre>
+          <pre style={{ color: '#888', marginTop: 8, whiteSpace: 'pre-wrap', maxHeight: '30vh', overflow: 'auto' }}>{this.state.error?.stack}</pre>
+          <button onClick={() => { this.setState({ error: null }); this.props.onClose?.(); }}
+            style={{ marginTop: 20, padding: '8px 16px', background: '#4e79a7', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+            Close
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }

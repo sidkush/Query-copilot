@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import useStore from "../../store";
+import { useStore } from "../../store";
 import ChartEditorTopbar from "./ChartEditorTopbar";
 import DataRail from "./DataRail";
 import EditorCanvas from "./EditorCanvas";

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import useStore from "../../store";
+import { useStore } from "../../store";
 import { api } from "../../api";
 
 /* ─────────────────────────────────────────────────────────────────────────
