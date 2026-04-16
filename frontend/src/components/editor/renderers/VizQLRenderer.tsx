@@ -197,33 +197,34 @@ export default function VizQLRenderer({
     }
   }, [spec]);
 
-  // -- ResizeObserver -----------------------------------------------------
+  // -- ResizeObserver (debounced to avoid thrashing during drag-resize) ----
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    let rafId: number | null = null;
     const obs = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
       const { width, height } = entry.contentRect;
-      if (width > 0 && height > 0) {
-        setCanvasSize({ width: Math.floor(width), height: Math.floor(height) });
-      }
+      if (width <= 0 || height <= 0) return;
+      const w = Math.floor(width);
+      const h = Math.floor(height);
+      // Debounce via rAF — coalesce rapid resize events into one state update
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setCanvasSize((prev) =>
+          prev.width === w && prev.height === h ? prev : { width: w, height: h }
+        );
+        rafId = null;
+      });
     });
     obs.observe(container);
-    return () => obs.disconnect();
+    return () => {
+      obs.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, []);
-
-  // Apply devicePixelRatio to canvas whenever size changes
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvasSize.width * dpr;
-    canvas.height = canvasSize.height * dpr;
-    canvas.style.width = `${canvasSize.width}px`;
-    canvas.style.height = `${canvasSize.height}px`;
-  }, [canvasSize]);
 
   // -- Render effect -------------------------------------------------------
   useEffect(() => {
@@ -234,6 +235,12 @@ export default function VizQLRenderer({
     const w = Math.floor(canvasSize.width * dpr);
     const h = Math.floor(canvasSize.height * dpr);
     if (w <= 0 || h <= 0) return;
+
+    // Sync canvas physical + CSS dimensions atomically before drawing
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = `${canvasSize.width}px`;
+    canvas.style.height = `${canvasSize.height}px`;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
