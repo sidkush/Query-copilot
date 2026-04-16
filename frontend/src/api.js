@@ -761,6 +761,22 @@ export const api = {
   deleteChartType: (typeId) =>
     request(`/chart-types/${encodeURIComponent(typeId)}`, { method: "DELETE" }),
 
+  importChartType: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetch(`${API_BASE}/chart-types/import`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: formData,
+    }).then(r => r.json());
+  },
+
+  exportChartType: (typeId) => {
+    return fetch(`${API_BASE}/chart-types/export/${encodeURIComponent(typeId)}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    }).then(r => r.blob());
+  },
+
   // Sub-project D — semantic models (global catalog)
   listSemanticModels: () => request("/semantic-models"),
   saveSemanticModel: (model) =>
