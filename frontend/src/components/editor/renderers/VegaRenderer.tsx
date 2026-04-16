@@ -1,3 +1,4 @@
+/** @deprecated Replaced by VizQLRenderer (2026-04-16). Kept for rollback. */
 import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { VegaLite } from 'react-vega';
