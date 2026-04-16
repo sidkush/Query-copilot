@@ -8,6 +8,7 @@ import CreativeRenderer from "./renderers/CreativeRenderer";
 import OnObjectOverlay from "./onobject/OnObjectOverlay";
 import TierBadge from "./TierBadge";
 import IframeChartHost from "../chartTypes/IframeChartHost";
+import DevVizLoader from "../chartTypes/DevVizLoader";
 import { useStore } from "../../store";
 
 /**
@@ -23,6 +24,12 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
   const colorMap = useStore((s) => s.colorMap);
   const installedTypes = useStore((s) => s.installedChartTypes);
 
+  // --- Dev-viz mode: ?dev-viz=<url> short-circuits all renderer logic -------
+  // Computed unconditionally so hooks order is stable (Rules of Hooks).
+  const devVizUrl = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('dev-viz')
+    : null;
+
   useEffect(() => {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'p') {
@@ -36,7 +43,7 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
   const resultProfile = useMemo(() => buildResultProfile(spec, resultSet), [spec, resultSet]);
 
   const routing = useMemo(() => {
-    if (!spec) return null;
+    if (!spec || devVizUrl) return null;
     try {
       return routeSpecWithStrategy({
         spec,
@@ -48,7 +55,34 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) };
     }
-  }, [spec, resultProfile]);
+  }, [spec, resultProfile, devVizUrl]);
+
+  // --- Dev-viz early return — after all hooks, before Tier 2 / spec routing --
+  if (devVizUrl) {
+    return (
+      <div
+        data-testid="editor-canvas"
+        data-renderer-id="dev-viz"
+        data-strategy-tier="dev"
+        style={{
+          position: "relative",
+          height: "100%",
+          width: "100%",
+          padding: 16,
+          background: "var(--bg-canvas, rgba(255,255,255,0.015))",
+          overflow: "auto",
+          boxSizing: "border-box",
+        }}
+      >
+        <DevVizLoader
+          devUrl={devVizUrl}
+          data={resultSet}
+          viewport={{ width: 0, height: 0 }}
+          theme={{}}
+        />
+      </div>
+    );
+  }
 
   // --- Tier 2: user-authored code-based chart type (Sub-project C) -------
   // If the spec carries a userTypeId that resolves to a 'code' tier type
