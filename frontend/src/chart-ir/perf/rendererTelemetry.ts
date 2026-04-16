@@ -44,6 +44,11 @@ export interface RenderTelemetryPayload {
   instance_pressure_at_mount?: number;
   /** GPU tier detected at report time. */
   gpu_tier?: GpuTier;
+  /**
+   * Time between sending the DATA message and receiving RENDER_COMPLETE from
+   * the iframe guest (ms). Populated only for Tier 2 custom chart type renders.
+   */
+  custom_type_render_ms?: number;
 }
 
 /**

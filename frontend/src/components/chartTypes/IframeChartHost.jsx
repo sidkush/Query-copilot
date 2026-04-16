@@ -32,7 +32,7 @@
 
 import { useEffect, useRef, useCallback, useState, useId } from 'react';
 import { IframeChartBridge } from './IframeChartBridge';
-import { globalInstancePool } from '../../chart-ir';
+import { globalInstancePool, reportRenderTelemetry } from '../../chart-ir';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -84,6 +84,10 @@ export default function IframeChartHost({
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
 
+  // Timestamp (performance.now()) captured just before each DATA message is sent.
+  // Read in onRenderComplete to compute custom_type_render_ms.
+  const dataSentTimestampRef = useRef(0);
+
   // Error state — if set, render the error card instead of the iframe container.
   const [error, setError] = useState(null);
 
@@ -95,6 +99,7 @@ export default function IframeChartHost({
     readyRef.current = true;
     // Send initial data as soon as the guest is ready.
     if (bridgeRef.current) {
+      dataSentTimestampRef.current = performance.now();
       bridgeRef.current.sendData({
         data: dataRef.current,
         theme: themeRef.current,
@@ -105,8 +110,17 @@ export default function IframeChartHost({
   }, []);
 
   const handleRenderComplete = useCallback((_triggerType) => {
-    // Available for telemetry hook-in (Phase C3+). Nothing needed here yet.
-  }, []);
+    const renderMs = performance.now() - dataSentTimestampRef.current;
+    reportRenderTelemetry({
+      session_id: '',
+      tile_id: instanceId,
+      tier: 'custom',
+      renderer_family: 'iframe',
+      renderer_backend: 'iframe',
+      row_count: dataRef.current?.rows?.length || 0,
+      custom_type_render_ms: renderMs,
+    });
+  }, [instanceId]);
 
   const handleSelect = useCallback((payload) => {
     if (typeof onSelectRef.current === 'function') {
@@ -167,6 +181,7 @@ export default function IframeChartHost({
 
   useEffect(() => {
     if (!bridgeRef.current || !readyRef.current) return;
+    dataSentTimestampRef.current = performance.now();
     bridgeRef.current.sendData({
       data,
       theme,
