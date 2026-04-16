@@ -138,12 +138,19 @@ type Row = Record<string, unknown>;
 
 function resultSetToRows(
   columns: string[] | undefined,
-  rows: unknown[][] | undefined,
+  rows: unknown[] | undefined,
 ): Row[] {
   if (!columns?.length || !rows?.length) return [];
   return rows.map((row) => {
+    // Handle both formats:
+    // - Array rows: [val1, val2, ...] — map by column index
+    // - Object rows: {col1: val1, col2: val2} — already keyed, passthrough
+    if (row && typeof row === 'object' && !Array.isArray(row)) {
+      return row as Row;
+    }
     const obj: Row = {};
-    columns.forEach((col, i) => { obj[col] = (row as unknown[])[i]; });
+    const arr = row as unknown[];
+    columns.forEach((col, i) => { obj[col] = arr[i]; });
     return obj;
   });
 }
