@@ -20,8 +20,11 @@ export async function initDuckDBWasm(): Promise<any> {
   if (_loading) return _loading;
 
   _loading = (async () => {
-    // Dynamic import to avoid bundling 4MB WASM in the main chunk
-    const duckdb = await import('@duckdb/duckdb-wasm');
+    // Dynamic import to avoid bundling 4MB WASM in the main chunk.
+    // The variable indirection prevents Vite from statically analyzing
+    // and failing on the missing package during dev/test.
+    const pkg = '@duckdb/duckdb-wasm';
+    const duckdb = await import(/* @vite-ignore */ pkg);
     const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
     const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
     const worker = new Worker(bundle.mainWorker!);

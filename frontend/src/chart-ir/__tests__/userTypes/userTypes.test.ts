@@ -48,7 +48,7 @@ describe('validateUserChartType', () => {
 
   it('rejects wrong schemaVersion', () => {
     const def = waterfallType();
-    (def as unknown as { schemaVersion: number }).schemaVersion = 2;
+    (def as unknown as { schemaVersion: number }).schemaVersion = 99;
     const result = validateUserChartType(def);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => /schemaVersion/.test(e))).toBe(true);

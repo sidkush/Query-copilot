@@ -1309,7 +1309,12 @@ class AgentEngine:
             if model:
                 metrics = model.get("metrics", [])
                 if metrics:
-                    parts.append(f"Metrics: {' | '.join(f'{m.get(\"label\", m.get(\"id\", \"?\"))} = {m.get(\"formula\", \"?\")}' for m in metrics[:10])}")
+                    metric_strs = []
+                    for m in metrics[:10]:
+                        label = m.get("label", m.get("id", "?"))
+                        formula = m.get("formula", "?")
+                        metric_strs.append(f"{label} = {formula}")
+                    parts.append("Metrics: " + " | ".join(metric_strs))
 
             if color_map:
                 assignments = color_map.get("assignments", {})
