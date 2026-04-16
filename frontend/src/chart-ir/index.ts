@@ -80,6 +80,18 @@ export { aggregateBinRows } from './transforms/aggregateBin';
 export type { BinAggregate, AggregateBinOptions } from './transforms/aggregateBin';
 
 // Sub-project D — semantic layer
+export { validateLinguisticModel } from './semantic/linguistic';
+export type {
+  LinguisticModel,
+  LinguisticSynonyms,
+  LinguisticValidationResult,
+  Phrasing,
+  PhrasingType,
+  SampleQuestion,
+  SuggestionStatus,
+  ChangelogEntry,
+} from './semantic/linguistic';
+
 export { validateSemanticModel } from './semantic/validator';
 export type { SemanticValidationResult } from './semantic/validator';
 export {
