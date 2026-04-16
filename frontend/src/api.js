@@ -761,7 +761,7 @@ export const api = {
   deleteChartType: (typeId) =>
     request(`/chart-types/${encodeURIComponent(typeId)}`, { method: "DELETE" }),
 
-  // Sub-project D — semantic models
+  // Sub-project D — semantic models (global catalog)
   listSemanticModels: () => request("/semantic-models"),
   saveSemanticModel: (model) =>
     request("/semantic-models", {
@@ -770,6 +770,37 @@ export const api = {
     }),
   deleteSemanticModel: (modelId) =>
     request(`/semantic-models/${encodeURIComponent(modelId)}`, { method: "DELETE" }),
+
+  // Sub-project D — connection-scoped semantic layer (D0 Task 5)
+  // getSemanticLayer: fetch all semantic layer data for a connection
+  // saveLinguisticModel: persist linguistic overrides (aliases, synonyms, units)
+  // saveColorMap: persist series/category color assignments
+  // saveSemanticModelConn: attach a global SemanticModel to a connection
+  // bootstrapSemantic: trigger AI-assisted bootstrap (D1 endpoint, stub until D1 lands)
+  // acceptCorrection: submit a user-authored correction card (D3 endpoint, stub until D3 lands)
+  getSemanticLayer: (connId) => request(`/connections/${connId}/semantic`),
+  saveLinguisticModel: (connId, data) =>
+    request(`/connections/${connId}/semantic/linguistic`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  saveColorMap: (connId, data) =>
+    request(`/connections/${connId}/semantic/color-map`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  saveSemanticModelConn: (connId, data) =>
+    request(`/connections/${connId}/semantic/model`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  bootstrapSemantic: (connId) =>
+    request(`/connections/${connId}/semantic/bootstrap`, { method: "POST" }),
+  acceptCorrection: (connId, correction) =>
+    request(`/connections/${connId}/semantic/corrections`, {
+      method: "POST",
+      body: JSON.stringify(correction),
+    }),
 
   // Health
   health: () => request("/health"),

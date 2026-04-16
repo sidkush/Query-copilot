@@ -517,6 +517,25 @@ export const useStore = create((set, get) => ({
   setAvailableSemanticModels: (models) =>
     set({ availableSemanticModels: Array.isArray(models) ? models : [] }),
 
+  // --- Semantic Layer connection-scoped slices (D0 Task 5) ---------------
+  // linguisticModel: per-connection linguistic overrides (aliases, synonyms, units)
+  // colorMap: per-connection series/category → hex color assignments
+  // semanticBootstrapStatus: lifecycle of the AI bootstrap call (D1)
+  // correctionSuggestions: pending user-authored correction cards (D3)
+  linguisticModel: null,
+  colorMap: null,
+  semanticBootstrapStatus: 'idle',  // idle | loading | done | error
+  correctionSuggestions: [],
+  setLinguisticModel: (m) => set({ linguisticModel: m }),
+  setColorMap: (m) => set({ colorMap: m }),
+  setSemanticBootstrapStatus: (s) => set({ semanticBootstrapStatus: s }),
+  addCorrectionSuggestion: (s) => set((state) => ({
+    correctionSuggestions: [...state.correctionSuggestions, s],
+  })),
+  dismissCorrectionSuggestion: (id) => set((state) => ({
+    correctionSuggestions: state.correctionSuggestions.filter((s) => s.id !== id),
+  })),
+
   // --- featureFlags slice (Phase 4c+1) -----------------------------------
   // Dashboard feature-flag state hydrated from /api/v1/dashboards/feature-flags
   // on app boot. The primary flag is NEW_CHART_EDITOR_ENABLED which gates
