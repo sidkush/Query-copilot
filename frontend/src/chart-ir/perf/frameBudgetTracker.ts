@@ -120,3 +120,63 @@ export class FrameBudgetTracker {
 
 /** Process-wide singleton, lazily started on first import-with-DOM. */
 export const globalFrameBudgetTracker = new FrameBudgetTracker();
+
+/**
+ * PerTileTracker — tracks frame times per individual tile.
+ *
+ * Each tile reports its render duration via recordTileFrame(tileId, ms).
+ * The tracker maintains a rolling buffer per tile (last 30 samples)
+ * and computes per-tile frame budget state.
+ *
+ * RSR can query getTileBudgetState(tileId) to make per-tile escalation
+ * decisions instead of relying solely on the global frame budget.
+ */
+export class PerTileTracker {
+  private tiles = new Map<string, number[]>();
+  private bufferSize: number;
+
+  constructor(bufferSize = 30) {
+    this.bufferSize = bufferSize;
+  }
+
+  recordTileFrame(tileId: string, durationMs: number): void {
+    let buffer = this.tiles.get(tileId);
+    if (!buffer) {
+      buffer = [];
+      this.tiles.set(tileId, buffer);
+    }
+    buffer.push(durationMs);
+    if (buffer.length > this.bufferSize) {
+      buffer.shift();
+    }
+  }
+
+  getTileBudgetState(tileId: string): FrameBudgetState {
+    const buffer = this.tiles.get(tileId);
+    if (!buffer || buffer.length < 3) return 'normal';
+
+    // Compute p95
+    const sorted = [...buffer].sort((a, b) => a - b);
+    const p95Index = Math.floor(sorted.length * 0.95);
+    const p95 = sorted[p95Index] ?? sorted[sorted.length - 1] ?? 0;
+
+    if (p95 >= THRESHOLDS.FRAME_BUDGET_TIGHT_MS) return 'tight';
+    if (p95 < THRESHOLDS.FRAME_BUDGET_LOOSE_MS) return 'loose';
+    return 'normal';
+  }
+
+  removeTile(tileId: string): void {
+    this.tiles.delete(tileId);
+  }
+
+  clear(): void {
+    this.tiles.clear();
+  }
+
+  activeTileCount(): number {
+    return this.tiles.size;
+  }
+}
+
+/** Process-wide per-tile tracker singleton. */
+export const globalPerTileTracker = new PerTileTracker();

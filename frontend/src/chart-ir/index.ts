@@ -47,7 +47,7 @@ export type {
   RenderStrategy,
 } from './rsr/strategy';
 
-export { FrameBudgetTracker, globalFrameBudgetTracker } from './perf/frameBudgetTracker';
+export { FrameBudgetTracker, globalFrameBudgetTracker, PerTileTracker, globalPerTileTracker } from './perf/frameBudgetTracker';
 export type { FrameBudgetTrackerOptions } from './perf/frameBudgetTracker';
 
 export { InstancePool, globalInstancePool } from './perf/instancePool';

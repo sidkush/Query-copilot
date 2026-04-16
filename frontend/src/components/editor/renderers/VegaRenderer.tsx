@@ -6,6 +6,7 @@ import {
   compileToVegaLite,
   globalInstancePool,
   globalFrameBudgetTracker,
+  globalPerTileTracker,
   lttbRows,
   uniformSample,
   pixelMinMaxRows,
@@ -195,6 +196,7 @@ export default function VegaRenderer({
     });
     return () => {
       globalInstancePool.releaseSlot(slotId);
+      globalPerTileTracker.removeTile(slotId);
     };
   }, [vegaBackend]);
 
@@ -208,7 +210,9 @@ export default function VegaRenderer({
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const prev = lastViewTsRef.current;
     if (prev > 0) {
-      globalFrameBudgetTracker.recordFrameTime(now - prev);
+      const frameDuration = now - prev;
+      globalFrameBudgetTracker.recordFrameTime(frameDuration);
+      globalPerTileTracker.recordTileFrame(slotIdRef.current, frameDuration);
     }
     lastViewTsRef.current = now;
     // Expose the view to OnObjectOverlay for scenegraph hit-testing.
