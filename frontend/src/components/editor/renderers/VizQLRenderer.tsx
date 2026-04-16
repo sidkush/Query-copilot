@@ -457,6 +457,52 @@ export default function VizQLRenderer({
     );
   }
 
+  // ── KPI detection: single-value tiles render as big number ──
+  const isKPI = data.length === 1 && Object.keys(data[0] ?? {}).filter(k => !k.startsWith('_')).length <= 3;
+
+  if (isKPI && data[0]) {
+    const row = data[0];
+    const entries = Object.entries(row).filter(([k]) => !k.startsWith('_'));
+    // Find the numeric value (measure) and optional label (dimension)
+    const numEntry = entries.find(([, v]) => typeof v === 'number');
+    const labelEntry = entries.find(([, v]) => typeof v !== 'number');
+    const value = numEntry ? numEntry[1] as number : entries[0]?.[1];
+    const label = numEntry ? numEntry[0] : entries[0]?.[0] ?? '';
+
+    const formatted = typeof value === 'number'
+      ? value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}M`
+        : value >= 1_000 ? `${(value / 1_000).toFixed(1)}K`
+        : value.toLocaleString()
+      : String(value ?? '—');
+
+    return (
+      <div
+        data-testid="vizql-kpi"
+        style={{
+          width: '100%', height: '100%', display: 'flex',
+          flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 4, padding: 16, cursor: 'default',
+          fontFamily: "'Outfit', system-ui, sans-serif",
+        }}
+      >
+        <div style={{
+          fontSize: 'clamp(28px, 5vw, 48px)', fontWeight: 700,
+          color: 'var(--text-primary, #1a1a2e)', letterSpacing: '-0.03em',
+          lineHeight: 1.1,
+        }}>
+          {formatted}
+        </div>
+        <div style={{
+          fontSize: 11, fontWeight: 500, textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          color: 'var(--text-muted, rgba(0,0,0,0.45))',
+        }}>
+          {label.replace(/_/g, ' ')}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}

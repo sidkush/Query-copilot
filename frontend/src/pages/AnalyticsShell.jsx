@@ -45,6 +45,9 @@ export default function AnalyticsShell() {
   const activeDashboardId = useStore((s) => s.activeDashboardId);
   const setActiveDashboardId = useStore((s) => s.setActiveDashboardId);
   const agentPanelOpen = useStore((s) => s.agentPanelOpen);
+  const setChartEditorSpec = useStore((s) => s.setChartEditorSpec);
+  const setChartEditorMode = useStore((s) => s.setChartEditorMode);
+  const [selectedTile, setSelectedTile] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -72,6 +75,17 @@ export default function AnalyticsShell() {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [activeDashboardId, setActiveDashboardId]);
+
+  const handleTileClick = useCallback((tile) => {
+    if (!tile) return;
+    setSelectedTile(tile);
+    // Load tile spec into chart editor for editing
+    const spec = tile.chart_spec || tile.chartSpec;
+    if (spec) {
+      setChartEditorSpec(spec);
+      setChartEditorMode?.("pro");
+    }
+  }, [setChartEditorSpec, setChartEditorMode]);
 
   const switchDashboard = useCallback(async (id) => {
     if (id === dashboardIdRef.current) return;
@@ -182,6 +196,7 @@ export default function AnalyticsShell() {
         dashboardName={dashboard.name}
         dashboardList={dashboardList}
         onSwitchDashboard={switchDashboard}
+        onTileClick={handleTileClick}
         initialMode="workbench"
       />
       {agentPanelOpen && (
