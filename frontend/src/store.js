@@ -532,4 +532,11 @@ export const useStore = create((set, get) => ({
       featureFlags: { ...s.featureFlags, ...(flags || {}) },
       featureFlagsLoaded: true,
     })),
+
+  // --- Dev-mode tier badge (B5 Task 5) -----------------------------------
+  // Toggle with Cmd+Alt+P (Mac) / Ctrl+Alt+P (other). Displays RSR tier,
+  // renderer family/backend, streaming mode, downsample info, and reason
+  // as a small overlay in the top-right corner of EditorCanvas.
+  showTierBadge: false,
+  toggleTierBadge: () => set((s) => ({ showTierBadge: !s.showTierBadge })),
 }));
