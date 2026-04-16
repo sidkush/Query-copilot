@@ -9,7 +9,7 @@ import useSpeechRecognition from "../../hooks/useSpeechRecognition";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
 import useConfirmAction from "../../lib/useConfirmAction";
 
-const DOCK_POSITIONS = ["float", "right", "bottom", "left"];
+const DOCK_POSITIONS = ["float", "right"];
 const MIN_W = 280;
 const MIN_H = 200;
 const MAX_W_RATIO = 0.6;
