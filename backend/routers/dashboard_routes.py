@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 from auth import get_current_user
+from workspace_sharing import get_workspace_sharing
 
 
 def _pick_dialect_for_user(email: str) -> str:
@@ -333,6 +334,20 @@ async def delete_section(dashboard_id: str, tab_id: str, section_id: str, user=D
 
 @router.post("/{dashboard_id}/tabs/{tab_id}/sections/{section_id}/tiles")
 async def add_tile(dashboard_id: str, tab_id: str, section_id: str, body: AddTile, user=Depends(get_current_user)):
+    email = user["email"]
+    # Permission check: caller must be editor or owner
+    d = load_dashboard(email, dashboard_id)
+    if not d:
+        # May be a shared dashboard — locate the owner
+        ws = get_workspace_sharing()
+        shared = ws.list_shared_with_me(email)
+        entry = next((s for s in shared if s["dashboard_id"] == dashboard_id), None)
+        if not entry or not ws.check_access(email, entry["owner_email"], dashboard_id, "editor"):
+            raise HTTPException(403, "Editor access required to add tiles")
+        owner_email = entry["owner_email"]
+    else:
+        owner_email = email
+
     tile_data = body.model_dump(exclude_none=True)
     tile_data["title"] = tile_data.get("title", "")[:200]
     if "rows" in tile_data:
@@ -340,12 +355,12 @@ async def add_tile(dashboard_id: str, tab_id: str, section_id: str, body: AddTil
     # Validate SQL at write time
     if tile_data.get("sql"):
         from sql_validator import SQLValidator
-        _dialect = _pick_dialect_for_user(user["email"])
+        _dialect = _pick_dialect_for_user(email)
         is_valid, _cleaned, error = SQLValidator(dialect=_dialect).validate(tile_data["sql"])
         if not is_valid:
             raise HTTPException(400, f"Invalid SQL: {error}")
     tile_data.setdefault("annotations", [])
-    d = add_tile_to_section(user["email"], dashboard_id, tab_id, section_id, tile_data)
+    d = add_tile_to_section(owner_email, dashboard_id, tab_id, section_id, tile_data)
     if not d:
         raise HTTPException(404, "Dashboard, tab, or section not found")
     return d
@@ -388,32 +403,58 @@ async def add_tile_shortcut(dashboard_id: str, body: AddTile, user=Depends(get_c
 
 @router.put("/{dashboard_id}/tiles/{tile_id}")
 async def update_tile_endpoint(dashboard_id: str, tile_id: str, body: UpdateTileBody, user=Depends(get_current_user)):
+    email = user["email"]
+    # Permission check: caller must be editor or owner
+    d = load_dashboard(email, dashboard_id)
+    if not d:
+        ws = get_workspace_sharing()
+        shared = ws.list_shared_with_me(email)
+        entry = next((s for s in shared if s["dashboard_id"] == dashboard_id), None)
+        if not entry or not ws.check_access(email, entry["owner_email"], dashboard_id, "editor"):
+            raise HTTPException(403, "Editor access required to update tiles")
+        owner_email = entry["owner_email"]
+    else:
+        owner_email = email
+
     updates = body.model_dump(exclude_none=True)
     if "rows" in updates:
         updates["rows"] = updates["rows"][:5000]
     # Validate SQL at write time
     if updates.get("sql"):
         from sql_validator import SQLValidator
-        _dialect = _pick_dialect_for_user(user["email"])
+        _dialect = _pick_dialect_for_user(email)
         is_valid, _cleaned, error = SQLValidator(dialect=_dialect).validate(updates["sql"])
         if not is_valid:
             raise HTTPException(400, f"Invalid SQL: {error}")
-    d = update_tile(user["email"], dashboard_id, tile_id, updates)
+    d = update_tile(owner_email, dashboard_id, tile_id, updates)
     if not d:
         raise HTTPException(404, "Dashboard or tile not found")
     return d
 
 @router.delete("/{dashboard_id}/tiles/{tile_id}")
 async def remove_tile(dashboard_id: str, tile_id: str, user=Depends(get_current_user)):
-    d = load_dashboard(user["email"], dashboard_id)
+    email = user["email"]
+    # Permission check: caller must be editor or owner
+    d = load_dashboard(email, dashboard_id)
     if not d:
-        raise HTTPException(404, "Dashboard not found")
+        ws = get_workspace_sharing()
+        shared = ws.list_shared_with_me(email)
+        entry = next((s for s in shared if s["dashboard_id"] == dashboard_id), None)
+        if not entry or not ws.check_access(email, entry["owner_email"], dashboard_id, "editor"):
+            raise HTTPException(403, "Editor access required to delete tiles")
+        owner_email = entry["owner_email"]
+        d = load_dashboard(owner_email, dashboard_id)
+        if not d:
+            raise HTTPException(404, "Dashboard not found")
+    else:
+        owner_email = email
+
     for tab in d.get("tabs", []):
         for sec in tab.get("sections", []):
             sec["tiles"] = [t for t in sec.get("tiles", []) if t["id"] != tile_id]
             sec["layout"] = [l for l in sec.get("layout", []) if l["i"] != tile_id]
-    update_dashboard(user["email"], dashboard_id, {"tabs": d["tabs"]})
-    return load_dashboard(user["email"], dashboard_id)
+    update_dashboard(owner_email, dashboard_id, {"tabs": d["tabs"]})
+    return load_dashboard(owner_email, dashboard_id)
 
 
 # ── Generate Column SQL ──────────────────────────────────────────────
@@ -1614,6 +1655,94 @@ async def restore_version(dashboard_id: str, body: RestoreVersionRequest, user=D
     if not result:
         raise HTTPException(404, "Version not found")
     return result
+
+
+# ── Workspace Sharing (role-based RBAC) ───────────────────────────
+
+class WorkspaceShareRequest(BaseModel):
+    email: str
+    role: str = "viewer"  # "viewer" | "editor"
+
+
+@router.post("/{dashboard_id}/workspace-shares")
+async def share_dashboard_with_user(
+    dashboard_id: str,
+    body: WorkspaceShareRequest,
+    user=Depends(get_current_user),
+):
+    """Grant another AskDB user access to this dashboard at a given role.
+
+    Only the dashboard owner can share. Role must be 'viewer' or 'editor'.
+    Idempotent: re-posting with a different role updates the existing entry.
+    """
+    owner_email = user["email"]
+    # Verify the caller owns this dashboard
+    d = load_dashboard(owner_email, dashboard_id)
+    if not d:
+        raise HTTPException(404, "Dashboard not found")
+
+    if not body.email or "@" not in body.email:
+        raise HTTPException(400, "Valid target email required")
+    if body.role not in ("viewer", "editor"):
+        raise HTTPException(400, "Role must be 'viewer' or 'editor'")
+
+    ws = get_workspace_sharing()
+    try:
+        result = ws.share_dashboard(owner_email, dashboard_id, body.email, body.role)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    return {"status": "shared", **result}
+
+
+@router.delete("/{dashboard_id}/workspace-shares/{target_email}")
+async def revoke_dashboard_share(
+    dashboard_id: str,
+    target_email: str,
+    user=Depends(get_current_user),
+):
+    """Revoke access for a specific user. Only the owner can revoke."""
+    owner_email = user["email"]
+    d = load_dashboard(owner_email, dashboard_id)
+    if not d:
+        raise HTTPException(404, "Dashboard not found")
+
+    ws = get_workspace_sharing()
+    removed = ws.revoke_share(owner_email, dashboard_id, target_email)
+    if not removed:
+        raise HTTPException(404, f"No share entry found for {target_email}")
+
+    return {"status": "revoked", "email": target_email}
+
+
+@router.get("/{dashboard_id}/workspace-shares")
+async def list_dashboard_shares(
+    dashboard_id: str,
+    user=Depends(get_current_user),
+):
+    """List all members with access to this dashboard.
+
+    Accessible by the owner and any viewer/editor already on the share list.
+    """
+    owner_email = user["email"]
+    ws = get_workspace_sharing()
+
+    # Allow access if caller is owner OR already a viewer/editor
+    d = load_dashboard(owner_email, dashboard_id)
+    if not d:
+        # Might not be owner — check if shared with this user
+        shared = ws.list_shared_with_me(user["email"])
+        is_member = any(s["dashboard_id"] == dashboard_id for s in shared)
+        if not is_member:
+            raise HTTPException(404, "Dashboard not found")
+        # Find the actual owner
+        entry = next(s for s in shared if s["dashboard_id"] == dashboard_id)
+        actual_owner = entry["owner_email"]
+        members = ws.list_shares(actual_owner, dashboard_id)
+    else:
+        members = ws.list_shares(owner_email, dashboard_id)
+
+    return {"members": members}
 
 
 # Public endpoint — no auth required
