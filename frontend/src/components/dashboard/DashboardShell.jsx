@@ -8,6 +8,7 @@ import LiveOpsLayout from "./modes/LiveOpsLayout";
 import StoryLayout from "./modes/StoryLayout";
 import PitchLayout from "./modes/PitchLayout";
 import WorkbookLayout from "./modes/WorkbookLayout";
+import useTileLinking from "./lib/useTileLinking";
 
 /**
  * DashboardShell — Phase 4a archetype shell.
@@ -48,6 +49,11 @@ export default function DashboardShell({
 }) {
   const [mode, setMode] = useState(initialMode);
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Brush-to-detail cross-tile filtering.
+  // Source tiles call onBrush(sourceTileId, field, range) via their VegaRenderer.
+  // Detail tiles read getFiltersForTile(tileId) and batch-refresh with the filters.
+  const { linkConfig, addLink, removeLink, onBrush, getFiltersForTile } = useTileLinking();
 
   // Semantic model + chart editor from store
   const activeSemanticModel = useStore((s) => s.activeSemanticModel);
@@ -211,6 +217,11 @@ export default function DashboardShell({
           dashboardName={dashboardName}
           onTileClick={onTileClick}
           onLayoutChange={onLayoutChange}
+          onBrush={onBrush}
+          getFiltersForTile={getFiltersForTile}
+          linkConfig={linkConfig}
+          addLink={addLink}
+          removeLink={removeLink}
         />
       </div>
 

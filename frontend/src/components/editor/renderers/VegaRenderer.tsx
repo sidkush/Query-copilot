@@ -49,6 +49,11 @@ import type { View } from 'vega';
  * EditorCanvas.
  */
 
+export interface DrillthroughEvent {
+  targetTileId: string;
+  filters: { field: string; value: unknown }[];
+}
+
 export interface VegaRendererProps {
   spec: ChartSpec;
   resultSet?: {
@@ -61,6 +66,18 @@ export interface VegaRendererProps {
    *  OnObjectOverlay for scenegraph hit-testing. */
   onViewReady?: (view: View) => void;
   colorMap?: ColorMap;
+  /** Drillthrough callback — fired when the user clicks a data mark and
+   *  the spec declares a matching `drillthrough` interaction. */
+  onDrillthrough?: (event: DrillthroughEvent) => void;
+  /**
+   * Called when the user drags an interval brush selection on the chart.
+   * Fires with (field, [lo, hi]) while a selection is active; fires with
+   * (field, null) when the brush is cleared (empty array from Vega signal).
+   *
+   * Only wired when the compiled spec has at least one selection of
+   * type 'interval'. Used by useTileLinking for brush-to-detail filtering.
+   */
+  onBrush?: (field: string, range: [number, number] | null) => void;
 }
 
 type Row = Record<string, unknown>;
@@ -90,6 +107,8 @@ export default function VegaRenderer({
   strategy,
   onViewReady,
   colorMap,
+  onDrillthrough,
+  onBrush,
 }: VegaRendererProps) {
   const compiled = useMemo(() => {
     try {
@@ -189,13 +208,51 @@ export default function VegaRenderer({
   }, [onViewReady]);
 
   // Store the view from onNewView so the streaming hook can insert rows.
+  // Also attaches the drillthrough click listener and brush signal listener
+  // when the spec declares the relevant interactions / selections.
   const handleNewViewWrapped = useCallback((view: View) => {
     viewRef.current = view;
     if (!firstPaintTsRef.current) {
       firstPaintTsRef.current = performance.now();
     }
     handleNewView(view);
-  }, [handleNewView]);
+
+    // Drillthrough: listen for clicks on data marks and fire the callback
+    // when the spec declares a matching interaction entry.
+    view.addEventListener('click', (_event, item) => {
+      if (!item?.datum || !spec.interactions?.length || !onDrillthrough) return;
+      const drill = spec.interactions.find(i => i.type === 'drillthrough');
+      if (!drill) return;
+      const filters = drill.filterMappings.map(m => ({
+        field: m.targetField,
+        value: (item.datum as Record<string, unknown>)[m.sourceField],
+      }));
+      onDrillthrough({ targetTileId: drill.targetTileId, filters });
+    });
+
+    // Brush-to-detail: attach a Vega signal listener for the first interval
+    // selection declared in the spec. When the user drags a brush, the signal
+    // value is an array [lo, hi]; when cleared it is [] or undefined.
+    // We report (field, [lo, hi]) for an active brush and (field, null) for clear.
+    if (onBrush) {
+      const selections = (spec as unknown as { selection?: { type?: string; name?: string }[] }).selection;
+      if (Array.isArray(selections)) {
+        const intervalSel = selections.find(s => s.type === 'interval');
+        if (intervalSel?.name) {
+          const signalName = `${intervalSel.name}_x`;
+          const xField = (spec as { encoding?: { x?: { field?: string } } }).encoding?.x?.field ?? '';
+          view.addSignalListener(signalName, (_name: string, value: unknown) => {
+            if (Array.isArray(value) && value.length === 2) {
+              onBrush(xField, value as [number, number]);
+            } else {
+              // Empty array or undefined = brush cleared.
+              onBrush(xField, null);
+            }
+          });
+        }
+      }
+    }
+  }, [handleNewView, spec, onDrillthrough, onBrush]);
 
   useEffect(() => {
     if (!isStreaming || !resultSet?.columns) return;
