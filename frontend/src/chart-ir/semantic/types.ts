@@ -30,6 +30,7 @@
  */
 
 import type { SemanticType, Aggregate } from '../types';
+import type { ChangelogEntry, SuggestionStatus } from './linguistic';
 
 export interface Dimension {
   id: string;
@@ -38,6 +39,8 @@ export interface Dimension {
   semanticType: SemanticType;
   sql?: string;
   description?: string;
+  /** D0: suggestion status for AI-bootstrapped entries. */
+  status?: SuggestionStatus;
 }
 
 export interface Measure {
@@ -48,6 +51,7 @@ export interface Measure {
   sql?: string;
   format?: string;
   description?: string;
+  status?: SuggestionStatus;
 }
 
 export interface Metric {
@@ -67,6 +71,7 @@ export interface Metric {
   dependencies: string[];
   description?: string;
   format?: string;
+  status?: SuggestionStatus;
 }
 
 export interface SemanticModel {
@@ -79,6 +84,10 @@ export interface SemanticModel {
   description?: string;
   /** Dataset / table this model binds to (for the primary table case). */
   dataset?: string;
+  /** D0: scopes model to a connection for per-connection storage. */
+  conn_id?: string;
+  /** D0: append-only edit history. */
+  changelog?: ChangelogEntry[];
   dimensions: Dimension[];
   measures: Measure[];
   metrics: Metric[];
