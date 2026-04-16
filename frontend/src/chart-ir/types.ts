@@ -158,6 +158,23 @@ export interface Transform {
 }
 
 /**
+ * Drillthrough interaction — click a data mark to navigate to a related
+ * dashboard tile pre-filtered by the clicked value.
+ *
+ * v1: single drillthrough per spec; multiple entries reserved for future
+ * multi-target support.
+ */
+export interface ChartInteraction {
+  type: 'drillthrough';
+  /** Which selection triggers the drill (matches a Selection.name). */
+  selectionName?: string;
+  /** Target tile ID to navigate to / highlight. */
+  targetTileId: string;
+  /** Field mappings: source field value → target filter field. */
+  filterMappings: { sourceField: string; targetField: string }[];
+}
+
+/**
  * Interactive selection — drives cross-filtering, highlighting, brushing.
  * Vega-Lite-compatible selection grammar.
  */
@@ -230,6 +247,12 @@ export interface ChartSpec {
 
   /** Interactive selection definitions. */
   selection?: Selection[];
+
+  /**
+   * Declarative interaction handlers.
+   * v1 supports a single `drillthrough` entry; additional types reserved.
+   */
+  interactions?: ChartInteraction[];
 
   /** Layered specs — each layer rendered on top of the previous. */
   layer?: ChartSpec[];

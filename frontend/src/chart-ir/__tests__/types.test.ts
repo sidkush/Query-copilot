@@ -186,7 +186,7 @@ describe('Selection', () => {
   });
 });
 
-import type { ChartSpec } from '../types';
+import type { ChartSpec, ChartInteraction } from '../types';
 
 describe('ChartSpec', () => {
   it('accepts a cartesian bar chart spec', () => {
@@ -278,6 +278,43 @@ describe('ChartSpec', () => {
       },
     };
     expect(spec.creative?.engine).toBe('r3f');
+  });
+
+  it('test_chartspec_accepts_interactions_field — spec with interactions array validates', () => {
+    const drill: ChartInteraction = {
+      type: 'drillthrough',
+      targetTileId: 'tile-orders-detail',
+      filterMappings: [
+        { sourceField: 'product', targetField: 'product_name' },
+      ],
+    };
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'cartesian',
+      mark: 'bar',
+      encoding: {
+        x: { field: 'product', type: 'nominal' },
+        y: { field: 'revenue', type: 'quantitative', aggregate: 'sum' },
+      },
+      interactions: [drill],
+    };
+    expect(spec.interactions).toHaveLength(1);
+    expect(spec.interactions?.[0].type).toBe('drillthrough');
+    expect(spec.interactions?.[0].targetTileId).toBe('tile-orders-detail');
+    expect(spec.interactions?.[0].filterMappings[0].sourceField).toBe('product');
+  });
+
+  it('test_chartspec_interactions_optional — spec without interactions is still valid', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'cartesian',
+      mark: 'line',
+      encoding: {
+        x: { field: 'date', type: 'temporal' },
+        y: { field: 'revenue', type: 'quantitative' },
+      },
+    };
+    expect(spec.interactions).toBeUndefined();
   });
 
   it('accepts config with theme + density', () => {

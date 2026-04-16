@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useCallback, useRef, useState } from "react";
 import EditorCanvas from "../../editor/EditorCanvas";
 import useViewportMount from "../../../lib/useViewportMount";
 
@@ -29,6 +29,8 @@ import useViewportMount from "../../../lib/useViewportMount";
  *   - showTitleBar      boolean (default true)
  *   - onTileClick       (tile) => void — click the canvas body to open
  *                       the full ChartEditor in a drawer (Phase 4c+1).
+ *   - onDrillthrough    optional override; when omitted the canvas handles
+ *                       drillthrough itself (scroll to target + toast).
  */
 export default function DashboardTileCanvas({
   tile,
@@ -36,6 +38,7 @@ export default function DashboardTileCanvas({
   showTitleBar = true,
   onTileClick,
   resultSetOverride,
+  onDrillthrough,
 }) {
   const spec = tile?.chart_spec || tile?.chartSpec || null;
 
@@ -63,6 +66,56 @@ export default function DashboardTileCanvas({
 
   const { ref: viewportRef, mounted: inViewport } = useViewportMount({ rootMargin: '300px' });
 
+  // Toast state — shown when a drillthrough fires and no external handler
+  // is provided. A ref holds the timeout so the cleanup path is stable.
+  const toastTimerRef = useRef(null);
+  const [drillToast, setDrillToast] = useState(null);
+
+  /**
+   * Default drillthrough handler (v1): scroll to the target tile and show a
+   * small toast summarising the applied filter values.
+   *
+   * Full filter application (batch-refresh via workbook endpoint) is wired in
+   * a later batch; for now this gives observable, testable feedback in the UI.
+   */
+  const handleDrillthrough = useCallback(
+    (event) => {
+      if (onDrillthrough) {
+        // Caller owns the behaviour — pass through untouched.
+        onDrillthrough(event);
+        return;
+      }
+
+      // Built-in v1 behaviour: scroll to the target tile and show a toast.
+      const targetEl = document.querySelector(
+        `[data-testid="dashboard-tile-canvas-${event.targetTileId}"]`
+      );
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        // Pulse a highlight outline so the user sees which tile was targeted.
+        targetEl.style.outline = "2px solid var(--accent, #6366f1)";
+        targetEl.style.outlineOffset = "2px";
+        setTimeout(() => {
+          targetEl.style.outline = "";
+          targetEl.style.outlineOffset = "";
+        }, 1800);
+      }
+
+      // Build a human-readable filter summary for the toast.
+      const filterSummary = event.filters
+        .map((f) => `${f.field} = ${f.value}`)
+        .join(", ");
+      const message = filterSummary
+        ? `Drillthrough → ${event.targetTileId} (${filterSummary})`
+        : `Drillthrough → ${event.targetTileId}`;
+
+      setDrillToast(message);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setDrillToast(null), 3000);
+    },
+    [onDrillthrough]
+  );
+
   const handleClick = () => {
     if (onTileClick) onTileClick(tile);
   };
@@ -82,6 +135,7 @@ export default function DashboardTileCanvas({
         overflow: "hidden",
         background: "var(--bg-elev-1, rgba(255,255,255,0.02))",
         border: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
+        position: "relative",
       }}
     >
       {showTitleBar && (
@@ -132,7 +186,11 @@ export default function DashboardTileCanvas({
       >
         {spec ? (
           inViewport ? (
-            <EditorCanvas spec={spec} resultSet={resultSet} />
+            <EditorCanvas
+              spec={spec}
+              resultSet={resultSet}
+              onDrillthrough={handleDrillthrough}
+            />
           ) : (
             <div
               data-testid="tile-viewport-skeleton"
@@ -154,6 +212,31 @@ export default function DashboardTileCanvas({
           <EmptyTile />
         )}
       </div>
+
+      {/* Drillthrough toast — briefly visible after a click navigates to a target tile */}
+      {drillToast && (
+        <div
+          data-testid="drillthrough-toast"
+          style={{
+            position: "absolute",
+            bottom: 10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "var(--bg-elev-3, rgba(30,30,40,0.92))",
+            border: "1px solid var(--accent, #6366f1)",
+            borderRadius: 6,
+            padding: "6px 12px",
+            fontSize: 12,
+            color: "var(--text-primary, #e7e7ea)",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            zIndex: 20,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+          }}
+        >
+          {drillToast}
+        </div>
+      )}
     </div>
   );
 }

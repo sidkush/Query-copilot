@@ -18,7 +18,7 @@ import { useStore } from "../../store";
  * other three renderers render placeholder cards explaining when the real
  * integration lands.
  */
-export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
+export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthrough }) {
   const [vegaView, setVegaView] = useState(null);
   const handleViewReady = useCallback((view) => setVegaView(view), []);
   const colorMap = useStore((s) => s.colorMap);
@@ -153,6 +153,7 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
             strategy={strategy}
             onViewReady={handleViewReady}
             colorMap={colorMap}
+            onDrillthrough={onDrillthrough}
           />
         </OnObjectOverlay>
       )}
