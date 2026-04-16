@@ -50,7 +50,7 @@ export type {
 export { FrameBudgetTracker, globalFrameBudgetTracker, PerTileTracker, globalPerTileTracker } from './perf/frameBudgetTracker';
 export type { FrameBudgetTrackerOptions } from './perf/frameBudgetTracker';
 
-export { InstancePool, globalInstancePool } from './perf/instancePool';
+export { InstancePool, globalInstancePool, detectGpuCapabilities } from './perf/instancePool';
 export type { InstanceKind, InstancePoolOptions } from './perf/instancePool';
 
 // Sub-project B Phase B5 — renderer telemetry
@@ -153,6 +153,15 @@ export type { ColorMap, ColorMapValidationResult } from './semantic/colorMap';
 
 export { detectCorrections } from './semantic/correctionDetector';
 export type { CorrectionSuggestion, CorrectionType } from './semantic/correctionDetector';
+
+// Sub-project D+1 — advanced semantic layer (deferred implementation)
+export type {
+  RowLevelPolicy,
+  DrillPath,
+  UnitDescriptor,
+  LookMLDefinition,
+  SemanticModelV2Extensions,
+} from './semantic/advanced';
 
 // Sub-project C — user-authored chart types
 export { validateUserChartType, collectPlaceholders } from './userTypes/schema';

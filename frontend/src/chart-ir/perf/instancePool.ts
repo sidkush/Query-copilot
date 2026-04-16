@@ -127,3 +127,56 @@ export class InstancePool {
 
 /** Process-wide singleton. */
 export const globalInstancePool = new InstancePool();
+
+/**
+ * Detect GPU capabilities for adaptive pool sizing.
+ * Uses WEBGL_debug_renderer_info when available.
+ */
+export function detectGpuCapabilities(): {
+  renderer: string;
+  vendor: string;
+  estimatedTier: 'low' | 'medium' | 'high';
+  maxContexts: number;
+} {
+  const defaults = { renderer: 'unknown', vendor: 'unknown', estimatedTier: 'medium' as const, maxContexts: 12 };
+
+  if (typeof document === 'undefined') return defaults;
+
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) return defaults;
+
+    const ext = (gl as WebGLRenderingContext).getExtension('WEBGL_debug_renderer_info');
+    const renderer = ext
+      ? (gl as WebGLRenderingContext).getParameter(ext.UNMASKED_RENDERER_WEBGL)
+      : 'unknown';
+    const vendor = ext
+      ? (gl as WebGLRenderingContext).getParameter(ext.UNMASKED_VENDOR_WEBGL)
+      : 'unknown';
+
+    // Heuristic tier detection
+    const rendererLower = String(renderer).toLowerCase();
+    let estimatedTier: 'low' | 'medium' | 'high' = 'medium';
+    let maxContexts = 12;
+
+    if (rendererLower.includes('intel') && !rendererLower.includes('iris xe')) {
+      estimatedTier = 'low';
+      maxContexts = 6;
+    } else if (rendererLower.includes('nvidia') || rendererLower.includes('amd') || rendererLower.includes('radeon')) {
+      estimatedTier = 'high';
+      maxContexts = 16;
+    } else if (rendererLower.includes('apple') || rendererLower.includes('m1') || rendererLower.includes('m2') || rendererLower.includes('m3')) {
+      estimatedTier = 'high';
+      maxContexts = 16;
+    }
+
+    // Clean up
+    const loseContext = (gl as WebGLRenderingContext).getExtension('WEBGL_lose_context');
+    loseContext?.loseContext();
+
+    return { renderer: String(renderer), vendor: String(vendor), estimatedTier, maxContexts };
+  } catch {
+    return defaults;
+  }
+}
