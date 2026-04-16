@@ -274,6 +274,109 @@ async def put_connection_semantic_model(
     return saved
 
 
+# ── Gallery (Sub-project C — community type registry) ─────────────────
+
+
+@router.get("/gallery/types")
+async def gallery_list_types(
+    page: int = 1,
+    page_size: int = 20,
+    category: str | None = None,
+    tier: str | None = None,
+    sort: str = "recent",
+):
+    """Browse community-contributed chart types."""
+    from gallery_store import gallery_store
+
+    return gallery_store.list_types(
+        page=page,
+        page_size=page_size,
+        category=category,
+        tier=tier,
+        sort=sort,
+    )
+
+
+@router.get("/gallery/types/{type_id}")
+async def gallery_get_type(type_id: str):
+    """Return a single gallery type by ID."""
+    from gallery_store import gallery_store
+
+    entry = gallery_store.get_type(type_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"gallery type not found: {type_id}")
+    return entry
+
+
+@router.post("/gallery/submit")
+async def gallery_submit_type(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    """Submit a .askdbviz package to the community gallery."""
+    from askdbviz_package import extract_package
+    from gallery_store import gallery_store
+
+    email = _require_email(user)
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Package exceeds 10 MB limit")
+
+    try:
+        manifest = extract_package(content)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    try:
+        entry = gallery_store.submit_type(manifest, content, email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {"entry": entry}
+
+
+@router.get("/gallery/types/{type_id}/download")
+async def gallery_download_type(type_id: str):
+    """Download a gallery chart type as a .askdbviz ZIP."""
+    from gallery_store import gallery_store
+
+    zip_bytes = gallery_store.download_package(type_id)
+    if zip_bytes is None:
+        raise HTTPException(status_code=404, detail=f"gallery type not found: {type_id}")
+
+    safe_id = "".join(c if c.isalnum() or c in "-_" else "_" for c in type_id)
+    filename = f"{safe_id}.askdbviz"
+
+    return RawResponse(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/gallery/types/{type_id}/rate")
+async def gallery_rate_type(
+    type_id: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+):
+    """Rate a gallery chart type (1–5 stars). Auth required."""
+    from gallery_store import gallery_store
+
+    _require_email(user)
+
+    stars = body.get("stars")
+    if not isinstance(stars, int) or stars < 1 or stars > 5:
+        raise HTTPException(status_code=400, detail="stars must be an integer between 1 and 5")
+
+    entry = gallery_store.rate_type(type_id, stars)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"gallery type not found: {type_id}")
+
+    return entry
+
+
 # ── helpers ───────────────────────────────────────────────────────────
 
 
