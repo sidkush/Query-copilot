@@ -1306,6 +1306,40 @@ class AgentEngine:
             _logger.debug("_build_semantic_context failed (non-fatal): %s", exc)
             return ""
 
+    def _build_chart_type_context(self) -> str:
+        """Inject user's custom chart types into the agent's system prompt."""
+        try:
+            from chart_customization import list_chart_types
+            types = list_chart_types(self.email)
+            if not types:
+                return ""
+
+            lines = ["\n\n=== Available Custom Chart Types ===\n"]
+            lines.append(
+                "The user has custom chart types installed. Consider them alongside "
+                "built-in types when suggesting charts.\n"
+            )
+            for t in types[:20]:
+                params = ", ".join(
+                    f"{p.get('name', '?')} ({p.get('semanticType', p.get('kind', '?'))})"
+                    for p in t.get('parameters', [])
+                )
+                lines.append(f"- {t.get('id', '?')} — \"{t.get('name', '?')}\": {params}")
+
+            lines.append(
+                "\nWhen the data shape matches a custom type's parameters, prefer it "
+                "over a generic built-in if the type name/category aligns with the question context."
+            )
+            lines.append("=== End Custom Chart Types ===")
+
+            block = "\n".join(lines)
+            if len(block) > 1500:
+                block = block[:1500] + "\n... (truncated)\n=== End Custom Chart Types ==="
+            return block
+        except Exception as exc:
+            _logger.debug("_build_chart_type_context failed (non-fatal): %s", exc)
+            return ""
+
     def _run_inner(self, question: str):
         """Inner generator for the agent loop. Separated so run() can wrap in try/finally."""
         # Compact memory before starting
@@ -1600,6 +1634,11 @@ class AgentEngine:
         semantic_context = self._build_semantic_context()
         if semantic_context:
             system_prompt += semantic_context
+
+        # ── Custom chart types context (Sub-project C Phase C1) ──
+        chart_type_context = self._build_chart_type_context()
+        if chart_type_context:
+            system_prompt += chart_type_context
 
         # ── Dialect-aware SQL hints (Task 8) ──────────────────────
         db_type = getattr(self.connection_entry, 'db_type', '') or ''
