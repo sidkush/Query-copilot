@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { compileToVegaLite } from '../compiler/toVegaLite';
 import type { ChartSpec } from '../types';
+import type { ColorMap } from '../semantic/colorMap';
 import {
   SIMPLE_BAR,
   TIME_SERIES_LINE,
@@ -8,6 +9,18 @@ import {
   FACETED_BARS,
   LAYERED_LINE_POINT,
 } from './fixtures/canonical-charts';
+
+const TEST_COLOR_MAP: ColorMap = {
+  version: 1,
+  conn_id: 'test',
+  updated_at: '2026-04-15T00:00:00Z',
+  assignments: {
+    'region:Europe': '#4a8fe7',
+    'region:North America': '#2dbf71',
+    'region:Asia': '#e0b862',
+  },
+  changelog: [],
+};
 
 describe('compileToVegaLite', () => {
   it('compiles a simple bar chart', () => {
@@ -132,5 +145,61 @@ describe('compileToVegaLite', () => {
     expect(p.select.on).toBe('click');
     expect(p.select.clear).toBe('dblclick');
     expect(p.select.encodings).toEqual(['x', 'y']);
+  });
+});
+
+describe('compileToVegaLite with colorMap', () => {
+  it('injects scale domain + range when color field matches color map', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'cartesian',
+      mark: 'line',
+      encoding: {
+        x: { field: 'date', type: 'temporal' },
+        y: { field: 'revenue', type: 'quantitative' },
+        color: { field: 'region', type: 'nominal' },
+      },
+    };
+    const vl = compileToVegaLite(spec, TEST_COLOR_MAP);
+    expect(vl.encoding?.color?.scale?.domain).toEqual(['Europe', 'North America', 'Asia']);
+    expect(vl.encoding?.color?.scale?.range).toEqual(['#4a8fe7', '#2dbf71', '#e0b862']);
+  });
+
+  it('preserves existing scheme when no color map matches', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'cartesian',
+      mark: 'bar',
+      encoding: {
+        x: { field: 'product', type: 'nominal' },
+        y: { field: 'sales', type: 'quantitative' },
+        color: { field: 'product', type: 'nominal', scheme: 'tableau10' },
+      },
+    };
+    // TEST_COLOR_MAP has assignments for 'region', not 'product' — no match
+    const vl = compileToVegaLite(spec, TEST_COLOR_MAP);
+    expect(vl.encoding?.color?.scale).toEqual({ scheme: 'tableau10' });
+    expect(vl.encoding?.color?.scale?.domain).toBeUndefined();
+    expect(vl.encoding?.color?.scale?.range).toBeUndefined();
+  });
+
+  it('works without a color map (backward compat)', () => {
+    expect(() => compileToVegaLite(SIMPLE_BAR)).not.toThrow();
+    const vl = compileToVegaLite(SIMPLE_BAR);
+    expect(vl.mark).toBe('bar');
+  });
+
+  it('does not inject scale when spec has no color encoding', () => {
+    const spec: ChartSpec = {
+      $schema: 'askdb/chart-spec/v1',
+      type: 'cartesian',
+      mark: 'bar',
+      encoding: {
+        x: { field: 'category', type: 'nominal' },
+        y: { field: 'value', type: 'quantitative' },
+      },
+    };
+    const vl = compileToVegaLite(spec, TEST_COLOR_MAP);
+    expect(vl.encoding?.color).toBeUndefined();
   });
 });

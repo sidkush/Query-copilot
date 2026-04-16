@@ -11,6 +11,7 @@
  * Reference: https://vega.github.io/vega-lite/docs/spec.html
  */
 import type { ChartSpec, FieldRef, Encoding } from '../types';
+import { buildColorScale, type ColorMap } from '../semantic/colorMap';
 
 /**
  * A single encoding channel in the Vega-Lite output.
@@ -123,7 +124,7 @@ function compileEncoding(enc: Encoding): VegaLiteEncoding {
  * inherit `data` from the parent and must not redeclare `$schema`
  * per Vega-Lite convention.
  */
-export function compileToVegaLite(spec: ChartSpec): VegaLiteSpec {
+export function compileToVegaLite(spec: ChartSpec, colorMap?: ColorMap): VegaLiteSpec {
   if (spec.type !== 'cartesian') {
     throw new Error(
       `Cannot compile non-cartesian spec to Vega-Lite (type: ${spec.type}). ` +
@@ -131,7 +132,7 @@ export function compileToVegaLite(spec: ChartSpec): VegaLiteSpec {
     );
   }
 
-  const inner = compileInner(spec);
+  const inner = compileInner(spec, colorMap);
   // Faceted root specs omit top-level `data` — the inner spec
   // inherits it from the renderer-provided dataset at render time,
   // and redeclaring it here would shadow that inheritance.
@@ -153,7 +154,7 @@ export function compileToVegaLite(spec: ChartSpec): VegaLiteSpec {
  * Used recursively for children (layers, facet inner, hconcat/vconcat)
  * that inherit those fields from the root spec.
  */
-function compileInner(spec: ChartSpec): VegaLiteSpec {
+function compileInner(spec: ChartSpec, colorMap?: ColorMap): VegaLiteSpec {
   if (spec.type !== 'cartesian') {
     throw new Error(
       `Cannot compile non-cartesian spec to Vega-Lite (type: ${spec.type}). ` +
@@ -168,7 +169,7 @@ function compileInner(spec: ChartSpec): VegaLiteSpec {
 
   // Layered specs — children inherit data from parent.
   if (spec.layer) {
-    out.layer = spec.layer.map((s) => compileInner(s));
+    out.layer = spec.layer.map((s) => compileInner(s, colorMap));
     return out;
   }
 
@@ -179,23 +180,35 @@ function compileInner(spec: ChartSpec): VegaLiteSpec {
     out.facet = {};
     if (spec.facet.row) out.facet.row = compileField(spec.facet.row);
     if (spec.facet.column) out.facet.column = compileField(spec.facet.column);
-    out.spec = compileInner(spec.facet.spec);
+    out.spec = compileInner(spec.facet.spec, colorMap);
     return out;
   }
 
   // Concat specs — children inherit data from parent.
   if (spec.hconcat) {
-    out.hconcat = spec.hconcat.map((s) => compileInner(s));
+    out.hconcat = spec.hconcat.map((s) => compileInner(s, colorMap));
     return out;
   }
   if (spec.vconcat) {
-    out.vconcat = spec.vconcat.map((s) => compileInner(s));
+    out.vconcat = spec.vconcat.map((s) => compileInner(s, colorMap));
     return out;
   }
 
   // Single mark + encoding
   if (spec.mark) out.mark = spec.mark;
   if (spec.encoding) out.encoding = compileEncoding(spec.encoding);
+
+  // Persistent color map injection (Sub-project D Phase D2)
+  if (colorMap && out.encoding?.color?.field) {
+    const colorField = out.encoding.color.field;
+    const scale = buildColorScale(colorMap, colorField);
+    if (scale) {
+      out.encoding.color = {
+        ...out.encoding.color,
+        scale: { ...out.encoding.color.scale, ...scale },
+      };
+    }
+  }
   if (spec.transform) out.transform = spec.transform;
   if (spec.selection) {
     // Vega-Lite v5 uses 'params' with nested 'select' object.
