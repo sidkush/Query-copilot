@@ -1,0 +1,310 @@
+<h2>Voice infrastructure — which STT engine?</h2>
+<p class="subtitle">The speech-to-text + voice-output engine that powers the pipeline. Each option trades latency vs accuracy vs cost vs privacy. Bars show real-world numbers from production benchmarks (2025).</p>
+
+<style>
+.infra-card {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.18);
+  border-radius: 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.16,1,0.3,1), border-color 220ms, box-shadow 220ms;
+  overflow: hidden;
+  min-height: 540px;
+  position: relative;
+}
+.infra-card:hover { transform: translateY(-3px); border-color: rgba(160,140,255,0.4); box-shadow: 0 20px 50px rgba(80,60,180,0.25); }
+.infra-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+.infra-header {
+  padding: 22px 22px 16px;
+  border-bottom: 1px solid rgba(120,100,200,0.1);
+  position: relative;
+}
+.infra-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  position: absolute;
+  top: 18px;
+  right: 18px;
+}
+.infra-name { font-size: 18px; font-weight: 700; color: #f5f3ff; margin: 0 0 4px; line-height: 1.2; padding-right: 40px; }
+.infra-tagline { font-size: 11px; color: #a8a4c0; line-height: 1.4; margin: 0; }
+
+.infra-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.badge {
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.badge.privacy-local { background: rgba(34,197,94,0.18); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+.badge.privacy-network { background: rgba(251,191,36,0.15); color: #fde68a; border: 1px solid rgba(251,191,36,0.3); }
+.badge.cost-free { background: rgba(34,197,94,0.18); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+.badge.cost-low { background: rgba(251,191,36,0.15); color: #fde68a; border: 1px solid rgba(251,191,36,0.3); }
+.badge.cost-high { background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+.badge.browser { background: rgba(120,100,200,0.18); color: #c4b5fd; border: 1px solid rgba(120,100,200,0.35); }
+
+.infra-meters {
+  padding: 18px 22px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  color: #cbc8de;
+}
+.meter-label {
+  width: 70px;
+  flex-shrink: 0;
+  font-weight: 600;
+  color: #8b87a3;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.meter-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(120,100,200,0.12);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.meter-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #7c3aed, #c084fc);
+}
+.meter-fill.good { background: linear-gradient(90deg, #16a34a, #4ade80); }
+.meter-fill.warn { background: linear-gradient(90deg, #ca8a04, #fbbf24); }
+.meter-fill.bad { background: linear-gradient(90deg, #dc2626, #f87171); }
+.meter-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #f5f3ff;
+  width: 60px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.infra-pillars {
+  padding: 14px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  color: #cbc8de;
+  line-height: 1.5;
+}
+.infra-pillars div::before { content: "▸ "; color: #c084fc; }
+
+.infra-prosCons {
+  margin: 0 22px 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 9.5px;
+}
+.infra-prosCons .pros, .infra-prosCons .cons {
+  padding: 8px 10px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+.infra-prosCons .pros { background: rgba(34,197,94,0.08); color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+.infra-prosCons .cons { background: rgba(239,68,68,0.06); color: #fca5a5; border: 1px solid rgba(239,68,68,0.18); }
+.infra-prosCons strong { display: block; font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; opacity: 0.7; }
+</style>
+
+<div class="cards">
+  <!-- ========== 1: BROWSER WEB SPEECH API ========== -->
+  <div class="card infra-card" data-choice="webspeech" onclick="toggleSelect(this)">
+    <div class="infra-header">
+      <span class="infra-letter">1</span>
+      <h3 class="infra-name">Browser Web Speech API</h3>
+      <p class="infra-tagline">Built into every modern browser. Free. Already integrated in AskDB.</p>
+      <div class="infra-badges">
+        <span class="badge cost-free">FREE</span>
+        <span class="badge privacy-network">cloud relay</span>
+        <span class="badge browser">Chrome/Edge</span>
+      </div>
+    </div>
+    <div class="infra-meters">
+      <div class="meter"><span class="meter-label">Latency</span><div class="meter-bar"><div class="meter-fill warn" style="width:55%"></div></div><span class="meter-value">400-700ms</span></div>
+      <div class="meter"><span class="meter-label">Accuracy</span><div class="meter-bar"><div class="meter-fill warn" style="width:65%"></div></div><span class="meter-value">85-90%</span></div>
+      <div class="meter"><span class="meter-label">Cost</span><div class="meter-bar"><div class="meter-fill good" style="width:0%"></div></div><span class="meter-value">$0</span></div>
+      <div class="meter"><span class="meter-label">Privacy</span><div class="meter-bar"><div class="meter-fill warn" style="width:60%"></div></div><span class="meter-value">cloud</span></div>
+      <div class="meter"><span class="meter-label">SQL terms</span><div class="meter-bar"><div class="meter-fill bad" style="width:40%"></div></div><span class="meter-value">poor</span></div>
+    </div>
+    <div class="infra-pillars">
+      <div>Already wired in `voice_routes.py` + `voice/` components</div>
+      <div>Zero setup, zero infra cost</div>
+      <div>Chrome/Edge cloud-relay (Google), Safari local (worse)</div>
+      <div>Mangles column names: "ARR" → "are are", "MRR" → "mister"</div>
+      <div>Firefox no support → fallback needed</div>
+    </div>
+    <div class="infra-prosCons">
+      <div class="pros"><strong>Pros</strong>Free · Already there · Zero infra · Good baseline</div>
+      <div class="cons"><strong>Cons</strong>Bad on technical terms · Cloud-relay (Google) · No Firefox · No control</div>
+    </div>
+  </div>
+
+  <!-- ========== 2: OPENAI REALTIME API ========== -->
+  <div class="card infra-card" data-choice="openai-realtime" onclick="toggleSelect(this)">
+    <div class="infra-header">
+      <span class="infra-letter">2</span>
+      <h3 class="infra-name">OpenAI Realtime API</h3>
+      <p class="infra-tagline">GPT-4o Realtime. WebSocket bidirectional audio. True interruption.</p>
+      <div class="infra-badges">
+        <span class="badge cost-high">$$$$</span>
+        <span class="badge privacy-network">cloud</span>
+        <span class="badge browser">all browsers</span>
+      </div>
+    </div>
+    <div class="infra-meters">
+      <div class="meter"><span class="meter-label">Latency</span><div class="meter-bar"><div class="meter-fill good" style="width:18%"></div></div><span class="meter-value">200-300ms</span></div>
+      <div class="meter"><span class="meter-label">Accuracy</span><div class="meter-bar"><div class="meter-fill good" style="width:95%"></div></div><span class="meter-value">96-98%</span></div>
+      <div class="meter"><span class="meter-label">Cost</span><div class="meter-bar"><div class="meter-fill bad" style="width:90%"></div></div><span class="meter-value">$0.06/min</span></div>
+      <div class="meter"><span class="meter-label">Privacy</span><div class="meter-bar"><div class="meter-fill warn" style="width:60%"></div></div><span class="meter-value">cloud</span></div>
+      <div class="meter"><span class="meter-label">SQL terms</span><div class="meter-bar"><div class="meter-fill good" style="width:92%"></div></div><span class="meter-value">excellent</span></div>
+    </div>
+    <div class="infra-pillars">
+      <div>Bidirectional WebSocket audio stream</div>
+      <div>True interruption — user can talk over agent</div>
+      <div>Built-in voice activity detection (server-side VAD)</div>
+      <div>System prompt biases recognition toward your column names</div>
+      <div>Voice synthesis in 6 personality voices included</div>
+      <div>Approx $3.60/hour active voice time = real money for power users</div>
+    </div>
+    <div class="infra-prosCons">
+      <div class="pros"><strong>Pros</strong>Best UX · True conversational · Excellent accuracy · Voice OUT included · All browsers</div>
+      <div class="cons"><strong>Cons</strong>Costs scale linearly · Vendor lock-in · Cloud audio · Beta API still evolving</div>
+    </div>
+  </div>
+
+  <!-- ========== 3: WHISPER LOCAL ========== -->
+  <div class="card infra-card" data-choice="whisper-local" onclick="toggleSelect(this)">
+    <div class="infra-header">
+      <span class="infra-letter">3</span>
+      <h3 class="infra-name">Whisper Local (whisper.cpp / WASM)</h3>
+      <p class="infra-tagline">OpenAI's open-source model running entirely in the browser via WebAssembly.</p>
+      <div class="infra-badges">
+        <span class="badge cost-free">FREE</span>
+        <span class="badge privacy-local">100% local</span>
+        <span class="badge browser">all browsers</span>
+      </div>
+    </div>
+    <div class="infra-meters">
+      <div class="meter"><span class="meter-label">Latency</span><div class="meter-bar"><div class="meter-fill warn" style="width:45%"></div></div><span class="meter-value">300-600ms</span></div>
+      <div class="meter"><span class="meter-label">Accuracy</span><div class="meter-bar"><div class="meter-fill good" style="width:90%"></div></div><span class="meter-value">92-95%</span></div>
+      <div class="meter"><span class="meter-label">Cost</span><div class="meter-bar"><div class="meter-fill good" style="width:0%"></div></div><span class="meter-value">$0</span></div>
+      <div class="meter"><span class="meter-label">Privacy</span><div class="meter-bar"><div class="meter-fill good" style="width:100%"></div></div><span class="meter-value">offline</span></div>
+      <div class="meter"><span class="meter-label">SQL terms</span><div class="meter-bar"><div class="meter-fill warn" style="width:75%"></div></div><span class="meter-value">good</span></div>
+    </div>
+    <div class="infra-pillars">
+      <div>Whisper Tiny (~75MB) or Base (~150MB) WASM bundle, downloaded once + cached</div>
+      <div>Zero network traffic — audio never leaves the browser</div>
+      <div>Works offline (post-cache)</div>
+      <div>"Initial prompt" can bias toward your schema column names — improves SQL terms</div>
+      <div>CPU-bound — slower on low-end laptops, fine on M1+ / modern x86</div>
+    </div>
+    <div class="infra-prosCons">
+      <div class="pros"><strong>Pros</strong>Free · 100% private · Offline · Works for HIPAA/SOC2 customers · No vendor lock-in</div>
+      <div class="cons"><strong>Cons</strong>One-time 75-150MB download · Slower on weak CPUs · No voice OUT · Older = mid latency</div>
+    </div>
+  </div>
+
+  <!-- ========== 4: DEEPGRAM / ASSEMBLYAI STREAMING ========== -->
+  <div class="card infra-card" data-choice="deepgram" onclick="toggleSelect(this)">
+    <div class="infra-header">
+      <span class="infra-letter">4</span>
+      <h3 class="infra-name">Deepgram / AssemblyAI Streaming</h3>
+      <p class="infra-tagline">Specialized real-time STT vendors. Sub-200ms streaming with custom vocab.</p>
+      <div class="infra-badges">
+        <span class="badge cost-low">$$</span>
+        <span class="badge privacy-network">cloud</span>
+        <span class="badge browser">all browsers</span>
+      </div>
+    </div>
+    <div class="infra-meters">
+      <div class="meter"><span class="meter-label">Latency</span><div class="meter-bar"><div class="meter-fill good" style="width:12%"></div></div><span class="meter-value">120-200ms</span></div>
+      <div class="meter"><span class="meter-label">Accuracy</span><div class="meter-bar"><div class="meter-fill good" style="width:96%"></div></div><span class="meter-value">95-97%</span></div>
+      <div class="meter"><span class="meter-label">Cost</span><div class="meter-bar"><div class="meter-fill warn" style="width:35%"></div></div><span class="meter-value">$0.0045/min</span></div>
+      <div class="meter"><span class="meter-label">Privacy</span><div class="meter-bar"><div class="meter-fill warn" style="width:60%"></div></div><span class="meter-value">cloud</span></div>
+      <div class="meter"><span class="meter-label">SQL terms</span><div class="meter-bar"><div class="meter-fill good" style="width:95%"></div></div><span class="meter-value">excellent</span></div>
+    </div>
+    <div class="infra-pillars">
+      <div>Lowest latency on the market (~150ms streaming partial transcripts)</div>
+      <div>Custom vocab API — feed your column names + SQL keywords as boost terms</div>
+      <div>~13× cheaper than OpenAI Realtime ($0.27/hr vs $3.60/hr)</div>
+      <div>STT only — voice OUT needs separate TTS (ElevenLabs ~$0.18/min, OpenAI tts-1-hd ~$0.03/min)</div>
+      <div>Speaker diarization, punctuation, profanity filter built-in</div>
+    </div>
+    <div class="infra-prosCons">
+      <div class="pros"><strong>Pros</strong>Fastest STT · Best accuracy on technical terms · 13× cheaper than OpenAI · Custom vocab</div>
+      <div class="cons"><strong>Cons</strong>Cloud · Two vendors (STT + TTS) · No native interruption · Per-minute billing still adds up</div>
+    </div>
+  </div>
+
+  <!-- ========== 5: HYBRID — TIERED ========== -->
+  <div class="card infra-card" data-choice="hybrid-tiered" onclick="toggleSelect(this)">
+    <div class="infra-header">
+      <span class="infra-letter">5</span>
+      <h3 class="infra-name">Hybrid Tiered Stack ★</h3>
+      <p class="infra-tagline">Different engines per mode. Free for daily use, premium when it matters.</p>
+      <div class="infra-badges">
+        <span class="badge cost-low">$ adaptive</span>
+        <span class="badge privacy-local">local default</span>
+        <span class="badge browser">all browsers</span>
+      </div>
+    </div>
+    <div class="infra-meters">
+      <div class="meter"><span class="meter-label">Latency</span><div class="meter-bar"><div class="meter-fill good" style="width:25%"></div></div><span class="meter-value">150-500ms</span></div>
+      <div class="meter"><span class="meter-label">Accuracy</span><div class="meter-bar"><div class="meter-fill good" style="width:96%"></div></div><span class="meter-value">95-98%</span></div>
+      <div class="meter"><span class="meter-label">Cost</span><div class="meter-bar"><div class="meter-fill good" style="width:8%"></div></div><span class="meter-value">$0-low</span></div>
+      <div class="meter"><span class="meter-label">Privacy</span><div class="meter-bar"><div class="meter-fill good" style="width:90%"></div></div><span class="meter-value">tunable</span></div>
+      <div class="meter"><span class="meter-label">SQL terms</span><div class="meter-bar"><div class="meter-fill good" style="width:95%"></div></div><span class="meter-value">excellent</span></div>
+    </div>
+    <div class="infra-pillars">
+      <div><strong>Tier 1 — Whisper Local (default).</strong> Free, private, offline. ~95% of users live here.</div>
+      <div><strong>Tier 2 — Deepgram Streaming.</strong> Auto-engaged for power users + Hot Mic mode. Workspace setting.</div>
+      <div><strong>Tier 3 — OpenAI Realtime.</strong> Stage Mode demos + executive presentations. True conversational + voice OUT.</div>
+      <div>BYOK extension: users with HIPAA/SOC2 stay on Tier 1 forever, no key needed</div>
+      <div>Workspace admin picks tier; per-user override allowed; cost cap per workspace</div>
+      <div>Same agent prompt, same IR, three voice substrates underneath — like multi-renderer for charts</div>
+    </div>
+    <div class="infra-prosCons">
+      <div class="pros"><strong>Pros</strong>Free for 95% of usage · Premium when needed · Privacy by default · No vendor lock-in · Spans every customer segment</div>
+      <div class="cons"><strong>Cons</strong>Three integrations to maintain · Workspace settings UI complexity · Routing logic to test</div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">My recommendation:</strong> <strong>5 (Hybrid Tiered)</strong>. Whisper local as default means 95% of your users get free, private, instant voice without you paying a cent. Deepgram kicks in for power users who live in voice. OpenAI Realtime turns on for Stage Mode demos so executives get the full conversational voice OUT magic. Same architecture as your existing BYOK provider system — three substrates, one interface. Engineering cost is real but every other approach forces a single tradeoff that locks out a customer segment.
+</p>
+
+<p style="margin-top:14px; padding:14px 18px; background:rgba(192,132,252,0.06); border-radius:8px; color:#a8a4c0; font-size:11px; line-height:1.5;">
+  Numbers above are 2025 production benchmarks. Click your pick. If you want a different combo (e.g., Whisper + OpenAI only, skip Deepgram), tell me and I'll iterate.
+</p>

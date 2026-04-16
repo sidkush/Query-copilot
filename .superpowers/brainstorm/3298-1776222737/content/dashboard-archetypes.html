@@ -1,0 +1,875 @@
+<h2>Dashboards — what does the end state look like?</h2>
+<p class="subtitle">Six dashboard archetypes with realistic mockups. Each is a different "shape" of dashboard for a different audience and use case. Multi-select enabled. Pick the ones AskDB should ship — these are not mutually exclusive, they're modes you can switch between for the same data.</p>
+
+<style>
+.d-card {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.18);
+  border-radius: 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.16,1,0.3,1), border-color 220ms, box-shadow 220ms;
+  overflow: hidden;
+  min-height: 620px;
+}
+.d-card:hover { transform: translateY(-3px); border-color: rgba(160,140,255,0.4); box-shadow: 0 20px 50px rgba(80,60,180,0.25); }
+.d-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+.d-mockup {
+  height: 360px;
+  position: relative;
+  background: #f5f5f7;
+  border-bottom: 1px solid rgba(120,100,200,0.1);
+  overflow: hidden;
+  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Tableau 10 palette */
+.t10-1 { fill: #1f77b4; }
+.t10-2 { fill: #ff7f0e; }
+.t10-3 { fill: #2ca02c; }
+.t10-4 { fill: #d62728; }
+.t10-5 { fill: #9467bd; }
+.t10-6 { fill: #17becf; }
+.bg-t10-1 { background: #1f77b4; }
+.bg-t10-2 { background: #ff7f0e; }
+.bg-t10-3 { background: #2ca02c; }
+.bg-t10-4 { background: #d62728; }
+.bg-t10-5 { background: #9467bd; }
+
+/* Tile primitive */
+.tile {
+  background: #ffffff;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  padding: 10px 12px 8px;
+  display: flex; flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.tile-eyebrow { font-size: 7px; font-weight: 700; color: #6b6b75; text-transform: uppercase; letter-spacing: 0.1em; }
+.tile-title { font-size: 11px; font-weight: 700; color: #1a1a1a; margin-top: 2px; line-height: 1.2; }
+.tile-sub { font-size: 8px; color: #6b6b75; margin-top: 1px; }
+
+.kpi-value { font-size: 22px; font-weight: 800; color: #1a1a1a; line-height: 1; letter-spacing: -0.02em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.kpi-delta { font-size: 9px; font-weight: 600; margin-top: 2px; }
+.kpi-delta.up { color: #2e7d32; }
+.kpi-delta.down { color: #c62828; }
+
+.spark { width: 100%; height: 24px; }
+.svg-chart { width: 100%; flex: 1; min-height: 0; }
+
+.dash-topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 30px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e5ea;
+  display: flex; align-items: center; padding: 0 12px; gap: 8px;
+}
+.dash-topbar .logo { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, #1f77b4, #17becf); }
+.dash-topbar .crumb { font-size: 9px; color: #1a1a1a; font-weight: 600; }
+.dash-topbar .crumb .sep { color: #c0c0c8; margin: 0 6px; font-weight: 400; }
+.dash-topbar .filters { margin-left: auto; display: flex; gap: 5px; }
+.dash-topbar .filter-chip {
+  font-size: 8px;
+  background: #f0f4f8;
+  border: 1px solid #d0d8e0;
+  border-radius: 11px;
+  padding: 2px 8px;
+  color: #1565c0;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dash-topbar .filter-chip::before { content: "▾"; font-size: 7px; }
+
+/* ========================================
+   1. EXECUTIVE BRIEFING
+   ======================================== */
+.exec {
+  position: absolute; top: 30px; left: 0; right: 0; bottom: 0;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: 64px 1fr 1fr;
+  gap: 8px;
+}
+.exec .kpi { padding: 8px 10px; }
+.exec .hero { grid-column: span 4; padding: 10px 14px; }
+.exec .row3 { padding: 8px 10px; }
+.exec .narrative { grid-column: span 2; padding: 10px 14px; background: #fafbfc; border-color: #e5e5ea; }
+.exec .narr-text { font-size: 9px; color: #1a1a1a; line-height: 1.5; margin-top: 4px; }
+.exec .narr-text strong { color: #1565c0; font-weight: 700; }
+.exec .narr-text em { color: #2e7d32; font-style: normal; font-weight: 600; }
+
+/* ========================================
+   2. ANALYST DENSE WORKBENCH
+   ======================================== */
+.an {
+  position: absolute; top: 30px; left: 0; right: 0; bottom: 0;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 5px;
+}
+.an .tile { padding: 6px 8px; }
+.an .t-eye { font-size: 6px; }
+.an .t-tit { font-size: 9px; }
+.an .span2 { grid-column: span 2; }
+.an .span3 { grid-column: span 3; }
+.an .span4 { grid-column: span 4; }
+.an .row2 { grid-row: span 2; }
+.an .table-row { display: grid; grid-template-columns: 1fr 30px 30px; font-size: 7px; padding: 1px 0; color: #4b4b55; }
+.an .table-row.head { font-weight: 700; color: #1a1a1a; border-bottom: 1px solid #e5e5ea; padding-bottom: 2px; }
+
+/* ========================================
+   3. LIVE OPERATIONS
+   ======================================== */
+.ops-bg { position: absolute; inset: 0; background: #0c0c10; }
+.ops {
+  position: absolute; top: 30px; left: 0; right: 0; bottom: 0;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: 50px 1fr 1fr;
+  gap: 5px;
+}
+.ops .o-tile {
+  background: #18181f;
+  border: 1px solid #2a2a35;
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  color: #e5e5ea;
+}
+.ops .o-eye { font-size: 6px; font-weight: 700; color: #8b8b95; text-transform: uppercase; letter-spacing: 0.1em; }
+.ops .o-val { font-size: 16px; font-weight: 800; color: #fff; line-height: 1; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ops .o-trend { font-size: 7px; color: #4ade80; margin-top: 2px; }
+.ops .o-trend.warn { color: #fbbf24; }
+.ops .o-trend.crit { color: #f87171; }
+.ops .light {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px;
+  box-shadow: 0 0 6px currentColor;
+}
+.ops .light.green { background: #4ade80; color: #4ade80; animation: blink-soft 2s infinite; }
+.ops .light.amber { background: #fbbf24; color: #fbbf24; }
+.ops .light.red { background: #f87171; color: #f87171; animation: blink 1s infinite; }
+@keyframes blink-soft { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.ops .span2 { grid-column: span 2; }
+.ops .span3 { grid-column: span 3; }
+.ops .row2 { grid-row: span 2; }
+.ops-topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 30px;
+  background: #18181f;
+  border-bottom: 1px solid #2a2a35;
+  display: flex; align-items: center; padding: 0 12px; gap: 8px;
+}
+.ops-topbar .crumb { font-size: 9px; color: #fff; font-weight: 600; }
+.ops-topbar .crumb .sep { color: #4b4b55; margin: 0 6px; }
+.ops-topbar .live {
+  margin-left: auto;
+  font-size: 8px;
+  color: #4ade80;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.ops-topbar .live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; animation: blink-soft 2s infinite; }
+
+/* ========================================
+   4. STORY / SCROLLYTELLING
+   ======================================== */
+.story {
+  position: absolute; top: 30px; left: 0; right: 0; bottom: 0;
+  background: #fafaf7;
+  overflow: hidden;
+  padding: 14px 24px;
+}
+.story .eyebrow {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #c2410c;
+}
+.story .head {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.2;
+  margin-top: 4px;
+  letter-spacing: -0.01em;
+}
+.story .lede {
+  font-family: Georgia, serif;
+  font-size: 9.5px;
+  color: #4b4b55;
+  line-height: 1.6;
+  font-style: italic;
+  margin-top: 6px;
+  max-width: 90%;
+}
+.story .chart-block {
+  margin-top: 10px;
+  background: #fff;
+  border: 1px solid #e5e5d5;
+  border-radius: 4px;
+  padding: 10px 12px;
+  position: relative;
+}
+.story .ann {
+  position: absolute;
+  font-family: Georgia, serif;
+  font-size: 7px;
+  color: #c2410c;
+  font-style: italic;
+  background: #fff;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+.story .ann.a1 { top: 18px; right: 60px; }
+.story .ann.a1::after { content: "↓"; display: block; text-align: center; }
+.story .scroll-progress {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: #e5e5d5;
+  border-radius: 2px;
+}
+.story .scroll-progress::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+  background: #c2410c;
+  border-radius: 2px;
+}
+.story .next-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  color: #c2410c;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  font-family: Georgia, serif;
+}
+.story .next-hint::before { content: "↓ "; }
+
+/* ========================================
+   5. PITCH / PRESENTATION
+   ======================================== */
+.pitch {
+  position: absolute; top: 30px; left: 0; right: 0; bottom: 0;
+  background: #0c0c12;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #fff;
+  position: relative;
+}
+.pitch .slide-num {
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  font-size: 9px;
+  color: #6b6b75;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pitch .eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  color: #a78bfa;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.pitch .head {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin-top: 2px;
+}
+.pitch .accent {
+  display: inline-block;
+  background: linear-gradient(90deg, #c084fc, #818cf8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.pitch .chart-frame {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(167,139,250,0.2);
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+}
+.pitch .chart-frame .ce { font-size: 7px; color: #6b6b75; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
+.pitch .chart-frame .ct { font-size: 14px; color: #fff; font-weight: 700; margin-top: 2px; }
+.pitch .progress {
+  position: absolute;
+  bottom: 8px;
+  left: 24px;
+  right: 24px;
+  height: 2px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 1px;
+}
+.pitch .progress::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 35%;
+  background: linear-gradient(90deg, #c084fc, #818cf8);
+  border-radius: 1px;
+}
+.pitch-topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 30px;
+  background: #0c0c12;
+  border-bottom: 1px solid #1f1f2a;
+  display: flex; align-items: center; padding: 0 12px; gap: 8px;
+}
+.pitch-topbar .crumb { font-size: 9px; color: #fff; font-weight: 600; }
+.pitch-topbar .crumb .sep { color: #4b4b55; margin: 0 6px; }
+.pitch-topbar .controls { margin-left: auto; display: flex; gap: 4px; }
+.pitch-topbar .controls div { width: 14px; height: 14px; border-radius: 3px; background: rgba(167,139,250,0.2); }
+
+/* ========================================
+   6. MULTI-TAB WORKBOOK
+   ======================================== */
+.wb {
+  position: absolute; top: 30px; left: 0; right: 0; bottom: 0;
+  background: #f5f5f7;
+}
+.wb-tabs {
+  display: flex;
+  background: #ebebef;
+  border-bottom: 1px solid #d5d5db;
+  padding: 0 8px;
+  height: 26px;
+  align-items: flex-end;
+  gap: 2px;
+}
+.wb-tab {
+  background: #d8d8de;
+  border: 1px solid #d5d5db;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  padding: 4px 10px;
+  font-size: 9px;
+  color: #4b4b55;
+  font-weight: 600;
+}
+.wb-tab.active { background: #f5f5f7; color: #1a1a1a; padding-bottom: 5px; }
+.wb-tab .icon { display: inline-block; width: 4px; height: 4px; border-radius: 50%; margin-right: 4px; }
+.wb-content {
+  position: absolute;
+  top: 26px;
+  left: 0; right: 0; bottom: 0;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 6px;
+}
+.wb .tile { padding: 6px 8px; }
+.wb .t-eye { font-size: 6px; }
+.wb .t-tit { font-size: 9px; }
+.wb-content .span2 { grid-column: span 2; }
+.wb-content .row2 { grid-row: span 2; }
+
+/* Body */
+.d-body { padding: 18px 22px 22px; display: flex; flex-direction: column; gap: 12px; }
+.d-letter {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #1f77b4, #17becf);
+  color: white; font-weight: 700; font-size: 13px;
+}
+.d-name { font-size: 18px; font-weight: 700; color: #f5f3ff; margin: 0; line-height: 1.2; }
+.d-tagline { font-size: 11px; color: #a8a4c0; line-height: 1.4; margin: 0; }
+.d-audience {
+  font-size: 10px;
+  color: #fbbf24;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.d-pillars { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: #cbc8de; line-height: 1.45; }
+.d-pillars div::before { content: "▸ "; color: #c084fc; }
+</style>
+
+<div class="cards" data-multiselect>
+
+  <!-- ================== 1. EXECUTIVE BRIEFING ================== -->
+  <div class="card d-card" data-choice="exec-briefing" onclick="toggleSelect(this)">
+    <div class="d-mockup">
+      <div class="dash-topbar">
+        <div class="logo"></div>
+        <div class="crumb">Sales<span class="sep">▸</span>Q4 Executive Briefing</div>
+        <div class="filters">
+          <div class="filter-chip">Q4 2026</div>
+          <div class="filter-chip">All Regions</div>
+        </div>
+      </div>
+      <div class="exec">
+        <!-- KPI row -->
+        <div class="tile kpi">
+          <div class="tile-eyebrow">Revenue</div>
+          <div class="kpi-value">$2.4M</div>
+          <div class="kpi-delta up">↑ 24.7% YoY</div>
+        </div>
+        <div class="tile kpi">
+          <div class="tile-eyebrow">Customers</div>
+          <div class="kpi-value">847</div>
+          <div class="kpi-delta up">↑ 12.4%</div>
+        </div>
+        <div class="tile kpi">
+          <div class="tile-eyebrow">Avg Deal</div>
+          <div class="kpi-value">$2,837</div>
+          <div class="kpi-delta up">↑ 9.6%</div>
+        </div>
+        <div class="tile kpi">
+          <div class="tile-eyebrow">Churn</div>
+          <div class="kpi-value">2.1%</div>
+          <div class="kpi-delta down">↓ 0.4%</div>
+        </div>
+        <!-- Hero chart -->
+        <div class="tile hero">
+          <div class="tile-eyebrow">REVENUE TREND · 12 MONTHS</div>
+          <div class="tile-title">Strong Q4 finish driven by West region</div>
+          <svg class="svg-chart" viewBox="0 0 480 80" preserveAspectRatio="none">
+            <line x1="0" y1="70" x2="480" y2="70" stroke="#e5e5ea" stroke-width="0.5"/>
+            <line x1="0" y1="50" x2="480" y2="50" stroke="#f0f0f3" stroke-width="0.5"/>
+            <line x1="0" y1="30" x2="480" y2="30" stroke="#f0f0f3" stroke-width="0.5"/>
+            <path d="M0,55 C50,52 100,48 150,42 C200,36 250,32 300,28 C350,22 400,16 480,8 L480,80 L0,80 Z" fill="#1f77b4" opacity="0.12"/>
+            <path d="M0,55 C50,52 100,48 150,42 C200,36 250,32 300,28 C350,22 400,16 480,8" stroke="#1f77b4" stroke-width="2" fill="none"/>
+            <circle cx="480" cy="8" r="3" fill="#1f77b4"/>
+          </svg>
+        </div>
+        <!-- Bottom row -->
+        <div class="tile row3">
+          <div class="tile-eyebrow">Top Products</div>
+          <svg class="svg-chart" viewBox="0 0 80 60">
+            <rect x="6" y="20" width="14" height="38" class="t10-1"/>
+            <rect x="22" y="28" width="14" height="30" class="t10-2"/>
+            <rect x="38" y="36" width="14" height="22" class="t10-3"/>
+            <rect x="54" y="42" width="14" height="16" class="t10-4"/>
+          </svg>
+        </div>
+        <div class="tile row3">
+          <div class="tile-eyebrow">By Region</div>
+          <svg class="svg-chart" viewBox="0 0 80 60">
+            <circle cx="40" cy="30" r="22" fill="#1f77b4"/>
+            <path d="M40,30 L40,8 A22,22 0 0,1 60,38 Z" fill="#ff7f0e"/>
+            <path d="M40,30 L60,38 A22,22 0 0,1 30,50 Z" fill="#2ca02c"/>
+            <circle cx="40" cy="30" r="8" fill="#fff"/>
+          </svg>
+        </div>
+        <!-- Narrative -->
+        <div class="tile narrative">
+          <div class="tile-eyebrow">📝 Insight Summary</div>
+          <div class="narr-text">
+            Revenue is up <strong>$478K (24.7%)</strong> driven primarily by the <em>West region</em>, which contributed <strong>52% of new bookings</strong>. Churn dropped 0.4 points — the lowest level in <em>six quarters</em>.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="d-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="d-letter">1</span>
+        <div>
+          <h3 class="d-name">Executive Briefing</h3>
+          <p class="d-tagline">KPI hero row · big trend chart · supporting tiles · AI narrative summary.</p>
+        </div>
+      </div>
+      <p class="d-audience">→ C-suite · Board meetings · Monthly business reviews</p>
+      <div class="d-pillars">
+        <div>4-6 KPI cards across the top with deltas</div>
+        <div>One hero chart spanning full width below KPIs</div>
+        <div>2-4 supporting tiles (composition, top-N, distribution)</div>
+        <div>AI-generated narrative paragraph that updates with filters</div>
+        <div>Print-ready · single-page · readable in 10 seconds</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== 2. ANALYST DENSE WORKBENCH ================== -->
+  <div class="card d-card" data-choice="analyst-workbench" onclick="toggleSelect(this)">
+    <div class="d-mockup">
+      <div class="dash-topbar">
+        <div class="logo"></div>
+        <div class="crumb">Sales<span class="sep">▸</span>Pipeline Workbench</div>
+        <div class="filters">
+          <div class="filter-chip">Last 90d</div>
+          <div class="filter-chip">All Reps</div>
+          <div class="filter-chip">Open</div>
+          <div class="filter-chip">+2</div>
+        </div>
+      </div>
+      <div class="an">
+        <!-- Row 1: KPIs -->
+        <div class="tile">
+          <div class="tile-eyebrow t-eye">Pipeline</div>
+          <div class="kpi-value" style="font-size:14px">$8.2M</div>
+        </div>
+        <div class="tile">
+          <div class="tile-eyebrow t-eye">Wins</div>
+          <div class="kpi-value" style="font-size:14px">142</div>
+        </div>
+        <div class="tile">
+          <div class="tile-eyebrow t-eye">Win %</div>
+          <div class="kpi-value" style="font-size:14px">38%</div>
+        </div>
+        <div class="tile">
+          <div class="tile-eyebrow t-eye">Avg Days</div>
+          <div class="kpi-value" style="font-size:14px">42</div>
+        </div>
+        <div class="tile span2">
+          <div class="tile-eyebrow t-eye">Spark</div>
+          <svg class="spark" viewBox="0 0 80 24" preserveAspectRatio="none"><polyline points="0,18 10,12 20,15 30,8 40,10 50,4 60,7 70,2 80,5" stroke="#2ca02c" stroke-width="1.5" fill="none"/></svg>
+        </div>
+        <!-- Row 2: charts -->
+        <div class="tile span3 row2">
+          <div class="tile-eyebrow t-eye">Funnel by Stage</div>
+          <svg class="svg-chart" viewBox="0 0 200 100" preserveAspectRatio="none">
+            <rect x="10" y="10" width="180" height="14" class="t10-1"/>
+            <rect x="20" y="28" width="160" height="14" class="t10-2"/>
+            <rect x="40" y="46" width="120" height="14" class="t10-3"/>
+            <rect x="60" y="64" width="80" height="14" class="t10-5"/>
+            <rect x="80" y="82" width="40" height="14" class="t10-4"/>
+          </svg>
+        </div>
+        <div class="tile span3 row2">
+          <div class="tile-eyebrow t-eye">Heatmap · rep × stage</div>
+          <svg class="svg-chart" viewBox="0 0 200 100" preserveAspectRatio="none">
+            <rect x="0" y="0" width="40" height="20" fill="#deebf7"/>
+            <rect x="40" y="0" width="40" height="20" fill="#9ecae1"/>
+            <rect x="80" y="0" width="40" height="20" fill="#3182bd"/>
+            <rect x="120" y="0" width="40" height="20" fill="#08519c"/>
+            <rect x="160" y="0" width="40" height="20" fill="#3182bd"/>
+            <rect x="0" y="20" width="40" height="20" fill="#9ecae1"/>
+            <rect x="40" y="20" width="40" height="20" fill="#3182bd"/>
+            <rect x="80" y="20" width="40" height="20" fill="#08519c"/>
+            <rect x="120" y="20" width="40" height="20" fill="#3182bd"/>
+            <rect x="160" y="20" width="40" height="20" fill="#9ecae1"/>
+            <rect x="0" y="40" width="40" height="20" fill="#deebf7"/>
+            <rect x="40" y="40" width="40" height="20" fill="#9ecae1"/>
+            <rect x="80" y="40" width="40" height="20" fill="#3182bd"/>
+            <rect x="120" y="40" width="40" height="20" fill="#9ecae1"/>
+            <rect x="160" y="40" width="40" height="20" fill="#deebf7"/>
+            <rect x="0" y="60" width="40" height="20" fill="#3182bd"/>
+            <rect x="40" y="60" width="40" height="20" fill="#08519c"/>
+            <rect x="80" y="60" width="40" height="20" fill="#08519c"/>
+            <rect x="120" y="60" width="40" height="20" fill="#3182bd"/>
+            <rect x="160" y="60" width="40" height="20" fill="#9ecae1"/>
+            <rect x="0" y="80" width="40" height="20" fill="#deebf7"/>
+            <rect x="40" y="80" width="40" height="20" fill="#deebf7"/>
+            <rect x="80" y="80" width="40" height="20" fill="#9ecae1"/>
+            <rect x="120" y="80" width="40" height="20" fill="#3182bd"/>
+            <rect x="160" y="80" width="40" height="20" fill="#08519c"/>
+          </svg>
+        </div>
+        <!-- Row 3: bigger chart + table -->
+        <div class="tile span4">
+          <div class="tile-eyebrow t-eye">Velocity by week</div>
+          <svg class="svg-chart" viewBox="0 0 220 50" preserveAspectRatio="none">
+            <path d="M0,40 C20,32 40,30 60,22 C80,18 100,28 120,15 C140,10 160,18 180,8 C200,12 220,5 220,5" stroke="#1f77b4" stroke-width="1.5" fill="none"/>
+            <path d="M0,42 C20,38 40,34 60,30 C80,28 100,32 120,24 C140,20 160,22 180,18 C200,16 220,14 220,12" stroke="#ff7f0e" stroke-width="1.5" fill="none"/>
+          </svg>
+        </div>
+        <div class="tile span2">
+          <div class="tile-eyebrow t-eye">Top Reps</div>
+          <div class="table-row head"><span>Rep</span><span>Won</span><span>$</span></div>
+          <div class="table-row"><span>Sarah K</span><span>18</span><span>820</span></div>
+          <div class="table-row"><span>Marc T</span><span>14</span><span>660</span></div>
+          <div class="table-row"><span>Alex P</span><span>11</span><span>510</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="d-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="d-letter">2</span>
+        <div>
+          <h3 class="d-name">Analyst Dense Workbench</h3>
+          <p class="d-tagline">10-20 tiles. Multiple chart types. Filter chips. Drill-down everywhere.</p>
+        </div>
+      </div>
+      <p class="d-audience">→ Power analysts · BI teams · Sales ops · Finance teams</p>
+      <div class="d-pillars">
+        <div>Many tiles in a tight grid (6×4 or 8×5)</div>
+        <div>Mix of KPIs, sparklines, charts, heatmaps, tables</div>
+        <div>Filter chips at top — every tile responds</div>
+        <div>Click any tile → cross-filters all others (Tableau actions)</div>
+        <div>High data-ink density · designed for serious analysis</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== 3. LIVE OPERATIONS ================== -->
+  <div class="card d-card" data-choice="live-ops" onclick="toggleSelect(this)">
+    <div class="d-mockup">
+      <div class="ops-bg"></div>
+      <div class="ops-topbar">
+        <div class="logo" style="background: linear-gradient(135deg, #4ade80, #06b6d4);"></div>
+        <div class="crumb">Production<span class="sep">▸</span>Live Ops</div>
+        <div class="live">LIVE · refresh 5s</div>
+      </div>
+      <div class="ops">
+        <!-- Row 1: traffic light KPIs -->
+        <div class="o-tile span2" style="grid-row: span 1;">
+          <div class="o-eye">Latency p95</div>
+          <div class="o-val">42<span style="font-size:9px;font-weight:600;color:#8b8b95">ms</span></div>
+          <div class="o-trend"><span class="light green"></span>nominal</div>
+        </div>
+        <div class="o-tile span2">
+          <div class="o-eye">Error rate</div>
+          <div class="o-val">0.08<span style="font-size:9px;font-weight:600;color:#8b8b95">%</span></div>
+          <div class="o-trend warn"><span class="light amber"></span>watch</div>
+        </div>
+        <div class="o-tile span2">
+          <div class="o-eye">Uptime</div>
+          <div class="o-val">99.97<span style="font-size:9px;font-weight:600;color:#8b8b95">%</span></div>
+          <div class="o-trend"><span class="light green"></span>nominal</div>
+        </div>
+        <!-- Row 2: charts -->
+        <div class="o-tile span3 row2">
+          <div class="o-eye">Requests/sec · 1h</div>
+          <svg class="svg-chart" viewBox="0 0 220 80" preserveAspectRatio="none">
+            <path d="M0,60 L20,55 L40,40 L60,52 L80,30 L100,25 L120,38 L140,18 L160,32 L180,12 L200,28 L220,15" stroke="#4ade80" stroke-width="1.5" fill="none" filter="drop-shadow(0 0 3px #4ade80)"/>
+            <line x1="0" y1="20" x2="220" y2="20" stroke="#fbbf24" stroke-width="0.5" stroke-dasharray="2 2"/>
+          </svg>
+        </div>
+        <div class="o-tile span3 row2">
+          <div class="o-eye">Top Errors</div>
+          <div style="font-size:7px;font-family:'JetBrains Mono',monospace;color:#fff;line-height:1.4;margin-top:4px;">
+            <div style="display:flex;justify-content:space-between"><span style="color:#f87171">503</span><span>247</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#fbbf24">429</span><span>108</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#fbbf24">408</span><span>62</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#8b8b95">404</span><span>41</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#8b8b95">500</span><span>18</span></div>
+          </div>
+        </div>
+        <!-- Row 3: -->
+        <div class="o-tile span6">
+          <div class="o-eye">Active alerts</div>
+          <div style="display:flex;gap:8px;font-size:8px;color:#fff;margin-top:3px;">
+            <div><span class="light red"></span>db-replica-2 lag &gt; 5s</div>
+            <div><span class="light amber"></span>cdn-eu-west cache hit &lt; 80%</div>
+            <div><span class="light green"></span>all systems</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="d-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="d-letter">3</span>
+        <div>
+          <h3 class="d-name">Live Operations</h3>
+          <p class="d-tagline">Dark theme · realtime auto-refresh · traffic-light KPIs · alerts.</p>
+        </div>
+      </div>
+      <p class="d-audience">→ DevOps · SRE · NOC walls · Manufacturing · Trading floors</p>
+      <div class="d-pillars">
+        <div>Dark theme by default (NOC display friendly)</div>
+        <div>5-second auto-refresh with WebSocket push</div>
+        <div>Traffic-light status pills (green/amber/red) with blink animation on critical</div>
+        <div>Threshold lines on charts (yellow dashed = warning, red = critical)</div>
+        <div>Alert ticker bar at bottom with active issues</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== 4. STORY / SCROLLYTELLING ================== -->
+  <div class="card d-card" data-choice="story" onclick="toggleSelect(this)">
+    <div class="d-mockup">
+      <div class="dash-topbar" style="background: #fafaf7; border-bottom-color: #e5e5d5;">
+        <div class="logo" style="background: linear-gradient(135deg, #c2410c, #f97316);"></div>
+        <div class="crumb" style="font-family:Georgia,serif">Annual Report<span class="sep">▸</span>2026 Story</div>
+        <div class="filters" style="margin-left:auto"><div class="filter-chip" style="background:#fef3e8;border-color:#ffcc80;color:#c2410c">Section 2 of 5</div></div>
+      </div>
+      <div class="story">
+        <div class="eyebrow">Chapter 2 · Revenue Concentration</div>
+        <div class="head">The West region<br/>quietly took over.</div>
+        <div class="lede">In Q1, the West region accounted for 38% of revenue. By Q4 it had grown to 52% — pulling away from the East and South while the North stayed flat. The shift was driven by three factors we'll dig into below.</div>
+        <div class="chart-block">
+          <svg class="svg-chart" viewBox="0 0 380 60" preserveAspectRatio="none" style="height:50px">
+            <path d="M0,40 C40,38 80,35 120,28 C160,18 200,12 240,8 C280,5 320,3 380,2" stroke="#c2410c" stroke-width="2" fill="none"/>
+            <path d="M0,38 C40,40 80,42 120,42 C160,40 200,38 240,38 C280,40 320,40 380,38" stroke="#a8a29e" stroke-width="1" fill="none"/>
+            <path d="M0,42 C40,44 80,45 120,45 C160,46 200,46 240,46 C280,46 320,47 380,47" stroke="#a8a29e" stroke-width="1" fill="none"/>
+            <path d="M0,46 C40,48 80,48 120,48 C160,49 200,50 240,50 C280,50 320,50 380,51" stroke="#a8a29e" stroke-width="1" fill="none"/>
+          </svg>
+          <div class="ann a1">+38% YoY</div>
+        </div>
+        <div class="scroll-progress"></div>
+        <div class="next-hint">scroll for what changed</div>
+      </div>
+    </div>
+    <div class="d-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="d-letter">4</span>
+        <div>
+          <h3 class="d-name">Story / Scrollytelling</h3>
+          <p class="d-tagline">Vertical scroll · editorial typography · annotations · sequential reveal.</p>
+        </div>
+      </div>
+      <p class="d-audience">→ Annual reports · Internal narratives · Investor decks · Customer success stories</p>
+      <div class="d-pillars">
+        <div>Vertical scroll with chapters · feels like a long-form article</div>
+        <div>Editorial typography (Georgia/serif) · Tufte color discipline (highlight + muted)</div>
+        <div>Hand-curated annotations on each chart with leader lines</div>
+        <div>Sequential reveal as you scroll · charts animate in</div>
+        <div>AI agent generates first draft narrative · author edits</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== 5. PITCH / PRESENTATION ================== -->
+  <div class="card d-card" data-choice="pitch" onclick="toggleSelect(this)">
+    <div class="d-mockup">
+      <div class="pitch-topbar">
+        <div class="logo" style="background: linear-gradient(135deg, #c084fc, #818cf8);"></div>
+        <div class="crumb">Q4 Board Deck<span class="sep">▸</span>Slide 7 of 20</div>
+        <div class="controls"><div></div><div></div><div></div><div></div></div>
+      </div>
+      <div class="pitch">
+        <div class="slide-num">7 / 20</div>
+        <div class="eyebrow">REVENUE GROWTH</div>
+        <div class="head">We finished Q4 at <span class="accent">$2.4M</span><br/>up <span class="accent">24.7% YoY</span></div>
+        <div class="chart-frame">
+          <div class="ce">REVENUE · LAST 4 QUARTERS</div>
+          <div class="ct">$1.93M → $2.40M</div>
+          <svg class="svg-chart" viewBox="0 0 380 100" preserveAspectRatio="none" style="margin-top:8px">
+            <line x1="0" y1="90" x2="380" y2="90" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
+            <line x1="0" y1="60" x2="380" y2="60" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+            <line x1="0" y1="30" x2="380" y2="30" stroke="rgba(255,255,255,0.06)" stroke-width="0.5"/>
+            <rect x="40" y="65" width="50" height="25" fill="url(#pgrad)"/>
+            <rect x="120" y="55" width="50" height="35" fill="url(#pgrad)"/>
+            <rect x="200" y="42" width="50" height="48" fill="url(#pgrad)"/>
+            <rect x="280" y="20" width="50" height="70" fill="url(#pgrad)"/>
+          </svg>
+        </div>
+        <div class="progress"></div>
+      </div>
+    </div>
+    <div class="d-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="d-letter">5</span>
+        <div>
+          <h3 class="d-name">Pitch / Presentation Deck</h3>
+          <p class="d-tagline">One chart per slide · big text · ←/→ to navigate · dark by default.</p>
+        </div>
+      </div>
+      <p class="d-audience">→ Board decks · Sales pitches · Investor updates · All-hands</p>
+      <div class="d-pillars">
+        <div>Slide-by-slide navigation (←/→ keys, fullscreen, F11)</div>
+        <div>Auto-bin-packing from existing PresentationEngine — already shipping!</div>
+        <div>Big headline numbers with gradient accents</div>
+        <div>One hero chart per slide · zero clutter</div>
+        <div>Slide notes in speaker view · auto-export to PDF/PPTX</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== 6. MULTI-TAB WORKBOOK ================== -->
+  <div class="card d-card" data-choice="workbook" onclick="toggleSelect(this)">
+    <div class="d-mockup">
+      <div class="dash-topbar">
+        <div class="logo"></div>
+        <div class="crumb">Sales Workbook<span class="sep">▸</span>Q4 Performance</div>
+      </div>
+      <div class="wb">
+        <div class="wb-tabs">
+          <div class="wb-tab"><span class="icon" style="background:#1f77b4"></span>Overview</div>
+          <div class="wb-tab active"><span class="icon" style="background:#ff7f0e"></span>By Region</div>
+          <div class="wb-tab"><span class="icon" style="background:#2ca02c"></span>By Product</div>
+          <div class="wb-tab"><span class="icon" style="background:#d62728"></span>Forecast</div>
+          <div class="wb-tab"><span class="icon" style="background:#9467bd"></span>Notes</div>
+          <div class="wb-tab" style="background:#ebebef;color:#9e9eaa">+</div>
+        </div>
+        <div class="wb-content">
+          <div class="tile span2">
+            <div class="tile-eyebrow t-eye">Revenue by Region</div>
+            <svg class="svg-chart" viewBox="0 0 200 80" preserveAspectRatio="none">
+              <rect x="20" y="20" width="30" height="55" class="t10-1"/>
+              <rect x="60" y="35" width="30" height="40" class="t10-2"/>
+              <rect x="100" y="45" width="30" height="30" class="t10-3"/>
+              <rect x="140" y="55" width="30" height="20" class="t10-4"/>
+            </svg>
+          </div>
+          <div class="tile">
+            <div class="tile-eyebrow t-eye">Total</div>
+            <div class="kpi-value" style="font-size:14px">$2.4M</div>
+            <div class="kpi-delta up">↑ 24.7%</div>
+          </div>
+          <div class="tile span2">
+            <div class="tile-eyebrow t-eye">Trend by Region</div>
+            <svg class="svg-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+              <path d="M0,40 C40,32 80,28 120,18 C160,12 200,4 200,4" stroke="#1f77b4" stroke-width="1.5" fill="none"/>
+              <path d="M0,45 C40,40 80,38 120,32 C160,28 200,22 200,22" stroke="#ff7f0e" stroke-width="1.5" fill="none"/>
+              <path d="M0,50 C40,46 80,44 120,40 C160,36 200,32 200,32" stroke="#2ca02c" stroke-width="1.5" fill="none"/>
+            </svg>
+          </div>
+          <div class="tile">
+            <div class="tile-eyebrow t-eye">YoY</div>
+            <div class="kpi-value" style="font-size:14px">+24.7%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="d-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="d-letter">6</span>
+        <div>
+          <h3 class="d-name">Multi-Tab Workbook</h3>
+          <p class="d-tagline">Tabs at top · each tab is a full dashboard · Tableau workbook / Excel sheet pattern.</p>
+        </div>
+      </div>
+      <p class="d-audience">→ Recurring reports · Departmental hubs · Long-running analyses</p>
+      <div class="d-pillars">
+        <div>Multiple dashboards under one workbook (5-20 tabs)</div>
+        <div>Tabs persist between sessions · color-coded · reorderable</div>
+        <div>Shared filters across tabs (workbook-level filter)</div>
+        <div>Each tab has its own layout (mix exec/analyst/ops/story)</div>
+        <div>Export the whole workbook as PDF · single share link</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="pgrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.3"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">My recommendation:</strong> Ship all six. They're not redundant — they're <em>modes</em> of the same underlying tile-on-grid system. The same dashboard data can be viewed as Executive Briefing OR Analyst Workbench OR Pitch Deck depending on who's looking. Mode is a one-click toggle. The PresentationEngine is already in your codebase — that's mode 5. Mode 1 is a tile layout preset. Mode 2 is a tile layout preset. Mode 3 needs websocket refresh + alert pills. Mode 4 needs scroll + annotation system. Mode 6 needs tab persistence. Underlying engine is unified.
+</p>
+
+<p style="margin-top:14px; padding:14px 18px; background:rgba(192,132,252,0.06); border-radius:8px; color:#a8a4c0; font-size:11px; line-height:1.5;">
+  <strong style="color:#c4b5fd;">Multi-select enabled.</strong> Click any number of archetypes you want to ship. Tell me which to add (real-time stock-ticker style? geographic-first map dashboard? embed-friendly micro-dashboard?), kill, or reorder by priority.
+</p>

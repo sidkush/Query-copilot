@@ -1,0 +1,828 @@
+<h2>Pro Mode editor — real colors, real contrast</h2>
+<p class="subtitle">Same three layouts, redrawn with realistic panel colors, Tableau 10 chart palette, and proper visual separation. Light theme shown — every panel will also have a dark theme variant. Pick the layout that feels right.</p>
+
+<style>
+.r-card {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.18);
+  border-radius: 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.16,1,0.3,1), border-color 220ms, box-shadow 220ms;
+  overflow: hidden;
+  min-height: 720px;
+  position: relative;
+}
+.r-card:hover { transform: translateY(-3px); border-color: rgba(160,140,255,0.4); box-shadow: 0 20px 50px rgba(80,60,180,0.25); }
+.r-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+/* The mockup is now a TRUE-TO-LIFE light-theme app screenshot */
+.r-mockup {
+  height: 380px;
+  position: relative;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(120,100,200,0.1);
+  overflow: hidden;
+  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Tableau-10 palette */
+.t10-1 { background: #1f77b4; } /* blue */
+.t10-2 { background: #ff7f0e; } /* orange */
+.t10-3 { background: #2ca02c; } /* green */
+.t10-4 { background: #d62728; } /* red */
+.t10-5 { background: #9467bd; } /* purple */
+.t10-6 { background: #8c564b; } /* brown */
+.t10-7 { background: #e377c2; } /* pink */
+.t10-8 { background: #7f7f7f; } /* gray */
+.t10-9 { background: #bcbd22; } /* olive */
+.t10-10 { background: #17becf; } /* cyan */
+
+/* Topbar */
+.tb {
+  position: absolute; top: 0; left: 0; right: 0; height: 36px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e5ea;
+  display: flex; align-items: center; padding: 0 14px; gap: 10px;
+  z-index: 5;
+}
+.tb-logo {
+  width: 18px; height: 18px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #1f77b4, #17becf);
+}
+.tb-crumb { font-size: 11px; color: #4b4b55; font-weight: 500; }
+.tb-crumb .sep { color: #c0c0c8; margin: 0 6px; }
+.tb-crumb .cur { color: #1a1a1a; font-weight: 600; }
+.tb-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.tb-btn {
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  background: #f5f5f7;
+  border: 1px solid #e5e5ea;
+  color: #1a1a1a;
+}
+.tb-btn.primary { background: #1f77b4; border-color: #1f77b4; color: #fff; }
+.tb-mode-toggle {
+  display: flex;
+  background: #f0f0f3;
+  border-radius: 6px;
+  padding: 2px;
+  font-size: 9px;
+}
+.tb-mode-toggle span { padding: 3px 8px; border-radius: 4px; color: #6b6b75; font-weight: 600; }
+.tb-mode-toggle span.active { background: #ffffff; color: #1a1a1a; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+/* Bottom dock (chat + mic) */
+.bd {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 44px;
+  background: #f7f7f9;
+  border-top: 1px solid #e5e5ea;
+  display: flex; align-items: center; padding: 0 14px; gap: 10px;
+  z-index: 5;
+}
+.bd-mic {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #c084fc, #7c3aed 60%);
+  box-shadow: 0 2px 10px rgba(124,58,237,0.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.bd-mic::after {
+  content: "";
+  width: 8px; height: 11px;
+  background: #fff;
+  border-radius: 4px 4px 4px 4px;
+}
+.bd-input {
+  flex: 1;
+  height: 28px;
+  background: #ffffff;
+  border: 1px solid #d0d0d8;
+  border-radius: 14px;
+  padding: 0 14px;
+  display: flex; align-items: center;
+  font-size: 11px;
+  color: #6b6b75;
+}
+.bd-input::before { content: '"add forecast for next 30 days…"'; }
+.bd-steps {
+  position: absolute; bottom: 50px; left: 14px;
+  display: flex; gap: 5px;
+  font-size: 9px;
+}
+.bd-steps span {
+  padding: 3px 7px;
+  border-radius: 11px;
+  background: #ffffff;
+  border: 1px solid #d0d0d8;
+  color: #4b4b55;
+  font-weight: 500;
+}
+.bd-steps span.done { background: #e8f5e9; border-color: #a5d6a7; color: #2e7d32; }
+.bd-steps span.active { background: #e3f2fd; border-color: #90caf9; color: #1565c0; }
+
+/* Field pills */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid;
+  cursor: grab;
+  white-space: nowrap;
+}
+.pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+.pill.dim { background: #e3f2fd; color: #1565c0; border-color: #90caf9; }
+.pill.dim .dot { background: #1f77b4; }
+.pill.measure { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+.pill.measure .dot { background: #2ca02c; }
+.pill.date { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
+.pill.date .dot { background: #ff7f0e; }
+.pill .agg { font-size: 8.5px; opacity: 0.65; font-weight: 700; }
+
+/* Section labels */
+.s-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  margin-top: 2px;
+}
+
+/* Channel slots */
+.slot {
+  background: #ffffff;
+  border: 1px dashed #d0d0d8;
+  border-radius: 5px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: #9e9eaa;
+  min-height: 20px;
+}
+.slot.filled { border-style: solid; border-color: #b0c8e0; background: #f5f9fc; }
+.slot .ch-name {
+  font-size: 9px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 36px;
+}
+
+/* Canvas tile */
+.tile {
+  background: #ffffff;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  padding: 14px 16px 12px;
+  position: relative;
+  display: flex; flex-direction: column; gap: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.tile-eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.tile-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.01em;
+}
+.tile-title .delta { font-size: 11px; color: #2e7d32; font-weight: 600; margin-left: 6px; }
+.tile-chart {
+  flex: 1;
+  position: relative;
+  margin-top: 4px;
+  min-height: 80px;
+}
+.tile-chart svg { width: 100%; height: 100%; }
+.tile .legend {
+  display: flex; gap: 12px; font-size: 9px; color: #4b4b55; font-weight: 500; margin-top: 4px;
+}
+.tile .legend .swatch {
+  display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+  margin-right: 4px; vertical-align: middle;
+}
+
+/* Shelves */
+.shelf {
+  background: #ffffff;
+  border: 1px solid #d0d0d8;
+  border-radius: 5px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: #9e9eaa;
+  min-height: 22px;
+}
+.shelf-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 40px;
+}
+
+/* Marks card */
+.marks {
+  background: #f5f9fc;
+  border: 1px solid #b0c8e0;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.marks-header {
+  font-size: 9px;
+  font-weight: 700;
+  color: #1565c0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #b0c8e0;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+.marks-header .mark-type {
+  background: #1f77b4;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* Inspector accordion */
+.acc {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.acc-row {
+  background: #ffffff;
+  border: 1px solid #e5e5ea;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 10px;
+  color: #4b4b55;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.acc-row.open {
+  background: #f5f9fc;
+  border-color: #b0c8e0;
+  color: #1565c0;
+}
+.acc-body {
+  background: #ffffff;
+  border: 1px solid #e5e5ea;
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+  padding: 8px 10px;
+  font-size: 9px;
+  color: #6b6b75;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.acc-body .row { display: flex; justify-content: space-between; }
+.acc-body .row .v { color: #1a1a1a; font-weight: 600; }
+.acc-swatches { display: flex; gap: 3px; margin-top: 2px; }
+.acc-swatches div { width: 14px; height: 14px; border-radius: 3px; }
+
+/* ============================================
+   LAYOUT 1: TABLEAU CLASSIC
+   ============================================ */
+.r1 {
+  position: absolute; top: 36px; left: 0; right: 0; bottom: 44px;
+  display: grid;
+  grid-template-columns: 175px 1fr 195px;
+  background: #f5f5f7;
+}
+.r1 .left {
+  background: #fafafa;
+  border-right: 1px solid #e5e5ea;
+  padding: 12px 12px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  overflow: hidden;
+}
+.r1 .center {
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: #f5f5f7;
+}
+.r1 .right {
+  background: #fafafa;
+  border-left: 1px solid #e5e5ea;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  overflow: hidden;
+}
+.r1 .data-pane { display: flex; flex-direction: column; gap: 4px; }
+
+/* ============================================
+   LAYOUT 2: COMPRESSED
+   ============================================ */
+.r2 {
+  position: absolute; top: 36px; left: 0; right: 0; bottom: 44px;
+  display: grid;
+  grid-template-columns: 130px 1fr 200px;
+  background: #f5f5f7;
+}
+.r2 .left {
+  background: #fafafa;
+  border-right: 1px solid #e5e5ea;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 5px;
+  overflow: hidden;
+}
+.r2 .center {
+  padding: 14px;
+  background: #f5f5f7;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.r2 .right {
+  background: #fafafa;
+  border-left: 1px solid #e5e5ea;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.r2 .tabs {
+  display: flex;
+  background: #f0f0f3;
+  border-bottom: 1px solid #e5e5ea;
+}
+.r2 .tab {
+  flex: 1;
+  padding: 8px 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.r2 .tab.active { background: #fafafa; color: #1565c0; border-bottom: 2px solid #1f77b4; }
+.r2 .tab-body {
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  overflow: hidden;
+}
+
+/* ============================================
+   LAYOUT 3: HEX-STYLE FLOATING
+   ============================================ */
+.r3 {
+  position: absolute; top: 36px; left: 0; right: 0; bottom: 44px;
+  background: #f5f5f7;
+}
+.r3 .left {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 130px;
+  background: #fafafa;
+  border-right: 1px solid #e5e5ea;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.r3 .right {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 165px;
+  background: #fafafa;
+  border-left: 1px solid #e5e5ea;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.r3 .center {
+  position: absolute; top: 0; left: 130px; right: 165px; bottom: 0;
+  padding: 14px;
+}
+.r3 .marks-float {
+  position: absolute;
+  top: 18px;
+  left: 148px;
+  width: 175px;
+  background: #ffffff;
+  border: 1px solid #b0c8e0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
+  display: flex; flex-direction: column; gap: 5px;
+  z-index: 10;
+}
+.r3 .marks-float .grip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #e5e5ea;
+  margin-bottom: 2px;
+}
+.r3 .marks-float .grip .name { font-size: 10px; font-weight: 700; color: #1565c0; text-transform: uppercase; letter-spacing: 0.08em; }
+.r3 .marks-float .grip .dots { font-size: 12px; color: #c0c0c8; cursor: grab; }
+.r3 .collapse {
+  position: absolute;
+  top: 12px;
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  background: #ffffff;
+  border: 1px solid #d0d0d8;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px;
+  color: #6b6b75;
+  z-index: 11;
+}
+.r3 .collapse.left { left: 114px; }
+.r3 .collapse.right { right: 149px; }
+
+/* Card body */
+.r-body {
+  padding: 18px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.r-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #1f77b4, #17becf);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+.r-name { font-size: 18px; font-weight: 700; color: #f5f3ff; margin: 0; line-height: 1.2; }
+.r-tagline { font-size: 11px; color: #a8a4c0; line-height: 1.4; margin: 0; }
+.r-pillars { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: #cbc8de; line-height: 1.45; margin-top: 4px; }
+.r-pillars div::before { content: "▸ "; color: #c084fc; }
+</style>
+
+<div class="cards">
+  <!-- ================== LAYOUT 1: TABLEAU CLASSIC ================== -->
+  <div class="card r-card" data-choice="tableau-classic" onclick="toggleSelect(this)">
+    <div class="r-mockup">
+      <!-- Topbar -->
+      <div class="tb">
+        <div class="tb-logo"></div>
+        <div class="tb-crumb">Sales Q4<span class="sep">▸</span><span class="cur">Revenue Trends</span></div>
+        <div class="tb-actions">
+          <div class="tb-mode-toggle"><span>Default</span><span class="active">Pro</span><span>Stage</span></div>
+          <div class="tb-btn">Share</div>
+          <div class="tb-btn primary">Save</div>
+        </div>
+      </div>
+
+      <div class="r1">
+        <!-- LEFT: Marks card + Data pane -->
+        <div class="left">
+          <div class="marks">
+            <div class="marks-header"><span>Marks</span><span class="mark-type">Bar</span></div>
+            <div class="slot filled"><span class="ch-name">Color</span><span class="pill dim"><span class="dot"></span>Region</span></div>
+            <div class="slot"><span class="ch-name">Size</span></div>
+            <div class="slot"><span class="ch-name">Label</span></div>
+            <div class="slot"><span class="ch-name">Detail</span></div>
+            <div class="slot"><span class="ch-name">Tooltip</span></div>
+          </div>
+
+          <div class="s-label">Dimensions</div>
+          <div class="data-pane">
+            <span class="pill dim"><span class="dot"></span>Region</span>
+            <span class="pill date"><span class="dot"></span>Date</span>
+            <span class="pill dim"><span class="dot"></span>Product</span>
+            <span class="pill dim"><span class="dot"></span>Channel</span>
+          </div>
+          <div class="s-label">Measures</div>
+          <div class="data-pane">
+            <span class="pill measure"><span class="dot"></span>Revenue</span>
+            <span class="pill measure"><span class="dot"></span>Units</span>
+            <span class="pill measure"><span class="dot"></span>Margin</span>
+          </div>
+        </div>
+
+        <!-- CENTER: Shelves + Canvas -->
+        <div class="center">
+          <div class="shelf"><span class="shelf-label">Cols</span><span class="pill date"><span class="dot"></span>YEAR(Date)</span></div>
+          <div class="shelf"><span class="shelf-label">Rows</span><span class="pill measure"><span class="dot"></span><span class="agg">SUM</span>Revenue</span></div>
+
+          <div class="tile" style="flex: 1;">
+            <div class="tile-eyebrow">REVENUE BY REGION · LAST 12 MONTHS</div>
+            <div class="tile-title">$2.4M total <span class="delta">↑ 24.7% YoY</span></div>
+            <div class="tile-chart">
+              <svg viewBox="0 0 320 130" preserveAspectRatio="none">
+                <line x1="0" y1="120" x2="320" y2="120" stroke="#e5e5ea" stroke-width="0.5"/>
+                <line x1="0" y1="80" x2="320" y2="80" stroke="#f0f0f3" stroke-width="0.5"/>
+                <line x1="0" y1="40" x2="320" y2="40" stroke="#f0f0f3" stroke-width="0.5"/>
+                <!-- 4 region lines, Tableau 10 colors -->
+                <path d="M0,80 C40,72 80,68 120,55 C160,42 200,38 240,30 C280,22 320,15 320,12" stroke="#1f77b4" stroke-width="2" fill="none"/>
+                <path d="M0,95 C40,85 80,82 120,70 C160,58 200,52 240,42 C280,32 320,25 320,20" stroke="#ff7f0e" stroke-width="2" fill="none"/>
+                <path d="M0,105 C40,98 80,92 120,82 C160,72 200,68 240,58 C280,48 320,40 320,35" stroke="#2ca02c" stroke-width="2" fill="none"/>
+                <path d="M0,112 C40,108 80,102 120,92 C160,82 200,78 240,68 C280,60 320,52 320,48" stroke="#d62728" stroke-width="2" fill="none"/>
+                <circle cx="320" cy="12" r="3" fill="#1f77b4"/>
+                <circle cx="320" cy="20" r="3" fill="#ff7f0e"/>
+                <circle cx="320" cy="35" r="3" fill="#2ca02c"/>
+                <circle cx="320" cy="48" r="3" fill="#d62728"/>
+              </svg>
+            </div>
+            <div class="legend">
+              <span><span class="swatch t10-1"></span>North</span>
+              <span><span class="swatch t10-2"></span>South</span>
+              <span><span class="swatch t10-3"></span>East</span>
+              <span><span class="swatch t10-4"></span>West</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Inspector accordion -->
+        <div class="right">
+          <div class="s-label">Format Inspector</div>
+          <div class="acc">
+            <div class="acc-row open">▼ Axis</div>
+            <div class="acc-body">
+              <div class="row"><span>Scale</span><span class="v">Linear</span></div>
+              <div class="row"><span>Min</span><span class="v">Auto</span></div>
+              <div class="row"><span>Max</span><span class="v">Auto</span></div>
+              <div class="row"><span>Tick format</span><span class="v">$0K</span></div>
+            </div>
+            <div class="acc-row" style="margin-top:4px">▶ Color</div>
+            <div class="acc-row">▶ Labels</div>
+            <div class="acc-row">▶ Legend</div>
+            <div class="acc-row">▶ Analytics</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom dock -->
+      <div class="bd-steps">
+        <span class="done">✓ picked line</span>
+        <span class="done">✓ grouped region</span>
+        <span class="active">forecast 30d…</span>
+      </div>
+      <div class="bd">
+        <div class="bd-mic"></div>
+        <div class="bd-input"></div>
+      </div>
+    </div>
+    <div class="r-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="r-letter">1</span>
+        <div>
+          <h3 class="r-name">Tableau Classic</h3>
+          <p class="r-tagline">Marks card always visible top-left. Data pane below it. Shelves above canvas. Format inspector right.</p>
+        </div>
+      </div>
+      <div class="r-pillars">
+        <div>Marks card pinned top-left of left rail · encoding always visible</div>
+        <div>Field pills color-coded: <span style="color:#1565c0;font-weight:600">blue dim</span>, <span style="color:#2e7d32;font-weight:600">green measure</span>, <span style="color:#e65100;font-weight:600">orange date</span></div>
+        <div>Rows/Cols shelves docked above canvas (Tableau muscle memory)</div>
+        <div>Inspector accordion: Axis open, Color/Labels/Legend/Analytics collapsed</div>
+        <div>Industry-standard · steepest curve for newcomers · maximum flexibility</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== LAYOUT 2: COMPRESSED ================== -->
+  <div class="card r-card" data-choice="compressed" onclick="toggleSelect(this)">
+    <div class="r-mockup">
+      <div class="tb">
+        <div class="tb-logo"></div>
+        <div class="tb-crumb">Sales Q4<span class="sep">▸</span><span class="cur">Revenue Trends</span></div>
+        <div class="tb-actions">
+          <div class="tb-mode-toggle"><span>Default</span><span class="active">Pro</span><span>Stage</span></div>
+          <div class="tb-btn">Share</div>
+          <div class="tb-btn primary">Save</div>
+        </div>
+      </div>
+
+      <div class="r2">
+        <!-- LEFT: thin data rail -->
+        <div class="left">
+          <div class="s-label">Dimensions</div>
+          <span class="pill dim"><span class="dot"></span>Region</span>
+          <span class="pill date"><span class="dot"></span>Date</span>
+          <span class="pill dim"><span class="dot"></span>Product</span>
+          <span class="pill dim"><span class="dot"></span>Channel</span>
+          <div class="s-label" style="margin-top:6px">Measures</div>
+          <span class="pill measure"><span class="dot"></span>Revenue</span>
+          <span class="pill measure"><span class="dot"></span>Units</span>
+          <span class="pill measure"><span class="dot"></span>Margin</span>
+        </div>
+
+        <!-- CENTER: big canvas -->
+        <div class="center">
+          <div class="tile" style="flex: 1;">
+            <div class="tile-eyebrow">REVENUE BY REGION · LAST 12 MONTHS</div>
+            <div class="tile-title">$2.4M total <span class="delta">↑ 24.7% YoY</span></div>
+            <div class="tile-chart">
+              <svg viewBox="0 0 380 150" preserveAspectRatio="none">
+                <line x1="0" y1="140" x2="380" y2="140" stroke="#e5e5ea" stroke-width="0.5"/>
+                <line x1="0" y1="100" x2="380" y2="100" stroke="#f0f0f3" stroke-width="0.5"/>
+                <line x1="0" y1="60" x2="380" y2="60" stroke="#f0f0f3" stroke-width="0.5"/>
+                <line x1="0" y1="20" x2="380" y2="20" stroke="#f0f0f3" stroke-width="0.5"/>
+                <path d="M0,90 C50,80 100,75 150,60 C200,45 250,40 300,30 C340,22 380,12 380,8" stroke="#1f77b4" stroke-width="2.2" fill="none"/>
+                <path d="M0,108 C50,98 100,92 150,80 C200,65 250,58 300,48 C340,38 380,28 380,22" stroke="#ff7f0e" stroke-width="2.2" fill="none"/>
+                <path d="M0,118 C50,110 100,104 150,92 C200,80 250,75 300,62 C340,52 380,42 380,38" stroke="#2ca02c" stroke-width="2.2" fill="none"/>
+                <path d="M0,128 C50,122 100,115 150,102 C200,92 250,86 300,74 C340,66 380,56 380,52" stroke="#d62728" stroke-width="2.2" fill="none"/>
+                <circle cx="380" cy="8" r="3.5" fill="#1f77b4"/>
+                <circle cx="380" cy="22" r="3.5" fill="#ff7f0e"/>
+                <circle cx="380" cy="38" r="3.5" fill="#2ca02c"/>
+                <circle cx="380" cy="52" r="3.5" fill="#d62728"/>
+              </svg>
+            </div>
+            <div class="legend">
+              <span><span class="swatch t10-1"></span>North</span>
+              <span><span class="swatch t10-2"></span>South</span>
+              <span><span class="swatch t10-3"></span>East</span>
+              <span><span class="swatch t10-4"></span>West</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: 2-tab inspector -->
+        <div class="right">
+          <div class="tabs">
+            <div class="tab active">Setup</div>
+            <div class="tab">Style</div>
+          </div>
+          <div class="tab-body">
+            <div class="s-label">Encoding</div>
+            <div class="slot filled"><span class="ch-name">X</span><span class="pill date"><span class="dot"></span>Date</span></div>
+            <div class="slot filled"><span class="ch-name">Y</span><span class="pill measure"><span class="dot"></span><span class="agg">∑</span>Rev</span></div>
+            <div class="slot filled"><span class="ch-name">Color</span><span class="pill dim"><span class="dot"></span>Region</span></div>
+            <div class="slot"><span class="ch-name">Size</span></div>
+            <div class="slot"><span class="ch-name">Detail</span></div>
+            <div class="slot"><span class="ch-name">Tooltip</span></div>
+            <div class="s-label" style="margin-top:6px">Filters</div>
+            <div class="slot"><span style="font-size:9px;color:#1565c0;font-weight:600">+ Add filter</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bd-steps">
+        <span class="done">✓ picked line</span>
+        <span class="done">✓ grouped region</span>
+        <span class="active">forecast 30d…</span>
+      </div>
+      <div class="bd">
+        <div class="bd-mic"></div>
+        <div class="bd-input"></div>
+      </div>
+    </div>
+    <div class="r-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="r-letter">2</span>
+        <div>
+          <h3 class="r-name">Compressed (Looker Studio inspired)</h3>
+          <p class="r-tagline">Thin data rail · biggest canvas · single right rail with Setup + Style tabs.</p>
+        </div>
+      </div>
+      <div class="r-pillars">
+        <div>Data rail is 130px — pure field list with color-coded pills</div>
+        <div>Canvas gets the most width of any layout</div>
+        <div>Inspector right rail: TWO tabs only — Setup (encoding) + Style (format)</div>
+        <div>Encoding pills live INSIDE the Setup tab — no separate Marks card</div>
+        <div>Easiest learning curve · best for newcomers · less Tableau-class power feel</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== LAYOUT 3: FLOATING MARKS ================== -->
+  <div class="card r-card" data-choice="floating" onclick="toggleSelect(this)">
+    <div class="r-mockup">
+      <div class="tb">
+        <div class="tb-logo"></div>
+        <div class="tb-crumb">Sales Q4<span class="sep">▸</span><span class="cur">Revenue Trends</span></div>
+        <div class="tb-actions">
+          <div class="tb-mode-toggle"><span>Default</span><span class="active">Pro</span><span>Stage</span></div>
+          <div class="tb-btn">Share</div>
+          <div class="tb-btn primary">Save</div>
+        </div>
+      </div>
+
+      <div class="r3">
+        <!-- LEFT rail (collapsible) -->
+        <div class="left">
+          <div class="s-label">Dimensions</div>
+          <span class="pill dim"><span class="dot"></span>Region</span>
+          <span class="pill date"><span class="dot"></span>Date</span>
+          <span class="pill dim"><span class="dot"></span>Product</span>
+          <div class="s-label" style="margin-top:6px">Measures</div>
+          <span class="pill measure"><span class="dot"></span>Revenue</span>
+          <span class="pill measure"><span class="dot"></span>Units</span>
+        </div>
+        <div class="collapse left">‹</div>
+
+        <!-- CENTER -->
+        <div class="center">
+          <div class="tile" style="flex: 1; height: 100%;">
+            <div class="tile-eyebrow">REVENUE BY REGION · LAST 12 MONTHS</div>
+            <div class="tile-title">$2.4M total <span class="delta">↑ 24.7% YoY</span></div>
+            <div class="tile-chart">
+              <svg viewBox="0 0 340 150" preserveAspectRatio="none">
+                <line x1="0" y1="140" x2="340" y2="140" stroke="#e5e5ea" stroke-width="0.5"/>
+                <line x1="0" y1="100" x2="340" y2="100" stroke="#f0f0f3" stroke-width="0.5"/>
+                <line x1="0" y1="60" x2="340" y2="60" stroke="#f0f0f3" stroke-width="0.5"/>
+                <line x1="0" y1="20" x2="340" y2="20" stroke="#f0f0f3" stroke-width="0.5"/>
+                <path d="M0,90 C45,80 90,75 135,60 C180,45 225,40 270,30 C310,22 340,12 340,8" stroke="#1f77b4" stroke-width="2.2" fill="none"/>
+                <path d="M0,108 C45,98 90,92 135,80 C180,65 225,58 270,48 C310,38 340,28 340,22" stroke="#ff7f0e" stroke-width="2.2" fill="none"/>
+                <path d="M0,118 C45,110 90,104 135,92 C180,80 225,75 270,62 C310,52 340,42 340,38" stroke="#2ca02c" stroke-width="2.2" fill="none"/>
+                <path d="M0,128 C45,122 90,115 135,102 C180,92 225,86 270,74 C310,66 340,56 340,52" stroke="#d62728" stroke-width="2.2" fill="none"/>
+              </svg>
+            </div>
+            <div class="legend">
+              <span><span class="swatch t10-1"></span>North</span>
+              <span><span class="swatch t10-2"></span>South</span>
+              <span><span class="swatch t10-3"></span>East</span>
+              <span><span class="swatch t10-4"></span>West</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="collapse right">›</div>
+
+        <!-- RIGHT (style only) -->
+        <div class="right">
+          <div class="s-label">Style</div>
+          <div class="acc-row open">▼ Axis</div>
+          <div class="acc-body">
+            <div class="row"><span>Scale</span><span class="v">Linear</span></div>
+            <div class="row"><span>Tick</span><span class="v">$0K</span></div>
+          </div>
+          <div class="acc-row open" style="margin-top:4px">▼ Color</div>
+          <div class="acc-body">
+            <div class="acc-swatches">
+              <div class="t10-1"></div><div class="t10-2"></div><div class="t10-3"></div><div class="t10-4"></div><div class="t10-5"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FLOATING MARKS CARD -->
+        <div class="marks-float">
+          <div class="grip">
+            <span class="name">Marks · Bar</span>
+            <span class="dots">⋮⋮</span>
+          </div>
+          <div class="slot filled"><span class="ch-name">X</span><span class="pill date"><span class="dot"></span>Date</span></div>
+          <div class="slot filled"><span class="ch-name">Y</span><span class="pill measure"><span class="dot"></span><span class="agg">∑</span>Rev</span></div>
+          <div class="slot filled"><span class="ch-name">Color</span><span class="pill dim"><span class="dot"></span>Region</span></div>
+          <div class="slot"><span class="ch-name">Size</span></div>
+          <div class="slot"><span class="ch-name">Detail</span></div>
+        </div>
+      </div>
+
+      <div class="bd-steps">
+        <span class="done">✓ picked line</span>
+        <span class="done">✓ grouped region</span>
+        <span class="active">forecast 30d…</span>
+      </div>
+      <div class="bd">
+        <div class="bd-mic"></div>
+        <div class="bd-input"></div>
+      </div>
+    </div>
+    <div class="r-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="r-letter">3</span>
+        <div>
+          <h3 class="r-name">Floating Marks (Hex-style)</h3>
+          <p class="r-tagline">Both rails collapsible. Marks card is a draggable floating panel anywhere on canvas.</p>
+        </div>
+      </div>
+      <div class="r-pillars">
+        <div>Both side rails collapse to 0px (Cmd+\ + Cmd+B)</div>
+        <div>Marks card is a FLOATING white panel · draggable · drop-shadow elevation</div>
+        <div>Right rail simplified: Style + Annotations only (no encoding — that's in Marks)</div>
+        <div>Pro Mode → Stage Mode = collapse rails + slide Marks panel offscreen smoothly</div>
+        <div>Most flexible · most modern · biggest engineering · biggest learning curve</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">My recommendation (unchanged):</strong> <strong>Layout 1 (Tableau Classic) + Cmd+. Focus Mode</strong> from Layout 3. Marks card always visible is Tableau's biggest leverage. Layout 2 hides encoding under a tab — too much friction for analysts. Layout 3's floating Marks is cool but discoverability is worse for newcomers. Layout 1 + Focus Mode (collapse both rails for distraction-free editing) gives you Tableau's power AND Hex's modern feel.
+</p>
+
+<p style="margin-top:14px; padding:14px 18px; background:rgba(192,132,252,0.06); border-radius:8px; color:#a8a4c0; font-size:11px; line-height:1.5;">
+  This is the LIGHT theme. Dark theme will use the same layout with charcoal panels (#1a1a1f canvas, #2a2a30 rails, #ffffff text). Pick a layout — next question is the dashboard, which is where the real Tableau gap lives.
+</p>

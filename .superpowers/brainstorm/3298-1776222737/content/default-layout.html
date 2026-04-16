@@ -1,0 +1,475 @@
+<h2>Default Mode (B) — how do chat + canvas + voice arrange on screen?</h2>
+<p class="subtitle">Three layouts for the daily-driver Conversational Composer. This is the most-seen surface in the entire product. Pick the one that feels right.</p>
+
+<style>
+.layout-card {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.2);
+  border-radius: 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.16,1,0.3,1), border-color 220ms, box-shadow 220ms;
+  position: relative;
+  overflow: hidden;
+  min-height: 600px;
+}
+.layout-card:hover { transform: translateY(-4px); border-color: rgba(160,140,255,0.5); box-shadow: 0 24px 60px rgba(80,60,180,0.25); }
+.layout-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+.layout-mockup {
+  height: 320px;
+  position: relative;
+  overflow: hidden;
+  background: #050510;
+  border-bottom: 1px solid rgba(120,100,200,0.1);
+}
+
+.layout-body {
+  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.layout-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+}
+.layout-name { font-size: 19px; font-weight: 700; color: #f5f3ff; margin: 0; line-height: 1.2; }
+.layout-tagline { font-size: 12px; color: #a8a4c0; line-height: 1.4; margin: 0; }
+.layout-pillars { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #cbc8de; line-height: 1.5; margin-top: 6px; }
+.layout-pillars div::before { content: "▸ "; color: #c084fc; }
+.layout-prosCons {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-top: 10px;
+  font-size: 10px;
+}
+.layout-prosCons .pros, .layout-prosCons .cons {
+  padding: 8px 10px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+.layout-prosCons .pros { background: rgba(34,197,94,0.08); color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+.layout-prosCons .cons { background: rgba(239,68,68,0.06); color: #fca5a5; border: 1px solid rgba(239,68,68,0.18); }
+.layout-prosCons strong { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; opacity: 0.7; }
+
+/* Common mockup elements */
+.mock-topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 32px;
+  background: rgba(15,12,28,0.95);
+  border-bottom: 1px solid rgba(120,100,200,0.15);
+  display: flex; align-items: center; padding: 0 14px; gap: 10px;
+}
+.mock-logo { width: 18px; height: 18px; border-radius: 5px; background: linear-gradient(135deg, #c084fc, #7c3aed); }
+.mock-crumb { font-size: 9px; color: #8b87a3; }
+.mock-topbar-right { margin-left: auto; display: flex; gap: 6px; }
+.mock-topbar-right div { width: 16px; height: 16px; border-radius: 4px; background: rgba(124,58,237,0.2); }
+
+.mock-chat-bubble {
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 9px;
+  line-height: 1.4;
+  max-width: 85%;
+}
+.mock-chat-bubble.user { background: rgba(124,58,237,0.22); color: #ddd6fe; align-self: flex-end; border-radius: 10px 10px 2px 10px; }
+.mock-chat-bubble.agent { background: rgba(34,197,94,0.12); color: #bbf7d0; align-self: flex-start; border-radius: 10px 10px 10px 2px; }
+.mock-chat-bubble.thinking { background: rgba(124,58,237,0.08); color: #a8a4c0; font-style: italic; align-self: flex-start; }
+.mock-chat-bubble.thinking::after { content: "▸"; margin-left: 4px; opacity: 0.5; }
+
+.mock-mic {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f0abfc, #7c3aed 60%, #4c1d95);
+  box-shadow: 0 0 24px rgba(192,132,252,0.6), 0 4px 14px rgba(124,58,237,0.5);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.mock-mic::after {
+  content: "";
+  position: absolute; inset: -4px;
+  border: 1px solid rgba(192,132,252,0.5);
+  border-radius: 50%;
+  animation: mic-pulse 2s ease-out infinite;
+}
+@keyframes mic-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.mock-mic-icon {
+  width: 12px; height: 16px;
+  background: white; border-radius: 6px 6px 6px 6px;
+  position: relative;
+}
+.mock-mic-icon::before {
+  content: ""; position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+  width: 10px; height: 4px; border: 1.5px solid white; border-top: none; border-radius: 0 0 6px 6px;
+}
+
+.mock-chart {
+  background: rgba(15,12,28,0.7);
+  border: 1px solid rgba(120,100,200,0.15);
+  border-radius: 10px;
+  padding: 12px 14px;
+  position: relative;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.mock-chart-title { font-size: 9px; font-weight: 700; color: #f5f3ff; }
+.mock-chart-eyebrow { font-size: 7px; letter-spacing: 0.12em; color: #8b87a3; text-transform: uppercase; }
+.mock-chart svg { width: 100%; height: 100%; flex: 1; }
+.mock-chart .line { stroke: #a78bfa; stroke-width: 1.5; fill: none; }
+.mock-chart .area { fill: url(#lgrad); opacity: 0.55; }
+
+/* ============================================
+   LAYOUT A: SIDE-BY-SIDE (chat left, canvas right)
+   ============================================ */
+.la-layout {
+  position: absolute; inset: 32px 0 0 0;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0;
+}
+.la-chat {
+  background: rgba(15,12,28,0.5);
+  border-right: 1px solid rgba(120,100,200,0.15);
+  padding: 12px 12px 60px;
+  display: flex; flex-direction: column; gap: 6px;
+  overflow: hidden;
+}
+.la-canvas {
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.la-mic {
+  position: absolute;
+  bottom: 14px; left: 14px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f0abfc, #7c3aed 60%);
+  box-shadow: 0 0 16px rgba(192,132,252,0.6);
+}
+.la-input {
+  position: absolute;
+  bottom: 14px; left: 50px; width: 140px;
+  height: 28px;
+  background: rgba(124,58,237,0.12);
+  border: 1px solid rgba(124,58,237,0.3);
+  border-radius: 14px;
+  padding: 0 12px;
+  display: flex; align-items: center;
+  font-size: 8px; color: #8b87a3;
+}
+
+/* ============================================
+   LAYOUT B: BOTTOM DOCK (canvas top, chat bottom)
+   ============================================ */
+.lb-layout {
+  position: absolute; inset: 32px 0 0 0;
+  display: grid;
+  grid-template-rows: 1fr 110px;
+  gap: 0;
+}
+.lb-canvas {
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+  overflow: hidden;
+}
+.lb-canvas .mock-chart { flex: 1; }
+.lb-dock {
+  background: rgba(8,6,18,0.95);
+  border-top: 1px solid rgba(124,58,237,0.3);
+  padding: 10px 16px;
+  display: flex; align-items: center; gap: 12px;
+  position: relative;
+}
+.lb-dock::before {
+  content: "";
+  position: absolute; left: 0; right: 0; top: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, #a78bfa, transparent);
+  opacity: 0.6;
+}
+.lb-mic {
+  flex-shrink: 0;
+}
+.lb-input {
+  flex: 1;
+  height: 36px;
+  background: rgba(124,58,237,0.1);
+  border: 1px solid rgba(124,58,237,0.3);
+  border-radius: 18px;
+  padding: 0 16px;
+  display: flex; align-items: center;
+  font-size: 9px; color: #8b87a3;
+}
+.lb-steps {
+  position: absolute;
+  bottom: 110px; left: 16px; right: 16px;
+  display: flex; gap: 6px;
+  padding: 6px 10px;
+  background: rgba(15,12,28,0.7);
+  border: 1px solid rgba(120,100,200,0.2);
+  border-radius: 8px;
+  font-size: 7px;
+  color: #c0bcd6;
+  height: 22px;
+  align-items: center;
+}
+.lb-steps span { padding: 1px 6px; background: rgba(124,58,237,0.2); border-radius: 4px; }
+.lb-steps span.done { background: rgba(34,197,94,0.18); color: #86efac; }
+
+/* ============================================
+   LAYOUT C: LAYERED FLOAT (canvas full, chat slides out, mic free)
+   ============================================ */
+.lc-layout {
+  position: absolute; inset: 32px 0 0 0;
+}
+.lc-canvas {
+  position: absolute; inset: 0;
+  padding: 18px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.lc-canvas .mock-chart { flex: 1; }
+.lc-bubble {
+  position: absolute;
+  bottom: 16px; left: 16px;
+  width: 200px;
+  background: rgba(15,12,28,0.92);
+  border: 1px solid rgba(124,58,237,0.35);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+}
+.lc-mic-float {
+  position: absolute;
+  bottom: 16px; right: 16px;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f0abfc, #7c3aed 60%, #4c1d95);
+  box-shadow: 0 0 30px rgba(192,132,252,0.7), 0 8px 20px rgba(124,58,237,0.5);
+  display: flex; align-items: center; justify-content: center;
+}
+.lc-mic-float::after {
+  content: "";
+  position: absolute; inset: -6px;
+  border: 1px solid rgba(192,132,252,0.5);
+  border-radius: 50%;
+  animation: mic-pulse 2s ease-out infinite;
+}
+.lc-collapse {
+  position: absolute;
+  top: 16px; right: 16px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: rgba(124,58,237,0.18);
+  border: 1px solid rgba(124,58,237,0.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: #c4b5fd;
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="lgrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="cards">
+  <!-- ================== LAYOUT A: SIDE-BY-SIDE ================== -->
+  <div class="card layout-card" data-choice="side-by-side" onclick="toggleSelect(this)">
+    <div class="layout-mockup">
+      <div class="mock-topbar">
+        <div class="mock-logo"></div>
+        <span class="mock-crumb">Workspace ▸ Sales Q4</span>
+        <div class="mock-topbar-right"><div></div><div></div><div></div></div>
+      </div>
+      <div class="la-layout">
+        <div class="la-chat">
+          <div class="mock-chat-bubble user">show revenue trends</div>
+          <div class="mock-chat-bubble thinking">picking line chart</div>
+          <div class="mock-chat-bubble thinking">grouping by region</div>
+          <div class="mock-chat-bubble agent">Done. ↑24.7% YoY</div>
+          <div class="mock-chat-bubble user">add forecast</div>
+          <div class="mock-chat-bubble thinking">computing forecast…</div>
+        </div>
+        <div class="la-canvas">
+          <div class="mock-chart">
+            <div class="mock-chart-eyebrow">REVENUE · LAST 12 MONTHS</div>
+            <div class="mock-chart-title">$2.4M ↑ 24.7%</div>
+            <svg viewBox="0 0 280 100" preserveAspectRatio="none">
+              <path class="area" d="M0,80 C30,65 60,72 90,55 C120,40 150,48 180,28 C210,15 240,22 280,8 L280,100 L0,100 Z"/>
+              <path class="line" d="M0,80 C30,65 60,72 90,55 C120,40 150,48 180,28 C210,15 240,22 280,8"/>
+            </svg>
+          </div>
+        </div>
+        <div class="la-mic">
+          <div class="mock-mic-icon" style="position:absolute; left:50%; top:50%; transform: translate(-50%,-50%); width:8px; height:11px;"></div>
+        </div>
+        <div class="la-input">type or speak…</div>
+      </div>
+    </div>
+    <div class="layout-body">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span class="layout-letter">A</span>
+        <div>
+          <h3 class="layout-name">Side-by-Side</h3>
+          <p class="layout-tagline">Chat panel left (fixed 200–280px), canvas right. Always visible.</p>
+        </div>
+      </div>
+      <div class="layout-pillars">
+        <div>Chat lives in a permanent left rail — every step always visible</div>
+        <div>Canvas takes ~70% of width, dominates attention</div>
+        <div>Mic + text input docked at bottom of chat rail</div>
+        <div>Voice transcription appears as it streams in chat as user speaks</div>
+        <div>Familiar pattern (ChatGPT, Claude, Cursor) — zero learning curve</div>
+      </div>
+      <div class="layout-prosCons">
+        <div class="pros">
+          <strong>Pros</strong>
+          History always visible · Familiar to AI users · Easy to scroll back
+        </div>
+        <div class="cons">
+          <strong>Cons</strong>
+          Chat rail eats horizontal space · Canvas can feel cramped on small screens
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== LAYOUT B: BOTTOM DOCK ================== -->
+  <div class="card layout-card" data-choice="bottom-dock" onclick="toggleSelect(this)">
+    <div class="layout-mockup">
+      <div class="mock-topbar">
+        <div class="mock-logo"></div>
+        <span class="mock-crumb">Workspace ▸ Sales Q4</span>
+        <div class="mock-topbar-right"><div></div><div></div><div></div></div>
+      </div>
+      <div class="lb-layout">
+        <div class="lb-canvas">
+          <div class="mock-chart" style="height: 100%;">
+            <div class="mock-chart-eyebrow">REVENUE · LAST 12 MONTHS</div>
+            <div class="mock-chart-title">$2.4M ↑ 24.7%</div>
+            <svg viewBox="0 0 380 130" preserveAspectRatio="none">
+              <path class="area" d="M0,100 C40,80 80,88 120,68 C160,48 200,55 240,32 C280,18 320,28 380,8 L380,130 L0,130 Z"/>
+              <path class="line" d="M0,100 C40,80 80,88 120,68 C160,48 200,55 240,32 C280,18 320,28 380,8"/>
+            </svg>
+          </div>
+        </div>
+        <div class="lb-steps">
+          <span class="done">picked line</span>
+          <span class="done">grouped region</span>
+          <span>forecast 30d…</span>
+        </div>
+        <div class="lb-dock">
+          <div class="mock-mic" style="width:32px; height:32px;">
+            <div class="mock-mic-icon"></div>
+          </div>
+          <div class="lb-input">"add forecast for next 30 days…"</div>
+        </div>
+      </div>
+    </div>
+    <div class="layout-body">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span class="layout-letter">B</span>
+        <div>
+          <h3 class="layout-name">Bottom Dock</h3>
+          <p class="layout-tagline">Canvas dominates top. Chat collapses to a stream of step-pills above input bar.</p>
+        </div>
+      </div>
+      <div class="layout-pillars">
+        <div>Canvas gets full width — most chart real estate</div>
+        <div>Voice + text input dock at bottom (Claude-style)</div>
+        <div>Agent steps stream as tiny pills above the input — visible but compact</div>
+        <div>Click step pill to expand into full agent reasoning</div>
+        <div>Optimized for "watch the chart, not the text"</div>
+      </div>
+      <div class="layout-prosCons">
+        <div class="pros">
+          <strong>Pros</strong>
+          Maximum chart space · Mobile-friendly · Best for visual focus · Fits 4K dashboards
+        </div>
+        <div class="cons">
+          <strong>Cons</strong>
+          Chat history hidden by default (must expand) · Less context for long sessions
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== LAYOUT C: LAYERED FLOAT ================== -->
+  <div class="card layout-card" data-choice="layered-float" onclick="toggleSelect(this)">
+    <div class="layout-mockup">
+      <div class="mock-topbar">
+        <div class="mock-logo"></div>
+        <span class="mock-crumb">Workspace ▸ Sales Q4</span>
+        <div class="mock-topbar-right"><div></div><div></div><div></div></div>
+      </div>
+      <div class="lc-layout">
+        <div class="lc-canvas">
+          <div class="mock-chart" style="height: 100%;">
+            <div class="mock-chart-eyebrow">REVENUE · LAST 12 MONTHS</div>
+            <div class="mock-chart-title">$2.4M ↑ 24.7%</div>
+            <svg viewBox="0 0 380 150" preserveAspectRatio="none">
+              <path class="area" d="M0,120 C40,95 80,105 120,80 C160,55 200,65 240,38 C280,22 320,32 380,10 L380,150 L0,150 Z"/>
+              <path class="line" d="M0,120 C40,95 80,105 120,80 C160,55 200,65 240,38 C280,22 320,32 380,10"/>
+            </svg>
+          </div>
+        </div>
+        <div class="lc-bubble">
+          <div class="mock-chat-bubble user" style="max-width:100%">show me revenue trends by region</div>
+          <div class="mock-chat-bubble agent" style="max-width:100%">↑24.7% YoY. Want forecast?</div>
+        </div>
+        <div class="lc-mic-float">
+          <div class="mock-mic-icon"></div>
+        </div>
+        <div class="lc-collapse">×</div>
+      </div>
+    </div>
+    <div class="layout-body">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span class="layout-letter">C</span>
+        <div>
+          <h3 class="layout-name">Layered Float</h3>
+          <p class="layout-tagline">Canvas full-screen. Chat is a floating bubble. Mic is a free-floating orb.</p>
+        </div>
+      </div>
+      <div class="layout-pillars">
+        <div>Canvas occupies entire viewport — chart is the hero</div>
+        <div>Last 2-3 chat messages float in a glass bubble (bottom-left, draggable)</div>
+        <div>Voice mic is a free-floating orb (bottom-right, draggable)</div>
+        <div>Press × to dismiss bubble; press orb to talk anywhere</div>
+        <div>Closest to A (Stage Mode) — can swap themes in-place without layout shift</div>
+      </div>
+      <div class="layout-prosCons">
+        <div class="pros">
+          <strong>Pros</strong>
+          Maximum drama · Bridges Default + Stage Mode seamlessly · Best for big-screen demos · Wow factor
+        </div>
+        <div class="cons">
+          <strong>Cons</strong>
+          Floating UI can be lost · Drag-and-position is fiddly · Less obvious for first-time users
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">My recommendation:</strong> <strong>B (Bottom Dock)</strong> as the daily-driver default. Reasons: maximum chart real estate (the chart IS the product), familiar Claude/ChatGPT-style input dock at bottom, agent step-pills give just-enough transparency without eating canvas space. <strong>C (Layered Float)</strong> is the right pattern for Stage Mode (it natively supports the floating-orb-and-bubble feel for HUD themes). <strong>A (Side-by-Side)</strong> stays available as a Pro Mode toggle for analysts who want full chat history visible.
+</p>
+
+<p style="margin-top:14px; padding:14px 18px; background:rgba(192,132,252,0.06); border-radius:8px; color:#a8a4c0; font-size:11px; line-height:1.5;">
+  Pick one, click multi-select if you want a hybrid, or describe in the terminal if none feels right and I'll iterate. Note: voice mic is shown as always-visible here, but the actual flow (push-to-talk vs always-listening vs wake word) is the next question.
+</p>

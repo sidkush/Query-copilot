@@ -1,0 +1,265 @@
+<h2>What does "voice + agent + chart" FEEL like?</h2>
+<p class="subtitle">Three fundamentally different design directions. Pick the one that excites you most — we can hybridize, but the dominant pattern shapes everything below it.</p>
+
+<style>
+.vision-card {
+  background: linear-gradient(160deg, rgba(20,18,32,0.95) 0%, rgba(12,10,22,0.95) 100%);
+  border: 1px solid rgba(120,100,200,0.18);
+  border-radius: 18px;
+  padding: 28px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  cursor: pointer;
+  transition: transform 200ms cubic-bezier(0.16,1,0.3,1), border-color 200ms, box-shadow 200ms;
+  position: relative;
+  overflow: hidden;
+  min-height: 480px;
+}
+.vision-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(600px circle at var(--mx, 50%) var(--my, 0%), rgba(120,100,200,0.12), transparent 40%);
+  opacity: 0;
+  transition: opacity 200ms;
+  pointer-events: none;
+}
+.vision-card:hover { transform: translateY(-4px); border-color: rgba(160,140,255,0.5); box-shadow: 0 24px 60px rgba(80,60,180,0.25); }
+.vision-card:hover::before { opacity: 1; }
+.vision-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+.vision-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 14px rgba(124,58,237,0.4);
+}
+.vision-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f5f3ff;
+  margin: 0;
+  line-height: 1.2;
+}
+.vision-tagline { font-size: 13px; color: #a8a4c0; line-height: 1.5; margin: 0; }
+
+.vision-mockup {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.15);
+  border-radius: 12px;
+  padding: 14px;
+  height: 200px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* --- Mockup A: Voice-first Studio --- */
+.studio-bg {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 60%, rgba(124,58,237,0.25), transparent 50%);
+}
+.studio-orb {
+  position: absolute; left: 50%; top: 30%;
+  transform: translateX(-50%);
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f0abfc, #7c3aed 60%, #4c1d95);
+  box-shadow: 0 0 60px rgba(192,132,252,0.6), inset -8px -10px 18px rgba(0,0,0,0.4);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 60px rgba(192,132,252,0.6), inset -8px -10px 18px rgba(0,0,0,0.4); }
+  50% { box-shadow: 0 0 90px rgba(192,132,252,0.9), inset -8px -10px 18px rgba(0,0,0,0.4); }
+}
+.studio-chart {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; height: 70px;
+  background: linear-gradient(180deg, rgba(124,58,237,0.0), rgba(124,58,237,0.18));
+  border-radius: 8px;
+  display: flex; align-items: flex-end; gap: 4px; padding: 8px;
+}
+.studio-chart .bar {
+  flex: 1;
+  background: linear-gradient(180deg, #c084fc, #7c3aed);
+  border-radius: 3px 3px 0 0;
+  opacity: 0.85;
+}
+.studio-caption {
+  position: absolute; left: 16px; right: 16px; top: 12px;
+  color: #ddd; font-size: 11px; opacity: 0.7; text-align: center;
+  font-style: italic;
+}
+
+/* --- Mockup B: Conversational Composer --- */
+.compose-grid { display: grid; grid-template-columns: 90px 1fr; gap: 8px; height: 100%; }
+.compose-chat {
+  background: rgba(24,22,38,0.7);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 9px;
+}
+.compose-bubble { background: rgba(124,58,237,0.2); border-radius: 6px; padding: 4px 6px; color: #ddd; }
+.compose-bubble.user { background: rgba(192,132,252,0.18); }
+.compose-bubble.agent { background: rgba(34,197,94,0.15); color: #bbf7d0; }
+.compose-canvas { background: rgba(8,6,18,0.6); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.compose-title { font-size: 9px; color: #c0bcd6; }
+.compose-line {
+  flex: 1;
+  background: linear-gradient(180deg, rgba(124,58,237,0), rgba(124,58,237,0.15));
+  border-radius: 4px;
+  position: relative;
+}
+.compose-line::after {
+  content: ""; position: absolute; inset: 0;
+  background-image: linear-gradient(90deg, transparent 49%, rgba(192,132,252,0.7) 50%, transparent 51%);
+  background-size: 8px 100%;
+  opacity: 0.5;
+}
+
+/* --- Mockup C: Power Editor + Voice --- */
+.power-grid { display: grid; grid-template-columns: 50px 1fr 50px; gap: 4px; height: 100%; }
+.power-rail { background: rgba(20,18,32,0.7); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.power-pill { background: rgba(124,58,237,0.25); height: 8px; border-radius: 4px; }
+.power-pill.green { background: rgba(34,197,94,0.3); }
+.power-canvas { background: rgba(10,8,20,0.6); border-radius: 6px; padding: 6px; display: flex; align-items: flex-end; gap: 3px; position: relative; }
+.power-canvas .bar { flex: 1; background: linear-gradient(180deg, #c084fc, #7c3aed); border-radius: 2px 2px 0 0; }
+.power-mic {
+  position: absolute; right: 6px; top: 6px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #f0abfc, #7c3aed);
+  box-shadow: 0 0 10px rgba(192,132,252,0.6);
+}
+
+.vision-pillars { display: flex; flex-direction: column; gap: 8px; }
+.pillar { display: flex; align-items: flex-start; gap: 10px; font-size: 12px; color: #cbc8de; line-height: 1.45; }
+.pillar-icon { color: #c084fc; font-weight: 700; flex-shrink: 0; }
+.pillar strong { color: #f5f3ff; font-weight: 600; }
+</style>
+
+<div class="cards">
+  <div class="card vision-card" data-choice="a" onclick="toggleSelect(this)" onmousemove="this.style.setProperty('--mx', event.offsetX+'px'); this.style.setProperty('--my', event.offsetY+'px')">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <span class="vision-letter">A</span>
+      <div>
+        <h3 class="vision-name">Voice-First Studio</h3>
+        <p class="vision-tagline">Holographic. Cinematic. Iron Man HUD energy.</p>
+      </div>
+    </div>
+
+    <div class="vision-mockup">
+      <div class="studio-bg"></div>
+      <div class="studio-caption">"Show me revenue trends by region…"</div>
+      <div class="studio-orb"></div>
+      <div class="studio-chart">
+        <div class="bar" style="height:30%"></div>
+        <div class="bar" style="height:50%"></div>
+        <div class="bar" style="height:70%"></div>
+        <div class="bar" style="height:90%"></div>
+        <div class="bar" style="height:65%"></div>
+        <div class="bar" style="height:80%"></div>
+        <div class="bar" style="height:95%"></div>
+        <div class="bar" style="height:55%"></div>
+      </div>
+    </div>
+
+    <div class="vision-pillars">
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Voice is the primary input.</strong> Mic always-listening. UI collapses to a single glowing orb until you speak.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Chart fills the screen.</strong> No rails, no inspector, no menus. Edit by talking. "Make it stacked." "Color by churn risk."</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Agent narrates back.</strong> "Done. Notice the spike in March — want me to drill into it?"</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Inspector + data rail are glyphs.</strong> Float in only when needed, fade out instantly.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Wow ceiling: maximum.</strong> Best demo. Best for novice analysts and execs.</span></div>
+    </div>
+  </div>
+
+  <div class="card vision-card" data-choice="b" onclick="toggleSelect(this)" onmousemove="this.style.setProperty('--mx', event.offsetX+'px'); this.style.setProperty('--my', event.offsetY+'px')">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <span class="vision-letter">B</span>
+      <div>
+        <h3 class="vision-name">Conversational Composer</h3>
+        <p class="vision-tagline">ChatGPT for charts. Voice + chat + live canvas.</p>
+      </div>
+    </div>
+
+    <div class="vision-mockup">
+      <div class="compose-grid">
+        <div class="compose-chat">
+          <div class="compose-bubble user">"trend by region"</div>
+          <div class="compose-bubble agent">picking line chart…</div>
+          <div class="compose-bubble agent">grouping by region…</div>
+          <div class="compose-bubble user">"add forecast"</div>
+        </div>
+        <div class="compose-canvas">
+          <div class="compose-title">Revenue by Region</div>
+          <div class="compose-line"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vision-pillars">
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Split view, always.</strong> Chat panel left (voice transcribes here), live chart canvas right.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Agent steps visible.</strong> See thinking, tool calls, decisions stream as the chart materializes — Claude Code style.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Voice OR text, your choice.</strong> Push-to-talk or always-on. Hot-swappable.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Click the chart to refine inline.</strong> Direct manipulation as fallback when voice can't say it precisely.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Wow ceiling: high.</strong> Best for analysts who want transparency into what the agent is doing.</span></div>
+    </div>
+  </div>
+
+  <div class="card vision-card" data-choice="c" onclick="toggleSelect(this)" onmousemove="this.style.setProperty('--mx', event.offsetX+'px'); this.style.setProperty('--my', event.offsetY+'px')">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <span class="vision-letter">C</span>
+      <div>
+        <h3 class="vision-name">Power Editor + Voice</h3>
+        <p class="vision-tagline">Tableau-class direct manipulation. Voice as accelerator.</p>
+      </div>
+    </div>
+
+    <div class="vision-mockup">
+      <div class="power-grid">
+        <div class="power-rail">
+          <div class="power-pill"></div>
+          <div class="power-pill"></div>
+          <div class="power-pill green"></div>
+          <div class="power-pill green"></div>
+          <div class="power-pill"></div>
+        </div>
+        <div class="power-canvas">
+          <div class="power-mic"></div>
+          <div class="bar" style="height:40%"></div>
+          <div class="bar" style="height:60%"></div>
+          <div class="bar" style="height:75%"></div>
+          <div class="bar" style="height:90%"></div>
+          <div class="bar" style="height:65%"></div>
+          <div class="bar" style="height:80%"></div>
+          <div class="bar" style="height:95%"></div>
+        </div>
+        <div class="power-rail">
+          <div class="power-pill"></div>
+          <div class="power-pill"></div>
+          <div class="power-pill"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vision-pillars">
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Three-pane Tableau-class editor.</strong> Data rail + canvas + inspector. Marks card with draggable pills.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Voice is a power-user accelerator.</strong> "Color by region" → pill jumps to Color slot. Visual feedback.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Every voice command has a visible UI equivalent.</strong> Users learn the editor by watching voice drive it.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Best for serious analysts.</strong> Maximum flexibility, minimum magic.</span></div>
+      <div class="pillar"><span class="pillar-icon">▸</span><span><strong>Wow ceiling: medium-high.</strong> Looks more like Tableau than a movie. Familiarity wins enterprise sales.</span></div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">My recommendation:</strong> A hybrid — <strong>B as the default mode</strong> (conversational composer is the broad-audience hero), with <strong>A as a "Stage" mode</strong> for demos / execs / focus work, and <strong>C as a "Pro" mode</strong> for analysts who want full Tableau-class control. All three share the same underlying IR + agent + voice pipeline. You build one architecture, three faces.
+</p>

@@ -46,6 +46,7 @@ export default function AnalyticsShell() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboard, setDashboard] = useState(null);
+  const [dashboardList, setDashboardList] = useState([]);
   const dashboardIdRef = useRef(null);
 
   const fetchDashboard = useCallback(async () => {
@@ -53,6 +54,7 @@ export default function AnalyticsShell() {
     try {
       const res = await api.getDashboards();
       const list = res?.dashboards || [];
+      setDashboardList(list);
       if (list.length === 0) {
         setDashboard(null);
         dashboardIdRef.current = null;
@@ -67,6 +69,18 @@ export default function AnalyticsShell() {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [activeDashboardId, setActiveDashboardId]);
+
+  const switchDashboard = useCallback(async (id) => {
+    if (id === dashboardIdRef.current) return;
+    setActiveDashboardId(id);
+    try {
+      const full = await api.getDashboard(id);
+      setDashboard(full);
+      dashboardIdRef.current = full.id;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [setActiveDashboardId]);
 
   // Initial load — runs once on mount.
   useEffect(() => {
@@ -163,6 +177,8 @@ export default function AnalyticsShell() {
         tiles={tiles}
         dashboardId={dashboard.id}
         dashboardName={dashboard.name}
+        dashboardList={dashboardList}
+        onSwitchDashboard={switchDashboard}
         initialMode="workbench"
       />
     </div>

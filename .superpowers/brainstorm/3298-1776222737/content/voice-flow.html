@@ -1,0 +1,400 @@
+<h2>Voice flow — how does the mic actually trigger?</h2>
+<p class="subtitle">The interaction model for talking to AskDB. Each option has different privacy, UX, and infra implications. Watch the mic widgets — they show the actual idle/listening/transcribing states.</p>
+
+<style>
+.flow-card {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.18);
+  border-radius: 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.16,1,0.3,1), border-color 220ms, box-shadow 220ms;
+  overflow: hidden;
+  min-height: 540px;
+  position: relative;
+}
+.flow-card:hover { transform: translateY(-3px); border-color: rgba(160,140,255,0.4); box-shadow: 0 20px 50px rgba(80,60,180,0.25); }
+.flow-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+.flow-mockup {
+  height: 220px;
+  position: relative;
+  background: linear-gradient(180deg, #0b0915 0%, #050410 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid rgba(120,100,200,0.12);
+}
+
+.flow-states {
+  display: flex;
+  gap: 18px;
+  align-items: flex-end;
+}
+.flow-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.flow-state-label {
+  font-size: 8px;
+  color: #6b6878;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+/* Mic widget base */
+.mic {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mic-icon {
+  width: 14px;
+  height: 18px;
+  background: white;
+  border-radius: 7px 7px 7px 7px;
+  position: relative;
+  z-index: 2;
+}
+.mic-icon::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 4px;
+  border: 1.5px solid white;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
+/* States */
+.mic.idle {
+  background: rgba(124,58,237,0.15);
+  border: 1px solid rgba(124,58,237,0.3);
+}
+.mic.idle .mic-icon { background: #c4b5fd; opacity: 0.6; }
+.mic.idle .mic-icon::after { border-color: #c4b5fd; }
+
+.mic.listening {
+  background: radial-gradient(circle at 35% 35%, #f0abfc, #7c3aed 60%, #4c1d95);
+  box-shadow: 0 0 30px rgba(192,132,252,0.7);
+}
+.mic.listening::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border: 1px solid rgba(192,132,252,0.6);
+  border-radius: 50%;
+  animation: pulse-out 2s ease-out infinite;
+}
+.mic.listening::before {
+  content: "";
+  position: absolute;
+  inset: -16px;
+  border: 1px solid rgba(192,132,252,0.4);
+  border-radius: 50%;
+  animation: pulse-out 2s ease-out infinite 0.4s;
+}
+@keyframes pulse-out {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.mic.transcribing {
+  background: radial-gradient(circle at 35% 35%, #86efac, #16a34a 60%, #14532d);
+  box-shadow: 0 0 28px rgba(74,222,128,0.6);
+}
+.mic.transcribing .mic-icon { background: white; }
+.mic.transcribing .mic-icon::after { border-color: white; }
+
+.mic.muted {
+  background: rgba(80,80,90,0.3);
+  border: 1px solid rgba(80,80,90,0.5);
+}
+.mic.muted .mic-icon { background: #71717a; opacity: 0.5; }
+.mic.muted .mic-icon::after { border-color: #71717a; }
+.mic.muted::before {
+  content: "";
+  position: absolute;
+  width: 30px;
+  height: 1.5px;
+  background: #ef4444;
+  transform: rotate(-45deg);
+  z-index: 3;
+}
+
+.mic.wake {
+  background: rgba(34,197,94,0.12);
+  border: 1px solid rgba(34,197,94,0.35);
+}
+.mic.wake .mic-icon { background: #86efac; opacity: 0.7; }
+.mic.wake .mic-icon::after { border-color: #86efac; }
+.mic.wake::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgba(34,197,94,0.4);
+  border-radius: 50%;
+  animation: gentle-breathe 3s ease-in-out infinite;
+}
+@keyframes gentle-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.15); opacity: 0.2; }
+}
+
+.flow-caption {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #8b87a3;
+  text-align: center;
+  background: rgba(8,6,18,0.6);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(120,100,200,0.15);
+}
+
+.flow-body {
+  padding: 20px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.flow-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+.flow-name { font-size: 18px; font-weight: 700; color: #f5f3ff; margin: 0; line-height: 1.2; }
+.flow-tagline { font-size: 11px; color: #a8a4c0; line-height: 1.4; margin: 0; }
+
+.flow-pillars { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: #cbc8de; line-height: 1.45; }
+.flow-pillars div::before { content: "▸ "; color: #c084fc; }
+
+.flow-prosCons {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  font-size: 9.5px;
+  margin-top: 4px;
+}
+.flow-prosCons .pros, .flow-prosCons .cons {
+  padding: 7px 9px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+.flow-prosCons .pros { background: rgba(34,197,94,0.08); color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+.flow-prosCons .cons { background: rgba(239,68,68,0.06); color: #fca5a5; border: 1px solid rgba(239,68,68,0.18); }
+.flow-prosCons strong { display: block; font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; opacity: 0.7; }
+</style>
+
+<div class="cards">
+  <!-- ========== A: PUSH-TO-TALK ========== -->
+  <div class="card flow-card" data-choice="ptt" onclick="toggleSelect(this)">
+    <div class="flow-mockup">
+      <div class="flow-states">
+        <div class="flow-state">
+          <div class="mic idle"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Idle</div>
+        </div>
+        <div class="flow-state">
+          <div class="mic listening"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Hold ⎵</div>
+        </div>
+        <div class="flow-state">
+          <div class="mic transcribing"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Sending</div>
+        </div>
+      </div>
+      <div class="flow-caption">SPACE to talk · release to send</div>
+    </div>
+    <div class="flow-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="flow-letter">A</span>
+        <div>
+          <h3 class="flow-name">Push-to-Talk</h3>
+          <p class="flow-tagline">Hold the button. Release to send. Discord-style.</p>
+        </div>
+      </div>
+      <div class="flow-pillars">
+        <div>Hold spacebar OR mic button to record</div>
+        <div>Release → audio captured ends → sent to STT</div>
+        <div>Mic is OFF unless explicitly held</div>
+        <div>Predictable. Privacy-safe. Zero false triggers</div>
+      </div>
+      <div class="flow-prosCons">
+        <div class="pros">
+          <strong>Pros</strong>
+          Predictable · Privacy-safe · Open-office friendly · Cheap (no streaming)
+        </div>
+        <div class="cons">
+          <strong>Cons</strong>
+          Less magical · Need a free hand · Not "always-on" demo wow
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== B: ALWAYS-LISTENING (HOT MIC) ========== -->
+  <div class="card flow-card" data-choice="always-on" onclick="toggleSelect(this)">
+    <div class="flow-mockup">
+      <div class="flow-states">
+        <div class="flow-state">
+          <div class="mic listening"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Always live</div>
+        </div>
+        <div class="flow-state">
+          <div class="mic transcribing"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Speech in</div>
+        </div>
+        <div class="flow-state">
+          <div class="mic muted"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Mute btn</div>
+        </div>
+      </div>
+      <div class="flow-caption">always-on transcription · click to mute</div>
+    </div>
+    <div class="flow-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="flow-letter">B</span>
+        <div>
+          <h3 class="flow-name">Always-Listening (Hot Mic)</h3>
+          <p class="flow-tagline">Mic stays open. Continuous transcription. Speak anytime.</p>
+        </div>
+      </div>
+      <div class="flow-pillars">
+        <div>Mic is open from session start</div>
+        <div>Continuous live transcription, agent classifies command vs ambient</div>
+        <div>VAD (voice activity detection) auto-segments sentences</div>
+        <div>Visible mute toggle when needed (calls, sensitive talk)</div>
+        <div>Most fluid — speak naturally, no button hunting</div>
+      </div>
+      <div class="flow-prosCons">
+        <div class="pros">
+          <strong>Pros</strong>
+          Most magical · True hands-free · Best for demos · Continuous flow
+        </div>
+        <div class="cons">
+          <strong>Cons</strong>
+          Privacy concerns · False triggers in noisy rooms · Drains battery · Streaming bandwidth cost
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== C: WAKE WORD ========== -->
+  <div class="card flow-card" data-choice="wake-word" onclick="toggleSelect(this)">
+    <div class="flow-mockup">
+      <div class="flow-states">
+        <div class="flow-state">
+          <div class="mic wake"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Listening for "Hey Ask"</div>
+        </div>
+        <div class="flow-state">
+          <div class="mic listening"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Wake → Active</div>
+        </div>
+        <div class="flow-state">
+          <div class="mic transcribing"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Command in</div>
+        </div>
+      </div>
+      <div class="flow-caption">say "Hey Ask" to start · auto-stops on silence</div>
+    </div>
+    <div class="flow-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="flow-letter">C</span>
+        <div>
+          <h3 class="flow-name">Wake Word</h3>
+          <p class="flow-tagline">Say "Hey Ask" or "AskDB" to wake. Siri/Alexa pattern.</p>
+        </div>
+      </div>
+      <div class="flow-pillars">
+        <div>On-device wake-word detector listens locally (Porcupine, Snowboy, openWakeWord)</div>
+        <div>Audio doesn't leave device until wake-word fires</div>
+        <div>Wake → mic activates → user speaks command → auto-stops on silence</div>
+        <div>Hands-free magic without privacy nightmare of B</div>
+        <div>Custom wake word per user possible (brand: "Hey Stark" for Iron Man theme)</div>
+      </div>
+      <div class="flow-prosCons">
+        <div class="pros">
+          <strong>Pros</strong>
+          Privacy-safe · Hands-free · Brand magic · No streaming until wake
+        </div>
+        <div class="cons">
+          <strong>Cons</strong>
+          On-device wake-word adds complexity · ~50KB-500KB model · False wakes possible · Browser support varies
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== D: HYBRID (MODE TOGGLE) ========== -->
+  <div class="card flow-card" data-choice="hybrid" onclick="toggleSelect(this)">
+    <div class="flow-mockup">
+      <div class="flow-states">
+        <div class="flow-state">
+          <div class="mic idle"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">PTT default</div>
+        </div>
+        <div class="flow-state">
+          <div class="mic wake"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Wake mode</div>
+        </div>
+        <div class="flow-state">
+          <div class="mic listening"><div class="mic-icon"></div></div>
+          <div class="flow-state-label">Hot mic mode</div>
+        </div>
+      </div>
+      <div class="flow-caption">user picks per-session: PTT · wake · always</div>
+    </div>
+    <div class="flow-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="flow-letter">D</span>
+        <div>
+          <h3 class="flow-name">Hybrid (User Picks)</h3>
+          <p class="flow-tagline">All three modes ship. User toggles per session or workspace.</p>
+        </div>
+      </div>
+      <div class="flow-pillars">
+        <div>Default = Push-to-Talk (safe, predictable)</div>
+        <div>Toggle to Wake Word for hands-free demos and Stage Mode</div>
+        <div>Toggle to Hot Mic for power-user dictation sessions</div>
+        <div>Per-workspace setting + global override</div>
+        <div>Stage Mode auto-switches to wake-word for cinematic demo flow</div>
+      </div>
+      <div class="flow-prosCons">
+        <div class="pros">
+          <strong>Pros</strong>
+          User autonomy · Right tool per context · Works for everyone · Stage Mode magic + analyst safety
+        </div>
+        <div class="cons">
+          <strong>Cons</strong>
+          Most engineering · Three flows to test · Settings UI complexity
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">My recommendation:</strong> <strong>D (Hybrid)</strong>. Default is Push-to-Talk for safety + open-office support. Stage Mode auto-flips to Wake Word ("Hey Ask") for the cinematic demo flow. Power users can opt into Hot Mic. Engineering cost is real (3 flows), but voice + agent IS the differentiator and a single flow won't fit every customer. Custom wake words per workspace (e.g., "Hey Stark" for an Iron Man brand) become a viral wow factor.
+</p>

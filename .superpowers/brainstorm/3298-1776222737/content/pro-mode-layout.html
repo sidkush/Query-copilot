@@ -1,0 +1,565 @@
+<h2>Pro Mode editor — Tableau-class three-pane layout</h2>
+<p class="subtitle">Where do the data rail, Marks card encoding tray, canvas, and Setup/Style inspector live? Three real layouts with live wireframe mockups. Voice mic + chat dock from Default Mode B persist underneath.</p>
+
+<style>
+.pro-card {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.18);
+  border-radius: 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.16,1,0.3,1), border-color 220ms, box-shadow 220ms;
+  overflow: hidden;
+  min-height: 660px;
+  position: relative;
+}
+.pro-card:hover { transform: translateY(-3px); border-color: rgba(160,140,255,0.4); box-shadow: 0 20px 50px rgba(80,60,180,0.25); }
+.pro-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+.pro-mockup {
+  height: 340px;
+  position: relative;
+  background: #050510;
+  border-bottom: 1px solid rgba(120,100,200,0.1);
+  overflow: hidden;
+}
+
+/* Common topbar */
+.proxbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 28px;
+  background: rgba(15,12,28,0.95);
+  border-bottom: 1px solid rgba(120,100,200,0.15);
+  display: flex; align-items: center; padding: 0 12px; gap: 8px;
+}
+.proxbar .logo { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, #c084fc, #7c3aed); }
+.proxbar .crumb { font-size: 8px; color: #8b87a3; }
+.proxbar .right { margin-left: auto; display: flex; gap: 4px; }
+.proxbar .right div { width: 14px; height: 14px; border-radius: 3px; background: rgba(124,58,237,0.2); }
+
+/* Common bottom dock (chat input + mic) */
+.proxdock {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 36px;
+  background: rgba(8,6,18,0.95);
+  border-top: 1px solid rgba(124,58,237,0.3);
+  padding: 0 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.proxdock .mic {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f0abfc, #7c3aed 60%);
+  box-shadow: 0 0 12px rgba(192,132,252,0.5);
+}
+.proxdock .input {
+  flex: 1;
+  height: 22px;
+  background: rgba(124,58,237,0.1);
+  border: 1px solid rgba(124,58,237,0.3);
+  border-radius: 11px;
+  padding: 0 10px;
+  display: flex; align-items: center;
+  font-size: 8px; color: #8b87a3;
+}
+.proxdock .input::before { content: '"…or type a follow-up"'; }
+
+/* Common pieces */
+.field-pill {
+  background: rgba(124,58,237,0.22);
+  border: 1px solid rgba(124,58,237,0.4);
+  color: #c4b5fd;
+  font-size: 7.5px;
+  padding: 2px 6px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: grab;
+}
+.field-pill.measure { background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.4); color: #86efac; }
+.field-pill.dim { background: rgba(124,58,237,0.22); border-color: rgba(124,58,237,0.4); color: #c4b5fd; }
+.field-pill .agg { opacity: 0.6; font-size: 7px; }
+.field-pill .icon { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; }
+
+.section-label {
+  font-size: 7px;
+  font-weight: 700;
+  color: #6b6878;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.channel-slot {
+  background: rgba(120,100,200,0.05);
+  border: 1px dashed rgba(120,100,200,0.2);
+  border-radius: 6px;
+  padding: 3px 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 7.5px;
+  color: #8b87a3;
+  min-height: 16px;
+}
+.channel-slot.filled { border-style: solid; border-color: rgba(124,58,237,0.4); background: rgba(124,58,237,0.06); }
+.channel-name { color: #6b6878; font-weight: 600; min-width: 24px; }
+
+.mock-canvas-chart {
+  background: rgba(15,12,28,0.6);
+  border: 1px solid rgba(120,100,200,0.15);
+  border-radius: 6px;
+  padding: 8px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mock-canvas-chart .ctitle { font-size: 8px; color: #f5f3ff; font-weight: 700; }
+.mock-canvas-chart .ceyebrow { font-size: 6px; letter-spacing: 0.1em; color: #6b6878; text-transform: uppercase; }
+.mock-canvas-chart svg { width: 100%; height: 100%; flex: 1; }
+.mock-canvas-chart .line { stroke: #a78bfa; stroke-width: 1.5; fill: none; }
+.mock-canvas-chart .area { fill: url(#prograd); opacity: 0.5; }
+
+/* ============================================
+   LAYOUT 1: TABLEAU CLASSIC
+   data pane + marks card on left | canvas | format pane right
+   ============================================ */
+.l1 {
+  position: absolute; top: 28px; left: 0; right: 0; bottom: 36px;
+  display: grid;
+  grid-template-columns: 110px 1fr 110px;
+  gap: 0;
+}
+.l1 .left {
+  background: rgba(15,12,28,0.5);
+  border-right: 1px solid rgba(120,100,200,0.15);
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  overflow: hidden;
+}
+.l1 .center {
+  padding: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.l1 .right {
+  background: rgba(15,12,28,0.5);
+  border-left: 1px solid rgba(120,100,200,0.15);
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  overflow: hidden;
+}
+.l1 .marks-card {
+  background: rgba(124,58,237,0.08);
+  border: 1px solid rgba(124,58,237,0.3);
+  border-radius: 6px;
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.l1 .data-pane { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden; }
+.l1 .shelf {
+  background: rgba(120,100,200,0.06);
+  border: 1px dashed rgba(120,100,200,0.18);
+  border-radius: 4px;
+  padding: 3px 5px;
+  font-size: 7px;
+  color: #8b87a3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 16px;
+}
+.l1 .shelf-label { font-size: 6px; font-weight: 700; color: #6b6878; text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* ============================================
+   LAYOUT 2: COMPRESSED — Looker Studio inspired
+   thin data left | big canvas | 2-tab inspector right (encoding+style merged)
+   ============================================ */
+.l2 {
+  position: absolute; top: 28px; left: 0; right: 0; bottom: 36px;
+  display: grid;
+  grid-template-columns: 90px 1fr 130px;
+  gap: 0;
+}
+.l2 .left {
+  background: rgba(15,12,28,0.5);
+  border-right: 1px solid rgba(120,100,200,0.15);
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 5px;
+  overflow: hidden;
+}
+.l2 .center {
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.l2 .right {
+  background: rgba(15,12,28,0.6);
+  border-left: 1px solid rgba(120,100,200,0.15);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.l2 .tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(120,100,200,0.15);
+}
+.l2 .tab {
+  flex: 1;
+  padding: 5px 0;
+  text-align: center;
+  font-size: 7px;
+  font-weight: 700;
+  color: #8b87a3;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+.l2 .tab.active { color: #c4b5fd; border-bottom: 1px solid #a78bfa; background: rgba(124,58,237,0.08); }
+.l2 .tab-body { padding: 8px; display: flex; flex-direction: column; gap: 5px; overflow: hidden; }
+
+/* ============================================
+   LAYOUT 3: HEX-STYLE COLLAPSIBLE
+   collapsible left + collapsible right + floating marks card
+   ============================================ */
+.l3 {
+  position: absolute; top: 28px; left: 0; right: 0; bottom: 36px;
+}
+.l3 .left {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 100px;
+  background: rgba(15,12,28,0.5);
+  border-right: 1px solid rgba(120,100,200,0.15);
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.l3 .right {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 110px;
+  background: rgba(15,12,28,0.5);
+  border-left: 1px solid rgba(120,100,200,0.15);
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.l3 .center {
+  position: absolute; top: 0; left: 100px; right: 110px; bottom: 0;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.l3 .marks-float {
+  position: absolute;
+  top: 14px;
+  left: 116px;
+  width: 138px;
+  background: rgba(20,18,32,0.95);
+  border: 1px solid rgba(124,58,237,0.5);
+  border-radius: 8px;
+  padding: 6px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  display: flex; flex-direction: column; gap: 3px;
+  z-index: 5;
+}
+.l3 .marks-float-handle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+.l3 .marks-float-handle .label { font-size: 7px; font-weight: 700; color: #c4b5fd; text-transform: uppercase; letter-spacing: 0.08em; }
+.l3 .marks-float-handle .grip { font-size: 8px; color: #6b6878; cursor: grab; }
+.l3 .collapse-btn {
+  position: absolute;
+  top: 6px;
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  background: rgba(124,58,237,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; color: #c4b5fd;
+  z-index: 6;
+}
+.l3 .collapse-btn.left { left: 86px; }
+.l3 .collapse-btn.right { right: 96px; }
+
+/* Card body */
+.pro-body {
+  padding: 18px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pro-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+.pro-name { font-size: 18px; font-weight: 700; color: #f5f3ff; margin: 0; line-height: 1.2; }
+.pro-tagline { font-size: 11px; color: #a8a4c0; line-height: 1.4; margin: 0; }
+.pro-pillars { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: #cbc8de; line-height: 1.45; margin-top: 4px; }
+.pro-pillars div::before { content: "▸ "; color: #c084fc; }
+
+.pro-prosCons {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin-top: 8px;
+  font-size: 9.5px;
+}
+.pro-prosCons .pros, .pro-prosCons .cons {
+  padding: 8px 10px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+.pro-prosCons .pros { background: rgba(34,197,94,0.08); color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+.pro-prosCons .cons { background: rgba(239,68,68,0.06); color: #fca5a5; border: 1px solid rgba(239,68,68,0.18); }
+.pro-prosCons strong { display: block; font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; opacity: 0.7; }
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="prograd" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="cards">
+  <!-- ================== LAYOUT 1: TABLEAU CLASSIC ================== -->
+  <div class="card pro-card" data-choice="tableau-classic" onclick="toggleSelect(this)">
+    <div class="pro-mockup">
+      <div class="proxbar">
+        <div class="logo"></div>
+        <span class="crumb">Workspace ▸ Sales Q4 ▸ Untitled · Pro Mode</span>
+        <div class="right"><div></div><div></div><div></div><div></div></div>
+      </div>
+      <div class="l1">
+        <div class="left">
+          <div class="section-label">Marks Card</div>
+          <div class="marks-card">
+            <div style="font-size:6.5px;color:#c4b5fd;font-weight:700;text-align:center;border-bottom:1px solid rgba(124,58,237,0.3);padding-bottom:2px;margin-bottom:2px;">▼ Bar</div>
+            <div class="channel-slot filled"><span class="channel-name">Color</span><span class="field-pill dim" style="font-size:6px;padding:1px 4px;">Region</span></div>
+            <div class="channel-slot"><span class="channel-name">Size</span></div>
+            <div class="channel-slot"><span class="channel-name">Label</span></div>
+            <div class="channel-slot"><span class="channel-name">Detail</span></div>
+            <div class="channel-slot"><span class="channel-name">Tooltip</span></div>
+          </div>
+          <div class="section-label" style="margin-top:4px">Data</div>
+          <div class="data-pane">
+            <div class="field-pill dim"><span class="icon"></span>Region</div>
+            <div class="field-pill dim"><span class="icon"></span>Date</div>
+            <div class="field-pill dim"><span class="icon"></span>Product</div>
+            <div class="field-pill measure"><span class="icon"></span>Revenue</div>
+            <div class="field-pill measure"><span class="icon"></span>Units</div>
+            <div class="field-pill measure"><span class="icon"></span>Margin</div>
+          </div>
+        </div>
+        <div class="center">
+          <div class="shelf"><span class="shelf-label">Cols</span><span class="field-pill dim" style="font-size:6px;padding:1px 4px;">YEAR(Date)</span></div>
+          <div class="shelf"><span class="shelf-label">Rows</span><span class="field-pill measure" style="font-size:6px;padding:1px 4px;"><span class="agg">SUM</span>Revenue</span></div>
+          <div class="mock-canvas-chart" style="flex:1">
+            <div class="ceyebrow">REVENUE · LAST 12 MONTHS</div>
+            <div class="ctitle">$2.4M ↑ 24.7%</div>
+            <svg viewBox="0 0 280 80" preserveAspectRatio="none">
+              <path class="area" d="M0,68 C30,55 60,60 90,45 C120,30 150,38 180,18 C210,8 240,16 280,4 L280,80 L0,80 Z"/>
+              <path class="line" d="M0,68 C30,55 60,60 90,45 C120,30 150,38 180,18 C210,8 240,16 280,4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="right">
+          <div class="section-label">Inspector</div>
+          <div style="font-size:7px;color:#c4b5fd;font-weight:700;border-bottom:1px solid rgba(124,58,237,0.3);padding-bottom:2px;">▼ Axis</div>
+          <div style="font-size:6.5px;color:#8b87a3;line-height:1.4;">scale: linear<br/>min: auto<br/>max: auto<br/>tick: $0K</div>
+          <div style="font-size:7px;color:#8b87a3;font-weight:700;border-bottom:1px solid rgba(120,100,200,0.15);padding-bottom:2px;">▶ Color</div>
+          <div style="font-size:7px;color:#8b87a3;font-weight:700;border-bottom:1px solid rgba(120,100,200,0.15);padding-bottom:2px;">▶ Labels</div>
+          <div style="font-size:7px;color:#8b87a3;font-weight:700;border-bottom:1px solid rgba(120,100,200,0.15);padding-bottom:2px;">▶ Analytics</div>
+        </div>
+      </div>
+      <div class="proxdock">
+        <div class="mic"></div>
+        <div class="input"></div>
+      </div>
+    </div>
+    <div class="pro-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="pro-letter">1</span>
+        <div>
+          <h3 class="pro-name">Tableau Classic</h3>
+          <p class="pro-tagline">Marks card + data pane both on left. Format inspector right. Shelves above canvas.</p>
+        </div>
+      </div>
+      <div class="pro-pillars">
+        <div>Marks card lives top-left, always visible — encoding is the hero</div>
+        <div>Data pane below Marks card, fields drag into either</div>
+        <div>Rows/Columns shelves docked above canvas (Tableau muscle memory)</div>
+        <div>Format inspector on right, sectional accordion (Axis/Color/Labels/Analytics)</div>
+        <div>Most flexible · familiar to Tableau converts · steepest curve for newcomers</div>
+      </div>
+      <div class="pro-prosCons">
+        <div class="pros"><strong>Pros</strong>Tableau muscle memory · Marks card always visible · 4 distinct zones (data, marks, canvas, inspector) · Industry-standard</div>
+        <div class="cons"><strong>Cons</strong>Eats horizontal space · Two left-rail sub-zones can confuse newcomers · Canvas narrower than other layouts</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== LAYOUT 2: COMPRESSED ================== -->
+  <div class="card pro-card" data-choice="compressed" onclick="toggleSelect(this)">
+    <div class="pro-mockup">
+      <div class="proxbar">
+        <div class="logo"></div>
+        <span class="crumb">Workspace ▸ Sales Q4 ▸ Untitled · Pro Mode</span>
+        <div class="right"><div></div><div></div><div></div><div></div></div>
+      </div>
+      <div class="l2">
+        <div class="left">
+          <div class="section-label">Fields</div>
+          <div class="field-pill dim"><span class="icon"></span>Region</div>
+          <div class="field-pill dim"><span class="icon"></span>Date</div>
+          <div class="field-pill dim"><span class="icon"></span>Product</div>
+          <div class="field-pill measure"><span class="icon"></span>Revenue</div>
+          <div class="field-pill measure"><span class="icon"></span>Units</div>
+          <div class="field-pill measure"><span class="icon"></span>Margin</div>
+        </div>
+        <div class="center">
+          <div class="mock-canvas-chart" style="flex:1">
+            <div class="ceyebrow">REVENUE · LAST 12 MONTHS</div>
+            <div class="ctitle">$2.4M ↑ 24.7%</div>
+            <svg viewBox="0 0 320 110" preserveAspectRatio="none">
+              <path class="area" d="M0,90 C40,72 80,80 120,60 C160,40 200,48 240,22 C280,10 320,18 320,4 L320,110 L0,110 Z"/>
+              <path class="line" d="M0,90 C40,72 80,80 120,60 C160,40 200,48 240,22 C280,10 320,18 320,4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="right">
+          <div class="tabs">
+            <div class="tab active">Setup</div>
+            <div class="tab">Style</div>
+          </div>
+          <div class="tab-body">
+            <div class="section-label">Encoding</div>
+            <div class="channel-slot filled"><span class="channel-name">X</span><span class="field-pill dim" style="font-size:6px;padding:1px 4px;">Date</span></div>
+            <div class="channel-slot filled"><span class="channel-name">Y</span><span class="field-pill measure" style="font-size:6px;padding:1px 4px;"><span class="agg">∑</span>Rev</span></div>
+            <div class="channel-slot filled"><span class="channel-name">Color</span><span class="field-pill dim" style="font-size:6px;padding:1px 4px;">Region</span></div>
+            <div class="channel-slot"><span class="channel-name">Size</span></div>
+            <div class="channel-slot"><span class="channel-name">Detail</span></div>
+            <div class="section-label" style="margin-top:4px">Filters</div>
+            <div class="channel-slot"><span style="font-size:7px;">+ filter</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="proxdock">
+        <div class="mic"></div>
+        <div class="input"></div>
+      </div>
+    </div>
+    <div class="pro-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="pro-letter">2</span>
+        <div>
+          <h3 class="pro-name">Compressed (Looker Studio inspired)</h3>
+          <p class="pro-tagline">Thin data rail · big canvas · single right rail with Setup/Style tabs.</p>
+        </div>
+      </div>
+      <div class="pro-pillars">
+        <div>Data rail is thin (90px) — pure field list</div>
+        <div>Canvas gets the most width of any layout</div>
+        <div>Inspector right rail has TWO TABS only: Setup (encoding) + Style (format)</div>
+        <div>Encoding pills live IN the Setup tab — no separate Marks card</div>
+        <div>Most compact, easiest learning curve, less Tableau-class pro feel</div>
+      </div>
+      <div class="pro-prosCons">
+        <div class="pros"><strong>Pros</strong>Maximum canvas · Looker Studio onboarding curve · Two clear tabs · Mobile-friendlier · Simple</div>
+        <div class="cons"><strong>Cons</strong>Encoding hidden under Setup tab · Less "Tableau-class power" feel · Can't see encoding + style at once</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== LAYOUT 3: HEX-STYLE COLLAPSIBLE ================== -->
+  <div class="card pro-card" data-choice="collapsible" onclick="toggleSelect(this)">
+    <div class="pro-mockup">
+      <div class="proxbar">
+        <div class="logo"></div>
+        <span class="crumb">Workspace ▸ Sales Q4 ▸ Untitled · Pro Mode</span>
+        <div class="right"><div></div><div></div><div></div><div></div></div>
+      </div>
+      <div class="l3">
+        <div class="left">
+          <div class="section-label">Fields</div>
+          <div class="field-pill dim"><span class="icon"></span>Region</div>
+          <div class="field-pill dim"><span class="icon"></span>Date</div>
+          <div class="field-pill dim"><span class="icon"></span>Product</div>
+          <div class="field-pill measure"><span class="icon"></span>Revenue</div>
+          <div class="field-pill measure"><span class="icon"></span>Units</div>
+        </div>
+        <div class="collapse-btn left">‹</div>
+        <div class="center">
+          <div class="mock-canvas-chart" style="flex:1">
+            <div class="ceyebrow">REVENUE · LAST 12 MONTHS</div>
+            <div class="ctitle">$2.4M ↑ 24.7%</div>
+            <svg viewBox="0 0 280 110" preserveAspectRatio="none">
+              <path class="area" d="M0,90 C30,72 60,80 90,60 C120,40 150,48 180,22 C210,10 240,18 280,4 L280,110 L0,110 Z"/>
+              <path class="line" d="M0,90 C30,72 60,80 90,60 C120,40 150,48 180,22 C210,10 240,18 280,4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="collapse-btn right">›</div>
+        <div class="right">
+          <div class="tabs" style="display:flex;border-bottom:1px solid rgba(120,100,200,0.15);">
+            <div style="flex:1;padding:5px 0;text-align:center;font-size:7px;font-weight:700;color:#c4b5fd;border-bottom:1px solid #a78bfa;background:rgba(124,58,237,0.08);">Style</div>
+            <div style="flex:1;padding:5px 0;text-align:center;font-size:7px;font-weight:700;color:#8b87a3;">Annot</div>
+          </div>
+          <div style="padding:6px;display:flex;flex-direction:column;gap:4px;">
+            <div style="font-size:6.5px;color:#8b87a3;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Axis</div>
+            <div style="font-size:6.5px;color:#aaa;">scale: linear</div>
+            <div style="font-size:6.5px;color:#8b87a3;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:3px;">Color</div>
+            <div style="display:flex;gap:2px;"><div style="width:10px;height:10px;background:#a78bfa;border-radius:2px;"></div><div style="width:10px;height:10px;background:#22d3ee;border-radius:2px;"></div><div style="width:10px;height:10px;background:#86efac;border-radius:2px;"></div></div>
+          </div>
+        </div>
+        <div class="marks-float">
+          <div class="marks-float-handle">
+            <span class="label">⋮⋮ Marks</span>
+            <span style="font-size:7px;color:#c4b5fd;">▼ Bar</span>
+          </div>
+          <div class="channel-slot filled"><span class="channel-name">X</span><span class="field-pill dim" style="font-size:6px;padding:1px 4px;">Date</span></div>
+          <div class="channel-slot filled"><span class="channel-name">Y</span><span class="field-pill measure" style="font-size:6px;padding:1px 4px;"><span class="agg">∑</span>Rev</span></div>
+          <div class="channel-slot filled"><span class="channel-name">Color</span><span class="field-pill dim" style="font-size:6px;padding:1px 4px;">Region</span></div>
+          <div class="channel-slot"><span class="channel-name">Size</span></div>
+          <div class="channel-slot"><span class="channel-name">Detail</span></div>
+        </div>
+      </div>
+      <div class="proxdock">
+        <div class="mic"></div>
+        <div class="input"></div>
+      </div>
+    </div>
+    <div class="pro-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="pro-letter">3</span>
+        <div>
+          <h3 class="pro-name">Hex-Style Floating Marks</h3>
+          <p class="pro-tagline">Both rails collapsible. Marks card is a draggable floating panel.</p>
+        </div>
+      </div>
+      <div class="pro-pillars">
+        <div>Both side rails collapse to 0px on demand (Cmd+\ + Cmd+B)</div>
+        <div>Marks card is a FLOATING glass panel, draggable anywhere on canvas</div>
+        <div>Right rail simplified: Style + Annotations only (no encoding — that's in Marks)</div>
+        <div>Pro Mode → Stage Mode = collapse rails + slide Marks panel offscreen</div>
+        <div>Most flexible · most modern · biggest learning curve</div>
+      </div>
+      <div class="pro-prosCons">
+        <div class="pros"><strong>Pros</strong>Most canvas when collapsed · Smooth Pro→Stage transition · Modern feel · Marks is draggable hero · Customizable per workspace</div>
+        <div class="cons"><strong>Cons</strong>Floating panel is fiddly to find · Most engineering · Discoverability lower for newcomers</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">My recommendation:</strong> <strong>1 (Tableau Classic)</strong>. The Marks card visible at all times is the single biggest leverage point in Tableau's UX — every encoding, every channel, immediately addressable, no tab switching. Analysts in Pro Mode want to SEE the encoding tray while editing the inspector. Add the collapsible-rails behavior from Layout 3 as a "Focus mode" toggle (Cmd+. collapses both rails for distraction-free) — that gives you the modern feel without losing the always-visible Marks card. Layout 2 is too compressed for serious analysts who need both encoding and style visible simultaneously.
+</p>
+
+<p style="margin-top:14px; padding:14px 18px; background:rgba(192,132,252,0.06); border-radius:8px; color:#a8a4c0; font-size:11px; line-height:1.5;">
+  All three preserve the bottom dock (mic + chat input) from Default Mode — voice + agent + chart still work everywhere. Pick a layout, or describe a different arrangement.
+</p>

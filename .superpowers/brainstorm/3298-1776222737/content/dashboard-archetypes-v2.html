@@ -1,0 +1,1495 @@
+<h2>Dashboard archetypes — high-fidelity</h2>
+<p class="subtitle">Six archetypes redrawn properly. Each has its own ambience, color identity, and layout discipline. These are screenshots of what AskDB will actually look like in production. Multi-select enabled.</p>
+
+<style>
+.cards { gap: 24px !important; }
+
+.dx-card {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.18);
+  border-radius: 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.16,1,0.3,1), border-color 220ms, box-shadow 220ms;
+  overflow: hidden;
+  position: relative;
+}
+.dx-card:hover { transform: translateY(-3px); border-color: rgba(160,140,255,0.4); box-shadow: 0 20px 50px rgba(80,60,180,0.25); }
+.dx-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+.dx-mockup {
+  height: 500px;
+  position: relative;
+  overflow: hidden;
+  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+}
+
+.dx-body {
+  padding: 22px 26px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid rgba(120,100,200,0.12);
+}
+.dx-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #1f77b4, #17becf);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+.dx-name { font-size: 19px; font-weight: 700; color: #f5f3ff; margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
+.dx-tagline { font-size: 12px; color: #a8a4c0; line-height: 1.45; margin: 0; }
+.dx-audience {
+  font-size: 10px;
+  color: #fbbf24;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+
+/* ===========================================================================
+   ARCHETYPE 1: EXECUTIVE BRIEFING
+   Premium Linear/Notion feel. White, generous space, blue accent.
+   =========================================================================== */
+.eb-bg { position: absolute; inset: 0; background: #f8f8fa; }
+.eb-topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 40px;
+  background: #ffffff;
+  border-bottom: 1px solid #e8e8ed;
+  display: flex; align-items: center; padding: 0 20px; gap: 12px;
+}
+.eb-logo { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, #1f77b4 0%, #0ea5e9 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 800; }
+.eb-logo::after { content: "A"; }
+.eb-crumb { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.eb-crumb .a { color: #6b6b75; font-weight: 500; }
+.eb-crumb .sep { color: #d0d0d8; }
+.eb-crumb .b { color: #1a1a1a; font-weight: 600; }
+.eb-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.eb-pill {
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: #f0f4f8;
+  border: 1px solid #d8e0e8;
+  color: #1565c0;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.eb-pill::before { content: "▾"; font-size: 8px; opacity: 0.6; }
+.eb-btn {
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #1f77b4;
+  color: #fff;
+  font-weight: 600;
+}
+
+.eb-content {
+  position: absolute;
+  top: 40px;
+  left: 0; right: 0; bottom: 0;
+  padding: 20px 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  grid-template-rows: 92px 200px 1fr;
+  gap: 14px;
+}
+
+.eb-kpi {
+  background: #ffffff;
+  border: 1px solid #e8e8ed;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.eb-kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.eb-kpi-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.eb-kpi-val {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.eb-kpi-delta {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.eb-kpi-delta.up { color: #15803d; background: #ecfdf5; }
+.eb-kpi-delta.dn { color: #b91c1c; background: #fef2f2; }
+
+.eb-hero {
+  grid-column: 1 / span 4;
+  background: #ffffff;
+  border: 1px solid #e8e8ed;
+  border-radius: 10px;
+  padding: 18px 22px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.eb-hero-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.eb-hero-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+.eb-hero-chart { flex: 1; min-height: 0; position: relative; }
+
+.eb-narrative {
+  grid-column: 1 / span 2;
+  background: #f0f4f8;
+  border: 1px solid #d8e0e8;
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.eb-narr-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1565c0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.eb-narr-eyebrow::before { content: "✦"; }
+.eb-narr-text {
+  font-size: 12px;
+  color: #1a1a1a;
+  line-height: 1.55;
+}
+.eb-narr-text strong { color: #1565c0; font-weight: 700; }
+.eb-narr-text em { font-style: normal; font-weight: 700; color: #15803d; background: #ecfdf5; padding: 0 4px; border-radius: 3px; }
+
+.eb-side {
+  background: #ffffff;
+  border: 1px solid #e8e8ed;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.eb-side-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.eb-side-chart { flex: 1; min-height: 0; }
+
+/* ===========================================================================
+   ARCHETYPE 2: ANALYST DENSE WORKBENCH
+   Tableau-class density. White panels on warm gray. Lots of tiles.
+   =========================================================================== */
+.aw-bg { position: absolute; inset: 0; background: #ededf0; }
+.aw-topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 38px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e6;
+  display: flex; align-items: center; padding: 0 18px; gap: 10px;
+}
+.aw-logo { width: 20px; height: 20px; border-radius: 5px; background: linear-gradient(135deg, #4f46e5, #7c3aed); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 800; }
+.aw-logo::after { content: "A"; }
+.aw-crumb { font-size: 12px; color: #1a1a1a; font-weight: 600; }
+.aw-crumb .sep { color: #c0c0c8; margin: 0 8px; font-weight: 400; }
+.aw-filters { margin-left: auto; display: flex; gap: 6px; }
+.aw-fchip {
+  font-size: 10px;
+  padding: 4px 9px;
+  border-radius: 12px;
+  background: #f0f4f8;
+  color: #1565c0;
+  border: 1px solid #c8d8e8;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.aw-fchip.act { background: #dbeafe; border-color: #93c5fd; }
+.aw-fchip::after { content: "×"; opacity: 0.6; font-weight: 400; }
+.aw-fchip.add::after { content: ""; }
+.aw-fchip.add { background: #ffffff; color: #6b6b75; border-style: dashed; }
+.aw-fchip.add::before { content: "+ "; }
+
+.aw-content {
+  position: absolute;
+  top: 38px;
+  left: 0; right: 0; bottom: 0;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 100px;
+  gap: 8px;
+}
+.aw-tile {
+  background: #ffffff;
+  border: 1px solid #d8d8de;
+  border-radius: 6px;
+  padding: 9px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+.aw-tile-eye {
+  font-size: 9px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.aw-tile-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.aw-tile-sub {
+  font-size: 10px;
+  font-weight: 600;
+}
+.aw-tile-sub.up { color: #15803d; }
+.aw-tile-chart { flex: 1; min-height: 0; }
+.aw-span2 { grid-column: span 2; }
+.aw-span3 { grid-column: span 3; }
+.aw-span4 { grid-column: span 4; }
+.aw-row2 { grid-row: span 2; }
+
+.aw-table { display: flex; flex-direction: column; gap: 0; flex: 1; min-height: 0; }
+.aw-trow {
+  display: grid;
+  grid-template-columns: 1fr 38px 48px;
+  font-size: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f0f3;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.aw-trow.head {
+  font-size: 9px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #d8d8de;
+  padding-bottom: 5px;
+}
+.aw-trow .name { color: #0f172a; font-weight: 600; }
+.aw-trow .num { text-align: right; color: #4b4b55; font-weight: 500; }
+.aw-trow .delta { text-align: right; font-weight: 600; }
+.aw-trow .delta.up { color: #15803d; }
+.aw-trow .delta.dn { color: #b91c1c; }
+
+/* ===========================================================================
+   ARCHETYPE 3: LIVE OPERATIONS
+   Datadog-style dark NOC. Pure black background, glowing pills, mono numbers.
+   =========================================================================== */
+.lo-bg { position: absolute; inset: 0; background: #08080d; }
+.lo-topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 38px;
+  background: #0f0f15;
+  border-bottom: 1px solid #1f1f2a;
+  display: flex; align-items: center; padding: 0 18px; gap: 12px;
+}
+.lo-logo {
+  width: 20px; height: 20px; border-radius: 5px;
+  background: linear-gradient(135deg, #4ade80, #06b6d4);
+  display: flex; align-items: center; justify-content: center;
+  color: #08080d; font-size: 11px; font-weight: 900;
+}
+.lo-logo::after { content: "A"; }
+.lo-crumb { font-size: 12px; color: #ffffff; font-weight: 600; }
+.lo-crumb .sep { color: #4b4b55; margin: 0 8px; font-weight: 400; }
+.lo-crumb .env {
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-left: 8px;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+.lo-live {
+  margin-left: auto;
+  font-size: 10px;
+  color: #4ade80;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lo-live::before {
+  content: "";
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 12px #4ade80;
+  animation: lo-blink 1.5s ease-in-out infinite;
+}
+@keyframes lo-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.lo-content {
+  position: absolute;
+  top: 38px;
+  left: 0; right: 0; bottom: 0;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: 90px 1fr 80px;
+  gap: 10px;
+}
+
+.lo-kpi {
+  background: #0f0f15;
+  border: 1px solid #1f1f2a;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+.lo-kpi.warn { border-color: rgba(251,191,36,0.4); box-shadow: inset 0 0 0 1px rgba(251,191,36,0.1); }
+.lo-kpi.crit { border-color: rgba(248,113,113,0.5); box-shadow: inset 0 0 0 1px rgba(248,113,113,0.15); }
+
+.lo-kpi-eye {
+  font-size: 9px;
+  font-weight: 700;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lo-kpi-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.lo-kpi-val {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lo-kpi-unit {
+  font-size: 11px;
+  color: #71717a;
+  font-weight: 600;
+  margin-left: 3px;
+}
+.lo-kpi-status {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lo-kpi-status.ok { color: #4ade80; }
+.lo-kpi-status.warn { color: #fbbf24; }
+.lo-kpi-status.crit { color: #f87171; }
+.lo-kpi-status .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+.lo-kpi-status.crit .dot { animation: lo-blink 0.8s infinite; }
+
+.lo-chart-tile {
+  background: #0f0f15;
+  border: 1px solid #1f1f2a;
+  border-radius: 8px;
+  padding: 12px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lo-chart-tile.span2 { grid-column: span 2; }
+.lo-chart-tile-eye {
+  font-size: 9px;
+  font-weight: 700;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lo-chart-tile-chart { flex: 1; min-height: 0; }
+
+.lo-log {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: #d4d4d8;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+}
+.lo-log-row { display: flex; gap: 8px; }
+.lo-log-row .ts { color: #52525b; }
+.lo-log-row .lvl { font-weight: 700; min-width: 32px; }
+.lo-log-row .lvl.err { color: #f87171; }
+.lo-log-row .lvl.warn { color: #fbbf24; }
+.lo-log-row .lvl.info { color: #60a5fa; }
+.lo-log-row .msg { color: #d4d4d8; flex: 1; }
+
+.lo-alerts {
+  grid-column: span 4;
+  background: #0f0f15;
+  border: 1px solid #1f1f2a;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow: hidden;
+}
+.lo-alert {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lo-alert .dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.lo-alert.crit { color: #f87171; }
+.lo-alert.crit .dot { background: #f87171; animation: lo-blink 0.8s infinite; }
+.lo-alert.warn { color: #fbbf24; }
+.lo-alert.warn .dot { background: #fbbf24; }
+.lo-alert.ok { color: #4ade80; }
+.lo-alert.ok .dot { background: #4ade80; }
+.lo-alert .id { color: #71717a; margin-left: 4px; }
+
+/* ===========================================================================
+   ARCHETYPE 4: STORY / SCROLLYTELLING
+   NYT/Pudding feel. Cream paper. Editorial typography. Annotations.
+   =========================================================================== */
+.st-bg { position: absolute; inset: 0; background: #faf7f0; }
+.st-topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 40px;
+  background: #faf7f0;
+  border-bottom: 1px solid #e8e2d3;
+  display: flex; align-items: center; padding: 0 22px; gap: 12px;
+}
+.st-logo {
+  width: 22px; height: 22px;
+  background: #c2410c;
+  display: flex; align-items: center; justify-content: center;
+  color: #faf7f0; font-size: 13px; font-weight: 800;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+.st-logo::after { content: "A"; }
+.st-crumb {
+  font-size: 12px;
+  color: #1c1917;
+  font-family: Georgia, serif;
+  font-weight: 600;
+}
+.st-crumb .sep { color: #a8a29e; margin: 0 8px; font-weight: 400; }
+.st-progress-pill {
+  margin-left: auto;
+  font-size: 10px;
+  color: #c2410c;
+  font-weight: 700;
+  background: #fef3e8;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 1px solid #fed7aa;
+  font-family: Georgia, serif;
+  letter-spacing: 0.02em;
+}
+
+.st-content {
+  position: absolute;
+  top: 40px;
+  left: 0; right: 0; bottom: 0;
+  padding: 26px 56px 26px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+.st-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  color: #c2410c;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-family: Georgia, serif;
+}
+.st-headline {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1c1917;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  max-width: 90%;
+}
+.st-byline {
+  font-size: 11px;
+  color: #78716c;
+  font-family: Georgia, serif;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.st-byline .dot { color: #c0bcb6; }
+.st-lede {
+  font-family: Georgia, serif;
+  font-size: 13px;
+  color: #44403c;
+  line-height: 1.6;
+  max-width: 85%;
+  font-style: italic;
+}
+.st-lede strong { font-style: normal; color: #c2410c; font-weight: 700; }
+
+.st-chart-block {
+  background: #ffffff;
+  border: 1px solid #e8e2d3;
+  border-radius: 4px;
+  padding: 16px 20px 14px;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.st-chart-block .chart-eye {
+  font-size: 9px;
+  font-weight: 700;
+  color: #78716c;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-family: Georgia, serif;
+}
+.st-chart-block .chart-cap {
+  font-size: 10px;
+  color: #78716c;
+  font-style: italic;
+  font-family: Georgia, serif;
+}
+.st-chart-block .chart-area { flex: 1; min-height: 0; position: relative; }
+
+.st-ann {
+  position: absolute;
+  font-family: Georgia, serif;
+  font-size: 10px;
+  font-style: italic;
+  color: #c2410c;
+  font-weight: 600;
+  background: #faf7f0;
+  padding: 3px 7px;
+  border-radius: 3px;
+  border: 1px solid #fed7aa;
+  white-space: nowrap;
+}
+
+.st-scroll {
+  position: absolute;
+  right: 24px;
+  top: 100px;
+  bottom: 24px;
+  width: 3px;
+  background: #e8e2d3;
+  border-radius: 2px;
+}
+.st-scroll::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 35%;
+  background: #c2410c;
+  border-radius: 2px;
+}
+
+/* ===========================================================================
+   ARCHETYPE 5: PITCH / PRESENTATION DECK
+   Apple Keynote / Pitch.com. Cinematic dark. Big gradient numbers.
+   =========================================================================== */
+.pt-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(124, 58, 237, 0.18), transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(56, 189, 248, 0.12), transparent 60%),
+    #08070f;
+}
+.pt-topbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 38px;
+  background: rgba(8, 7, 15, 0.7);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; padding: 0 18px; gap: 12px;
+}
+.pt-logo {
+  width: 20px; height: 20px; border-radius: 5px;
+  background: linear-gradient(135deg, #c084fc, #818cf8);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 10px; font-weight: 800;
+}
+.pt-logo::after { content: "A"; }
+.pt-crumb { font-size: 12px; color: #ffffff; font-weight: 600; }
+.pt-crumb .sep { color: #4b4b55; margin: 0 8px; font-weight: 400; }
+.pt-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pt-pages {
+  font-size: 11px;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', monospace;
+}
+.pt-iconbtn {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.pt-content {
+  position: absolute;
+  top: 38px;
+  left: 0; right: 0; bottom: 0;
+  padding: 36px 52px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.pt-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a78bfa;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+.pt-headline {
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+.pt-headline .accent {
+  background: linear-gradient(90deg, #c084fc 0%, #818cf8 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.pt-frame {
+  flex: 1;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(167,139,250,0.18);
+  border-radius: 12px;
+  padding: 18px 22px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 0 0 1px rgba(167,139,250,0.05) inset;
+}
+.pt-frame-eye {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.pt-frame-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.pt-frame-chart { flex: 1; min-height: 0; }
+
+.pt-progress {
+  position: absolute;
+  bottom: 16px;
+  left: 52px;
+  right: 52px;
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+}
+.pt-progress::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 35%;
+  background: linear-gradient(90deg, #c084fc, #818cf8, #38bdf8);
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(167,139,250,0.5);
+}
+
+/* ===========================================================================
+   ARCHETYPE 6: MULTI-TAB WORKBOOK
+   Excel / Google Sheets visual. Realistic browser-tab bar.
+   =========================================================================== */
+.wb-bg { position: absolute; inset: 0; background: #f0f0f4; }
+.wb-titlebar {
+  position: absolute; top: 0; left: 0; right: 0; height: 38px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e6;
+  display: flex; align-items: center; padding: 0 18px; gap: 10px;
+}
+.wb-logo { width: 20px; height: 20px; border-radius: 5px; background: linear-gradient(135deg, #1f77b4, #7c3aed); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 800; }
+.wb-logo::after { content: "A"; }
+.wb-crumb { font-size: 12px; color: #1a1a1a; font-weight: 600; }
+.wb-crumb .sep { color: #c0c0c8; margin: 0 8px; font-weight: 400; }
+
+.wb-tabs {
+  position: absolute;
+  top: 38px;
+  left: 0; right: 0;
+  height: 32px;
+  background: #e4e4eb;
+  border-bottom: 1px solid #d0d0d8;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 12px;
+  gap: 0;
+}
+.wb-tab {
+  height: 26px;
+  padding: 0 14px 0 12px;
+  border: 1px solid #d0d0d8;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #4b4b55;
+  font-weight: 500;
+  background: #d6d6dc;
+  margin-right: 1px;
+  position: relative;
+  cursor: pointer;
+}
+.wb-tab.active {
+  background: #f0f0f4;
+  color: #0f172a;
+  font-weight: 700;
+  height: 27px;
+  z-index: 2;
+  box-shadow: 0 -1px 3px rgba(0,0,0,0.04);
+}
+.wb-tab .icon { width: 5px; height: 5px; border-radius: 50%; }
+.wb-tab .close {
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  color: #71717a;
+  margin-left: 2px;
+  opacity: 0.6;
+}
+.wb-tab.add {
+  width: 26px;
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  color: #71717a;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.wb-content {
+  position: absolute;
+  top: 70px;
+  left: 0; right: 0; bottom: 0;
+  padding: 16px 18px;
+  background: #f0f0f4;
+}
+
+.wb-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  grid-template-rows: 90px 1fr;
+  gap: 10px;
+  height: 100%;
+}
+.wb-tile {
+  background: #ffffff;
+  border: 1px solid #e0e0e6;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.wb-tile-eye {
+  font-size: 9px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.wb-tile-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.wb-tile-delta {
+  font-size: 10px;
+  font-weight: 600;
+  color: #15803d;
+}
+.wb-hero {
+  grid-column: 1 / span 4;
+  background: #ffffff;
+  border: 1px solid #e0e0e6;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.wb-hero-eye {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b6b75;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.wb-hero-title { font-size: 13px; font-weight: 700; color: #0f172a; }
+.wb-hero-chart { flex: 1; min-height: 0; }
+
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="eb-area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1f77b4" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#1f77b4" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lo-glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4ade80" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#4ade80" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="pt-area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="cards" data-multiselect>
+
+  <!-- ============================================ -->
+  <!-- 1. EXECUTIVE BRIEFING                         -->
+  <!-- ============================================ -->
+  <div class="card dx-card" data-choice="exec" onclick="toggleSelect(this)">
+    <div class="dx-mockup">
+      <div class="eb-bg"></div>
+      <div class="eb-topbar">
+        <div class="eb-logo"></div>
+        <div class="eb-crumb">
+          <span class="a">Sales</span>
+          <span class="sep">/</span>
+          <span class="b">Q4 Executive Briefing</span>
+        </div>
+        <div class="eb-actions">
+          <span class="eb-pill">Q4 2026</span>
+          <span class="eb-pill">All Regions</span>
+          <span class="eb-btn">Share</span>
+        </div>
+      </div>
+
+      <div class="eb-content">
+        <!-- 4 KPI cards -->
+        <div class="eb-kpi">
+          <div class="eb-kpi-label">Revenue</div>
+          <div class="eb-kpi-row">
+            <div class="eb-kpi-val">$2.4M</div>
+            <div class="eb-kpi-delta up">↑ 24.7%</div>
+          </div>
+        </div>
+        <div class="eb-kpi">
+          <div class="eb-kpi-label">Customers</div>
+          <div class="eb-kpi-row">
+            <div class="eb-kpi-val">847</div>
+            <div class="eb-kpi-delta up">↑ 12.4%</div>
+          </div>
+        </div>
+        <div class="eb-kpi">
+          <div class="eb-kpi-label">Avg deal</div>
+          <div class="eb-kpi-row">
+            <div class="eb-kpi-val">$2,837</div>
+            <div class="eb-kpi-delta up">↑ 9.6%</div>
+          </div>
+        </div>
+        <div class="eb-kpi">
+          <div class="eb-kpi-label">Churn</div>
+          <div class="eb-kpi-row">
+            <div class="eb-kpi-val">2.1%</div>
+            <div class="eb-kpi-delta up">↓ 0.4pt</div>
+          </div>
+        </div>
+
+        <!-- Hero chart -->
+        <div class="eb-hero">
+          <div class="eb-hero-eyebrow">Revenue · last 12 months</div>
+          <div class="eb-hero-title">Strong Q4 finish driven by West region</div>
+          <div class="eb-hero-chart">
+            <svg viewBox="0 0 600 130" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+              <line x1="0" y1="120" x2="600" y2="120" stroke="#e8e8ed" stroke-width="1"/>
+              <line x1="0" y1="80" x2="600" y2="80" stroke="#f0f0f3" stroke-width="1"/>
+              <line x1="0" y1="40" x2="600" y2="40" stroke="#f0f0f3" stroke-width="1"/>
+              <path d="M0,90 C50,85 100,80 150,70 C200,58 250,52 300,46 C350,38 400,30 450,22 C500,14 550,10 600,8 L600,120 L0,120 Z" fill="url(#eb-area)"/>
+              <path d="M0,90 C50,85 100,80 150,70 C200,58 250,52 300,46 C350,38 400,30 450,22 C500,14 550,10 600,8" stroke="#1f77b4" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              <circle cx="600" cy="8" r="4" fill="#1f77b4"/>
+              <circle cx="600" cy="8" r="8" fill="#1f77b4" opacity="0.18"/>
+              <text x="0" y="135" font-family="system-ui" font-size="9" fill="#94949c">Jan</text>
+              <text x="100" y="135" font-family="system-ui" font-size="9" fill="#94949c">Mar</text>
+              <text x="200" y="135" font-family="system-ui" font-size="9" fill="#94949c">May</text>
+              <text x="300" y="135" font-family="system-ui" font-size="9" fill="#94949c">Jul</text>
+              <text x="400" y="135" font-family="system-ui" font-size="9" fill="#94949c">Sep</text>
+              <text x="500" y="135" font-family="system-ui" font-size="9" fill="#94949c">Nov</text>
+              <text x="585" y="135" font-family="system-ui" font-size="9" fill="#94949c">Dec</text>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Narrative -->
+        <div class="eb-narrative">
+          <div class="eb-narr-eyebrow">Insight summary · AI generated</div>
+          <div class="eb-narr-text">
+            Revenue is up <strong>$478K (24.7%)</strong> driven primarily by the <strong>West region</strong>, which contributed <em>52% of new bookings</em>. Churn dropped 0.4 points — the lowest level in <strong>six quarters</strong>.
+          </div>
+        </div>
+
+        <!-- Side chart 1 -->
+        <div class="eb-side">
+          <div class="eb-side-eyebrow">Top products</div>
+          <div class="eb-side-chart">
+            <svg viewBox="0 0 140 90" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+              <rect x="10" y="20" width="22" height="60" fill="#1f77b4" rx="2"/>
+              <rect x="38" y="32" width="22" height="48" fill="#1f77b4" rx="2" opacity="0.85"/>
+              <rect x="66" y="42" width="22" height="38" fill="#1f77b4" rx="2" opacity="0.65"/>
+              <rect x="94" y="50" width="22" height="30" fill="#1f77b4" rx="2" opacity="0.45"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Side chart 2 -->
+        <div class="eb-side">
+          <div class="eb-side-eyebrow">By region</div>
+          <div class="eb-side-chart">
+            <svg viewBox="0 0 100 90" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+              <circle cx="50" cy="45" r="32" fill="#1f77b4"/>
+              <path d="M 50 45 L 50 13 A 32 32 0 0 1 78 58 Z" fill="#0ea5e9"/>
+              <path d="M 50 45 L 78 58 A 32 32 0 0 1 28 65 Z" fill="#7dd3fc"/>
+              <circle cx="50" cy="45" r="14" fill="#f8f8fa"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dx-body">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span class="dx-letter" style="background:linear-gradient(135deg,#1f77b4,#0ea5e9)">1</span>
+        <div>
+          <h3 class="dx-name">Executive Briefing</h3>
+          <p class="dx-tagline">Premium boardroom feel. White space, KPI hero row, AI narrative summary.</p>
+        </div>
+      </div>
+      <p class="dx-audience">→ C-suite · Board meetings · Monthly business reviews</p>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- 2. ANALYST DENSE WORKBENCH                    -->
+  <!-- ============================================ -->
+  <div class="card dx-card" data-choice="analyst" onclick="toggleSelect(this)">
+    <div class="dx-mockup">
+      <div class="aw-bg"></div>
+      <div class="aw-topbar">
+        <div class="aw-logo"></div>
+        <div class="aw-crumb">Sales<span class="sep">/</span>Pipeline Workbench</div>
+        <div class="aw-filters">
+          <span class="aw-fchip act">Last 90d</span>
+          <span class="aw-fchip act">Open</span>
+          <span class="aw-fchip">All Reps</span>
+          <span class="aw-fchip">Q4</span>
+          <span class="aw-fchip add">filter</span>
+        </div>
+      </div>
+
+      <div class="aw-content">
+        <!-- Row 1: 4 KPI tiles -->
+        <div class="aw-tile">
+          <div class="aw-tile-eye">Pipeline</div>
+          <div class="aw-tile-val">$8.2M</div>
+          <div class="aw-tile-sub up">↑ 18%</div>
+        </div>
+        <div class="aw-tile">
+          <div class="aw-tile-eye">Wins</div>
+          <div class="aw-tile-val">142</div>
+          <div class="aw-tile-sub up">↑ 12</div>
+        </div>
+        <div class="aw-tile">
+          <div class="aw-tile-eye">Win rate</div>
+          <div class="aw-tile-val">38%</div>
+          <div class="aw-tile-sub up">↑ 3pt</div>
+        </div>
+        <div class="aw-tile">
+          <div class="aw-tile-eye">Cycle (d)</div>
+          <div class="aw-tile-val">42</div>
+          <div class="aw-tile-sub up">↓ 6d</div>
+        </div>
+        <div class="aw-tile aw-span2">
+          <div class="aw-tile-eye">Trend · pipeline</div>
+          <div class="aw-tile-chart">
+            <svg viewBox="0 0 200 50" preserveAspectRatio="none" style="width:100%;height:100%">
+              <path d="M0,40 L20,32 L40,36 L60,24 L80,28 L100,18 L120,22 L140,12 L160,16 L180,8 L200,10" stroke="#2ca02c" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Row 2: Funnel + Heatmap -->
+        <div class="aw-tile aw-span3 aw-row2">
+          <div class="aw-tile-eye">Funnel by stage</div>
+          <div class="aw-tile-chart">
+            <svg viewBox="0 0 280 150" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+              <rect x="10" y="14" width="260" height="20" fill="#1f77b4" rx="2"/>
+              <text x="280" y="28" font-family="system-ui" font-size="11" font-weight="700" fill="#0f172a" text-anchor="end">412 leads</text>
+              <rect x="22" y="38" width="236" height="20" fill="#1565c0" rx="2"/>
+              <text x="280" y="52" font-family="system-ui" font-size="11" font-weight="700" fill="#0f172a" text-anchor="end">328 qual'd</text>
+              <rect x="44" y="62" width="192" height="20" fill="#0d47a1" rx="2"/>
+              <text x="280" y="76" font-family="system-ui" font-size="11" font-weight="700" fill="#0f172a" text-anchor="end">247 demo</text>
+              <rect x="78" y="86" width="124" height="20" fill="#0a3d8a" rx="2"/>
+              <text x="280" y="100" font-family="system-ui" font-size="11" font-weight="700" fill="#0f172a" text-anchor="end">156 prop</text>
+              <rect x="110" y="110" width="60" height="20" fill="#082f6b" rx="2"/>
+              <text x="280" y="124" font-family="system-ui" font-size="11" font-weight="700" fill="#0f172a" text-anchor="end">142 won</text>
+            </svg>
+          </div>
+        </div>
+        <div class="aw-tile aw-span3 aw-row2">
+          <div class="aw-tile-eye">Rep × stage heatmap</div>
+          <div class="aw-tile-chart">
+            <svg viewBox="0 0 280 150" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+              <text x="0" y="20" font-family="system-ui" font-size="9" fill="#71717a">Sarah K</text>
+              <text x="0" y="44" font-family="system-ui" font-size="9" fill="#71717a">Marc T</text>
+              <text x="0" y="68" font-family="system-ui" font-size="9" fill="#71717a">Alex P</text>
+              <text x="0" y="92" font-family="system-ui" font-size="9" fill="#71717a">Yuki R</text>
+              <text x="0" y="116" font-family="system-ui" font-size="9" fill="#71717a">Diego F</text>
+              <g transform="translate(48,8)">
+                <rect x="0" y="0" width="40" height="20" fill="#deebf7"/><rect x="42" y="0" width="40" height="20" fill="#9ecae1"/><rect x="84" y="0" width="40" height="20" fill="#3182bd"/><rect x="126" y="0" width="40" height="20" fill="#08519c"/><rect x="168" y="0" width="40" height="20" fill="#3182bd"/>
+                <rect x="0" y="24" width="40" height="20" fill="#9ecae1"/><rect x="42" y="24" width="40" height="20" fill="#3182bd"/><rect x="84" y="24" width="40" height="20" fill="#08519c"/><rect x="126" y="24" width="40" height="20" fill="#3182bd"/><rect x="168" y="24" width="40" height="20" fill="#9ecae1"/>
+                <rect x="0" y="48" width="40" height="20" fill="#deebf7"/><rect x="42" y="48" width="40" height="20" fill="#9ecae1"/><rect x="84" y="48" width="40" height="20" fill="#3182bd"/><rect x="126" y="48" width="40" height="20" fill="#9ecae1"/><rect x="168" y="48" width="40" height="20" fill="#deebf7"/>
+                <rect x="0" y="72" width="40" height="20" fill="#3182bd"/><rect x="42" y="72" width="40" height="20" fill="#08519c"/><rect x="84" y="72" width="40" height="20" fill="#08519c"/><rect x="126" y="72" width="40" height="20" fill="#3182bd"/><rect x="168" y="72" width="40" height="20" fill="#9ecae1"/>
+                <rect x="0" y="96" width="40" height="20" fill="#deebf7"/><rect x="42" y="96" width="40" height="20" fill="#deebf7"/><rect x="84" y="96" width="40" height="20" fill="#9ecae1"/><rect x="126" y="96" width="40" height="20" fill="#3182bd"/><rect x="168" y="96" width="40" height="20" fill="#08519c"/>
+              </g>
+              <text x="68" y="130" font-family="system-ui" font-size="8" fill="#71717a" text-anchor="middle">Lead</text>
+              <text x="110" y="130" font-family="system-ui" font-size="8" fill="#71717a" text-anchor="middle">Qual</text>
+              <text x="152" y="130" font-family="system-ui" font-size="8" fill="#71717a" text-anchor="middle">Demo</text>
+              <text x="194" y="130" font-family="system-ui" font-size="8" fill="#71717a" text-anchor="middle">Prop</text>
+              <text x="236" y="130" font-family="system-ui" font-size="8" fill="#71717a" text-anchor="middle">Won</text>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Row 3: Velocity line + top reps table -->
+        <div class="aw-tile aw-span4">
+          <div class="aw-tile-eye">Velocity by week</div>
+          <div class="aw-tile-chart">
+            <svg viewBox="0 0 380 70" preserveAspectRatio="none" style="width:100%;height:100%">
+              <line x1="0" y1="60" x2="380" y2="60" stroke="#e8e8ed" stroke-width="0.5"/>
+              <line x1="0" y1="40" x2="380" y2="40" stroke="#f0f0f3" stroke-width="0.5"/>
+              <line x1="0" y1="20" x2="380" y2="20" stroke="#f0f0f3" stroke-width="0.5"/>
+              <path d="M0,52 L40,42 L80,38 L120,28 L160,32 L200,18 L240,22 L280,12 L320,16 L380,8" stroke="#1f77b4" stroke-width="2" fill="none"/>
+              <path d="M0,58 L40,52 L80,48 L120,42 L160,38 L200,32 L240,28 L280,22 L320,18 L380,14" stroke="#ff7f0e" stroke-width="2" fill="none"/>
+            </svg>
+          </div>
+        </div>
+        <div class="aw-tile aw-span2">
+          <div class="aw-table">
+            <div class="aw-trow head"><span>Top reps</span><span class="num">W</span><span class="num">$K</span></div>
+            <div class="aw-trow"><span class="name">Sarah K</span><span class="num">18</span><span class="delta up">820</span></div>
+            <div class="aw-trow"><span class="name">Marc T</span><span class="num">14</span><span class="delta up">660</span></div>
+            <div class="aw-trow"><span class="name">Alex P</span><span class="num">11</span><span class="delta">510</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dx-body">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span class="dx-letter" style="background:linear-gradient(135deg,#4f46e5,#7c3aed)">2</span>
+        <div>
+          <h3 class="dx-name">Analyst Dense Workbench</h3>
+          <p class="dx-tagline">Tableau-class density. Many tiles, filter chips, mix of charts, click-to-cross-filter.</p>
+        </div>
+      </div>
+      <p class="dx-audience">→ Power analysts · BI teams · Sales ops · Finance</p>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- 3. LIVE OPERATIONS                            -->
+  <!-- ============================================ -->
+  <div class="card dx-card" data-choice="ops" onclick="toggleSelect(this)">
+    <div class="dx-mockup">
+      <div class="lo-bg"></div>
+      <div class="lo-topbar">
+        <div class="lo-logo"></div>
+        <div class="lo-crumb">Production<span class="sep">/</span>Live Ops<span class="env">Prod</span></div>
+        <div class="lo-live">LIVE · 5s</div>
+      </div>
+
+      <div class="lo-content">
+        <!-- Row 1: 4 KPI tiles -->
+        <div class="lo-kpi">
+          <div class="lo-kpi-eye">Latency p95</div>
+          <div class="lo-kpi-row">
+            <div class="lo-kpi-val">42<span class="lo-kpi-unit">ms</span></div>
+          </div>
+          <div class="lo-kpi-status ok"><span class="dot"></span>nominal</div>
+        </div>
+        <div class="lo-kpi warn">
+          <div class="lo-kpi-eye">Error rate</div>
+          <div class="lo-kpi-row">
+            <div class="lo-kpi-val">0.08<span class="lo-kpi-unit">%</span></div>
+          </div>
+          <div class="lo-kpi-status warn"><span class="dot"></span>watch</div>
+        </div>
+        <div class="lo-kpi">
+          <div class="lo-kpi-eye">Uptime</div>
+          <div class="lo-kpi-row">
+            <div class="lo-kpi-val">99.97<span class="lo-kpi-unit">%</span></div>
+          </div>
+          <div class="lo-kpi-status ok"><span class="dot"></span>nominal</div>
+        </div>
+        <div class="lo-kpi crit">
+          <div class="lo-kpi-eye">DB lag</div>
+          <div class="lo-kpi-row">
+            <div class="lo-kpi-val">5.2<span class="lo-kpi-unit">s</span></div>
+          </div>
+          <div class="lo-kpi-status crit"><span class="dot"></span>critical</div>
+        </div>
+
+        <!-- Row 2: chart + log -->
+        <div class="lo-chart-tile span2">
+          <div class="lo-chart-tile-eye">Requests/sec · 1h</div>
+          <div class="lo-chart-tile-chart">
+            <svg viewBox="0 0 320 100" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+              <line x1="0" y1="90" x2="320" y2="90" stroke="#1f1f2a" stroke-width="0.5"/>
+              <line x1="0" y1="60" x2="320" y2="60" stroke="#1f1f2a" stroke-width="0.5"/>
+              <line x1="0" y1="30" x2="320" y2="30" stroke="#1f1f2a" stroke-width="0.5"/>
+              <line x1="0" y1="20" x2="320" y2="20" stroke="#fbbf24" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.5"/>
+              <text x="0" y="16" font-family="JetBrains Mono,monospace" font-size="8" fill="#fbbf24">SLO</text>
+              <path d="M0,80 L20,70 L40,55 L60,68 L80,42 L100,38 L120,52 L140,28 L160,40 L180,22 L200,32 L220,18 L240,24 L260,12 L280,28 L300,18 L320,22 L320,100 L0,100 Z" fill="url(#lo-glow)"/>
+              <path d="M0,80 L20,70 L40,55 L60,68 L80,42 L100,38 L120,52 L140,28 L160,40 L180,22 L200,32 L220,18 L240,24 L260,12 L280,28 L300,18 L320,22" stroke="#4ade80" stroke-width="2" fill="none" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="lo-chart-tile span2">
+          <div class="lo-chart-tile-eye">Recent events · stream</div>
+          <div class="lo-log">
+            <div class="lo-log-row"><span class="ts">14:32:47</span><span class="lvl err">ERR</span><span class="msg">503 from us-east-1 lb</span></div>
+            <div class="lo-log-row"><span class="ts">14:32:46</span><span class="lvl warn">WRN</span><span class="msg">db-replica-2 lag &gt; 5s</span></div>
+            <div class="lo-log-row"><span class="ts">14:32:42</span><span class="lvl info">INF</span><span class="msg">deploy v2.4.1 → prod</span></div>
+            <div class="lo-log-row"><span class="ts">14:32:38</span><span class="lvl warn">WRN</span><span class="msg">cache hit rate 78%</span></div>
+            <div class="lo-log-row"><span class="ts">14:32:35</span><span class="lvl info">INF</span><span class="msg">scaled api: 8 → 12</span></div>
+          </div>
+        </div>
+
+        <!-- Row 3: alert ticker -->
+        <div class="lo-alerts">
+          <div class="lo-alert crit"><span class="dot"></span>db-replica-2 lag <span class="id">P1-2847</span></div>
+          <div class="lo-alert warn"><span class="dot"></span>cdn-eu-west cache &lt;80% <span class="id">P3-2845</span></div>
+          <div class="lo-alert warn"><span class="dot"></span>queue depth elevated <span class="id">P3-2843</span></div>
+          <div class="lo-alert ok"><span class="dot"></span>all systems</div>
+        </div>
+      </div>
+    </div>
+    <div class="dx-body">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span class="dx-letter" style="background:linear-gradient(135deg,#4ade80,#06b6d4)">3</span>
+        <div>
+          <h3 class="dx-name">Live Operations</h3>
+          <p class="dx-tagline">Datadog-class NOC. Pure dark. Realtime auto-refresh. Traffic-light KPIs. Alert ticker.</p>
+        </div>
+      </div>
+      <p class="dx-audience">→ DevOps · SRE · NOC walls · Manufacturing · Trading floors</p>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- 4. STORY / SCROLLYTELLING                     -->
+  <!-- ============================================ -->
+  <div class="card dx-card" data-choice="story" onclick="toggleSelect(this)">
+    <div class="dx-mockup">
+      <div class="st-bg"></div>
+      <div class="st-topbar">
+        <div class="st-logo"></div>
+        <div class="st-crumb">Annual Report<span class="sep">/</span>2026 Story</div>
+        <div class="st-progress-pill">Chapter 2 of 5</div>
+      </div>
+
+      <div class="st-content">
+        <div class="st-kicker">Chapter 2 · Revenue Concentration</div>
+        <div class="st-headline">The West region<br/>quietly took over.</div>
+        <div class="st-byline">By AskDB Insights<span class="dot">·</span>April 2026<span class="dot">·</span>5 min read</div>
+        <div class="st-lede">
+          In Q1, the West region accounted for <strong>38% of revenue</strong>. By Q4 it had grown to <strong>52%</strong> — pulling away from the East and South while the North stayed flat. The shift was driven by three factors we'll dig into below.
+        </div>
+
+        <div class="st-chart-block">
+          <div class="chart-eye">FIG. 1 · REVENUE SHARE BY REGION · 2026</div>
+          <div class="chart-area">
+            <svg viewBox="0 0 540 130" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+              <line x1="0" y1="120" x2="540" y2="120" stroke="#a8a29e" stroke-width="0.5"/>
+              <text x="0" y="135" font-family="Georgia,serif" font-size="10" fill="#78716c" font-style="italic">Q1</text>
+              <text x="135" y="135" font-family="Georgia,serif" font-size="10" fill="#78716c" font-style="italic">Q2</text>
+              <text x="270" y="135" font-family="Georgia,serif" font-size="10" fill="#78716c" font-style="italic">Q3</text>
+              <text x="405" y="135" font-family="Georgia,serif" font-size="10" fill="#78716c" font-style="italic">Q4</text>
+              <!-- highlighted line: West -->
+              <path d="M0,80 C70,72 140,60 210,42 C280,28 350,18 540,8" stroke="#c2410c" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <circle cx="540" cy="8" r="4" fill="#c2410c"/>
+              <text x="528" y="0" font-family="Georgia,serif" font-size="10" font-style="italic" fill="#c2410c" font-weight="700" text-anchor="end">West 52%</text>
+              <!-- muted lines -->
+              <path d="M0,82 C70,82 140,84 210,86 C280,86 350,88 540,90" stroke="#a8a29e" stroke-width="1.2" fill="none"/>
+              <text x="540" y="93" font-family="Georgia,serif" font-size="9" fill="#a8a29e" text-anchor="end">East 19%</text>
+              <path d="M0,90 C70,92 140,93 210,94 C280,95 350,96 540,98" stroke="#a8a29e" stroke-width="1.2" fill="none"/>
+              <text x="540" y="108" font-family="Georgia,serif" font-size="9" fill="#a8a29e" text-anchor="end">South 17%</text>
+              <path d="M0,100 C70,102 140,104 210,106 C280,108 350,110 540,113" stroke="#a8a29e" stroke-width="1.2" fill="none"/>
+              <text x="540" y="120" font-family="Georgia,serif" font-size="9" fill="#a8a29e" text-anchor="end">North 12%</text>
+            </svg>
+          </div>
+          <div class="chart-cap">↑ The West region (highlighted) crossed 50% in Q3 and never looked back.</div>
+        </div>
+      </div>
+
+      <div class="st-scroll"></div>
+    </div>
+    <div class="dx-body">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span class="dx-letter" style="background:linear-gradient(135deg,#c2410c,#f97316)">4</span>
+        <div>
+          <h3 class="dx-name">Story / Scrollytelling</h3>
+          <p class="dx-tagline">NYT/Pudding feel. Cream paper. Editorial typography. Annotated charts. Vertical scroll.</p>
+        </div>
+      </div>
+      <p class="dx-audience">→ Annual reports · Internal narratives · Investor decks · Customer success</p>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- 5. PITCH / PRESENTATION DECK                  -->
+  <!-- ============================================ -->
+  <div class="card dx-card" data-choice="pitch" onclick="toggleSelect(this)">
+    <div class="dx-mockup">
+      <div class="pt-bg"></div>
+      <div class="pt-topbar">
+        <div class="pt-logo"></div>
+        <div class="pt-crumb">Q4 Board Deck<span class="sep">/</span>Slide 7</div>
+        <div class="pt-controls">
+          <div class="pt-pages">07 / 20</div>
+          <div class="pt-iconbtn">‹</div>
+          <div class="pt-iconbtn">›</div>
+          <div class="pt-iconbtn">⛶</div>
+        </div>
+      </div>
+
+      <div class="pt-content">
+        <div class="pt-eyebrow">Revenue Growth</div>
+        <div class="pt-headline">We finished Q4 at<br/><span class="accent">$2.4M · ↑ 24.7% YoY</span></div>
+
+        <div class="pt-frame">
+          <div class="pt-frame-eye">REVENUE BY QUARTER · LAST 4Q</div>
+          <div class="pt-frame-title">$1.93M → $2.40M</div>
+          <div class="pt-frame-chart">
+            <svg viewBox="0 0 480 130" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+              <line x1="0" y1="115" x2="480" y2="115" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+              <line x1="0" y1="80" x2="480" y2="80" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+              <line x1="0" y1="40" x2="480" y2="40" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+              <rect x="60" y="80" width="60" height="35" fill="url(#pt-area)" rx="4"/>
+              <rect x="60" y="80" width="60" height="3" fill="#a78bfa"/>
+              <text x="90" y="74" font-family="system-ui" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">$1.93M</text>
+              <rect x="160" y="65" width="60" height="50" fill="url(#pt-area)" rx="4"/>
+              <rect x="160" y="65" width="60" height="3" fill="#a78bfa"/>
+              <text x="190" y="59" font-family="system-ui" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">$2.05M</text>
+              <rect x="260" y="48" width="60" height="67" fill="url(#pt-area)" rx="4"/>
+              <rect x="260" y="48" width="60" height="3" fill="#a78bfa"/>
+              <text x="290" y="42" font-family="system-ui" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">$2.21M</text>
+              <rect x="360" y="20" width="60" height="95" fill="url(#pt-area)" rx="4"/>
+              <rect x="360" y="20" width="60" height="3" fill="#c084fc"/>
+              <text x="390" y="14" font-family="system-ui" font-size="11" font-weight="800" fill="#c084fc" text-anchor="middle">$2.40M ↑</text>
+              <text x="90" y="130" font-family="system-ui" font-size="10" fill="#94a3b8" text-anchor="middle">Q1</text>
+              <text x="190" y="130" font-family="system-ui" font-size="10" fill="#94a3b8" text-anchor="middle">Q2</text>
+              <text x="290" y="130" font-family="system-ui" font-size="10" fill="#94a3b8" text-anchor="middle">Q3</text>
+              <text x="390" y="130" font-family="system-ui" font-size="10" fill="#94a3b8" text-anchor="middle">Q4</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="pt-progress"></div>
+    </div>
+    <div class="dx-body">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span class="dx-letter" style="background:linear-gradient(135deg,#c084fc,#818cf8)">5</span>
+        <div>
+          <h3 class="dx-name">Pitch / Presentation Deck</h3>
+          <p class="dx-tagline">Apple Keynote feel. Cinematic dark. One hero per slide. ←/→ navigation. PresentationEngine already built.</p>
+        </div>
+      </div>
+      <p class="dx-audience">→ Board decks · Sales pitches · Investor updates · All-hands</p>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- 6. MULTI-TAB WORKBOOK                         -->
+  <!-- ============================================ -->
+  <div class="card dx-card" data-choice="workbook" onclick="toggleSelect(this)">
+    <div class="dx-mockup">
+      <div class="wb-bg"></div>
+      <div class="wb-titlebar">
+        <div class="wb-logo"></div>
+        <div class="wb-crumb">Sales Workbook<span class="sep">/</span>Q4 Performance</div>
+      </div>
+
+      <div class="wb-tabs">
+        <div class="wb-tab"><span class="icon" style="background:#1f77b4"></span>Overview<span class="close">×</span></div>
+        <div class="wb-tab active"><span class="icon" style="background:#ff7f0e"></span>By Region<span class="close">×</span></div>
+        <div class="wb-tab"><span class="icon" style="background:#2ca02c"></span>By Product<span class="close">×</span></div>
+        <div class="wb-tab"><span class="icon" style="background:#d62728"></span>Forecast<span class="close">×</span></div>
+        <div class="wb-tab"><span class="icon" style="background:#9467bd"></span>Notes<span class="close">×</span></div>
+        <div class="wb-tab add">+</div>
+      </div>
+
+      <div class="wb-content">
+        <div class="wb-grid">
+          <div class="wb-tile">
+            <div class="wb-tile-eye">West</div>
+            <div class="wb-tile-val">$1.25M</div>
+            <div class="wb-tile-delta">↑ 38% YoY</div>
+          </div>
+          <div class="wb-tile">
+            <div class="wb-tile-eye">East</div>
+            <div class="wb-tile-val">$486K</div>
+            <div class="wb-tile-delta">↑ 12% YoY</div>
+          </div>
+          <div class="wb-tile">
+            <div class="wb-tile-eye">South</div>
+            <div class="wb-tile-val">$412K</div>
+            <div class="wb-tile-delta">↑ 8% YoY</div>
+          </div>
+          <div class="wb-tile">
+            <div class="wb-tile-eye">North</div>
+            <div class="wb-tile-val">$298K</div>
+            <div class="wb-tile-delta" style="color:#b91c1c">↓ 3% YoY</div>
+          </div>
+          <div class="wb-hero">
+            <div class="wb-hero-eye">REGION TREND · LAST 12 MONTHS</div>
+            <div class="wb-hero-title">West pulled away in Q3</div>
+            <div class="wb-hero-chart">
+              <svg viewBox="0 0 600 150" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">
+                <line x1="0" y1="140" x2="600" y2="140" stroke="#e8e8ed" stroke-width="0.5"/>
+                <line x1="0" y1="100" x2="600" y2="100" stroke="#f0f0f3" stroke-width="0.5"/>
+                <line x1="0" y1="60" x2="600" y2="60" stroke="#f0f0f3" stroke-width="0.5"/>
+                <line x1="0" y1="20" x2="600" y2="20" stroke="#f0f0f3" stroke-width="0.5"/>
+                <path d="M0,80 C75,72 150,62 225,48 C300,32 375,20 450,12 C525,8 600,5 600,4" stroke="#1f77b4" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M0,100 C75,98 150,92 225,82 C300,72 375,68 450,58 C525,52 600,46 600,42" stroke="#ff7f0e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M0,115 C75,112 150,108 225,100 C300,92 375,88 450,80 C525,74 600,68 600,65" stroke="#2ca02c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M0,128 C75,128 150,128 225,128 C300,128 375,130 450,130 C525,132 600,134 600,134" stroke="#d62728" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <circle cx="600" cy="4" r="4" fill="#1f77b4"/>
+                <circle cx="600" cy="42" r="4" fill="#ff7f0e"/>
+                <circle cx="600" cy="65" r="4" fill="#2ca02c"/>
+                <circle cx="600" cy="134" r="4" fill="#d62728"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dx-body">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span class="dx-letter" style="background:linear-gradient(135deg,#1f77b4,#7c3aed)">6</span>
+        <div>
+          <h3 class="dx-name">Multi-Tab Workbook</h3>
+          <p class="dx-tagline">Excel/Google Sheets pattern. Color-coded tabs at top. Each tab a full dashboard. Shared filters.</p>
+        </div>
+      </div>
+      <p class="dx-audience">→ Recurring reports · Departmental hubs · Long-running analyses</p>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">Recommendation unchanged:</strong> ship all six. Each is a one-click <em>mode</em> on the same tile-on-grid system. Same data, different lens. Layouts differ; the underlying engine, IR, theme system, and voice/agent pipeline are unified. Multi-select on. Tell me which to ship, kill, reorder, or add.
+</p>

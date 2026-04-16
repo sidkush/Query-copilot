@@ -1,0 +1,418 @@
+<h2>What does "blow minds" look like — visually?</h2>
+<p class="subtitle">Three end-state aesthetics for the chart visuals themselves. This drives renderer choice (WebGL vs Canvas), animation budget, theme tokens, and how much GPU we're allowed to burn.</p>
+
+<style>
+.aesthetic-card {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.18);
+  border-radius: 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.16,1,0.3,1), border-color 220ms, box-shadow 220ms;
+  position: relative;
+  overflow: hidden;
+  min-height: 540px;
+}
+.aesthetic-card:hover { transform: translateY(-4px); border-color: rgba(160,140,255,0.5); box-shadow: 0 24px 60px rgba(80,60,180,0.25); }
+.aesthetic-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+.aesthetic-mockup {
+  height: 260px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ============================================
+   HUD MOCKUP — Hollywood / Iron Man / Westworld
+   ============================================ */
+.hud-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(800px circle at 30% 20%, rgba(124,58,237,0.35), transparent 50%),
+    radial-gradient(600px circle at 80% 80%, rgba(34,211,238,0.25), transparent 50%),
+    #050410;
+}
+.hud-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(124,58,237,0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,58,237,0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 70%);
+}
+.hud-orbit {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 180px; height: 180px;
+  border: 1px solid rgba(192,132,252,0.4);
+  border-radius: 50%;
+  animation: spin 12s linear infinite;
+}
+.hud-orbit::before {
+  content: ""; position: absolute; left: 50%; top: -3px;
+  width: 6px; height: 6px; background: #c084fc; border-radius: 50%;
+  box-shadow: 0 0 12px #c084fc;
+}
+.hud-orbit::after {
+  content: ""; position: absolute; right: 20%; bottom: 10%;
+  width: 4px; height: 4px; background: #22d3ee; border-radius: 50%;
+  box-shadow: 0 0 8px #22d3ee;
+}
+@keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.hud-rings {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px; height: 120px;
+  border: 1px solid rgba(34,211,238,0.5);
+  border-radius: 50%;
+  animation: pulse-ring 3s ease-out infinite;
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(34,211,238,0.4), inset 0 0 30px rgba(34,211,238,0.2); }
+  100% { box-shadow: 0 0 0 40px rgba(34,211,238,0), inset 0 0 30px rgba(34,211,238,0); }
+}
+.hud-bars {
+  position: absolute; left: 12px; bottom: 12px;
+  display: flex; align-items: flex-end; gap: 3px; height: 60px;
+}
+.hud-bars .b {
+  width: 8px;
+  background: linear-gradient(180deg, #c084fc, transparent);
+  box-shadow: 0 0 8px rgba(192,132,252,0.6);
+}
+.hud-readout {
+  position: absolute; right: 12px; top: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #22d3ee;
+  text-align: right;
+  line-height: 1.4;
+}
+.hud-corner {
+  position: absolute;
+  width: 24px; height: 24px;
+  border: 2px solid #22d3ee;
+}
+.hud-corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+.hud-corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+.hud-corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+.hud-corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+/* ============================================
+   PREMIUM EDITORIAL — Linear / Stripe / Vercel
+   ============================================ */
+.editorial-bg {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, #0a0a0f 0%, #06060a 100%);
+}
+.editorial-card {
+  position: absolute;
+  left: 24px; right: 24px; top: 22px; bottom: 22px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  backdrop-filter: blur(20px);
+  padding: 18px 22px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.editorial-eyebrow {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #6e6e85;
+}
+.editorial-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f5f5f7;
+  letter-spacing: -0.01em;
+}
+.editorial-chart {
+  flex: 1;
+  position: relative;
+  margin-top: 4px;
+}
+.editorial-chart svg { width: 100%; height: 100%; }
+.editorial-chart .axis-line { stroke: rgba(255,255,255,0.08); stroke-width: 1; }
+.editorial-chart .data-line { stroke: #a78bfa; stroke-width: 1.5; fill: none; }
+.editorial-chart .data-area { fill: url(#grad); opacity: 0.6; }
+.editorial-chart .data-point { fill: #c084fc; }
+.editorial-legend {
+  display: flex; gap: 14px; font-size: 9px; color: #8e8ea0;
+}
+.editorial-legend .dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  margin-right: 5px; vertical-align: middle;
+  background: #a78bfa;
+}
+
+/* ============================================
+   DATA CINEMA — FT / NYT / Pudding
+   ============================================ */
+.cinema-bg {
+  position: absolute; inset: 0;
+  background: #f7f3eb;
+}
+.cinema-content {
+  position: absolute; inset: 0;
+  padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 6px;
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #1a1a1a;
+}
+.cinema-eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #c2410c;
+}
+.cinema-title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: #1a1a1a;
+}
+.cinema-sub {
+  font-size: 10px;
+  color: #525252;
+  font-style: italic;
+  line-height: 1.4;
+}
+.cinema-chart {
+  flex: 1;
+  position: relative;
+  margin-top: 6px;
+}
+.cinema-chart svg { width: 100%; height: 100%; }
+.cinema-chart .ann {
+  fill: #525252;
+  font-size: 8px;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+.cinema-chart .ann-line {
+  stroke: #1a1a1a;
+  stroke-width: 0.5;
+  stroke-dasharray: 1 2;
+}
+.cinema-chart .bar {
+  fill: #c2410c;
+}
+.cinema-chart .bar.muted { fill: #d6d3d1; }
+.cinema-chart .axis-text { fill: #525252; font-size: 7px; font-family: Georgia, serif; }
+.cinema-source { font-size: 7px; color: #737373; margin-top: auto; }
+
+/* Card body */
+.aesthetic-body { padding: 22px 24px 24px; display: flex; flex-direction: column; gap: 14px; }
+.aesthetic-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 4px 14px rgba(124,58,237,0.4);
+}
+.aesthetic-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f5f3ff;
+  margin: 0;
+  line-height: 1.2;
+}
+.aesthetic-tagline {
+  font-size: 12px;
+  color: #a8a4c0;
+  line-height: 1.5;
+  margin: 0;
+}
+.aesthetic-pillars { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; font-size: 11px; color: #cbc8de; line-height: 1.5; }
+.aesthetic-pillars .pillar { display: flex; gap: 8px; }
+.aesthetic-pillars .pillar::before { content: "▸"; color: #c084fc; flex-shrink: 0; }
+.aesthetic-tags {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
+}
+.aesthetic-tag {
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(124,58,237,0.18);
+  color: #c4b5fd;
+  border: 1px solid rgba(124,58,237,0.3);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="cards">
+  <!-- ========== A: HUD ========== -->
+  <div class="card aesthetic-card" data-choice="hud" onclick="toggleSelect(this)">
+    <div class="aesthetic-mockup">
+      <div class="hud-bg"></div>
+      <div class="hud-grid"></div>
+      <div class="hud-orbit"></div>
+      <div class="hud-rings"></div>
+      <div class="hud-bars">
+        <div class="b" style="height:30%"></div>
+        <div class="b" style="height:55%"></div>
+        <div class="b" style="height:75%"></div>
+        <div class="b" style="height:90%"></div>
+        <div class="b" style="height:65%"></div>
+        <div class="b" style="height:80%"></div>
+        <div class="b" style="height:95%"></div>
+      </div>
+      <div class="hud-readout">REVENUE.STREAM<br/>↑ 24.7%<br/>NODES: 847</div>
+      <div class="hud-corner tl"></div>
+      <div class="hud-corner tr"></div>
+      <div class="hud-corner bl"></div>
+      <div class="hud-corner br"></div>
+    </div>
+    <div class="aesthetic-body">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span class="aesthetic-letter">A</span>
+        <div>
+          <h3 class="aesthetic-name">Hollywood HUD</h3>
+          <p class="aesthetic-tagline">Iron Man · Westworld · The Expanse</p>
+        </div>
+      </div>
+      <div class="aesthetic-pillars">
+        <div class="pillar">Particles, glow, neon, scan-lines, orbits, pulse rings</div>
+        <div class="pillar">3D wherever it can possibly fit. WebGL mandatory</div>
+        <div class="pillar">Continuous micro-motion — never static</div>
+        <div class="pillar">Charts feel like instruments. Not documents</div>
+        <div class="pillar">Demo wins by 100x. Daily-use eye-fatigue is real</div>
+      </div>
+      <div class="aesthetic-tags">
+        <span class="aesthetic-tag">WebGL</span>
+        <span class="aesthetic-tag">Three.js</span>
+        <span class="aesthetic-tag">Shaders</span>
+        <span class="aesthetic-tag">60fps mandatory</span>
+        <span class="aesthetic-tag">Dark only</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== B: PREMIUM EDITORIAL ========== -->
+  <div class="card aesthetic-card" data-choice="editorial" onclick="toggleSelect(this)">
+    <div class="aesthetic-mockup">
+      <div class="editorial-bg"></div>
+      <div class="editorial-card">
+        <div class="editorial-eyebrow">REVENUE · LAST 12 MONTHS</div>
+        <div class="editorial-title">$2.4M total <span style="color:#22c55e; font-weight:500;">↑ 24.7%</span></div>
+        <div class="editorial-chart">
+          <svg viewBox="0 0 240 90" preserveAspectRatio="none">
+            <line x1="0" y1="80" x2="240" y2="80" class="axis-line"/>
+            <line x1="0" y1="60" x2="240" y2="60" class="axis-line"/>
+            <line x1="0" y1="40" x2="240" y2="40" class="axis-line"/>
+            <line x1="0" y1="20" x2="240" y2="20" class="axis-line"/>
+            <path class="data-area" d="M0,68 C20,55 40,60 60,50 C80,40 100,45 120,30 C140,18 160,28 180,15 C200,10 220,18 240,8 L240,90 L0,90 Z"/>
+            <path class="data-line" d="M0,68 C20,55 40,60 60,50 C80,40 100,45 120,30 C140,18 160,28 180,15 C200,10 220,18 240,8"/>
+            <circle cx="240" cy="8" r="3" class="data-point"/>
+          </svg>
+        </div>
+        <div class="editorial-legend">
+          <span><span class="dot"></span>Current period</span>
+        </div>
+      </div>
+    </div>
+    <div class="aesthetic-body">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span class="aesthetic-letter">B</span>
+        <div>
+          <h3 class="aesthetic-name">Premium Editorial</h3>
+          <p class="aesthetic-tagline">Linear · Stripe · Vercel · Arc</p>
+        </div>
+      </div>
+      <div class="aesthetic-pillars">
+        <div class="pillar">Restrained, sharp, glassy. Frosted backgrounds</div>
+        <div class="pillar">Thin strokes, generous white space, careful typography</div>
+        <div class="pillar">Micro-motion: subtle hover lifts, smooth transitions</div>
+        <div class="pillar">Looks like a $50M Series B unicorn product</div>
+        <div class="pillar">Sustainable for 8-hour analyst sessions</div>
+      </div>
+      <div class="aesthetic-tags">
+        <span class="aesthetic-tag">Canvas + SVG</span>
+        <span class="aesthetic-tag">Framer Motion</span>
+        <span class="aesthetic-tag">Glass morphism</span>
+        <span class="aesthetic-tag">60fps interactions</span>
+        <span class="aesthetic-tag">Dark + light</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== C: DATA CINEMA ========== -->
+  <div class="card aesthetic-card" data-choice="cinema" onclick="toggleSelect(this)">
+    <div class="aesthetic-mockup">
+      <div class="cinema-bg"></div>
+      <div class="cinema-content">
+        <div class="cinema-eyebrow">FINANCIALS · Q4 2024</div>
+        <div class="cinema-title">Revenue concentration<br/>shifted west</div>
+        <div class="cinema-sub">The top three Western regions now drive 71% of total ARR — up from 52% a year ago.</div>
+        <div class="cinema-chart">
+          <svg viewBox="0 0 240 80">
+            <rect class="bar muted" x="0" y="50" width="22" height="30"/>
+            <rect class="bar" x="28" y="20" width="22" height="60"/>
+            <rect class="bar" x="56" y="35" width="22" height="45"/>
+            <rect class="bar muted" x="84" y="55" width="22" height="25"/>
+            <rect class="bar" x="112" y="10" width="22" height="70"/>
+            <rect class="bar muted" x="140" y="60" width="22" height="20"/>
+            <rect class="bar" x="168" y="25" width="22" height="55"/>
+            <rect class="bar muted" x="196" y="50" width="22" height="30"/>
+            <line x1="118" y1="6" x2="118" y2="-2" class="ann-line"/>
+            <text class="ann" x="120" y="5">+38%</text>
+            <line x1="0" y1="80" x2="218" y2="80" stroke="#1a1a1a" stroke-width="0.5"/>
+          </svg>
+        </div>
+        <div class="cinema-source">Source: Internal ARR ledger · n=847</div>
+      </div>
+    </div>
+    <div class="aesthetic-body">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span class="aesthetic-letter">C</span>
+        <div>
+          <h3 class="aesthetic-name">Data Cinema</h3>
+          <p class="aesthetic-tagline">FT · NYT · Pudding · Reuters Graphics</p>
+        </div>
+      </div>
+      <div class="aesthetic-pillars">
+        <div class="pillar">Editorial typography, hand-curated annotations</div>
+        <div class="pillar">Color used as story device — muted vs highlighted</div>
+        <div class="pillar">High data-ink ratio. Tufte purist</div>
+        <div class="pillar">Each chart reads like a finished article</div>
+        <div class="pillar">Looks unlike any other BI tool. Defensible visual moat</div>
+      </div>
+      <div class="aesthetic-tags">
+        <span class="aesthetic-tag">SVG</span>
+        <span class="aesthetic-tag">D3 annotations</span>
+        <span class="aesthetic-tag">Editorial fonts</span>
+        <span class="aesthetic-tag">Light + dark</span>
+        <span class="aesthetic-tag">Print-ready</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">My recommendation:</strong> <strong>B (Premium Editorial)</strong> as the daily-driver default for everyday analyst work, with <strong>A (Hollywood HUD)</strong> reserved as the "Stage Mode" aesthetic — same chart, same data, but switches to neon + 3D + particles for demos and exec presentations. <strong>C (Data Cinema)</strong> is harder to do at scale because it requires hand-curated annotations per chart — but we can borrow its annotation system, color-as-story discipline, and Tufte data-ink defaults to lift B above generic SaaS. So: <strong>B as base + A as stage swap + C principles baked into the design system</strong>.
+</p>
+
+<p style="margin-top:14px; padding:14px 18px; background:rgba(192,132,252,0.05); border-radius:8px; color:#a8a4c0; font-size:11px;">
+  Pick one card, or click multiple if you want a hybrid. If none of these are right, describe what you're going for in the terminal and I'll iterate the screen.
+</p>

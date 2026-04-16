@@ -1,0 +1,619 @@
+<h2>Stage Mode — pick the themes you want users to choose from</h2>
+<p class="subtitle">Six distinct HUD moods, each tuned for a different audience. Multi-select. Tell me which to ship, which to kill, and which moods I should add. Same chart data shown in each — feel the difference.</p>
+
+<style>
+.theme-card {
+  background: #07060f;
+  border: 1px solid rgba(120,100,200,0.18);
+  border-radius: 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform 200ms cubic-bezier(0.16,1,0.3,1), border-color 200ms, box-shadow 200ms;
+  position: relative;
+  overflow: hidden;
+  min-height: 480px;
+}
+.theme-card:hover { transform: translateY(-3px); border-color: rgba(160,140,255,0.4); box-shadow: 0 20px 50px rgba(80,60,180,0.25); }
+.theme-card.selected { border-color: #a78bfa; box-shadow: 0 0 0 2px rgba(167,139,250,0.4), 0 24px 60px rgba(120,80,255,0.35); }
+
+.theme-mockup {
+  height: 240px;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-body {
+  padding: 18px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.theme-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+.theme-name { font-size: 18px; font-weight: 700; color: #f5f3ff; margin: 0; line-height: 1.2; }
+.theme-tagline { font-size: 11px; color: #a8a4c0; line-height: 1.4; margin: 0; }
+.theme-pillars { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #cbc8de; line-height: 1.45; }
+.theme-pillars div::before { content: "▸ "; color: #c084fc; }
+.theme-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.theme-tag {
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(124,58,237,0.18);
+  color: #c4b5fd;
+  border: 1px solid rgba(124,58,237,0.3);
+  font-weight: 600;
+}
+.theme-audience {
+  font-size: 10px;
+  color: #fbbf24;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+/* ============================================
+   1. QUIET EXECUTIVE — minimalist business HUD
+   ============================================ */
+.qe-bg {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, #0c0c10 0%, #060607 100%);
+}
+.qe-card {
+  position: absolute;
+  inset: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 16px 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.qe-eyebrow { font-size: 9px; font-weight: 600; letter-spacing: 0.18em; color: #6b6b7d; text-transform: uppercase; }
+.qe-value { font-size: 22px; font-weight: 300; color: #f5f5f7; letter-spacing: -0.02em; font-family: -apple-system, system-ui, sans-serif; }
+.qe-value .delta { font-size: 11px; color: #34d399; font-weight: 500; margin-left: 6px; }
+.qe-chart { flex: 1; position: relative; }
+.qe-chart svg { width: 100%; height: 100%; }
+.qe-axis { stroke: rgba(255,255,255,0.06); stroke-width: 0.5; }
+.qe-line { stroke: #e5e7eb; stroke-width: 1; fill: none; }
+.qe-area { fill: rgba(229,231,235,0.06); }
+
+/* ============================================
+   2. IRON MAN — orange/cyan holographic
+   ============================================ */
+.im-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(800px circle at 20% 30%, rgba(255,140,0,0.25), transparent 55%),
+    radial-gradient(600px circle at 80% 70%, rgba(34,211,238,0.22), transparent 55%),
+    #050410;
+}
+.im-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,140,0,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,140,0,0.08) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mask-image: radial-gradient(circle at 50% 50%, black 25%, transparent 75%);
+}
+.im-orbit {
+  position: absolute; left: 50%; top: 45%;
+  transform: translate(-50%, -50%);
+  width: 140px; height: 140px;
+  border: 1px solid rgba(255,140,0,0.5);
+  border-radius: 50%;
+  animation: spin 14s linear infinite;
+}
+.im-orbit::before { content: ""; position: absolute; left: 50%; top: -3px; width: 6px; height: 6px; background: #ff8c00; border-radius: 50%; box-shadow: 0 0 12px #ff8c00; }
+.im-rings {
+  position: absolute; left: 50%; top: 45%;
+  transform: translate(-50%, -50%);
+  width: 100px; height: 100px;
+  border: 1px solid rgba(34,211,238,0.55);
+  border-radius: 50%;
+  animation: pulse-ring 3s ease-out infinite;
+}
+@keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(34,211,238,0.4); }
+  100% { box-shadow: 0 0 0 30px rgba(34,211,238,0); }
+}
+.im-bars {
+  position: absolute; left: 14px; bottom: 14px;
+  display: flex; align-items: flex-end; gap: 3px; height: 50px;
+}
+.im-bars .b { width: 7px; background: linear-gradient(180deg, #ff8c00, transparent); box-shadow: 0 0 6px rgba(255,140,0,0.6); }
+.im-readout {
+  position: absolute; right: 14px; top: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; color: #22d3ee;
+  text-align: right; line-height: 1.5;
+}
+.im-corner { position: absolute; width: 18px; height: 18px; border: 1.5px solid #ff8c00; }
+.im-corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+.im-corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+.im-corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+.im-corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+/* ============================================
+   3. BLOOMBERG TERMINAL — amber/black
+   ============================================ */
+.bb-bg {
+  position: absolute; inset: 0;
+  background: #000000;
+}
+.bb-content {
+  position: absolute; inset: 0;
+  padding: 14px 16px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  color: #ffb000;
+  font-size: 9px;
+  line-height: 1.4;
+}
+.bb-header {
+  display: flex; justify-content: space-between;
+  border-bottom: 1px solid #ffb000;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+.bb-tab { color: #000; background: #ffb000; padding: 0 6px; font-weight: 700; }
+.bb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bb-table div { display: grid; grid-template-columns: 36px 1fr 36px; padding: 1px 0; }
+.bb-table .val.up { color: #00ff7f; }
+.bb-table .val.down { color: #ff4500; }
+.bb-spark { padding-top: 6px; }
+.bb-spark svg { width: 100%; height: 60px; }
+.bb-spark .line { stroke: #00ff7f; stroke-width: 1; fill: none; }
+.bb-footer {
+  position: absolute; bottom: 6px; left: 16px; right: 16px;
+  border-top: 1px solid #ffb000;
+  padding-top: 4px;
+  display: flex; justify-content: space-between;
+  font-size: 8px;
+}
+
+/* ============================================
+   4. MISSION CONTROL — NASA / SpaceX
+   ============================================ */
+.mc-bg {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 100%, #042f1a 0%, #050a08 70%);
+}
+.mc-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,255,128,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,128,0.08) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.mc-content {
+  position: absolute; inset: 14px;
+  display: grid; grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  color: #00ff80;
+  font-size: 9px;
+}
+.mc-header { display: flex; justify-content: space-between; }
+.mc-h-left { color: #00ff80; font-weight: 700; }
+.mc-h-right { color: #ffb000; }
+.mc-chart {
+  border: 1px solid rgba(0,255,128,0.35);
+  border-radius: 2px;
+  padding: 8px;
+  position: relative;
+}
+.mc-chart svg { width: 100%; height: 100%; }
+.mc-chart .line { stroke: #00ff80; stroke-width: 1; fill: none; filter: drop-shadow(0 0 2px #00ff80); }
+.mc-chart .dot { fill: #ffb000; }
+.mc-status { display: flex; justify-content: space-between; color: #6affb0; font-size: 8px; }
+.mc-status .ok { color: #00ff80; }
+.mc-status .warn { color: #ffb000; }
+
+/* ============================================
+   5. CYBERPUNK NEON — magenta/cyan
+   ============================================ */
+.cp-bg {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, #1a0033 0%, #0a0014 100%);
+}
+.cp-scan {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(236,72,153,0.06) 2px, rgba(236,72,153,0.06) 3px);
+  pointer-events: none;
+}
+.cp-content {
+  position: absolute; inset: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.cp-title {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ec4899;
+  text-shadow: 0 0 8px #ec4899, 0 0 16px #ec4899;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.cp-glitch::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 11px;
+  background: #06b6d4;
+  margin-left: 4px;
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+.cp-chart {
+  flex: 1;
+  border: 1px solid #ec4899;
+  border-radius: 0;
+  position: relative;
+  background: rgba(236,72,153,0.03);
+  box-shadow: inset 0 0 20px rgba(236,72,153,0.15), 0 0 12px rgba(236,72,153,0.4);
+}
+.cp-chart svg { width: 100%; height: 100%; }
+.cp-line {
+  stroke: #06b6d4;
+  stroke-width: 1.5;
+  fill: none;
+  filter: drop-shadow(0 0 6px #06b6d4);
+}
+.cp-area { fill: url(#cpgrad); opacity: 0.4; }
+.cp-corner-cut {
+  position: absolute;
+  width: 0; height: 0;
+}
+.cp-corner-cut.tl { top: -1px; left: -1px; border-top: 8px solid #ec4899; border-right: 8px solid transparent; }
+.cp-corner-cut.br { bottom: -1px; right: -1px; border-bottom: 8px solid #06b6d4; border-left: 8px solid transparent; }
+
+/* ============================================
+   6. VISION PRO FROST — frosted glass
+   ============================================ */
+.vp-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(167,139,250,0.45), transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(56,189,248,0.4), transparent 50%),
+    linear-gradient(180deg, #1e1b3a 0%, #0a0a1a 100%);
+}
+.vp-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.7;
+}
+.vp-blob.b1 { width: 120px; height: 120px; left: 10%; top: 10%; background: #a78bfa; }
+.vp-blob.b2 { width: 100px; height: 100px; right: 15%; bottom: 15%; background: #38bdf8; }
+.vp-card {
+  position: absolute; inset: 22px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 24px;
+  padding: 18px 22px;
+  display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.vp-eyebrow { font-size: 10px; color: rgba(255,255,255,0.65); font-weight: 500; letter-spacing: 0.04em; }
+.vp-title { font-size: 16px; color: #fff; font-weight: 600; letter-spacing: -0.01em; font-family: -apple-system, system-ui; }
+.vp-chart { flex: 1; position: relative; }
+.vp-chart svg { width: 100%; height: 100%; }
+.vp-line { stroke: rgba(255,255,255,0.95); stroke-width: 2; fill: none; }
+.vp-area { fill: url(#vpgrad); }
+.vp-dot { fill: #fff; }
+
+/* ===== Common SVG defs ===== */
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="cpgrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="vpgrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.4)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="cards" data-multiselect>
+
+  <!-- ========== 1. QUIET EXECUTIVE ========== -->
+  <div class="card theme-card" data-choice="quiet-executive" onclick="toggleSelect(this)">
+    <div class="theme-mockup">
+      <div class="qe-bg"></div>
+      <div class="qe-card">
+        <div class="qe-eyebrow">REVENUE · LAST 12 MONTHS</div>
+        <div class="qe-value">$2.4M <span class="delta">↑ 24.7%</span></div>
+        <div class="qe-chart">
+          <svg viewBox="0 0 240 80" preserveAspectRatio="none">
+            <line x1="0" y1="80" x2="240" y2="80" class="qe-axis"/>
+            <line x1="0" y1="60" x2="240" y2="60" class="qe-axis"/>
+            <line x1="0" y1="40" x2="240" y2="40" class="qe-axis"/>
+            <line x1="0" y1="20" x2="240" y2="20" class="qe-axis"/>
+            <path class="qe-area" d="M0,68 C20,55 40,60 60,50 C80,40 100,45 120,30 C140,18 160,28 180,15 C200,10 220,18 240,8 L240,80 L0,80 Z"/>
+            <path class="qe-line" d="M0,68 C20,55 40,60 60,50 C80,40 100,45 120,30 C140,18 160,28 180,15 C200,10 220,18 240,8"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="theme-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="theme-letter">1</span>
+        <div>
+          <h3 class="theme-name">Quiet Executive</h3>
+          <p class="theme-tagline">Boardroom polish. Whisper, don't shout.</p>
+        </div>
+      </div>
+      <p class="theme-audience">→ C-suite · Finance · Banking · Consulting · Law</p>
+      <div class="theme-pillars">
+        <div>Monochrome glass card on black canvas</div>
+        <div>Light hairline strokes, generous space</div>
+        <div>Zero ornament. Pure data hierarchy</div>
+        <div>Looks expensive without trying</div>
+      </div>
+      <div class="theme-tags">
+        <span class="theme-tag">Monochrome</span>
+        <span class="theme-tag">Glass</span>
+        <span class="theme-tag">Static</span>
+        <span class="theme-tag">Premium</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 2. IRON MAN ========== -->
+  <div class="card theme-card" data-choice="iron-man" onclick="toggleSelect(this)">
+    <div class="theme-mockup">
+      <div class="im-bg"></div>
+      <div class="im-grid"></div>
+      <div class="im-orbit"></div>
+      <div class="im-rings"></div>
+      <div class="im-bars">
+        <div class="b" style="height:40%"></div>
+        <div class="b" style="height:60%"></div>
+        <div class="b" style="height:80%"></div>
+        <div class="b" style="height:95%"></div>
+        <div class="b" style="height:70%"></div>
+        <div class="b" style="height:85%"></div>
+      </div>
+      <div class="im-readout">REV.STREAM<br/>↑ 24.7%<br/>NODES: 847</div>
+      <div class="im-corner tl"></div>
+      <div class="im-corner tr"></div>
+      <div class="im-corner bl"></div>
+      <div class="im-corner br"></div>
+    </div>
+    <div class="theme-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="theme-letter">2</span>
+        <div>
+          <h3 class="theme-name">Iron Man</h3>
+          <p class="theme-tagline">Holographic Stark Industries HUD.</p>
+        </div>
+      </div>
+      <p class="theme-audience">→ Creative agencies · Startups · Dev teams · Demos</p>
+      <div class="theme-pillars">
+        <div>Orange + cyan, particles, orbital rings</div>
+        <div>Continuous spin/pulse motion</div>
+        <div>Corner brackets, scan-lines, monospace readouts</div>
+        <div>Maximum spectacle, designed for video demos</div>
+      </div>
+      <div class="theme-tags">
+        <span class="theme-tag">Neon</span>
+        <span class="theme-tag">3D</span>
+        <span class="theme-tag">Animated</span>
+        <span class="theme-tag">WebGL</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 3. BLOOMBERG TERMINAL ========== -->
+  <div class="card theme-card" data-choice="bloomberg" onclick="toggleSelect(this)">
+    <div class="theme-mockup">
+      <div class="bb-bg"></div>
+      <div class="bb-content">
+        <div class="bb-header">
+          <span><span class="bb-tab">REV</span> &lt;EQUITY&gt; HCM</span>
+          <span>14:32:08</span>
+        </div>
+        <div class="bb-grid">
+          <div class="bb-table">
+            <div><span>JAN</span><span>1.85M</span><span class="val up">+5.2</span></div>
+            <div><span>FEB</span><span>1.92M</span><span class="val up">+3.8</span></div>
+            <div><span>MAR</span><span>2.10M</span><span class="val up">+9.4</span></div>
+            <div><span>APR</span><span>2.04M</span><span class="val down">-2.9</span></div>
+            <div><span>MAY</span><span>2.21M</span><span class="val up">+8.3</span></div>
+            <div><span>JUN</span><span>2.40M</span><span class="val up">+8.6</span></div>
+          </div>
+          <div class="bb-spark">
+            <svg viewBox="0 0 100 60" preserveAspectRatio="none">
+              <path class="line" d="M0,50 L20,42 L40,32 L60,38 L80,22 L100,8"/>
+              <line x1="0" y1="55" x2="100" y2="55" stroke="#ffb000" stroke-width="0.4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="bb-footer">
+          <span>YTD ↑24.7%</span>
+          <span>HI 2.40 LO 1.85</span>
+        </div>
+      </div>
+    </div>
+    <div class="theme-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="theme-letter">3</span>
+        <div>
+          <h3 class="theme-name">Bloomberg Terminal</h3>
+          <p class="theme-tagline">Amber on black. Maximum data density.</p>
+        </div>
+      </div>
+      <p class="theme-audience">→ Traders · Hedge funds · Fintech · Power analysts</p>
+      <div class="theme-pillars">
+        <div>Monospace amber/green-on-black</div>
+        <div>Tabular dense, sparkline accents</div>
+        <div>Keyboard-first, no decoration</div>
+        <div>Iconic finance aesthetic — instant credibility</div>
+      </div>
+      <div class="theme-tags">
+        <span class="theme-tag">Monospace</span>
+        <span class="theme-tag">Dense</span>
+        <span class="theme-tag">Terminal</span>
+        <span class="theme-tag">Keyboard</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 4. MISSION CONTROL ========== -->
+  <div class="card theme-card" data-choice="mission-control" onclick="toggleSelect(this)">
+    <div class="theme-mockup">
+      <div class="mc-bg"></div>
+      <div class="mc-grid"></div>
+      <div class="mc-content">
+        <div class="mc-header">
+          <span class="mc-h-left">[MC-2024] REV.STREAM // T+247d</span>
+          <span class="mc-h-right">●NOMINAL</span>
+        </div>
+        <div class="mc-chart">
+          <svg viewBox="0 0 240 80" preserveAspectRatio="none">
+            <path class="line" d="M0,68 L20,55 L40,60 L60,50 L80,40 L100,45 L120,30 L140,18 L160,28 L180,15 L200,10 L220,18 L240,8"/>
+            <circle cx="240" cy="8" r="2" class="dot"/>
+            <line x1="0" y1="70" x2="240" y2="70" stroke="#00ff80" stroke-width="0.3" stroke-dasharray="2 2"/>
+          </svg>
+        </div>
+        <div class="mc-status">
+          <span class="ok">ALL SYS OK</span>
+          <span>Δ +24.7%</span>
+          <span class="warn">ALERT: 2</span>
+        </div>
+      </div>
+    </div>
+    <div class="theme-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="theme-letter">4</span>
+        <div>
+          <h3 class="theme-name">Mission Control</h3>
+          <p class="theme-tagline">NASA / SpaceX console aesthetic.</p>
+        </div>
+      </div>
+      <p class="theme-audience">→ Engineers · DevOps · Site reliability · Science</p>
+      <div class="theme-pillars">
+        <div>Phosphor green on dark grid</div>
+        <div>Status pills, callouts, telemetry</div>
+        <div>Retro-futurist console feel</div>
+        <div>Reads like real-time system telemetry</div>
+      </div>
+      <div class="theme-tags">
+        <span class="theme-tag">Phosphor</span>
+        <span class="theme-tag">Telemetry</span>
+        <span class="theme-tag">Console</span>
+        <span class="theme-tag">Realtime</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 5. CYBERPUNK NEON ========== -->
+  <div class="card theme-card" data-choice="cyberpunk" onclick="toggleSelect(this)">
+    <div class="theme-mockup">
+      <div class="cp-bg"></div>
+      <div class="cp-scan"></div>
+      <div class="cp-content">
+        <div class="cp-title">REV<span class="cp-glitch">·STREAM</span></div>
+        <div class="cp-chart">
+          <div class="cp-corner-cut tl"></div>
+          <div class="cp-corner-cut br"></div>
+          <svg viewBox="0 0 240 80" preserveAspectRatio="none">
+            <path class="cp-area" d="M0,68 L20,55 L40,60 L60,50 L80,40 L100,45 L120,30 L140,18 L160,28 L180,15 L200,10 L220,18 L240,8 L240,80 L0,80 Z"/>
+            <path class="cp-line" d="M0,68 L20,55 L40,60 L60,50 L80,40 L100,45 L120,30 L140,18 L160,28 L180,15 L200,10 L220,18 L240,8"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="theme-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="theme-letter">5</span>
+        <div>
+          <h3 class="theme-name">Cyberpunk Neon</h3>
+          <p class="theme-tagline">Magenta-cyan glitch. Neo-Tokyo data dive.</p>
+        </div>
+      </div>
+      <p class="theme-audience">→ Gaming · Music · Crypto · Web3 · Streetwear brands</p>
+      <div class="theme-pillars">
+        <div>Magenta + cyan, scan-lines, glitch effects</div>
+        <div>Diagonal corner cuts, hard edges</div>
+        <div>Phosphor glow, pulse cursor</div>
+        <div>Shouts loud — perfect for younger audiences</div>
+      </div>
+      <div class="theme-tags">
+        <span class="theme-tag">Neon</span>
+        <span class="theme-tag">Glitch</span>
+        <span class="theme-tag">Bold</span>
+        <span class="theme-tag">Shaders</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 6. VISION PRO FROST ========== -->
+  <div class="card theme-card" data-choice="vision-pro" onclick="toggleSelect(this)">
+    <div class="theme-mockup">
+      <div class="vp-bg"></div>
+      <div class="vp-blob b1"></div>
+      <div class="vp-blob b2"></div>
+      <div class="vp-card">
+        <div class="vp-eyebrow">Revenue · Last 12 months</div>
+        <div class="vp-title">$2.4M <span style="font-weight:400; opacity:0.7;">↑ 24.7%</span></div>
+        <div class="vp-chart">
+          <svg viewBox="0 0 240 70" preserveAspectRatio="none">
+            <path class="vp-area" d="M0,60 C20,50 40,55 60,45 C80,35 100,40 120,28 C140,16 160,26 180,14 C200,9 220,16 240,6 L240,70 L0,70 Z"/>
+            <path class="vp-line" d="M0,60 C20,50 40,55 60,45 C80,35 100,40 120,28 C140,16 160,26 180,14 C200,9 220,16 240,6"/>
+            <circle cx="240" cy="6" r="3" class="vp-dot"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="theme-body">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="theme-letter">6</span>
+        <div>
+          <h3 class="theme-name">Vision Pro Frost</h3>
+          <p class="theme-tagline">Apple Vision OS. Soft glass dreaming.</p>
+        </div>
+      </div>
+      <p class="theme-audience">→ Consumer · Lifestyle · Healthcare · Education · Wellness</p>
+      <div class="theme-pillars">
+        <div>Frosted glass cards over color blobs</div>
+        <div>Soft rounded everything, generous radius</div>
+        <div>Gentle motion, blob breathing</div>
+        <div>Apple-grade premium, friendly</div>
+      </div>
+      <div class="theme-tags">
+        <span class="theme-tag">Frosted</span>
+        <span class="theme-tag">Soft</span>
+        <span class="theme-tag">Premium</span>
+        <span class="theme-tag">Friendly</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:32px; padding:18px 20px; background:rgba(124,58,237,0.08); border-left:3px solid #a78bfa; border-radius:8px; color:#cbc8de; font-size:13px; line-height:1.6;">
+  <strong style="color:#f5f3ff;">My recommendation:</strong> Ship all six. Each takes ~2 days of design-token work because the underlying chart engine (and IR) doesn't change — only the theme tokens, fonts, palette, and motion settings. Six themes give the product genuine range across audience segments and become a marketing asset on their own ("Stage Mode is unlike anything in BI").
+</p>
+
+<p style="margin-top:14px; padding:14px 18px; background:rgba(192,132,252,0.06); border-radius:8px; color:#a8a4c0; font-size:11px; line-height:1.5;">
+  <strong style="color:#c4b5fd;">Multi-select enabled.</strong> Click any number of themes you want to ship. Tell me in the terminal which to add (military tactical? editorial museum? Tron grid? minimalist white?), kill, or rename. I can iterate the screen.
+</p>

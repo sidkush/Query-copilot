@@ -293,3 +293,4 @@
 {"timestamp": "2026-04-10T13:31:49.645638+00:00", "conn_id": "325a6730", "event_type": "sync_completed", "details": {"status": "created", "tables_synced": 0, "size_mb": 0.512, "elapsed_seconds": 0.607}}
 {"timestamp": "2026-04-10T13:34:28.129224+00:00", "conn_id": "3fb42833", "event_type": "sync_started", "details": {"email_hash": "2d6713bebcdf"}}
 {"timestamp": "2026-04-10T13:34:28.761920+00:00", "conn_id": "3fb42833", "event_type": "sync_completed", "details": {"status": "created", "tables_synced": 0, "size_mb": 0.512, "elapsed_seconds": 0.624}}
+{"timestamp": "2026-04-14T18:24:17.357343+00:00", "event_type": "tile_created", "dashboard_id": "test-dash", "tile_id": "test-tile", "chart_type": "bar"}

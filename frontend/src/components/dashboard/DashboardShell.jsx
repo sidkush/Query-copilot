@@ -46,11 +46,14 @@ export default function DashboardShell({
   onModeChange,
   dashboardId = null,
   dashboardName,
+  dashboardList = [],
+  onSwitchDashboard,
   onTileClick,
   onLayoutChange,
 }) {
   const [mode, setMode] = useState(initialMode);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // Brush-to-detail cross-tile filtering.
   // Source tiles call onBrush(sourceTileId, field, range) via their VegaRenderer.
@@ -134,6 +137,27 @@ export default function DashboardShell({
     return [...dimensionCommands, ...measureCommands, ...metricCommands];
   }, [activeSemanticModel, setChartEditorSpec]);
 
+  // Dashboard switch commands for ⌘K palette
+  const dashboardCommands = useMemo(() => {
+    if (!dashboardList?.length || !onSwitchDashboard) return [];
+    return dashboardList.map((d) => ({
+      id: `dash:${d.id}`,
+      label: d.name || "Untitled Dashboard",
+      kind: "dashboard",
+      hint: d.id === dashboardId ? "Current" : `${d.tabs?.length || 0} tabs`,
+      action: () => {
+        onSwitchDashboard(d.id);
+        setPaletteOpen(false);
+      },
+    }));
+  }, [dashboardList, dashboardId, onSwitchDashboard]);
+
+  // Merge all commands for the palette
+  const allCommands = useMemo(() => [
+    ...dashboardCommands,
+    ...semanticCommands,
+  ], [dashboardCommands, semanticCommands]);
+
   const handleModeChange = (nextMode) => {
     setMode(nextMode);
     onModeChange && onModeChange(nextMode);
@@ -164,8 +188,131 @@ export default function DashboardShell({
           borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
         }}
       >
-        <div style={{ fontSize: 12, color: "var(--text-secondary, #b0b0b6)" }}>
-          Dashboard · {active.label}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
+          {/* Dashboard picker dropdown */}
+          <button
+            onClick={() => setPickerOpen((v) => !v)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "3px 8px",
+              borderRadius: 6,
+              background: "transparent",
+              border: "1px solid transparent",
+              color: "var(--text-secondary, #b0b0b6)",
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 150ms ease",
+              letterSpacing: "-0.01em",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.06))";
+              e.currentTarget.style.borderColor = "var(--border-subtle, rgba(255,255,255,0.1))";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = "transparent";
+            }}
+          >
+            <span style={{ color: "var(--text-muted, rgba(255,255,255,0.4))" }}>Dashboard</span>
+            <span style={{ color: "var(--text-primary, #e7e7ea)", fontWeight: 600 }}>
+              {dashboardName || "Untitled"}
+            </span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" style={{ opacity: 0.5 }}>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          <span style={{ color: "var(--text-muted, rgba(255,255,255,0.25))", fontSize: 11 }}>·</span>
+          <span style={{ color: "var(--text-secondary, #b0b0b6)", fontSize: 12 }}>{active.label}</span>
+
+          {/* Dropdown menu */}
+          {pickerOpen && dashboardList.length > 0 && (
+            <>
+              <div
+                onClick={() => setPickerOpen(false)}
+                style={{ position: "fixed", inset: 0, zIndex: 90 }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  left: 0,
+                  minWidth: 240,
+                  maxHeight: 320,
+                  overflowY: "auto",
+                  background: "var(--bg-elevated, #18182a)",
+                  border: "1px solid var(--border-default, rgba(255,255,255,0.1))",
+                  borderRadius: 10,
+                  boxShadow: "0 16px 48px -8px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.3)",
+                  zIndex: 100,
+                  padding: "4px",
+                }}
+              >
+                <div style={{
+                  padding: "6px 10px 4px",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "var(--text-muted, rgba(255,255,255,0.4))",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}>
+                  Dashboards
+                </div>
+                {dashboardList.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => {
+                      onSwitchDashboard?.(d.id);
+                      setPickerOpen(false);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      width: "100%",
+                      padding: "8px 10px",
+                      borderRadius: 7,
+                      background: d.id === dashboardId
+                        ? "var(--accent-light, rgba(99,102,241,0.12))"
+                        : "transparent",
+                      border: "none",
+                      color: d.id === dashboardId
+                        ? "var(--accent, #6366f1)"
+                        : "var(--text-primary, #e7e7ea)",
+                      fontSize: 12.5,
+                      fontWeight: d.id === dashboardId ? 600 : 400,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 100ms ease",
+                      letterSpacing: "-0.01em",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (d.id !== dashboardId) e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.06))";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (d.id !== dashboardId) e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    <span style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: d.id === dashboardId ? "var(--accent, #6366f1)" : "var(--text-muted, rgba(255,255,255,0.2))",
+                      flexShrink: 0,
+                    }} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {d.name || "Untitled"}
+                    </span>
+                    {d.id === dashboardId && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: "auto", flexShrink: 0, opacity: 0.7 }}>
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <DashboardModeToggle
@@ -231,7 +378,7 @@ export default function DashboardShell({
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
-        commands={semanticCommands}
+        commands={allCommands}
       />
     </div>
   );
