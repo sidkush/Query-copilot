@@ -1,11 +1,14 @@
 import type { UserChartType, UserChartTypeParam } from './types';
 
+/** The highest schema version this frontend build understands. */
+export const FRONTEND_MAX_SCHEMA_VERSION = 2;
+
 /**
  * Validator for UserChartType definitions.
  *
  * Checks:
  *   - Required top-level fields (id, name, schemaVersion, parameters, specTemplate)
- *   - schemaVersion === 1
+ *   - schemaVersion is a known version (<= FRONTEND_MAX_SCHEMA_VERSION)
  *   - Unique parameter names
  *   - Each parameter has a recognized kind
  *   - Every ${placeholder} referenced in the spec template maps to a declared parameter
@@ -44,8 +47,14 @@ export function validateUserChartType(def: unknown): UserTypeValidationResult {
   if (typeof d.name !== 'string' || d.name.length === 0) {
     errors.push('Missing or empty name');
   }
-  if (d.schemaVersion !== 1) {
-    errors.push(`schemaVersion must be 1, got ${String(d.schemaVersion)}`);
+  if (
+    typeof d.schemaVersion !== 'number' ||
+    d.schemaVersion < 1 ||
+    d.schemaVersion > FRONTEND_MAX_SCHEMA_VERSION
+  ) {
+    errors.push(
+      `schemaVersion must be between 1 and ${FRONTEND_MAX_SCHEMA_VERSION}, got ${String(d.schemaVersion)}`,
+    );
   }
   if (!Array.isArray(d.parameters)) {
     errors.push('parameters must be an array');

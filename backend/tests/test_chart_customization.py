@@ -10,6 +10,7 @@ from chart_customization import (
     delete_semantic_model,
     list_chart_types,
     list_semantic_models,
+    migrate_chart_type,
     save_chart_type,
     save_semantic_model,
     _customizations_path,
@@ -96,9 +97,14 @@ class TestUserChartTypes:
             save_chart_type(TEST_USER, bad)
 
     def test_rejects_wrong_schema_version(self):
-        bad = {**_waterfall_type(), "schemaVersion": 2}
+        bad = {**_waterfall_type(), "schemaVersion": 99}
         with pytest.raises(ValueError):
             save_chart_type(TEST_USER, bad)
+
+    def test_accepts_schema_version_2(self):
+        v2 = {**_waterfall_type(), "schemaVersion": 2}
+        saved = save_chart_type(TEST_USER, v2)
+        assert saved["schemaVersion"] == 2
 
     def test_atomic_write_yields_valid_json(self):
         save_chart_type(TEST_USER, _waterfall_type())

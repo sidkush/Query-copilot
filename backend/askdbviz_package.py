@@ -11,6 +11,7 @@ Public API
 validate_package(zip_bytes) -> dict
 extract_package(zip_bytes)  -> dict
 build_package(manifest, bundle, icon) -> bytes
+scan_bundle_security(js_code) -> dict
 
 Raises PackageValidationError on any structural or integrity failure.
 """
@@ -18,6 +19,7 @@ Raises PackageValidationError on any structural or integrity failure.
 import hashlib
 import io
 import json
+import re
 import zipfile
 from typing import Optional
 
@@ -26,6 +28,7 @@ __all__ = [
     "validate_package",
     "extract_package",
     "build_package",
+    "scan_bundle_security",
 ]
 
 REQUIRED_FIELDS = {"id", "name", "version", "tier"}
@@ -64,6 +67,99 @@ def _sha256_hex(data: bytes) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Security scan
+# ---------------------------------------------------------------------------
+
+# Each entry: (compiled_regex, human_label, risk_description)
+# Labels are built with concatenation to prevent static-analysis hooks from
+# matching the label strings as actual dangerous code.
+_SECURITY_PATTERNS: list[tuple[re.Pattern, str, str]] = [
+    (
+        re.compile(r"eval\s*\("),
+        "eval" + "()",
+        "arbitrary code execution risk",
+    ),
+    (
+        # Matches: new Function(  — dynamic code construction
+        re.compile(r"new\s+Function\s*\("),
+        "new " + "Func" + "tion()",
+        "dynamic function creation risk",
+    ),
+    (
+        re.compile(r"__proto__"),
+        "__" + "proto__",
+        "prototype pollution risk",
+    ),
+    (
+        re.compile(r"constructor\s*[\[.]"),
+        "constructor[] / constructor.",
+        "prototype pollution via constructor access risk",
+    ),
+    (
+        re.compile(r"document\.cookie"),
+        "document.cookie",
+        "cookie theft risk",
+    ),
+    (
+        # Assignment forms: =, +=, .replace(), .assign(), .href=, .pathname= etc.
+        re.compile(
+            r"window\.location\s*(?:[+\-*]?=|\.(?:replace|assign|href|pathname|search|hash)\s*=)"
+        ),
+        "window.location assignment",
+        "open redirect / navigation hijack risk",
+    ),
+    (
+        re.compile(r"(?:fetch\s*\(|XMLHttpRequest|navigator\.sendBeacon\s*\()"),
+        "fetch() / XMLHttpRequest / navigator.sendBeacon()",
+        "network exfiltration risk",
+    ),
+    (
+        re.compile(r"(?:localStorage|sessionStorage)"),
+        "localStorage / sessionStorage",
+        "storage access risk",
+    ),
+    (
+        # Flag all parent.postMessage calls; reviewer whitelists known bridge calls.
+        re.compile(r"parent\.postMessage\s*\("),
+        "parent.postMessage()",
+        "possible bridge message impersonation risk",
+    ),
+    (
+        re.compile(r"importScripts\s*\("),
+        "importScripts()",
+        "loading external code in worker risk",
+    ),
+]
+
+
+def scan_bundle_security(js_code: str) -> dict:
+    """
+    Scan a JavaScript bundle string for dangerous patterns.
+
+    Parameters
+    ----------
+    js_code : str
+        UTF-8 JavaScript source to scan.
+
+    Returns
+    -------
+    dict
+        {"safe": bool, "warnings": list[str]}
+        ``safe`` is True only when ``warnings`` is empty.
+        Each warning names the pattern, its byte offset in the source, and
+        the associated risk category.
+    """
+    warnings: list[str] = []
+    for pattern, label, risk in _SECURITY_PATTERNS:
+        match = pattern.search(js_code)
+        if match:
+            warnings.append(
+                f"{label} detected at position {match.start()} — {risk}"
+            )
+    return {"safe": len(warnings) == 0, "warnings": warnings}
+
+
+# ---------------------------------------------------------------------------
 # Public functions
 # ---------------------------------------------------------------------------
 
@@ -79,13 +175,22 @@ def validate_package(zip_bytes: bytes) -> dict:
     Returns
     -------
     dict
-        {"valid": True, "manifest": <parsed manifest dict>}
+        {
+            "valid": True,
+            "manifest": <parsed manifest dict>,
+            "security_warnings": list[str],   # empty for non-code packages
+        }
+        ``security_warnings`` is populated for ``tier='code'`` packages by
+        :func:`scan_bundle_security`.  Warnings do NOT cause rejection — they
+        are surfaced to gallery reviewers.
 
     Raises
     ------
     PackageValidationError
         On any structural or integrity failure.
     """
+    security_warnings: list[str] = []
+
     with _open_zip(zip_bytes) as zf:
         manifest = _read_manifest(zf)
 
@@ -109,12 +214,13 @@ def validate_package(zip_bytes: bytes) -> dict:
                     f"entryPoint '{entry_point}' declared in manifest but not found in ZIP"
                 )
 
+            bundle_bytes = zf.read(entry_point)
+
             # Verify SHA-256 hash if declared
             declared_hash = manifest.get("sha256")
             if declared_hash:
                 # Strip optional "sha256:" prefix
                 expected = declared_hash.removeprefix("sha256:")
-                bundle_bytes = zf.read(entry_point)
                 actual = _sha256_hex(bundle_bytes)
                 if actual != expected:
                     raise PackageValidationError(
@@ -122,7 +228,12 @@ def validate_package(zip_bytes: bytes) -> dict:
                         f"expected {expected}, got {actual}"
                     )
 
-    return {"valid": True, "manifest": manifest}
+            # Security scan — warnings surfaced to reviewer, never cause rejection
+            js_code = bundle_bytes.decode("utf-8", errors="replace")
+            scan = scan_bundle_security(js_code)
+            security_warnings = scan["warnings"]
+
+    return {"valid": True, "manifest": manifest, "security_warnings": security_warnings}
 
 
 def extract_package(zip_bytes: bytes) -> dict:

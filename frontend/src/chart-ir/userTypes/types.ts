@@ -58,8 +58,8 @@ export interface UserChartType {
   description?: string;
   /** Category heading for the picker ('Custom', 'Org', etc.). */
   category?: string;
-  /** Monotonic schema version for forward-compat. Always 1 in Phase C. */
-  schemaVersion: 1;
+  /** Monotonic schema version for forward-compat. 1 = Phase C original; 2 = adds tier/version/capabilities. */
+  schemaVersion: 1 | 2;
   /** Parameters consumed by the template. */
   parameters: UserChartTypeParam[];
   /**

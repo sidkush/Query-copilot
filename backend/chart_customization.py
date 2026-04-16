@@ -26,6 +26,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+CURRENT_SCHEMA_VERSION = 2
+
 _user_locks: dict[str, Lock] = {}
 _user_locks_guard = Lock()
 
@@ -81,27 +83,73 @@ def _save_raw(email: str, data: dict[str, Any]) -> None:
         raise
 
 
+# ── Schema versioning & migration ─────────────────────────────────────
+
+
+def migrate_chart_type(chart_type: dict) -> dict:
+    """Migrate a stored chart type dict to CURRENT_SCHEMA_VERSION.
+
+    Applies each migration in sequence (v1→v2, v2→v3, ...) so that
+    types stored at any prior version are always returned at the current
+    version.  If the type is already at CURRENT_SCHEMA_VERSION it is
+    returned as-is (no copy, no mutation).
+    """
+    version = chart_type.get("schemaVersion", 1)
+    if version >= CURRENT_SCHEMA_VERSION:
+        return chart_type
+
+    # Work on a shallow copy so callers' dicts are never mutated in-place.
+    ct = dict(chart_type)
+
+    # v1 → v2
+    if version < 2:
+        if "tier" not in ct:
+            ct["tier"] = "spec"
+        if "version" not in ct:
+            ct["version"] = "1.0.0"
+        if "capabilities" not in ct:
+            ct["capabilities"] = {"dataRoles": []}
+        ct["schemaVersion"] = 2
+        version = 2
+
+    # Future migrations would follow the same pattern:
+    # if version < 3:
+    #     ...
+    #     ct["schemaVersion"] = 3
+    #     version = 3
+
+    return ct
+
+
 # ── Sub-project C — user chart types ──────────────────────────────────
 
 
 def list_chart_types(email: str) -> list[dict[str, Any]]:
     with _lock_for(email):
-        return list(_load_raw(email).get("chart_types", []))
+        raw = _load_raw(email).get("chart_types", [])
+        return [migrate_chart_type(ct) for ct in raw]
 
 
 def save_chart_type(email: str, chart_type: dict[str, Any]) -> dict[str, Any]:
     """Create or update a user chart type. Validates required fields
-    (id + schemaVersion + specTemplate). Returns the saved object.
+    (id + schemaVersion + specTemplate). Migrates to the current schema
+    version before persisting. Returns the migrated saved object.
     """
     if not isinstance(chart_type, dict):
         raise ValueError("chart_type must be an object")
     type_id = chart_type.get("id")
     if not type_id or not isinstance(type_id, str):
         raise ValueError("chart_type.id must be a non-empty string")
-    if chart_type.get("schemaVersion") != 1:
-        raise ValueError("chart_type.schemaVersion must be 1")
+    incoming_version = chart_type.get("schemaVersion")
+    if incoming_version not in (1, 2):
+        raise ValueError(
+            f"chart_type.schemaVersion must be 1 or 2, got {incoming_version!r}"
+        )
     if not isinstance(chart_type.get("specTemplate"), dict):
         raise ValueError("chart_type.specTemplate must be an object")
+
+    # Migrate to current version before storing so storage is always up-to-date.
+    chart_type = migrate_chart_type(chart_type)
 
     with _lock_for(email):
         data = _load_raw(email)
