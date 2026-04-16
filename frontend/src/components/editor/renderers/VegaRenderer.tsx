@@ -9,6 +9,7 @@ import {
   pixelMinMaxRows,
   aggregateBinRows,
   ArrowChunkReceiver,
+  reportRenderTelemetry,
 } from '../../../chart-ir';
 import type {
   ChartSpec,
@@ -126,6 +127,8 @@ export default function VegaRenderer({
   const viewRef = useRef<View | null>(null);
   const streamingRef = useRef(false);
   const [streamingComplete, setStreamingComplete] = useState(false);
+  const firstPaintTsRef = useRef<number>(0);
+  const telemetryFiredRef = useRef(false);
 
   const isStreaming = strategy?.streaming?.enabled === true;
 
@@ -185,6 +188,9 @@ export default function VegaRenderer({
   // Store the view from onNewView so the streaming hook can insert rows.
   const handleNewViewWrapped = useCallback((view: View) => {
     viewRef.current = view;
+    if (!firstPaintTsRef.current) {
+      firstPaintTsRef.current = performance.now();
+    }
     handleNewView(view);
   }, [handleNewView]);
 
@@ -236,6 +242,35 @@ export default function VegaRenderer({
     receiver.start();
     return () => receiver.abort();
   }, [isStreaming, resultSet?.columns, spec, strategy]);
+
+  useEffect(() => {
+    if (telemetryFiredRef.current || !strategy) return;
+    const timer = setTimeout(() => {
+      if (telemetryFiredRef.current) return;
+      telemetryFiredRef.current = true;
+      const firstPaintMs = firstPaintTsRef.current
+        ? performance.now() - firstPaintTsRef.current
+        : 0;
+      reportRenderTelemetry({
+        session_id: String((window as unknown as Record<string, unknown>).__askdb_session_id ?? ''),
+        tile_id: slotIdRef.current,
+        tier: strategy.tier,
+        renderer_family: strategy.rendererFamily,
+        renderer_backend: strategy.rendererBackend,
+        row_count: rowObjects.length,
+        downsample_method: strategy.downsample?.method ?? 'none',
+        target_points: strategy.downsample?.targetPoints ?? 0,
+        first_paint_ms: Math.round(firstPaintMs),
+        median_frame_ms: 0,
+        p95_frame_ms: 0,
+        escalations: [],
+        evictions: 0,
+        instance_pressure_at_mount: 0,
+        gpu_tier: 'medium',
+      });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [strategy, rowObjects.length]);
 
   const handleError = useCallback(
     (err: Error, _container: HTMLDivElement) => {
