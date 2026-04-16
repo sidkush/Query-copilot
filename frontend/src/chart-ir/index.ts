@@ -132,6 +132,18 @@ export type {
   InstantiateParams,
 } from './userTypes/types';
 
+// Sub-project C Phase C2 — Chart SDK types
+export type { DataRole } from './sdk/types';
+export type { FormattingProperty } from './sdk/types';
+export type { FormattingGroup } from './sdk/types';
+export type { ChartCapabilities } from './sdk/types';
+export type { DataColumn } from './sdk/types';
+export type { ChartDataView } from './sdk/types';
+export type { ThemeTokens } from './sdk/types';
+export type { Viewport } from './sdk/types';
+export type { ChartRenderContext } from './sdk/types';
+export type { IChartType } from './sdk/types';
+
 // Voice — Phase 3 tier abstraction + stub adapters
 export {
   registerVoiceProvider,
@@ -175,3 +187,7 @@ export type { ChartRecommendation, ChartAvailability } from './recommender/showM
 
 export { CHART_TYPES } from './recommender/chartTypes';
 export type { ChartCategory, ChartTypeRequirements, ChartTypeDef } from './recommender/chartTypes';
+
+// Sub-project C2 — sandboxed chart SDK postMessage bridge
+export { buildHostMessage, parseGuestMessage, buildSrcdoc } from './sdk/bridge';
+export type { BridgeMessage, HostMessageType, GuestMessageType } from './sdk/bridge';
