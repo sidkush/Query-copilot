@@ -261,6 +261,10 @@ class Settings(BaseSettings):
     # ResultsChart + ECharts internally until a future migration.
     NEW_CHART_EDITOR_ENABLED: bool = Field(default=True)
 
+    # Sub-project C — user-authored chart types + community gallery.
+    CUSTOM_CHART_TYPES_ENABLED: bool = Field(default=True)   # Tier 1 spec templates (live since C0)
+    CHART_SDK_ENABLED: bool = Field(default=True)             # Tier 2 iframe SDK (C5 production flip)
+
     # Demo login guard — must be explicitly enabled
     DEMO_ENABLED: bool = Field(default=False)
 
