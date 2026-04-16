@@ -588,4 +588,15 @@ export const useStore = create((set, get) => ({
   // as a small overlay in the top-right corner of EditorCanvas.
   showTierBadge: false,
   toggleTierBadge: () => set((s) => ({ showTierBadge: !s.showTierBadge })),
+
+  // --- installedChartTypes slice (Sub-project C Tier 2) ------------------
+  // Holds the list of user-authored chart types loaded from the backend.
+  // Each entry conforms to UserChartType extended with optional Tier 2
+  // fields: { tier: 'code', bundle: string } for code-based (iframe) types.
+  // Populated via setInstalledChartTypes (called after API fetch on connect
+  // or on the chart-type management page). EditorCanvas reads this to route
+  // specs carrying a userTypeId to IframeChartHost when tier === 'code'.
+  installedChartTypes: [],
+  setInstalledChartTypes: (types) =>
+    set({ installedChartTypes: Array.isArray(types) ? types : [] }),
 }));

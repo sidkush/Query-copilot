@@ -7,6 +7,7 @@ import DeckRenderer from "./renderers/DeckRenderer";
 import CreativeRenderer from "./renderers/CreativeRenderer";
 import OnObjectOverlay from "./onobject/OnObjectOverlay";
 import TierBadge from "./TierBadge";
+import IframeChartHost from "../chartTypes/IframeChartHost";
 import { useStore } from "../../store";
 
 /**
@@ -20,6 +21,7 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
   const [vegaView, setVegaView] = useState(null);
   const handleViewReady = useCallback((view) => setVegaView(view), []);
   const colorMap = useStore((s) => s.colorMap);
+  const installedTypes = useStore((s) => s.installedChartTypes);
 
   useEffect(() => {
     const handler = (e) => {
@@ -48,11 +50,47 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
     }
   }, [spec, resultProfile]);
 
+  // --- Tier 2: user-authored code-based chart type (Sub-project C) -------
+  // If the spec carries a userTypeId that resolves to a 'code' tier type
+  // with a compiled bundle, short-circuit to IframeChartHost. This check
+  // runs before VegaRenderer so user types take priority over the default
+  // Vega-Lite path. The common case (no userTypeId) skips this entirely.
+  const customType = spec?.userTypeId
+    ? installedTypes.find((t) => t.id === spec.userTypeId)
+    : null;
+
   if (!spec) {
     return <CanvasEmpty message="No chart spec provided" />;
   }
   if (routing?.error) {
     return <CanvasEmpty message={`Routing error: ${routing.error}`} />;
+  }
+
+  // Render Tier 2 iframe sandbox if the spec targets a code-based user type.
+  if (customType?.tier === 'code' && customType.bundle) {
+    return (
+      <div
+        data-testid="editor-canvas"
+        data-renderer-id="iframe-custom"
+        data-strategy-tier="2"
+        style={{
+          position: "relative",
+          height: "100%",
+          width: "100%",
+          padding: 16,
+          background: "var(--bg-canvas, rgba(255,255,255,0.015))",
+          overflow: "auto",
+        }}
+      >
+        <IframeChartHost
+          bundle={customType.bundle}
+          data={resultSet}
+          viewport={{ width: 0, height: 0 }}
+          theme={{}}
+          config={customType.config || {}}
+        />
+      </div>
+    );
   }
 
   const { rendererId, strategy } = routing;
