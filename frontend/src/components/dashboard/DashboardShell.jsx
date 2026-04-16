@@ -8,6 +8,7 @@ import LiveOpsLayout from "./modes/LiveOpsLayout";
 import StoryLayout from "./modes/StoryLayout";
 import PitchLayout from "./modes/PitchLayout";
 import WorkbookLayout from "./modes/WorkbookLayout";
+import MobileLayout from "./modes/MobileLayout";
 import useTileLinking from "./lib/useTileLinking";
 
 /**
@@ -36,6 +37,7 @@ const MODES = [
   { id: "story", label: "Story", Layout: StoryLayout },
   { id: "pitch", label: "Pitch", Layout: PitchLayout },
   { id: "workbook", label: "Workbook", Layout: WorkbookLayout },
+  { id: "mobile", label: "Mobile", Layout: MobileLayout },
 ];
 
 export default function DashboardShell({

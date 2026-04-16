@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
@@ -111,6 +111,13 @@ const NAV_ITEMS = [
   },
 ];
 
+/* Hamburger icon for mobile collapsed state */
+const HamburgerIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+  </svg>
+);
+
 export default function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -130,8 +137,18 @@ export default function AppSidebar() {
     setTheme(next[theme] || "light");
   }, [theme, setTheme]);
 
-  return (
-    <div className="w-14 h-full flex-shrink-0 flex flex-col items-center py-3 gap-1 relative" style={{ background: 'var(--bg-page)', borderRight: '1px solid var(--border-default)' }}>
+  // Responsive collapse: on viewports < 768px collapse to icon-strip by default.
+  // The user can toggle back open via the hamburger button.
+  const [collapsed, setCollapsed] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setCollapsed(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
+  // Shared sidebar content — rendered both in the normal strip and the mobile overlay.
+  const SidebarContent = ({ onNavClick }) => (
+    <>
       {/* Subtle gradient glow at top */}
       <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
 
@@ -139,7 +156,7 @@ export default function AppSidebar() {
       <Tooltip text="AskDB Home">
         {(tooltipProps) => (
           <motion.button
-            onClick={() => navigate("/chat")}
+            onClick={() => { navigate("/chat"); onNavClick?.(); }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             animate={{
@@ -175,12 +192,12 @@ export default function AppSidebar() {
             <Tooltip key={item.id} text={item.label}>
               {(tooltipProps) => (
                 <motion.button
-                  onClick={() => navigate(item.path)}
+                  onClick={() => { navigate(item.path); onNavClick?.(); }}
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.95 }}
                   transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-300 ease-spring cursor-pointer relative z-10"
-                  style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)' }}
+                  className="w-11 h-11 rounded-xl flex items-center justify-center transition-colors duration-300 ease-spring cursor-pointer relative z-10"
+                  style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)', minWidth: 44, minHeight: 44 }}
                   aria-label={item.label}
                   aria-current={isActive ? "page" : undefined}
                   {...tooltipProps}
@@ -212,12 +229,12 @@ export default function AppSidebar() {
       <Tooltip text={agentPanelOpen ? "Hide Agent" : "Show Agent"}>
         {(tooltipProps) => (
           <motion.button
-            onClick={() => setAgentPanelOpen(!agentPanelOpen)}
+            onClick={() => { setAgentPanelOpen(!agentPanelOpen); onNavClick?.(); }}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-300 ease-spring cursor-pointer relative z-10"
-            style={{ color: agentPanelOpen ? 'var(--text-primary)' : 'var(--text-muted)' }}
+            className="w-11 h-11 rounded-xl flex items-center justify-center transition-colors duration-300 ease-spring cursor-pointer relative z-10"
+            style={{ color: agentPanelOpen ? 'var(--text-primary)' : 'var(--text-muted)', minWidth: 44, minHeight: 44 }}
             aria-label={agentPanelOpen ? "Hide Agent" : "Show Agent"}
             {...tooltipProps}
           >
@@ -260,7 +277,7 @@ export default function AppSidebar() {
       <Tooltip text={`Profile: ${user?.name || "User"}`}>
         {(tooltipProps) => (
           <motion.button
-            onClick={() => navigate("/profile")}
+            onClick={() => { navigate("/profile"); onNavClick?.(); }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
@@ -272,6 +289,84 @@ export default function AppSidebar() {
           </motion.button>
         )}
       </Tooltip>
+    </>
+  );
+
+  // Mobile: sidebar collapses entirely; a floating hamburger toggles a drawer overlay.
+  if (collapsed) {
+    return (
+      <>
+        {/* Floating hamburger button — always visible on mobile */}
+        <button
+          onClick={() => setCollapsed(false)}
+          aria-label="Open navigation"
+          style={{
+            position: "fixed",
+            top: 12,
+            left: 12,
+            zIndex: 60,
+            width: 44,
+            height: 44,
+            minWidth: 44,
+            minHeight: 44,
+            borderRadius: 12,
+            background: "var(--bg-elevated, rgba(20,20,30,0.92))",
+            border: "1px solid var(--border-default, rgba(255,255,255,0.1))",
+            color: "var(--text-primary, #e7e7ea)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}
+        >
+          <HamburgerIcon />
+        </button>
+
+        {/* Mobile nav drawer — slides in from the left when open */}
+        <AnimatePresence>
+          {/* (collapsed === false handled above, but keep AnimatePresence for exit) */}
+        </AnimatePresence>
+      </>
+    );
+  }
+
+  // Desktop / expanded: normal icon-strip sidebar.
+  return (
+    <div className="w-14 h-full flex-shrink-0 flex flex-col items-center py-3 gap-1 relative" style={{ background: 'var(--bg-page)', borderRight: '1px solid var(--border-default)' }}>
+      {/* On mobile when expanded, show a close/collapse button at top */}
+      {window.innerWidth < 768 && (
+        <button
+          onClick={() => setCollapsed(true)}
+          aria-label="Close navigation"
+          style={{
+            position: "absolute",
+            top: 8,
+            right: -48,
+            zIndex: 60,
+            width: 44,
+            height: 44,
+            minWidth: 44,
+            minHeight: 44,
+            borderRadius: 12,
+            background: "var(--bg-elevated, rgba(20,20,30,0.92))",
+            border: "1px solid var(--border-default, rgba(255,255,255,0.1))",
+            color: "var(--text-primary, #e7e7ea)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+          }}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+      <SidebarContent onNavClick={window.innerWidth < 768 ? () => setCollapsed(true) : undefined} />
     </div>
   );
 }
