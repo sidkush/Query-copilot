@@ -70,6 +70,7 @@ export default function SpecTemplateComposer() {
   const [draft, setDraft] = useState(makeDraft);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
+  const [rawMode, setRawMode] = useState(false);
 
   // Aggregate selections per channel — only relevant for Y
   const [aggregates, setAggregates] = useState({});
@@ -322,6 +323,23 @@ export default function SpecTemplateComposer() {
           {saving ? 'Saving...' : 'Save'}
         </button>
 
+        {/* Raw JSON toggle */}
+        <button
+          type="button"
+          data-testid="composer-raw-toggle"
+          onClick={() => setRawMode(!rawMode)}
+          style={{
+            padding: '4px 12px', borderRadius: 6, fontSize: 12,
+            background: rawMode ? '#3b82f6' : 'rgba(255,255,255,0.06)',
+            color: rawMode ? '#fff' : 'var(--text-secondary)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            cursor: 'pointer',
+            flexShrink: 0,
+          }}
+        >
+          {rawMode ? '← Visual' : 'JSON'}
+        </button>
+
         {/* ID preview */}
         {draft.id && (
           <span
@@ -362,93 +380,114 @@ export default function SpecTemplateComposer() {
             borderRight: '1px solid var(--border-subtle, rgba(255,255,255,0.06))',
           }}
         >
-          {/* Parameters */}
-          <ParameterEditor
-            parameters={draft.parameters}
-            onChange={handleParametersChange}
-          />
-
-          {/* Mark Type Picker */}
-          <Section title="Mark Type">
-            <select
-              value={draft.specTemplate.mark}
-              aria-label="Mark type"
-              data-testid="composer-mark-select"
-              onChange={handleMarkChange}
-              style={{ ...inputStyle, width: '100%', cursor: 'pointer' }}
-            >
-              {MARK_OPTIONS.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </Section>
-
-          {/* Encoding Assignment */}
-          <Section title="Encoding">
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
+          {rawMode ? (
+            <textarea
+              value={JSON.stringify(draft.specTemplate, null, 2)}
+              onChange={(e) => {
+                try {
+                  const parsed = JSON.parse(e.target.value);
+                  setDraft((d) => ({ ...d, specTemplate: parsed }));
+                } catch { /* ignore invalid JSON while typing */ }
               }}
-            >
-              {ENCODING_CHANNELS.map((ch) => (
+              style={{
+                width: '100%', height: '100%', fontFamily: 'monospace', fontSize: 12,
+                background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 8, padding: 12, resize: 'none',
+                boxSizing: 'border-box',
+              }}
+              data-testid="raw-json-editor"
+            />
+          ) : (
+            <>
+              {/* Parameters */}
+              <ParameterEditor
+                parameters={draft.parameters}
+                onChange={handleParametersChange}
+              />
+
+              {/* Mark Type Picker */}
+              <Section title="Mark Type">
+                <select
+                  value={draft.specTemplate.mark}
+                  aria-label="Mark type"
+                  data-testid="composer-mark-select"
+                  onChange={handleMarkChange}
+                  style={{ ...inputStyle, width: '100%', cursor: 'pointer' }}
+                >
+                  {MARK_OPTIONS.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </Section>
+
+              {/* Encoding Assignment */}
+              <Section title="Encoding">
                 <div
-                  key={ch}
-                  data-testid={`encoding-channel-${ch}`}
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
+                    flexDirection: 'column',
                     gap: 6,
                   }}
                 >
-                  {/* Channel label */}
-                  <span
-                    style={{
-                      width: 56,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      textTransform: 'capitalize',
-                      color: 'var(--text-secondary, #b0b0b6)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {ch}
-                  </span>
-
-                  {/* Param dropdown */}
-                  <select
-                    value={getSelectedParam(ch)}
-                    aria-label={`${ch} encoding`}
-                    data-testid={`encoding-select-${ch}`}
-                    onChange={(e) => handleEncodingChange(ch, e.target.value)}
-                    style={{ ...inputStyle, flex: 1, minWidth: 0, cursor: 'pointer' }}
-                  >
-                    <option value="">(none)</option>
-                    {fieldParams.map((p) => (
-                      <option key={p.name} value={p.name}>{p.name}</option>
-                    ))}
-                  </select>
-
-                  {/* Aggregate dropdown — Y channel only */}
-                  {ch === 'y' && getSelectedParam(ch) && (
-                    <select
-                      value={aggregates.y || ''}
-                      aria-label="Y aggregate"
-                      data-testid="encoding-aggregate-y"
-                      onChange={(e) => handleAggregateChange('y', e.target.value)}
-                      style={{ ...inputStyle, width: 80, cursor: 'pointer', flexShrink: 0 }}
+                  {ENCODING_CHANNELS.map((ch) => (
+                    <div
+                      key={ch}
+                      data-testid={`encoding-channel-${ch}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
                     >
-                      <option value="">(none)</option>
-                      {AGGREGATE_OPTIONS.map((a) => (
-                        <option key={a} value={a}>{a}</option>
-                      ))}
-                    </select>
-                  )}
+                      {/* Channel label */}
+                      <span
+                        style={{
+                          width: 56,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          textTransform: 'capitalize',
+                          color: 'var(--text-secondary, #b0b0b6)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {ch}
+                      </span>
+
+                      {/* Param dropdown */}
+                      <select
+                        value={getSelectedParam(ch)}
+                        aria-label={`${ch} encoding`}
+                        data-testid={`encoding-select-${ch}`}
+                        onChange={(e) => handleEncodingChange(ch, e.target.value)}
+                        style={{ ...inputStyle, flex: 1, minWidth: 0, cursor: 'pointer' }}
+                      >
+                        <option value="">(none)</option>
+                        {fieldParams.map((p) => (
+                          <option key={p.name} value={p.name}>{p.name}</option>
+                        ))}
+                      </select>
+
+                      {/* Aggregate dropdown — Y channel only */}
+                      {ch === 'y' && getSelectedParam(ch) && (
+                        <select
+                          value={aggregates.y || ''}
+                          aria-label="Y aggregate"
+                          data-testid="encoding-aggregate-y"
+                          onChange={(e) => handleAggregateChange('y', e.target.value)}
+                          style={{ ...inputStyle, width: 80, cursor: 'pointer', flexShrink: 0 }}
+                        >
+                          <option value="">(none)</option>
+                          {AGGREGATE_OPTIONS.map((a) => (
+                            <option key={a} value={a}>{a}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </Section>
+              </Section>
+            </>
+          )}
         </div>
 
         {/* ----- Right panel ---- */}
