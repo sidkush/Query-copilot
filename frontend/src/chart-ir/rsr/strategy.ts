@@ -9,7 +9,7 @@
 import type { ChartSpec, SemanticType } from '../types';
 
 export type StrategyTier = 't0' | 't1' | 't2' | 't3';
-export type RendererFamily = 'vega' | 'deck' | 'maplibre' | 'creative';
+export type RendererFamily = 'vizql' | 'vega' | 'deck' | 'maplibre' | 'creative';
 export type RendererBackend = 'svg' | 'canvas' | 'webgl';
 export type DownsampleMethod =
   | 'lttb'

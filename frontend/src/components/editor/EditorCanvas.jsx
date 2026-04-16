@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { routeSpecWithStrategy } from "../../chart-ir";
 import { getGPUTier } from "../../lib/gpuDetect";
+import VizQLRenderer from "./renderers/VizQLRenderer";
 import VegaRenderer from "./renderers/VegaRenderer";
 import MapLibreRenderer from "./renderers/MapLibreRenderer";
 import DeckRenderer from "./renderers/DeckRenderer";
@@ -144,6 +145,14 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthr
       }}
     >
       <TierBadge strategy={strategy} />
+      {rendererId === "vizql" && (
+        <VizQLRenderer
+          spec={spec}
+          resultSet={resultSet}
+          strategy={strategy}
+          onDrillthrough={onDrillthrough}
+        />
+      )}
       {rendererId === "vega-lite" && (
         <OnObjectOverlay view={vegaView} spec={spec} onSpecChange={onSpecChange}>
           <VegaRenderer

@@ -153,7 +153,7 @@ export function pickRenderStrategy(input: RenderStrategyInput): RenderStrategy {
       reasons.push(`hint=${hint} refused: mark not deck-eligible`);
       // fall through to normal decision tree
     } else {
-      const family: RendererFamily = hint === 't2' || hint === 't3' ? 'deck' : 'vega';
+      const family: RendererFamily = hint === 't2' || hint === 't3' ? 'deck' : 'vizql';
       const backend: RendererBackend = hint === 't0' ? 'svg' : hint === 't1' ? 'canvas' : 'webgl';
       return {
         tier: hint,
@@ -223,7 +223,7 @@ export function pickRenderStrategy(input: RenderStrategyInput): RenderStrategy {
     reasons.push(`frame budget tight -> escalate ${before} to ${tier}`);
   }
 
-  const family: RendererFamily = tier === 't2' || tier === 't3' ? 'deck' : 'vega';
+  const family: RendererFamily = tier === 't2' || tier === 't3' ? 'deck' : 'vizql';
   const backend: RendererBackend = tier === 't0' ? 'svg' : tier === 't1' ? 'canvas' : 'webgl';
 
   return {

@@ -28,7 +28,7 @@ import type {
 } from './rsr/strategy';
 import type { ChartSpec, SpecType } from './types';
 
-export type RendererId = 'vega-lite' | 'maplibre' | 'deckgl' | 'three';
+export type RendererId = 'vizql' | 'vega-lite' | 'maplibre' | 'deckgl' | 'three';
 
 /** Route a ChartSpec to its renderer. Pure function. */
 export function routeSpec(spec: ChartSpec): RendererId {
@@ -38,7 +38,7 @@ export function routeSpec(spec: ChartSpec): RendererId {
 function mapTypeToRenderer(type: SpecType | string): RendererId {
   switch (type) {
     case 'cartesian':
-      return 'vega-lite';
+      return 'vizql';
     case 'map':
       return 'maplibre';
     case 'geo-overlay':
@@ -60,7 +60,9 @@ function mapTypeToRenderer(type: SpecType | string): RendererId {
 function familyToRendererId(family: RenderStrategy['rendererFamily']): RendererId {
   switch (family) {
     case 'vega':
-      return 'vega-lite';
+      return 'vizql';
+    case 'vizql':
+      return 'vizql';
     case 'deck':
       return 'deckgl';
     case 'maplibre':
