@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import EditorCanvas from "../../editor/EditorCanvas";
+import useViewportMount from "../../../lib/useViewportMount";
 
 /**
  * DashboardTileCanvas — tile-sized ChartEditor view.
@@ -60,12 +61,15 @@ export default function DashboardTileCanvas({
     return { columns, rows, columnProfile };
   }, [tile?.columns, tile?.rows, tile?.columnProfile, resultSetOverride]);
 
+  const { ref: viewportRef, mounted: inViewport } = useViewportMount({ rootMargin: '300px' });
+
   const handleClick = () => {
     if (onTileClick) onTileClick(tile);
   };
 
   return (
     <div
+      ref={viewportRef}
       data-testid={`dashboard-tile-canvas-${tile?.id || "tile"}`}
       data-has-spec={spec ? "true" : "false"}
       className="dashboard-tile-canvas"
@@ -127,7 +131,25 @@ export default function DashboardTileCanvas({
         }}
       >
         {spec ? (
-          <EditorCanvas spec={spec} resultSet={resultSet} />
+          inViewport ? (
+            <EditorCanvas spec={spec} resultSet={resultSet} />
+          ) : (
+            <div
+              data-testid="tile-viewport-skeleton"
+              style={{
+                height: '100%',
+                background: 'rgba(255,255,255,0.02)',
+                borderRadius: 6,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-muted, rgba(255,255,255,0.3))',
+                fontSize: 11,
+              }}
+            >
+              Scroll to load
+            </div>
+          )
         ) : (
           <EmptyTile />
         )}
