@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { detectCorrections } from "./chart-ir";
 
 let _themeTimer = null;
 
@@ -458,6 +459,35 @@ export const useStore = create((set, get) => ({
         nextHistory = nextHistory.slice(overflow);
         nextIndex = nextHistory.length - 1;
       }
+
+      // Teach-by-correction (D3): detect spec deltas and queue suggestions
+      const prevSpec = editor.history[editor.historyIndex] || null;
+      if (prevSpec && nextSpec && pushHistory) {
+        try {
+          const corrections = detectCorrections(prevSpec, nextSpec);
+          if (corrections.length > 0) {
+            const now = Date.now();
+            const recentCount = s.correctionSuggestions.filter(
+              (c) => c._ts && now - c._ts < 60000
+            ).length;
+            if (recentCount < 2) {
+              const tagged = corrections.map((c) => ({ ...c, _ts: now }));
+              return {
+                chartEditor: {
+                  ...editor,
+                  currentSpec: nextSpec,
+                  history: nextHistory,
+                  historyIndex: nextIndex,
+                },
+                correctionSuggestions: [...s.correctionSuggestions, ...tagged],
+              };
+            }
+          }
+        } catch {
+          // Non-fatal
+        }
+      }
+
       return {
         chartEditor: {
           ...editor,

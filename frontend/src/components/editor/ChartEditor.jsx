@@ -1,9 +1,11 @@
 import { useMemo } from "react";
+import useStore from "../../store";
 import ChartEditorTopbar from "./ChartEditorTopbar";
 import DataRail from "./DataRail";
 import EditorCanvas from "./EditorCanvas";
 import BottomDock from "./BottomDock";
 import InspectorRoot from "./Inspector/InspectorRoot";
+import CorrectionToast from "./CorrectionToast";
 
 /**
  * ChartEditor — top-level 3-pane CSS grid shell.
@@ -37,6 +39,8 @@ export default function ChartEditor({
   surface = "dashboard-tile",
   onSpecChange,
 }) {
+  const connId = useStore((s) => s.activeConnId);
+
   const showDataRail = mode === "pro";
   const showInspector = mode === "pro" || mode === "default";
   const showDock = mode !== "stage";
@@ -86,12 +90,13 @@ export default function ChartEditor({
         </div>
       )}
 
-      <div style={{ gridArea: "canvas", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ gridArea: "canvas", minWidth: 0, minHeight: 0, overflow: "hidden", position: "relative" }}>
         <EditorCanvas
           spec={spec}
           resultSet={resultSet}
           onSpecChange={onSpecChange}
         />
+        <CorrectionToast connId={connId} />
       </div>
 
 
