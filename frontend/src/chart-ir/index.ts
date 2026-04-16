@@ -65,6 +65,9 @@ export type {
   DoneEvent,
 } from './perf/arrowChunkReceiver';
 
+// DuckDB-WASM client-side LTTB fallback (dep: npm install @duckdb/duckdb-wasm)
+export { initDuckDBWasm, localLttbDownsample, isDuckDBWasmAvailable } from './perf/duckdbWasm';
+
 export { compileToVegaLite } from './compiler/toVegaLite';
 
 export { applySpecPatch, parsePointer, PatchError } from './applySpecPatch';
@@ -78,6 +81,44 @@ export type { PixelMinMaxOptions } from './transforms/pixelMinMax';
 
 export { aggregateBinRows } from './transforms/aggregateBin';
 export type { BinAggregate, AggregateBinOptions } from './transforms/aggregateBin';
+
+// LOD expressions — Tableau-style FIXED / INCLUDE / EXCLUDE
+export {
+  executeLodExpression,
+  executeLodPipeline,
+  resolvePartitionDimensions,
+  fixed,
+  include,
+  exclude,
+  total,
+  percentOfTotal,
+  indexToAverage,
+} from './transforms/lodExpression';
+export type {
+  LodType,
+  LodAggregate,
+  LodExpression,
+  LodContext,
+} from './transforms/lodExpression';
+
+// Table calculations — running_sum, rank, pct_of_total, moving_avg, etc.
+export {
+  executeTableCalc,
+  executeTableCalcPipeline,
+  resolvePartitionAddress,
+  runningSum,
+  rank,
+  pctOfTotal,
+  movingAvg,
+  difference,
+  pctChange,
+  cumulativePct,
+} from './transforms/tableCalc';
+export type {
+  TableCalcType,
+  SortDirection,
+  TableCalcDef,
+} from './transforms/tableCalc';
 
 // Sub-project D — semantic layer
 export { validateLinguisticModel } from './semantic/linguistic';

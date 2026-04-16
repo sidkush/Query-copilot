@@ -51,6 +51,9 @@ function pickDownsample(
     return { enabled: true, method: 'pixel_min_max', targetPoints };
   }
   if ((xType === 'temporal' || xType === 'quantitative') && yType === 'quantitative') {
+    // Future: if network latency > 500ms and isDuckDBWasmAvailable(),
+    // route through localLttbDownsample() instead of server-side LTTB.
+    // See chart-ir/perf/duckdbWasm.ts
     return { enabled: true, method: 'lttb', targetPoints };
   }
   return { enabled: true, method: 'uniform', targetPoints };
