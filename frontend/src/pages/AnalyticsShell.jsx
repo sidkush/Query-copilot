@@ -33,7 +33,7 @@ const ChartEditor = lazy(() => import("../components/editor/ChartEditor"));
  * Tiles store {columns, rows} but may lack columnProfile.
  * We infer it from the data so the DataRail populates dimensions/measures.
  */
-function buildTileResultSet(tile) {
+function buildTileResultSet(tile, schemaColumns = []) {
   const columns = Array.isArray(tile?.columns) ? tile.columns : [];
   let rows = Array.isArray(tile?.rows) ? tile.rows : [];
 
@@ -66,6 +66,26 @@ function buildTileResultSet(tile) {
         };
       });
 
+  // Merge schema columns — add any DB columns not already in the profile
+  // so the DataRail shows ALL available fields for the user to drag onto the chart
+  if (schemaColumns.length > 0) {
+    const existingNames = new Set(columnProfile.map(c => c.name));
+    for (const sc of schemaColumns) {
+      const name = sc.name || sc.column_name;
+      if (name && !existingNames.has(name)) {
+        columnProfile.push({
+          name,
+          dtype: sc.dtype || sc.data_type || 'string',
+          role: (sc.role === 'measure' || sc.semanticType === 'quantitative' || /int|float|numeric|decimal|double/i.test(sc.dtype || sc.data_type || '')) ? 'measure' : 'dimension',
+          semanticType: sc.semanticType || (/int|float|numeric|decimal|double/i.test(sc.dtype || sc.data_type || '') ? 'quantitative' : /date|time/i.test(sc.dtype || sc.data_type || '') ? 'temporal' : 'nominal'),
+          cardinality: sc.cardinality || 0,
+          nullPct: sc.nullPct || 0,
+          sampleValues: sc.sampleValues || [],
+        });
+      }
+    }
+  }
+
   return { columns, rows, columnProfile };
 }
 
@@ -89,14 +109,27 @@ export default function AnalyticsShell() {
   const agentPanelOpen = useStore((s) => s.agentPanelOpen);
   const setChartEditorSpec = useStore((s) => s.setChartEditorSpec);
   const setChartEditorMode = useStore((s) => s.setChartEditorMode);
+  const activeConnId = useStore((s) => s.activeConnId);
   const [selectedTile, setSelectedTile] = useState(null);
   const [editorMode, setEditorMode] = useState("pro");
+  const [schemaColumns, setSchemaColumns] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [dashboardList, setDashboardList] = useState([]);
   const dashboardIdRef = useRef(null);
+
+  // Fetch all database columns for DataRail (dimensions/measures from full schema)
+  useEffect(() => {
+    if (!activeConnId) return;
+    api.getSchemaProfile(activeConnId)
+      .then(profile => {
+        if (profile?.columns) setSchemaColumns(profile.columns);
+        else if (Array.isArray(profile)) setSchemaColumns(profile);
+      })
+      .catch(() => {}); // non-critical
+  }, [activeConnId]);
 
   const fetchDashboard = useCallback(async () => {
     setError(null);
@@ -118,6 +151,21 @@ export default function AnalyticsShell() {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [activeDashboardId, setActiveDashboardId]);
+
+  // Persist layout changes to backend (debounced to avoid hammering API on every drag pixel)
+  const layoutTimerRef = useRef(null);
+  const handleLayoutChange = useCallback((layout) => {
+    if (!dashboard?.id) return;
+    if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current);
+    layoutTimerRef.current = setTimeout(async () => {
+      try {
+        // Save layout array to the dashboard via PUT
+        await api.updateDashboard(dashboard.id, { layout });
+      } catch (err) {
+        console.warn('[AnalyticsShell] layout save failed:', err);
+      }
+    }, 1000); // 1s debounce
+  }, [dashboard?.id]);
 
   const handleTileClick = useCallback((tile) => {
     if (!tile) return;
@@ -240,6 +288,7 @@ export default function AnalyticsShell() {
         dashboardList={dashboardList}
         onSwitchDashboard={switchDashboard}
         onTileClick={handleTileClick}
+        onLayoutChange={handleLayoutChange}
         initialMode="workbench"
       />
       {agentPanelOpen && (
@@ -286,7 +335,7 @@ export default function AnalyticsShell() {
             <div style={{ flex: 1, minHeight: 0, height: '100%', overflow: 'hidden' }}>
               <ChartEditor
                 spec={selectedTile.chart_spec || selectedTile.chartSpec || { $schema: "askdb/chart-spec/v1", type: "cartesian", mark: "bar", encoding: {} }}
-                resultSet={buildTileResultSet(selectedTile)}
+                resultSet={buildTileResultSet(selectedTile, schemaColumns)}
                 mode={editorMode}
                 surface="dashboard-tile"
                 onModeChange={setEditorMode}
