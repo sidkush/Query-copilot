@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { TOKENS } from './tokens';
 import { getFieldSuggestions, classifyColumns } from '../../lib/fieldClassification';
+import { parseFormula } from '../../lib/formulaParser';
 
 /**
  * Scan backward from cursorPos in text to detect an enclosing SQL function.
@@ -119,6 +120,27 @@ const styles = {
     color: TOKENS.text.muted,
     textAlign: 'center',
   },
+  validationRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 4,
+    fontSize: 11,
+    lineHeight: 1.4,
+  },
+  validBadge: {
+    color: TOKENS.success || '#4ade80',
+    fontWeight: 600,
+    flexShrink: 0,
+  },
+  errorList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  errorItem: {
+    color: '#f87171',
+  },
 };
 
 export default function FormulaInput({
@@ -128,15 +150,29 @@ export default function FormulaInput({
   fieldClassifications = {},
   sampleColumns = [],
   placeholder = 'e.g. SUM({revenue}) / COUNT({order_id})',
+  columnNames = [],
 }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownFilter, setDropdownFilter] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [triggerPos, setTriggerPos] = useState(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [validation, setValidation] = useState({ valid: false, errors: [], checked: false });
 
   const textareaRef = useRef(null);
   const dropdownRef = useRef(null);
+
+  // Validate formula on every value change
+  useEffect(() => {
+    if (!value || !value.trim()) {
+      setValidation({ valid: false, errors: [], checked: false });
+      return;
+    }
+    // Strip {col} syntax to plain identifiers before parsing (formula editor uses {col} for column refs)
+    const normalized = value.replace(/\{([^}]+)\}/g, '$1');
+    const result = parseFormula(normalized, columnNames);
+    setValidation({ valid: result.valid, errors: result.errors, checked: true });
+  }, [value, columnNames]);
 
   // Effective classifications: merge explicit props + auto-classify from schemaColumns + sampleColumns fallback
   const effectiveClassifications = useMemo(() => {
@@ -382,6 +418,20 @@ export default function FormulaInput({
           ...(isFocused ? styles.textareaFocused : {}),
         }}
       />
+
+      {validation.checked && (
+        <div style={styles.validationRow}>
+          {validation.valid ? (
+            <span style={styles.validBadge}>&#10003; Valid</span>
+          ) : (
+            <div style={styles.errorList}>
+              {validation.errors.map((err, i) => (
+                <span key={i} style={styles.errorItem}>{err}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {showDropdown && (
         <div ref={dropdownRef} style={styles.dropdown}>

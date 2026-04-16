@@ -16,6 +16,8 @@ export default defineConfig({
       'src/chart-ir/__tests__/**/*.test.tsx',
       'src/chart-ir/__tests__/**/**/*.test.ts',
       'src/chart-ir/__tests__/**/**/*.test.tsx',
+      'src/lib/__tests__/**/*.test.js',
+      'src/lib/__tests__/**/*.test.ts',
     ],
     coverage: {
       provider: 'v8',
