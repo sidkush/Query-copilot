@@ -2,7 +2,7 @@
 
 import asyncio
 import json as _json
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -149,11 +149,13 @@ class AddTile(BaseModel):
     question: Optional[str] = None
     sql: Optional[str] = None
     subtitle: Optional[str] = None
+    annotation: Optional[str] = None  # Story mode: scrollytelling chapter annotation
     filters: Optional[dict] = None
 
 class UpdateTileBody(BaseModel):
     title: Optional[str] = None
     subtitle: Optional[str] = None
+    annotation: Optional[str] = None  # Story mode: scrollytelling chapter annotation
     chartType: Optional[str] = None
     sql: Optional[str] = None
     selectedMeasure: Optional[str] = None
@@ -1548,41 +1550,62 @@ async def migrate_one_dashboard(dashboard_id: str, user=Depends(get_current_user
 # ── Sub-project A Phase 4c — LiveOps refresh stream ────────────────────
 
 @router.get("/{dashboard_id}/refresh-stream")
-async def refresh_stream(
+async def dashboard_refresh_stream(
     dashboard_id: str,
-    interval: int = 5,
-    user=Depends(get_current_user),
+    interval: int = Query(default=5, ge=1, le=60),
+    token: str = Query(default=""),
 ):
-    """SSE heartbeat stream that signals the Live Ops layout to re-run
-    its tiles on a fixed interval (default 5s).
+    """SSE endpoint for LiveOps auto-refresh. Emits refresh signals at interval seconds.
 
-    Phase 4c ships a heartbeat-only variant: the event body is a JSON
-    tick `{tile_ids: "*", ts: <iso>, tick: N}`. Tiles react by calling
-    `refreshTile()` on the active connection to pull fresh rows. The
-    event loop stops cleanly on client disconnect (StreamingResponse
-    handles that via `CancelledError`).
+    EventSource cannot set custom headers, so the JWT is passed via the
+    `token` query param (same pattern as the agent SSE endpoint). The
+    interval is enforced server-side in [1, 60] via Query constraints.
 
-    Interval is clamped to [1, 60] to prevent pathological refresh
-    rates. Dashboards that belong to a different user still stream (no
-    ownership check beyond auth) — same contract as
-    `/subscribe`, which leaves authorization to the app layer.
+    Emits: `event: refresh\\ndata: {timestamp, dashboard_id, tick}\\n\\n`
     """
-    clamped_interval = max(1, min(60, int(interval)))
+    from jose import JWTError as _JWTError, jwt as _jwt
+    from datetime import datetime, timezone
+
+    from config import settings
+
+    # 1. Validate JWT from query param (EventSource cannot send headers)
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing auth token")
+    try:
+        payload = _jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+        email: str = payload.get("sub") or payload.get("email", "")
+        if not email:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+    except (_JWTError, Exception):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    # 2. Verify user owns (or can access) the dashboard
+    d = load_dashboard(email, dashboard_id)
+    if not d:
+        raise HTTPException(status_code=404, detail="Dashboard not found")
+
+    # interval already clamped by Query(ge=1, le=60)
+    clamped_interval = interval
 
     async def event_generator():
         tick = 0
         try:
             while True:
                 tick += 1
-                payload = _json.dumps(
+                ts = datetime.now(timezone.utc).isoformat()
+                data = _json.dumps(
                     {
+                        "timestamp": ts,
                         "dashboard_id": dashboard_id,
-                        "tile_ids": "*",
                         "tick": tick,
                         "interval_s": clamped_interval,
                     }
                 )
-                yield f"event: refresh\ndata: {payload}\n\n"
+                yield f"event: refresh\ndata: {data}\n\n"
                 await asyncio.sleep(clamped_interval)
         except asyncio.CancelledError:
             pass
