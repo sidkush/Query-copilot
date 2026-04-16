@@ -116,7 +116,23 @@ export default function DashboardTileCanvas({
     [onDrillthrough]
   );
 
+  // Distinguish click from drag — react-grid-layout captures mousedown for drag.
+  // Track mouse position: if moved < 5px between down/up, treat as click.
+  const mouseDownPos = useRef(null);
+  const handleMouseDown = (e) => {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+  };
+  const handleMouseUp = (e) => {
+    if (!mouseDownPos.current || !onTileClick) return;
+    const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+    const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+    if (dx < 5 && dy < 5) {
+      onTileClick(tile);
+    }
+    mouseDownPos.current = null;
+  };
   const handleClick = () => {
+    // Fallback for accessibility — keyboard Enter triggers click
     if (onTileClick) onTileClick(tile);
   };
 
@@ -177,6 +193,8 @@ export default function DashboardTileCanvas({
         </div>
       )}
       <div
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
         onClick={handleClick}
         style={{
           flex: 1,

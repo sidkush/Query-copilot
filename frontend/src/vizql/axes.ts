@@ -67,41 +67,59 @@ export function drawAxes(ctx: Ctx, layout: ChartLayout): void {
     ctx.stroke();
 
     // Ticks and labels — with collision avoidance
-    setFont(ctx, '10px Inter, system-ui, sans-serif');
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
+    setFont(ctx, '9px Inter, system-ui, sans-serif');
 
     // Resolve overlapping labels before drawing
     const visibleXTicks = resolveAxisLabelCollisions(layout.xAxis.ticks, true, 10, 6);
     const visibleXSet = new Set(visibleXTicks.map(t => t.label));
 
+    // Detect if labels need rotation (many long categorical labels)
+    const maxLabelLen = Math.max(...layout.xAxis.ticks.map(t => t.label.length), 0);
+    const tickSpacing = layout.xAxis.ticks.length > 1
+      ? Math.abs(layout.xAxis.ticks[1].pixel - layout.xAxis.ticks[0].pixel) : 999;
+    const shouldRotate = maxLabelLen > 6 && tickSpacing < 60;
+
     for (const tick of layout.xAxis.ticks) {
       const x = layout.plot.x + tick.pixel;
 
-      // Always draw tick mark
       ctx.strokeStyle = TICK_COLOR;
       ctx.beginPath();
       ctx.moveTo(x, axisY);
-      ctx.lineTo(x, axisY + 5);
+      ctx.lineTo(x, axisY + 4);
       ctx.stroke();
 
-      // Only draw label if it passed collision check
       if (visibleXSet.has(tick.label)) {
         setFill(ctx, LABEL_COLOR);
-        const label = tick.label.length > 12 ? tick.label.slice(0, 11) + '…' : tick.label;
-        ctx.fillText(label, x, axisY + 7);
+        const label = tick.label.length > 10 ? tick.label.slice(0, 9) + '…' : tick.label;
+
+        if (shouldRotate) {
+          ctx.save();
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.translate(x, axisY + 8);
+          ctx.rotate(-Math.PI / 4);
+          ctx.fillText(label, 0, 0);
+          ctx.restore();
+        } else {
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(label, x, axisY + 6);
+        }
       }
     }
 
     // Axis title
     if (layout.xAxis.title) {
-      ctx.font = '11px Inter, system-ui, sans-serif';
+      const titleLabel = layout.xAxis.title.length > 25
+        ? layout.xAxis.title.slice(0, 24) + '…' : layout.xAxis.title;
+      ctx.font = '10px Inter, system-ui, sans-serif';
       ctx.fillStyle = AXIS_COLOR;
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
       ctx.fillText(
-        layout.xAxis.title,
+        titleLabel,
         layout.plot.x + layout.plot.width / 2,
-        axisY + 30,
+        axisY + (shouldRotate ? 38 : 22),
       );
     }
   }
@@ -115,36 +133,48 @@ export function drawAxes(ctx: Ctx, layout: ChartLayout): void {
     ctx.stroke();
 
     // Ticks and labels — with collision avoidance
-    setFont(ctx, '10px Inter, system-ui, sans-serif');
+    setFont(ctx, '9px Inter, system-ui, sans-serif');
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
 
     const visibleYTicks = resolveAxisLabelCollisions(layout.yAxis.ticks, false, 10, 6);
     const visibleYSet = new Set(visibleYTicks.map(t => t.label));
 
+    // Format numbers compactly
+    const formatYLabel = (label: string): string => {
+      const num = Number(label);
+      if (!isNaN(num) && Math.abs(num) >= 1000) {
+        if (Math.abs(num) >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
+        if (Math.abs(num) >= 1_000) return (num / 1_000).toFixed(1) + 'K';
+      }
+      return label.length > 8 ? label.slice(0, 7) + '…' : label;
+    };
+
     for (const tick of layout.yAxis.ticks) {
       const y = layout.plot.y + tick.pixel;
       ctx.strokeStyle = TICK_COLOR;
       ctx.beginPath();
-      ctx.moveTo(layout.plot.x - 5, y);
+      ctx.moveTo(layout.plot.x - 4, y);
       ctx.lineTo(layout.plot.x, y);
       ctx.stroke();
 
       if (visibleYSet.has(tick.label)) {
         setFill(ctx, LABEL_COLOR);
-        ctx.fillText(tick.label, layout.plot.x - 8, y);
+        ctx.fillText(formatYLabel(tick.label), layout.plot.x - 6, y);
       }
     }
 
-    // Axis title (rotated)
+    // Axis title (rotated) — truncated
     if (layout.yAxis.title) {
+      const titleLabel = layout.yAxis.title.length > 20
+        ? layout.yAxis.title.slice(0, 19) + '…' : layout.yAxis.title;
       ctx.save();
-      ctx.font = '11px Inter, system-ui, sans-serif';
+      ctx.font = '10px Inter, system-ui, sans-serif';
       ctx.fillStyle = AXIS_COLOR;
       ctx.textAlign = 'center';
-      ctx.translate(15, layout.plot.y + layout.plot.height / 2);
+      ctx.translate(12, layout.plot.y + layout.plot.height / 2);
       ctx.rotate(-Math.PI / 2);
-      ctx.fillText(layout.yAxis.title, 0, 0);
+      ctx.fillText(titleLabel, 0, 0);
       ctx.restore();
     }
   }
