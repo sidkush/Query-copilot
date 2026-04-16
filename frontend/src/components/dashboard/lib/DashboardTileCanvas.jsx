@@ -1,6 +1,10 @@
 import { useMemo, useCallback, useRef, useState } from "react";
+import { useStore } from "../../../store";
 import EditorCanvas from "../../editor/EditorCanvas";
 import useViewportMount from "../../../lib/useViewportMount";
+import TextTile from "../TextTile";
+import InsightTile from "../InsightTile";
+import ActivityTile from "../ActivityTile";
 
 /**
  * DashboardTileCanvas — tile-sized ChartEditor view.
@@ -31,7 +35,23 @@ import useViewportMount from "../../../lib/useViewportMount";
  *                       the full ChartEditor in a drawer (Phase 4c+1).
  *   - onDrillthrough    optional override; when omitted the canvas handles
  *                       drillthrough itself (scroll to target + toast).
+ *   - onTileUpdate      (updates) => void — called when a content tile
+ *                       (text/insight) saves inline edits.
+ *   - onInsightRefresh   () => Promise<void> — regenerate AI insight
  */
+
+// SP-3: Rich content tile types that bypass the ChartEditor path.
+const RICH_TILE_TYPES = new Set(["text", "markdown", "insight", "ai_summary", "activity"]);
+
+function getRichTileType(tile) {
+  const ct = tile?.chartType || tile?.chart_type || "";
+  if (RICH_TILE_TYPES.has(ct)) return ct;
+  // Also check chart_spec.type for new-path tiles
+  const specType = tile?.chart_spec?.type || tile?.chartSpec?.type || "";
+  if (RICH_TILE_TYPES.has(specType)) return specType;
+  return null;
+}
+
 export default function DashboardTileCanvas({
   tile,
   height = "100%",
@@ -39,8 +59,17 @@ export default function DashboardTileCanvas({
   onTileClick,
   resultSetOverride,
   onDrillthrough,
+  onTileUpdate,
+  onInsightRefresh,
 }) {
   const spec = tile?.chart_spec || tile?.chartSpec || null;
+
+  // SP-3: Rich content tile type detection
+  const richType = getRichTileType(tile);
+
+  // SP-2: Agent editing badge
+  const agentEditingTiles = useStore((s) => s.agentEditingTiles);
+  const isAgentEditing = tile?.id && agentEditingTiles.has(tile.id);
 
   const resultSet = useMemo(() => {
     // resultSetOverride wins when supplied (e.g. WorkbookLayout blends
@@ -150,7 +179,13 @@ export default function DashboardTileCanvas({
         borderRadius: 8,
         overflow: "hidden",
         background: "var(--bg-elev-1, rgba(255,255,255,0.02))",
-        border: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
+        border: isAgentEditing
+          ? "1px solid rgba(139,92,246,0.45)"
+          : "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
+        boxShadow: isAgentEditing
+          ? "0 0 20px rgba(139,92,246,0.15), inset 0 0 12px rgba(139,92,246,0.04)"
+          : undefined,
+        transition: "border-color 0.3s ease, box-shadow 0.3s ease",
         position: "relative",
       }}
     >
@@ -179,6 +214,33 @@ export default function DashboardTileCanvas({
           >
             {tile?.title || tile?.id || "Untitled"}
           </span>
+          {/* SP-2: AGENT EDITING badge */}
+          {isAgentEditing && (
+            <span
+              data-testid="agent-editing-badge"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                padding: "2px 8px",
+                borderRadius: 9999,
+                background: "rgba(139,92,246,0.15)",
+                color: "#a78bfa",
+                border: "1px solid rgba(139,92,246,0.3)",
+                flexShrink: 0,
+                animation: "pulse 2s ease-in-out infinite",
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+              Agent editing
+            </span>
+          )}
           {tile?.subtitle && (
             <span
               style={{
@@ -195,14 +257,28 @@ export default function DashboardTileCanvas({
       <div
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
-        onClick={handleClick}
+        onClick={richType ? undefined : handleClick}
         style={{
           flex: 1,
           minHeight: 0,
-          cursor: onTileClick ? "pointer" : "default",
+          cursor: richType ? "default" : (onTileClick ? "pointer" : "default"),
         }}
       >
-        {spec ? (
+        {/* SP-3: Rich content tiles — bypass EditorCanvas entirely */}
+        {richType === "text" || richType === "markdown" ? (
+          <TextTile tile={tile} onUpdate={onTileUpdate} />
+        ) : richType === "insight" || richType === "ai_summary" ? (
+          <InsightTile
+            tile={tile}
+            onRefresh={onInsightRefresh}
+            onLinkedTileClick={(tid) => {
+              const el = document.querySelector(`[data-testid="dashboard-tile-canvas-${tid}"]`);
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }}
+          />
+        ) : richType === "activity" ? (
+          <ActivityTile tile={tile} />
+        ) : spec ? (
           inViewport ? (
             <EditorCanvas
               spec={spec}

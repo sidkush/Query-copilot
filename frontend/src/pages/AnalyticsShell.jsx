@@ -110,9 +110,11 @@ export default function AnalyticsShell() {
   const setChartEditorSpec = useStore((s) => s.setChartEditorSpec);
   const setChartEditorMode = useStore((s) => s.setChartEditorMode);
   const activeConnId = useStore((s) => s.activeConnId);
+  const connections = useStore((s) => s.connections);
   const [selectedTile, setSelectedTile] = useState(null);
   const [editorMode, setEditorMode] = useState("pro");
   const [schemaColumns, setSchemaColumns] = useState([]);
+  const [saving, setSaving] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -178,6 +180,35 @@ export default function AnalyticsShell() {
     }
   }, [setChartEditorSpec, setChartEditorMode]);
 
+  const handleNameChange = useCallback(async (newName) => {
+    if (!dashboard?.id) return;
+    try {
+      await api.updateDashboard(dashboard.id, { name: newName });
+      setDashboard((d) => d ? { ...d, name: newName } : d);
+    } catch (err) {
+      console.warn('[AnalyticsShell] name update failed:', err);
+    }
+  }, [dashboard?.id]);
+
+  const handleSave = useCallback(async () => {
+    if (!dashboard?.id) return;
+    setSaving(true);
+    try {
+      await api.updateDashboard(dashboard.id, dashboard);
+    } catch (err) {
+      console.warn('[AnalyticsShell] save failed:', err);
+    } finally {
+      setSaving(false);
+    }
+  }, [dashboard]);
+
+  // Derive active connection info for status bar
+  const activeConn = useMemo(() => {
+    if (!connections?.length) return null;
+    if (activeConnId) return connections.find((c) => c.conn_id === activeConnId) || connections[0];
+    return connections[0];
+  }, [connections, activeConnId]);
+
   const switchDashboard = useCallback(async (id) => {
     if (id === dashboardIdRef.current) return;
     setActiveDashboardId(id);
@@ -222,6 +253,10 @@ export default function AnalyticsShell() {
   }, [fetchDashboard]);
 
   const tiles = useMemo(() => flattenTilesForShell(dashboard), [dashboard]);
+
+  // SP-2: Sync flat tiles into Zustand store so agent CRUD mutations are reflected
+  const setDashboardTiles = useStore((s) => s.setDashboardTiles);
+  useEffect(() => { setDashboardTiles(tiles); }, [tiles, setDashboardTiles]);
 
   if (loading) {
     return (
@@ -279,7 +314,7 @@ export default function AnalyticsShell() {
     <div
       data-testid="analytics-shell"
       data-dashboard-id={dashboard.id}
-      style={{ height: "100%", width: "100%" }}
+      style={{ height: "100%", width: "100%", display: "flex", flexDirection: "row" }}
     >
       <DashboardShell
         tiles={tiles}
@@ -290,65 +325,99 @@ export default function AnalyticsShell() {
         onTileClick={handleTileClick}
         onLayoutChange={handleLayoutChange}
         initialMode="workbench"
+        onNameChange={handleNameChange}
+        onSave={handleSave}
+        saving={saving}
+        connectionStatus={activeConn ? 'connected' : 'disconnected'}
+        dbType={activeConn?.db_type}
+        databaseName={activeConn?.database_name}
+        lastRefreshed={dashboard.updated_at}
+        style={{ flex: 1, minWidth: 0 }}
       />
-      {agentPanelOpen && (
-        <Suspense fallback={null}>
-          <AgentPanel />
-        </Suspense>
-      )}
-
-      {/* Full-screen ChartEditor overlay — opens on tile click */}
-      {selectedTile && (
-        <Suspense fallback={<div style={{position:'fixed',inset:0,zIndex:200,background:'#06060e',color:'#f87171',padding:40,fontFamily:'monospace',fontSize:12}}>Loading editor…</div>}>
+      {/* Right panel: Agent OR ChartEditor drawer (tile edit takes priority) */}
+      {selectedTile ? (
+        <Suspense fallback={<div style={{width:480,height:'100%',background:'#06060e',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)',fontSize:12}}>Loading editor…</div>}>
           <EditorErrorBoundary onClose={() => setSelectedTile(null)}>
-          <div
-            data-testid="chart-editor-overlay"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 200,
-              background: "var(--bg-page, #06060e)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {/* Minimal header — just a close button. Mode toggle is inside ChartEditor's topbar. */}
-            <div style={{
-              position: "absolute", top: 8, left: 8, zIndex: 210,
-            }}>
-              <button
-                onClick={() => setSelectedTile(null)}
-                style={{
-                  background: "var(--bg-elev-2, rgba(255,255,255,0.06))", border: "1px solid var(--border-subtle, rgba(255,255,255,0.1))",
-                  cursor: "pointer", color: "var(--text-secondary, #b0b0b6)", fontSize: 16,
-                  padding: "5px 10px", borderRadius: 6, display: "flex", alignItems: "center", gap: 6,
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.12))"}
-                onMouseLeave={e => e.currentTarget.style.background = "var(--bg-elev-2, rgba(255,255,255,0.06))"}
-                aria-label="Close editor"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-                <span style={{ fontSize: 11, fontWeight: 500 }}>Back</span>
-              </button>
+            <div
+              data-testid="chart-editor-drawer"
+              style={{
+                width: 520,
+                flexShrink: 0,
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                borderLeft: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
+                background: "var(--bg-page, #06060e)",
+              }}
+            >
+              {/* Drawer header — tile name + close */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 14px",
+                borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
+                flexShrink: 0,
+              }}>
+                <button
+                  onClick={() => setSelectedTile(null)}
+                  style={{
+                    background: "var(--bg-elev-2, rgba(255,255,255,0.06))",
+                    border: "1px solid var(--border-subtle, rgba(255,255,255,0.1))",
+                    cursor: "pointer",
+                    color: "var(--text-secondary, #b0b0b6)",
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 11,
+                    fontWeight: 500,
+                  }}
+                  aria-label="Close editor"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+                  Back
+                </button>
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "var(--text-primary, #e7e7ea)",
+                  letterSpacing: "-0.01em",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  flex: 1,
+                }}>
+                  {selectedTile.title || "Edit tile"}
+                </span>
+              </div>
+              {/* ChartEditor fills drawer body */}
+              <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+                <ChartEditor
+                  spec={selectedTile.chart_spec || selectedTile.chartSpec || { $schema: "askdb/chart-spec/v1", type: "cartesian", mark: "bar", encoding: {} }}
+                  resultSet={buildTileResultSet(selectedTile, schemaColumns)}
+                  mode={editorMode}
+                  surface="dashboard-tile"
+                  onModeChange={setEditorMode}
+                  onSpecChange={(next) => {
+                    setChartEditorSpec(next);
+                    setSelectedTile(prev => prev ? { ...prev, chart_spec: next } : null);
+                  }}
+                />
+              </div>
             </div>
-            {/* ChartEditor fills the overlay — mode toggle is inside its topbar */}
-            <div style={{ flex: 1, minHeight: 0, height: '100%', overflow: 'hidden' }}>
-              <ChartEditor
-                spec={selectedTile.chart_spec || selectedTile.chartSpec || { $schema: "askdb/chart-spec/v1", type: "cartesian", mark: "bar", encoding: {} }}
-                resultSet={buildTileResultSet(selectedTile, schemaColumns)}
-                mode={editorMode}
-                surface="dashboard-tile"
-                onModeChange={setEditorMode}
-                onSpecChange={(next) => {
-                  setChartEditorSpec(next);
-                  setSelectedTile(prev => prev ? { ...prev, chart_spec: next } : null);
-                }}
-              />
-            </div>
-          </div>
           </EditorErrorBoundary>
         </Suspense>
-      )}
+      ) : agentPanelOpen ? (
+        <Suspense fallback={null}>
+          <AgentPanel
+            connId={activeConn?.conn_id}
+            embedded
+            onClose={() => useStore.getState().setAgentPanelOpen(false)}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

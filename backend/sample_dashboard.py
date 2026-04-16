@@ -399,6 +399,53 @@ SECTIONS = [
     ]),
 ]
 
+# SP-3: Rich content tiles (not chart-based — custom payloads)
+RICH_CONTENT_TILES = [
+    ("Rich Content · SP-3", [
+        {
+            "title": "Executive Summary",
+            "chartType": "text",
+            "content": (
+                "# Q4 Performance Review\n\n"
+                "Revenue exceeded targets by **24.7%**, driven primarily by "
+                "the West region which contributed 52% of new bookings.\n\n"
+                "## Key Highlights\n\n"
+                "- Churn dropped **0.4 points** — the lowest in six quarters\n"
+                "- NPS improved from 42 to **51** (+9 points)\n"
+                "- Average deal size increased to **$47.2K** (up from $38.1K)\n\n"
+                "---\n\n"
+                "*Updated by the analytics team on April 16, 2026.*"
+            ),
+        },
+        {
+            "title": "Revenue Insight",
+            "chartType": "insight",
+            "insightText": (
+                "Revenue is up $478K (24.7%) driven primarily by the West region, "
+                "which contributed 52% of new bookings. Churn dropped 0.4 points — "
+                "the lowest level in six quarters. Average deal velocity improved by "
+                "3.2 days, suggesting the new qualification framework is taking effect."
+            ),
+            "insightGeneratedAt": "2026-04-16T10:30:00Z",
+            "linkedTileIds": [],
+        },
+        {
+            "title": "Recent Activity",
+            "chartType": "activity",
+            "events": [
+                {"type": "won", "person": "Sarah K.", "action": "closed", "entity": "Acme Renewal", "timestamp": "2026-04-16T10:15:00Z"},
+                {"type": "moved", "person": "Marcus T.", "action": "moved to Negotiation", "entity": "Globex Corp", "timestamp": "2026-04-16T09:42:00Z"},
+                {"type": "created", "person": "Alex R.", "action": "created opportunity", "entity": "Nova Industries", "timestamp": "2026-04-16T09:20:00Z"},
+                {"type": "note", "person": "Jamie L.", "action": "added note on", "entity": "Q4 Pipeline", "detail": "Flagged 3 deals at risk of slipping to Q1", "timestamp": "2026-04-16T08:55:00Z"},
+                {"type": "lost", "person": "Taylor M.", "action": "lost deal", "entity": "Orion Systems", "detail": "Lost to competitor pricing", "timestamp": "2026-04-16T08:30:00Z"},
+                {"type": "won", "person": "Jordan P.", "action": "closed", "entity": "Stellar Analytics", "timestamp": "2026-04-15T17:45:00Z"},
+                {"type": "refresh", "person": "System", "action": "auto-refreshed", "entity": "Revenue Dashboard", "timestamp": "2026-04-15T17:00:00Z"},
+                {"type": "alert", "person": "System", "action": "alert triggered:", "entity": "Churn rate above 5%", "timestamp": "2026-04-15T16:20:00Z"},
+            ],
+        },
+    ]),
+]
+
 
 def run():
     login()
@@ -458,6 +505,35 @@ def run():
             else:
                 print(f"  PASS {chart_type:20s} {title[:40]:40s} rows={len(rows):4d} cols={len(cols)}")
                 results.append({"chart": chart_type, "status": "pass", "rows": len(rows), "cols": len(cols)})
+
+    # SP-3: Rich content tiles (text, insight, activity)
+    for section_name, tiles in RICH_CONTENT_TILES:
+        sec_resp = _req(
+            f"/dashboards/{dash_id}/tabs/{default_tab_id}/sections",
+            "POST",
+            {"name": section_name},
+        )
+        if sec_resp.get("_error"):
+            print(f"FATAL: section create failed for {section_name}: {sec_resp.get('_body')}")
+            continue
+        tab_after = [t for t in sec_resp["tabs"] if t["id"] == default_tab_id][0]
+        section_id = tab_after["sections"][-1]["id"]
+        print(f"\n[section] {section_name} ({section_id})")
+
+        for tile_body in tiles:
+            tile_resp = _req(
+                f"/dashboards/{dash_id}/tabs/{default_tab_id}/sections/{section_id}/tiles",
+                "POST",
+                tile_body,
+            )
+            ct = tile_body.get("chartType", "?")
+            title = tile_body.get("title", "?")
+            if tile_resp.get("_error"):
+                print(f"  FAIL {ct:20s} {title[:40]:40s} — {tile_resp.get('_body')[:120]}")
+                results.append({"chart": ct, "status": "fail"})
+            else:
+                print(f"  PASS {ct:20s} {title[:40]:40s}")
+                results.append({"chart": ct, "status": "pass"})
 
     print("\n" + "=" * 64)
     print("SUMMARY")

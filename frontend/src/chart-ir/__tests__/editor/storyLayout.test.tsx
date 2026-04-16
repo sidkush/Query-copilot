@@ -114,4 +114,14 @@ describe('StoryLayout', () => {
     render(<StoryLayout tiles={[]} />);
     expect(screen.getByTestId('layout-story').textContent).toMatch(/Empty story/);
   });
+
+  it('renders left chapter rail with one button per chapter (SP-6)', () => {
+    render(<StoryLayout tiles={TILES} />);
+    const rail = screen.getByTestId('story-chapter-rail');
+    expect(rail).toBeDefined();
+    expect(rail.textContent).toMatch(/01 · Act 1/);
+    expect(rail.textContent).toMatch(/02 · Act 2/);
+    const buttons = rail.querySelectorAll('button');
+    expect(buttons.length).toBe(TILES.length);
+  });
 });

@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import GridLayout from "react-grid-layout";
 import DashboardTileCanvas from "../lib/DashboardTileCanvas";
+import { ARCHETYPE_THEMES } from "../tokens";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -26,9 +27,10 @@ import "react-resizable/css/styles.css";
  * 1200px before the first measure.
  */
 const COLS = 12;
-const ROW_HEIGHT = 60;
+const ROW_HEIGHT = 50; // dense — one row shorter than briefing (60)
 const DEFAULT_W = 3;
 const DEFAULT_H = 4;
+const THEME = ARCHETYPE_THEMES.workbench;
 
 function buildInitialLayout(tiles, existingLayout) {
   if (Array.isArray(existingLayout) && existingLayout.length > 0) {
@@ -67,6 +69,7 @@ export default function AnalystWorkbenchLayout({
   initialLayout,
   onLayoutChange,
   onTileClick,
+  activeFilters = [],
 }) {
   const [layout, setLayout] = useState(() => buildInitialLayout(tiles, initialLayout));
   const [setContainerRef, width] = useContainerWidth();
@@ -126,6 +129,9 @@ export default function AnalystWorkbenchLayout({
           fontSize: 12,
           color: "var(--text-muted, rgba(255,255,255,0.5))",
           fontStyle: "italic",
+          background: THEME.background.dashboard,
+          fontFamily: THEME.typography.bodyFont,
+          minHeight: "100%",
         }}
       >
         Workbench ready. Drag tiles here to compare side-by-side.
@@ -139,18 +145,28 @@ export default function AnalystWorkbenchLayout({
       data-tile-count={tiles.length}
       ref={setContainerRef}
       style={{
-        padding: 12,
-        background: "var(--bg-page, #06060e)",
+        padding: 8,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        background: THEME.background.dashboard,
+        color: "var(--text-primary, #e7e7ea)",
+        fontFamily: THEME.typography.bodyFont,
+        fontSize: THEME.typography.bodySize,
         minHeight: "100%",
       }}
     >
+      <WorkbenchChipRow
+        filters={activeFilters}
+        tileCount={tiles.length}
+      />
       <GridLayout
         className="layout-workbench-grid"
         layout={layout}
         cols={COLS}
         rowHeight={ROW_HEIGHT}
         width={width}
-        margin={[10, 10]}
+        margin={[THEME.spacing.tileGap, THEME.spacing.tileGap]}
         containerPadding={[0, 0]}
         compactType="vertical"
         preventCollision={false}
@@ -163,12 +179,72 @@ export default function AnalystWorkbenchLayout({
           const tile = tilesById.get(l.i);
           if (!tile) return <div key={l.i} />;
           return (
-            <div key={l.i} data-testid={`layout-workbench-tile-${l.i}`}>
+            <div
+              key={l.i}
+              data-testid={`layout-workbench-tile-${l.i}`}
+              style={{
+                background: THEME.background.tile,
+                border: `${THEME.tile.borderWidth}px solid rgba(255,255,255,0.06)`,
+                borderRadius: THEME.spacing.tileRadius,
+                overflow: "hidden",
+              }}
+            >
               <DashboardTileCanvas tile={tile} onTileClick={onTileClick} />
             </div>
           );
         })}
       </GridLayout>
+    </div>
+  );
+}
+
+/**
+ * Dense filter chip row at the top of the workbench. Renders the list
+ * of active cross-filters pushed via useTileLinking / GlobalFilterBar,
+ * plus a tile-count badge. Kept visually compact to match the Tableau-
+ * class density spec (wireframe 5).
+ */
+function WorkbenchChipRow({ filters = [], tileCount }) {
+  return (
+    <div
+      data-testid="workbench-chip-row"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "4px 6px",
+        fontSize: 10.5,
+        fontFamily: THEME.typography.dataFont,
+        color: "var(--text-muted, rgba(255,255,255,0.55))",
+        textTransform: "uppercase",
+        letterSpacing: "0.08em",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        flexWrap: "wrap",
+      }}
+    >
+      <span style={{ fontWeight: 650, color: "var(--text-secondary, #a1a1aa)" }}>
+        {tileCount} tile{tileCount === 1 ? "" : "s"}
+      </span>
+      {filters.length > 0 && (
+        <span style={{ opacity: 0.5 }}>·</span>
+      )}
+      {filters.map((f, i) => (
+        <span
+          key={f.id || i}
+          style={{
+            padding: "2px 8px",
+            fontSize: 10,
+            fontWeight: 600,
+            background: "color-mix(in oklab, var(--accent, #2563EB) 14%, transparent)",
+            color: "var(--accent, #60a5fa)",
+            borderRadius: 3,
+            letterSpacing: "0.02em",
+            textTransform: "none",
+          }}
+        >
+          {f.field} {f.op || "="} {String(f.value ?? "")}
+        </span>
+      ))}
     </div>
   );
 }

@@ -173,12 +173,17 @@ function PresentationTile({ tile, index, themeConfig, gridArea }) {
 /* ══════════════════════════════════════════════════════════════════
    PresentationEngine — auto-layout presentation mode
    ══════════════════════════════════════════════════════════════════ */
-export default function PresentationEngine({ dashboard, themeConfig, onExit }) {
+export default function PresentationEngine({ dashboard, themeConfig, onExit, onSlideChange }) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [direction, setDirection] = useState(0);
   const [autoPlay, setAutoPlay] = useState(false);
   const [autoPlayInterval, setAutoPlayInterval] = useState(10); // seconds
   const autoPlayTimer = useRef(null);
+
+  // SP-6: emit slide index to parent (PitchLayout) for chrome overlays
+  useEffect(() => {
+    if (typeof onSlideChange === "function") onSlideChange(currentSlide);
+  }, [currentSlide, onSlideChange]);
 
   // [ADV-FIX H6] Guard clause for 0-tile dashboard
   // [ADV-FIX M3] structuredClone for safe layout cloning

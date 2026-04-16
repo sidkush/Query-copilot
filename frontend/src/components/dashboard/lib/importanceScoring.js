@@ -42,6 +42,13 @@ function isTableTile(tile) {
   return spec?.type === "table" || spec?.mark === "table";
 }
 
+/** SP-3: True if the tile is a rich content type (text, insight, activity). */
+function isRichContentTile(tile) {
+  if (!tile) return false;
+  const ct = tile.chartType || tile.chart_type || "";
+  return ["text", "markdown", "insight", "ai_summary", "activity"].includes(ct);
+}
+
 /** True if the tile carries runnable data (legacy rows OR a valid chart spec). */
 function hasTileData(tile) {
   if (!tile) return false;
@@ -62,6 +69,14 @@ function hasTileData(tile) {
  */
 export function scoreTile(tile) {
   if (!tile) return 0;
+  // SP-3: Rich content tiles always have content to render
+  if (isRichContentTile(tile)) {
+    const ct = tile.chartType || tile.chart_type || "";
+    if (ct === "insight" || ct === "ai_summary") return 90; // near KPI priority
+    if (ct === "text" || ct === "markdown") return 60;      // editorial content
+    if (ct === "activity") return 50;                       // feed tile
+    return 40;
+  }
   const data = hasTileData(tile);
   if (!data && !tile.sql) return 0;
   if (isKpiTile(tile)) return 100;
@@ -134,6 +149,18 @@ export function briefingGridPlacement(allTiles) {
     }
     if (isTableTile(tile)) {
       out.push({ tile, colSpan: 12, rowHint: "table" });
+      continue;
+    }
+    // SP-3: Rich content tiles — insight = full-width, text = half, activity = half
+    if (isRichContentTile(tile)) {
+      const ct = tile.chartType || tile.chart_type || "";
+      if (ct === "insight" || ct === "ai_summary") {
+        out.push({ tile, colSpan: 12, rowHint: "insight" });
+      } else if (ct === "activity") {
+        out.push({ tile, colSpan: 4, rowHint: "activity" });
+      } else {
+        out.push({ tile, colSpan: 6, rowHint: "text" });
+      }
       continue;
     }
     // First chart = hero (full width). Subsequent charts = half-width.

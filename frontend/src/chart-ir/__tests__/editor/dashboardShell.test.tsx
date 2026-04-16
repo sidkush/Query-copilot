@@ -21,7 +21,7 @@ describe('DashboardShell', () => {
     expect(screen.getByTestId('dashboard-mode-ops')).toBeDefined();
     expect(screen.getByTestId('dashboard-mode-story')).toBeDefined();
     expect(screen.getByTestId('dashboard-mode-pitch')).toBeDefined();
-    expect(screen.getByTestId('dashboard-mode-workbook')).toBeDefined();
+    expect(screen.getByTestId('dashboard-mode-tableau')).toBeDefined();
   });
 
   it('swaps the layout when a mode button is clicked', () => {
@@ -39,7 +39,7 @@ describe('DashboardShell', () => {
     fireEvent.click(screen.getByTestId('dashboard-mode-pitch'));
     expect(screen.getByTestId('layout-pitch')).toBeDefined();
 
-    fireEvent.click(screen.getByTestId('dashboard-mode-workbook'));
+    fireEvent.click(screen.getByTestId('dashboard-mode-tableau'));
     expect(screen.getByTestId('layout-workbook')).toBeDefined();
   });
 
@@ -57,7 +57,7 @@ describe('DashboardShell', () => {
   });
 
   it('workbook layout groups tiles into tabs', () => {
-    render(<DashboardShell tiles={SAMPLE_TILES} initialMode="workbook" />);
+    render(<DashboardShell tiles={SAMPLE_TILES} initialMode="tableau" />);
     expect(screen.getByTestId('workbook-tab-Tab 1')).toBeDefined();
     expect(screen.getByTestId('workbook-tab-Users')).toBeDefined();
   });

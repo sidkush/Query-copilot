@@ -88,7 +88,7 @@ function validDock(d) {
   return DOCK_POSITIONS.includes(d) ? d : "float";
 }
 
-export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
+export default function AgentPanel({ connId, onClose, defaultDock = "float", embedded = false }) {
   // Read localStorage once on mount via lazy initializer
   const [saved] = useState(() => loadPanelState());
 
@@ -204,6 +204,14 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // SP-2: When embedded on dashboard, set agent context to "dashboard"
+  useEffect(() => {
+    if (embedded) {
+      useStore.getState().setAgentContext("dashboard");
+      return () => useStore.getState().setAgentContext("query");
+    }
+  }, [embedded]);
+
   // Save agent history whenever a run completes (loading transitions to false with steps present)
   const prevLoadingRef = useRef(agentLoading);
   useEffect(() => {
@@ -276,13 +284,13 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
 
   // ── Float drag handlers ──
   const onDragStart = useCallback((e) => {
-    if (dock !== "float") return;
+    if (embedded || dock !== "float") return;
     e.preventDefault();
     const rect = panelRef.current?.getBoundingClientRect();
     if (!rect) return;
     dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     setDragging(true);
-  }, [dock]);
+  }, [dock, embedded]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -372,6 +380,67 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
     };
   }, [floatResizing, setPanelWidth, setPanelHeight]);
 
+  // ── SP-2b: Intercept dashboard tool results for real-time tile CRUD ──
+  const handleDashboardToolStep = useCallback((step) => {
+    if (step.type !== "tool_call" || !step.tool_result || !step.tool_name) return;
+    const store = useStore.getState();
+    const name = step.tool_name;
+    let parsed;
+    try {
+      parsed = typeof step.tool_result === "string" ? JSON.parse(step.tool_result) : step.tool_result;
+    } catch { return; }
+    if (parsed?.error) return;
+
+    if (name === "create_dashboard_tile") {
+      const tileId = parsed.tile_id || parsed.id;
+      if (tileId) {
+        // Mark as agent-editing briefly
+        store.setAgentEditingTile(tileId, true);
+        store.addDashboardTile({
+          id: tileId,
+          title: step.tool_input?.title || parsed.title || "Untitled",
+          chart_spec: parsed.chart_spec || step.tool_input?.chart_spec,
+          columns: parsed.columns || [],
+          rows: parsed.rows || [],
+          sql: step.tool_input?.sql || parsed.sql,
+        });
+        // Generate suggested chips
+        const title = step.tool_input?.title || parsed.title || "tile";
+        store.setAgentSuggestedChips([
+          { label: `Enlarge ${title}`, action: `Make the ${title} tile larger` },
+          { label: "Add related tile", action: `Add another tile related to ${title}` },
+          { label: "Add forecast", action: `Add a forecast tile based on ${title}` },
+        ]);
+        setTimeout(() => store.setAgentEditingTile(tileId, false), 3000);
+      }
+    } else if (name === "update_dashboard_tile") {
+      const tileId = step.tool_input?.tile_id || parsed.tile_id;
+      if (tileId) {
+        store.setAgentEditingTile(tileId, true);
+        store.updateDashboardTile(tileId, {
+          title: step.tool_input?.title || parsed.title,
+          chart_spec: parsed.chart_spec || step.tool_input?.chart_spec,
+          columns: parsed.columns,
+          rows: parsed.rows,
+          sql: step.tool_input?.sql || parsed.sql,
+        });
+        const title = step.tool_input?.title || parsed.title || "tile";
+        store.setAgentSuggestedChips([
+          { label: `Resize ${title}`, action: `Resize the ${title} tile` },
+          { label: "Change chart type", action: `Change the ${title} chart type` },
+          { label: "Add color encoding", action: `Add color encoding to ${title}` },
+        ]);
+        setTimeout(() => store.setAgentEditingTile(tileId, false), 3000);
+      }
+    } else if (name === "delete_dashboard_tile") {
+      const tileId = step.tool_input?.tile_id || parsed.tile_id;
+      if (tileId) {
+        store.removeDashboardTile(tileId);
+        store.clearAgentSuggestedChips();
+      }
+    }
+  }, []);
+
   // ── Submit question to agent ──
   const handleSubmit = useCallback(async (e) => {
     e?.preventDefault();
@@ -424,10 +493,12 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         }).catch(() => {});
       } else {
         addAgentStep(step);
+        // SP-2b: intercept dashboard tool results for real-time tile mutations
+        handleDashboardToolStep(step);
       }
     }, { persona: agentPersona, permissionMode: agentPermissionMode, agentContext });
     streamRef.current = stream;
-  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak]);
+  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep]);
 
   // ── Quick action — same as handleSubmit but accepts text directly ──
   const handleQuickAction = useCallback((text) => {
@@ -472,10 +543,11 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         }).catch(() => {});
       } else {
         addAgentStep(step);
+        handleDashboardToolStep(step);
       }
     }, { persona: agentPersona, permissionMode: agentPermissionMode, agentContext });
     streamRef.current = stream;
-  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak]);
+  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep]);
 
   // Keep ref in sync so the speech recognition callback always calls the latest version
   useEffect(() => { handleQuickActionRef.current = handleQuickAction; }, [handleQuickAction]);
@@ -511,6 +583,18 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       flexDirection: "column",
       overflow: "hidden",
     };
+
+    // Embedded mode — in-flow flex child, no position:fixed
+    if (embedded) {
+      return {
+        ...base,
+        position: "relative",
+        width: panelWidth,
+        height: "100%",
+        flexShrink: 0,
+        borderLeft: `1px solid ${TOKENS.border.default}`,
+      };
+    }
 
     const validatedDock = DOCK_POSITIONS.includes(dock) ? dock : "float";
 
@@ -565,7 +649,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
       border: `1px solid ${TOKENS.border.default}`,
       boxShadow: "0 -8px 32px -8px rgba(0,0,0,0.3), 0 -2px 8px rgba(0,0,0,0.15)",
     };
-  }, [dock, pos.x, pos.y, panelWidth, panelHeight, minimized]);
+  }, [dock, pos.x, pos.y, panelWidth, panelHeight, minimized, embedded]);
 
   // Edge resize handle component
   const edgeHandle = (edge) => {
@@ -586,16 +670,16 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
     );
   };
 
-  const dockClass = dock === "float" ? "float" : "docked";
+  const dockClass = embedded ? "docked embedded" : dock === "float" ? "float" : "docked";
   return (
     <div ref={panelRef} style={panelStyle} className={`agent-panel-shell ${dockClass}`} role="dialog" aria-label="Agent panel"
       onKeyDown={(e) => {
         if (e.key === "Escape" && !["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) handleClose();
       }}>
       {/* Edge resize handles for docked modes */}
-      {dock === "right" && edgeHandle("left")}
-      {dock === "left" && edgeHandle("right")}
-      {dock === "bottom" && !minimized && edgeHandle("top")}
+      {(dock === "right" || embedded) && edgeHandle("left")}
+      {dock === "left" && !embedded && edgeHandle("right")}
+      {dock === "bottom" && !minimized && !embedded && edgeHandle("top")}
 
       {/* Header — premium editorial chrome */}
       <div
@@ -839,28 +923,32 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
                 </>
               )}
 
-              <div className="agent-overflow-divider" aria-hidden="true" />
+              {!embedded && (
+                <>
+                  <div className="agent-overflow-divider" aria-hidden="true" />
 
-              {/* SECTION — Dock */}
-              <div className="agent-overflow-section">Dock position</div>
-              <div className="agent-overflow-dock-grid">
-                {DOCK_POSITIONS.map((d) => {
-                  const LABELS = { float: "Float", right: "Right", bottom: "Bottom", left: "Left" };
-                  return (
-                    <button
-                      key={d}
-                      onClick={() => { setDock(validDock(d)); setOverflowOpen(false); }}
-                      className="agent-overflow-dock-btn"
-                      data-active={dock === d || undefined}
-                      title={`Dock ${d}`}
-                      aria-pressed={dock === d}
-                    >
-                      <span className={`agent-dock-glyph agent-dock-glyph--${d}`} aria-hidden="true" />
-                      {LABELS[d]}
-                    </button>
-                  );
-                })}
-              </div>
+                  {/* SECTION — Dock */}
+                  <div className="agent-overflow-section">Dock position</div>
+                  <div className="agent-overflow-dock-grid">
+                    {DOCK_POSITIONS.map((d) => {
+                      const LABELS = { float: "Float", right: "Right", bottom: "Bottom", left: "Left" };
+                      return (
+                        <button
+                          key={d}
+                          onClick={() => { setDock(validDock(d)); setOverflowOpen(false); }}
+                          className="agent-overflow-dock-btn"
+                          data-active={dock === d || undefined}
+                          title={`Dock ${d}`}
+                          aria-pressed={dock === d}
+                        >
+                          <span className={`agent-dock-glyph agent-dock-glyph--${d}`} aria-hidden="true" />
+                          {LABELS[d]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
 
               {(dock === "float" || dock === "bottom") && (
                 <>
@@ -1014,37 +1102,13 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
             </>
           )}
 
-          {/* Quick-action buttons after agent completes a result */}
+          {/* Quick-action buttons + suggested chips after agent completes a result */}
           {!agentLoading && !agentWaiting && agentSteps.length > 0 &&
            agentSteps[agentSteps.length - 1]?.type === 'result' && !showHistory && (
-            <div style={{
-              display: 'flex',
-              gap: 8,
-              padding: '14px 18px 16px',
-              borderTop: `1px solid ${TOKENS.border.default}`,
-              flexWrap: 'wrap',
-              alignItems: 'center',
-            }}>
-              <span style={{
-                fontSize: 10,
-                fontWeight: 500,
-                color: 'var(--text-muted)',
-                marginRight: 4,
-                fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
-                letterSpacing: '-0.005em',
-              }}>
-                Try next
-              </span>
-              {['Continue', 'Tell me more', 'Add to dashboard'].map(label => (
-                <button
-                  key={label}
-                  onClick={() => handleQuickAction(label)}
-                  className="agent-quick-chip"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <QuickActionsBar
+              onAction={handleQuickAction}
+              embedded={embedded}
+            />
           )}
 
           {/* Footer input — premium glass composer */}
@@ -1149,7 +1213,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
           </form>
 
           {/* Resize handle (float only) */}
-          {dock === "float" && (
+          {dock === "float" && !embedded && (
             <div
               onMouseDown={(e) => { e.preventDefault(); setFloatResizing(true); }}
               style={{
@@ -1164,6 +1228,73 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/** SP-2c: Quick actions bar with default chips + agent-suggested contextual chips */
+function QuickActionsBar({ onAction, embedded }) {
+  const suggestedChips = useStore((s) => s.agentSuggestedChips);
+  const clearChips = useStore((s) => s.clearAgentSuggestedChips);
+
+  const defaultChips = embedded
+    ? ['Continue', 'Tell me more']
+    : ['Continue', 'Tell me more', 'Add to dashboard'];
+
+  return (
+    <div style={{
+      display: 'flex',
+      gap: 8,
+      padding: '14px 18px 16px',
+      borderTop: `1px solid ${TOKENS.border.default}`,
+      flexWrap: 'wrap',
+      alignItems: 'center',
+    }}>
+      {/* Suggested chips from agent tile operations (SP-2c) */}
+      {suggestedChips.length > 0 && (
+        <>
+          <span style={{
+            fontSize: 10, fontWeight: 500, color: '#a78bfa',
+            marginRight: 4,
+            fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+            letterSpacing: '-0.005em',
+          }}>
+            Suggested
+          </span>
+          {suggestedChips.map((chip, i) => (
+            <button
+              key={`sug-${i}`}
+              onClick={() => { onAction(chip.action); clearChips(); }}
+              className="agent-quick-chip"
+              style={{
+                background: 'rgba(139,92,246,0.1)',
+                borderColor: 'rgba(139,92,246,0.25)',
+                color: '#c4b5fd',
+              }}
+            >
+              {chip.label}
+            </button>
+          ))}
+          <span style={{ width: '100%', height: 0 }} />
+        </>
+      )}
+      <span style={{
+        fontSize: 10, fontWeight: 500, color: 'var(--text-muted)',
+        marginRight: 4,
+        fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+        letterSpacing: '-0.005em',
+      }}>
+        Try next
+      </span>
+      {defaultChips.map(label => (
+        <button
+          key={label}
+          onClick={() => onAction(label)}
+          className="agent-quick-chip"
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

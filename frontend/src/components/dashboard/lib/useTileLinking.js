@@ -89,5 +89,29 @@ export default function useTileLinking() {
     return activeFilters.get(tileId) || null;
   }, [activeFilters]);
 
-  return { linkConfig, addLink, removeLink, onBrush, getFiltersForTile };
+  /**
+   * Flattened, de-duped list of every active brush-pushed filter across all
+   * detail tiles. Each entry: { id, tileId, field, op, value }. Consumed by
+   * layouts (e.g. AnalystWorkbenchLayout) that render a chip row showing
+   * cross-filter state.
+   */
+  const allActiveFilters = [];
+  const seenKeys = new Set();
+  for (const [tileId, filters] of activeFilters.entries()) {
+    for (const f of filters) {
+      const key = `${f.field}|${f.op}|${f.value}`;
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      allActiveFilters.push({ id: `${tileId}:${key}`, tileId, ...f });
+    }
+  }
+
+  return {
+    linkConfig,
+    addLink,
+    removeLink,
+    onBrush,
+    getFiltersForTile,
+    allActiveFilters,
+  };
 }

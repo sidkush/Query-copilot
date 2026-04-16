@@ -390,6 +390,10 @@ export const api = {
   refreshTile: (dashboardId, tileId, connId, filters = null, sourceId = null, parameters = null) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}/refresh`, { method: "POST", body: JSON.stringify({ conn_id: connId, filters, source_id: sourceId, parameters: parameters || undefined }) }),
 
+  // SP-3: AI insight generation
+  generateInsight: (dashboardId, tileId, linkedTileIds = []) =>
+    request(`/dashboards/${dashboardId}/tiles/${tileId}/generate-insight`, { method: "POST", body: JSON.stringify({ linkedTileIds }) }),
+
   // ── Tile Move & Copy ──
   moveTile: (dashboardId, tileId, targetTabId, targetSectionId) =>
     request(`/dashboards/${dashboardId}/tiles/${tileId}/move`, { method: "POST", body: JSON.stringify({ target_tab_id: targetTabId, target_section_id: targetSectionId }) }),

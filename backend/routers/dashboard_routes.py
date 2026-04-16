@@ -152,6 +152,12 @@ class AddTile(BaseModel):
     subtitle: Optional[str] = None
     annotation: Optional[str] = None  # Story mode: scrollytelling chapter annotation
     filters: Optional[dict] = None
+    # SP-3: Rich content tile fields
+    content: Optional[str] = None  # Text/markdown tile body
+    insightText: Optional[str] = None  # AI insight narrative
+    insightGeneratedAt: Optional[str] = None  # ISO timestamp of last generation
+    linkedTileIds: Optional[list] = None  # Tile IDs referenced by insight
+    events: Optional[list] = None  # Activity feed events
 
 class UpdateTileBody(BaseModel):
     title: Optional[str] = None
@@ -168,6 +174,12 @@ class UpdateTileBody(BaseModel):
     dataSources: Optional[list] = None
     blendConfig: Optional[dict] = None
     visualConfig: Optional[dict] = None
+    # SP-3: Rich content tile fields
+    content: Optional[str] = None  # Text/markdown tile body
+    insightText: Optional[str] = None  # AI insight narrative
+    insightGeneratedAt: Optional[str] = None  # ISO timestamp of last generation
+    linkedTileIds: Optional[list] = None  # Tile IDs referenced by insight
+    events: Optional[list] = None  # Activity feed events
 
 class GenerateColumnSQLBody(BaseModel):
     conn_id: str
@@ -455,6 +467,102 @@ async def remove_tile(dashboard_id: str, tile_id: str, user=Depends(get_current_
             sec["layout"] = [l for l in sec.get("layout", []) if l["i"] != tile_id]
     update_dashboard(owner_email, dashboard_id, {"tabs": d["tabs"]})
     return load_dashboard(owner_email, dashboard_id)
+
+
+# ── SP-3: Insight Generation ──────────────────────────────────────────
+
+class GenerateInsightBody(BaseModel):
+    linkedTileIds: list = []  # tile IDs to analyze
+
+
+@router.post("/{dashboard_id}/tiles/{tile_id}/generate-insight")
+async def generate_insight(
+    dashboard_id: str, tile_id: str,
+    body: GenerateInsightBody,
+    request: Request,
+    user=Depends(get_current_user),
+):
+    """Generate an AI narrative insight from linked tile data.
+
+    Collects rows/columns from referenced tiles, sends to Anthropic
+    with a summarization prompt, caches result in tile metadata.
+    """
+    email = user["email"]
+    d = load_dashboard(email, dashboard_id)
+    if not d:
+        raise HTTPException(404, "Dashboard not found")
+
+    # Collect data from linked tiles
+    tile_data_context = []
+    target_tile = None
+
+    for tab in d.get("tabs", []):
+        for sec in tab.get("sections", []):
+            for t in sec.get("tiles", []):
+                if t["id"] == tile_id:
+                    target_tile = t
+                # Gather linked tile data
+                if t["id"] in body.linkedTileIds:
+                    rows = t.get("rows", [])[:50]  # cap for prompt size
+                    cols = t.get("columns", [])
+                    title = t.get("title", t["id"])
+                    tile_data_context.append(
+                        f"Tile '{title}' ({t.get('chartType', 'chart')}):\n"
+                        f"  Columns: {cols}\n"
+                        f"  Sample data ({len(rows)} rows): {_json.dumps(rows[:10])}"
+                    )
+
+    if target_tile is None:
+        raise HTTPException(404, "Tile not found")
+
+    if not tile_data_context:
+        raise HTTPException(400, "No linked tiles with data found")
+
+    # Build prompt
+    data_block = "\n\n".join(tile_data_context)
+    prompt = (
+        "You are a business intelligence analyst. Analyze the following dashboard tile data "
+        "and write a concise narrative summary (2-4 sentences) that highlights key trends, "
+        "changes, and notable metrics. Use specific numbers. Write in a professional editorial "
+        "tone suitable for an executive briefing.\n\n"
+        f"Dashboard tile data:\n{data_block}\n\n"
+        "Write only the narrative paragraph — no headers, no bullet points, no markdown."
+    )
+
+    # Call Anthropic via provider
+    from provider_registry import get_provider_for_user
+    provider = get_provider_for_user(email)
+    if not provider:
+        raise HTTPException(503, "No AI provider available")
+
+    try:
+        response = await asyncio.to_thread(
+            provider.complete,
+            messages=[{"role": "user", "content": prompt}],
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+        )
+        insight_text = response.content[0].text if response.content else ""
+    except Exception as e:
+        import logging
+        logging.getLogger("dashboard").error("Insight generation failed: %s", e)
+        raise HTTPException(502, f"AI generation failed: {str(e)[:200]}")
+
+    # Cache insight in tile metadata
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    updates = {
+        "insightText": insight_text,
+        "insightGeneratedAt": now,
+        "linkedTileIds": body.linkedTileIds,
+    }
+    update_tile(email, dashboard_id, tile_id, updates)
+
+    return {
+        "insightText": insight_text,
+        "insightGeneratedAt": now,
+        "linkedTileIds": body.linkedTileIds,
+    }
 
 
 # ── Generate Column SQL ──────────────────────────────────────────────

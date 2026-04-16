@@ -49,4 +49,24 @@ describe('AnalystWorkbenchLayout', () => {
     expect(screen.getByTestId('layout-workbench-tile-t2')).toBeDefined();
     expect(screen.getByTestId('layout-workbench-tile-t3')).toBeDefined();
   });
+
+  it('renders a dense chip row showing tile count (SP-6)', () => {
+    render(<AnalystWorkbenchLayout tiles={TILES} />);
+    const chipRow = screen.getByTestId('workbench-chip-row');
+    expect(chipRow).toBeDefined();
+    expect(chipRow.textContent).toMatch(/3\s*tiles/i);
+  });
+
+  it('renders each active cross-filter as a chip when activeFilters prop is passed (SP-6)', () => {
+    const activeFilters = [
+      { id: 'f1', field: 'region', op: '=', value: 'West' },
+      { id: 'f2', field: 'revenue', op: '>=', value: 1000 },
+    ];
+    render(
+      <AnalystWorkbenchLayout tiles={TILES} activeFilters={activeFilters} />,
+    );
+    const chipRow = screen.getByTestId('workbench-chip-row');
+    expect(chipRow.textContent).toMatch(/region = West/);
+    expect(chipRow.textContent).toMatch(/revenue >= 1000/);
+  });
 });

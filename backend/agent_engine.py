@@ -10,6 +10,7 @@ import json
 import time
 import logging
 import threading
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -204,8 +205,12 @@ DASHBOARD_TOOL_DEFINITIONS = [
     {
         "name": "create_dashboard_tile",
         "description": (
-            "Create a new tile on the user's dashboard with query results and/or chart. "
-            "Use this after running a query to pin the results to a dashboard."
+            "Create a new tile on the user's dashboard. Supports chart tiles (with SQL + data), "
+            "text/markdown tiles (freeform content), AI insight tiles (auto-generated summary), "
+            "and activity feed tiles. For chart tiles, provide sql. For text tiles, provide content. "
+            "For insight tiles, provide either linked_tile_ids (to derive a summary) OR content "
+            "(to directly supply a boardroom-ready narrative, e.g. after calling summarize_results). "
+            "Insight tiles render as a full-width AI narrative card in the Briefing archetype."
         ),
         "input_schema": {
             "type": "object",
@@ -213,10 +218,19 @@ DASHBOARD_TOOL_DEFINITIONS = [
                 "dashboard_id": {"type": "string", "description": "Dashboard ID from list_dashboards."},
                 "title": {"type": "string", "description": "Tile title."},
                 "question": {"type": "string", "description": "The natural-language question."},
-                "sql": {"type": "string", "description": "The SQL query for this tile."},
-                "chart_type": {"type": "string", "description": "bar, line, pie, area, table, or kpi."},
+                "sql": {"type": "string", "description": "The SQL query for this tile (chart tiles)."},
+                "chart_type": {
+                    "type": "string",
+                    "description": "bar, line, pie, area, table, kpi, text, insight, or activity.",
+                },
+                "content": {"type": "string", "description": "Markdown content for text tiles."},
+                "linked_tile_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Tile IDs to analyze for insight tiles.",
+                },
             },
-            "required": ["dashboard_id", "title", "sql"],
+            "required": ["dashboard_id", "title"],
         },
     },
     {
@@ -329,7 +343,7 @@ DASHBOARD_TOOL_DEFINITIONS = [
         "description": (
             "Switch a dashboard's display mode. Modes: briefing (executive), "
             "workbench (dense analyst), ops (live refresh), story (scrollytelling), "
-            "pitch (presentation slides), workbook (tabbed Excel-style). "
+            "pitch (presentation slides), tableau (tabbed BI-classic). "
             "This changes the layout archetype — tiles stay the same."
         ),
         "input_schema": {
@@ -338,7 +352,7 @@ DASHBOARD_TOOL_DEFINITIONS = [
                 "dashboard_id": {"type": "string", "description": "Dashboard ID from list_dashboards."},
                 "mode": {
                     "type": "string",
-                    "enum": ["briefing", "workbench", "ops", "story", "pitch", "workbook"],
+                    "enum": ["briefing", "workbench", "ops", "story", "pitch", "tableau"],
                     "description": "Dashboard mode archetype to switch to.",
                 },
             },
@@ -2537,9 +2551,12 @@ class AgentEngine:
             "total_tiles": len(tiles),
         })
 
-    def _tool_create_dashboard_tile(self, dashboard_id: str, title: str, sql: str,
-                                     question: str = "", chart_type: str = "table") -> str:
-        """Create a new tile on a dashboard, executing the SQL to include data."""
+    def _tool_create_dashboard_tile(self, dashboard_id: str, title: str, sql: str = None,
+                                     question: str = "", chart_type: str = "table",
+                                     content: str = None, linked_tile_ids: list = None) -> str:
+        """Create a new tile on a dashboard. Supports chart tiles (with SQL),
+        text/markdown tiles (with content), insight tiles (with linked_tile_ids),
+        and activity feed tiles."""
         from user_storage import load_dashboard, add_tile_to_section
         import uuid
 
@@ -2557,46 +2574,66 @@ class AgentEngine:
             return json.dumps({"error": "Dashboard tab has no sections"})
         section = sections[0]
 
-        # Execute the SQL to get columns and rows — tiles must include data
-        # so the dashboard can render immediately without a separate refresh.
-        # NOTE: _tool_run_sql returns a 100-row PREVIEW to the LLM, but stores
-        # the full result (up to 5000 rows) in self._result. We use self._result
-        # for the tile data to get the complete dataset.
+        # SP-3: Rich content tile types — no SQL execution needed
+        rich_types = {"text", "markdown", "insight", "ai_summary", "activity"}
+        is_rich = chart_type in rich_types
+
         columns = []
         rows = []
-        try:
-            self._tool_run_sql(sql=sql)
-            # Read from self._result which has up to 5000 rows (not the 100-row preview)
-            if self._result.columns:
-                columns = list(self._result.columns)
-                raw_rows = self._result.rows or []
-                # Convert array-of-arrays to array-of-objects for frontend compat
-                if raw_rows and columns:
-                    if isinstance(raw_rows[0], list):
-                        rows = [dict(zip(columns, r)) for r in raw_rows[:5000]]
-                    else:
-                        rows = raw_rows[:5000]
-        except Exception as exc:
-            _logger.warning("create_dashboard_tile: SQL execution failed for tile data — %s", exc)
-            # Tile will be created without data; dashboard can refresh it later
+
+        if not is_rich and sql:
+            # Execute the SQL to get columns and rows for chart tiles
+            try:
+                self._tool_run_sql(sql=sql)
+                if self._result.columns:
+                    columns = list(self._result.columns)
+                    raw_rows = self._result.rows or []
+                    if raw_rows and columns:
+                        if isinstance(raw_rows[0], list):
+                            rows = [dict(zip(columns, r)) for r in raw_rows[:5000]]
+                        else:
+                            rows = raw_rows[:5000]
+            except Exception as exc:
+                _logger.warning("create_dashboard_tile: SQL execution failed — %s", exc)
 
         tile = {
             "id": f"tile_{uuid.uuid4().hex[:8]}",
             "title": title,
-            "question": question or title,
-            "sql": sql,
             "chartType": chart_type,
-            "type": "chart" if chart_type != "kpi" else "kpi",
-            "columns": columns,
-            "rows": rows,
         }
+
+        if is_rich:
+            # Rich content tile fields
+            if content:
+                tile["content"] = content
+            if chart_type in ("insight", "ai_summary"):
+                tile["linkedTileIds"] = linked_tile_ids or []
+                # If the agent supplied `content` directly (typical flow after
+                # summarize_results), seed insightText so the frontend
+                # InsightTile + ExecBriefingLayout narrative card render
+                # immediately without waiting for a separate insight-gen pass.
+                tile["insightText"] = content if content else ""
+                tile["insightGeneratedAt"] = (
+                    datetime.utcnow().isoformat() + "Z" if content else None
+                )
+            if chart_type == "activity":
+                tile["events"] = []
+        else:
+            # Chart tile fields
+            tile["question"] = question or title
+            tile["sql"] = sql or ""
+            tile["columns"] = columns
+            tile["rows"] = rows
 
         result = add_tile_to_section(self.email, dashboard_id, tab["id"], section["id"], tile)
         if result:
+            msg = f"Created {chart_type} tile '{title}'"
+            if not is_rich:
+                msg += f" with {len(rows)} rows"
             return json.dumps({
                 "success": True, "tile_id": tile["id"],
-                "message": f"Created tile '{title}' with {len(rows)} rows",
-                "columns": columns, "row_count": len(rows),
+                "message": msg,
+                "chart_type": chart_type,
             })
         return json.dumps({"error": "Failed to add tile to dashboard"})
 
@@ -2787,7 +2824,7 @@ class AgentEngine:
         """Switch a dashboard's display mode archetype."""
         from user_storage import _load_dashboards, _save_dashboards
 
-        valid_modes = {"briefing", "workbench", "ops", "story", "pitch", "workbook"}
+        valid_modes = {"briefing", "workbench", "ops", "story", "pitch", "tableau"}
         if mode not in valid_modes:
             return json.dumps({"error": f"Invalid mode '{mode}'. Valid: {', '.join(sorted(valid_modes))}"})
         try:

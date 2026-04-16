@@ -182,6 +182,41 @@ export const useStore = create((set, get) => ({
     return { prefetchCache: cache };
   }),
 
+  // ── SP-2: Dashboard Tile CRUD (agent-driven real-time updates) ──
+  // dashboardTiles: live tile array mirroring the dashboard state.
+  // Mutations here are optimistic; AnalyticsShell reconciles on reload.
+  dashboardTiles: [],
+  setDashboardTiles: (tiles) => set({ dashboardTiles: Array.isArray(tiles) ? tiles : [] }),
+  addDashboardTile: (tile) => set((s) => ({
+    dashboardTiles: [...s.dashboardTiles, tile],
+    tileEditVersion: s.tileEditVersion + 1,
+  })),
+  updateDashboardTile: (tileId, updates) => set((s) => ({
+    dashboardTiles: s.dashboardTiles.map((t) =>
+      t.id === tileId ? { ...t, ...updates } : t
+    ),
+    tileEditVersion: s.tileEditVersion + 1,
+  })),
+  removeDashboardTile: (tileId) => set((s) => ({
+    dashboardTiles: s.dashboardTiles.filter((t) => t.id !== tileId),
+    tileEditVersion: s.tileEditVersion + 1,
+  })),
+
+  // Agent-editing tracking: set of tile IDs currently being modified by agent
+  agentEditingTiles: new Set(),
+  setAgentEditingTile: (tileId, editing) => set((s) => {
+    const next = new Set(s.agentEditingTiles);
+    if (editing) next.add(tileId);
+    else next.delete(tileId);
+    return { agentEditingTiles: next };
+  }),
+  clearAgentEditingTiles: () => set({ agentEditingTiles: new Set() }),
+
+  // Suggested action chips after agent tile operations
+  agentSuggestedChips: [],
+  setAgentSuggestedChips: (chips) => set({ agentSuggestedChips: Array.isArray(chips) ? chips : [] }),
+  clearAgentSuggestedChips: () => set({ agentSuggestedChips: [] }),
+
   // ── ML Engine Slice ──────────────────────────────────────────
   mlModels: [],
   mlTrainingTaskId: null,
@@ -235,8 +270,23 @@ export const useStore = create((set, get) => ({
 
   // ── Voice Slice ──────────────────────────────────────────────
   voiceActive: false,
-  voiceConfig: { sttProvider: 'browser', ttsProvider: 'browser', voiceId: null, autoListen: true, speed: 1.0 },
+  voiceMode: 'ptt',          // 'ptt' | 'wakeword' | 'hotmic'
+  voiceListening: false,
+  voiceTranscribing: false,
+  voiceTranscript: '',        // interim transcript text
+  voiceFinalTranscript: '',   // final committed transcript
+  wakeWordActive: false,      // wake-word detector running (separate from listening)
+  voiceConfig: { sttProvider: 'browser', ttsProvider: 'browser', voiceId: null, autoListen: true, speed: 1.0, silenceDelayMs: 1200, wakePhrase: 'Hey Ask' },
   setVoiceActive: (active) => set({ voiceActive: active }),
+  setVoiceMode: (mode) => {
+    const valid = ['ptt', 'wakeword', 'hotmic'];
+    set({ voiceMode: valid.includes(mode) ? mode : 'ptt' });
+  },
+  setVoiceListening: (v) => set({ voiceListening: !!v }),
+  setVoiceTranscribing: (v) => set({ voiceTranscribing: !!v }),
+  setVoiceTranscript: (text) => set({ voiceTranscript: text || '' }),
+  setVoiceFinalTranscript: (text) => set({ voiceFinalTranscript: text || '' }),
+  setWakeWordActive: (v) => set({ wakeWordActive: !!v }),
   setVoiceConfig: (config) => set((s) => ({ voiceConfig: { ...s.voiceConfig, ...config } })),
 
   // ── Agent Slice ──────────────────────────────────────────────

@@ -70,4 +70,26 @@ describe('ExecBriefingLayout', () => {
         .getAttribute('data-has-spec'),
     ).toBe('true');
   });
+
+  it('renders AI insight narrative card full-width when a tile has narrative text (SP-6)', () => {
+    const tilesWithInsight = [
+      ...BRIEFING_TILES,
+      {
+        id: 'ins1',
+        title: 'Why MRR moved',
+        // chartType='insight' routes through isRichContentTile in the
+        // importance scorer so the tile survives the packer filter.
+        chartType: 'insight',
+        narrative:
+          'Revenue climbed $478K — West region SaaS tier upgrades drove 62% of gain.',
+      },
+    ];
+    render(<ExecBriefingLayout tiles={tilesWithInsight} />);
+    const insightTile = screen.getByTestId('layout-briefing-tile-ins1');
+    expect(insightTile.getAttribute('data-kind')).toBe('insight');
+    expect(insightTile.getAttribute('data-col-span')).toBe('12');
+    const card = screen.getByTestId('briefing-insight-ins1');
+    expect(card.textContent).toMatch(/AI Insight/);
+    expect(card.textContent).toMatch(/West region SaaS tier upgrades/);
+  });
 });

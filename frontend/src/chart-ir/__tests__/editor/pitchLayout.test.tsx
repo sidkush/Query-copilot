@@ -61,4 +61,15 @@ describe('PitchLayout', () => {
     // pitch layout is present and presentation content is mounted.
     expect(screen.getByTestId('layout-pitch')).toBeDefined();
   });
+
+  it('renders chrome overlay with slide counter and fullscreen toggle (SP-6)', () => {
+    render(<PitchLayout tiles={TILES} />);
+    const chrome = screen.getByTestId('pitch-chrome');
+    expect(chrome).toBeDefined();
+    const counter = screen.getByTestId('pitch-slide-counter');
+    expect(counter.textContent).toMatch(/Slide 1 of \d+/);
+    const fsBtn = screen.getByTestId('pitch-fullscreen-toggle');
+    expect(fsBtn).toBeDefined();
+    expect(fsBtn.getAttribute('aria-label')).toMatch(/fullscreen/i);
+  });
 });

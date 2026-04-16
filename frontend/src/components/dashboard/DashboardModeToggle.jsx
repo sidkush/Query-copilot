@@ -1,24 +1,25 @@
 import { motion } from "framer-motion";
 
 /**
- * DashboardModeToggle — segmented pill for switching between dashboard
- * archetypes (Briefing / Workbench / Ops / Story / Pitch / Workbook).
+ * DashboardModeToggle — SP-1 restyled segmented pill.
  *
- * Uses Framer Motion layoutId for the active-pill slide transition
- * matching the chart editor's mode toggle.
+ * 6 archetype pills: Briefing · Workbench · LiveOps · Story · Pitch · Tableau
+ * Active pill: subtle purple bg + purple text + Framer Motion spring slide.
+ * Inactive: muted gray, brightens on hover.
+ * Responsive: below 640px shows truncated labels (first 4 chars).
  */
 export default function DashboardModeToggle({ modes, activeMode, onChange }) {
   return (
     <div
       role="tablist"
-      aria-label="Dashboard mode"
+      aria-label="Dashboard archetype"
       data-testid="dashboard-mode-toggle"
       style={{
         display: "flex",
-        padding: 2,
-        borderRadius: 6,
-        background: "var(--bg-elev-2, rgba(255,255,255,0.04))",
-        border: "1px solid var(--border-subtle, rgba(255,255,255,0.06))",
+        padding: 3,
+        borderRadius: 8,
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.06)",
         position: "relative",
       }}
     >
@@ -33,26 +34,39 @@ export default function DashboardModeToggle({ modes, activeMode, onChange }) {
             onClick={() => onChange && onChange(m.id)}
             style={{
               position: "relative",
-              padding: "4px 12px",
+              padding: "5px 14px",
               fontSize: 11,
-              fontWeight: 500,
-              borderRadius: 4,
+              fontWeight: active ? 600 : 500,
+              fontFamily: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+              letterSpacing: "-0.01em",
+              borderRadius: 6,
               background: "transparent",
-              color: active ? "var(--text-primary, #e7e7ea)" : "var(--text-secondary, #b0b0b6)",
+              color: active
+                ? "var(--accent, #a78bfa)"
+                : "var(--text-muted, rgba(255,255,255,0.4))",
               cursor: "pointer",
               border: "none",
-              minWidth: 64,
+              minWidth: 56,
+              transition: "color 150ms ease",
+              zIndex: active ? 1 : 0,
+            }}
+            onMouseEnter={(e) => {
+              if (!active) e.currentTarget.style.color = "var(--text-secondary, #b0b0b6)";
+            }}
+            onMouseLeave={(e) => {
+              if (!active) e.currentTarget.style.color = "var(--text-muted, rgba(255,255,255,0.4))";
             }}
           >
             {active && (
               <motion.span
                 layoutId="dashboard-mode-toggle-bg"
-                transition={{ type: "spring", stiffness: 320, damping: 28 }}
+                transition={{ type: "spring", stiffness: 380, damping: 30 }}
                 style={{
                   position: "absolute",
                   inset: 0,
-                  borderRadius: 4,
-                  background: "var(--accent, rgba(96,165,250,0.22))",
+                  borderRadius: 6,
+                  background: "rgba(168,85,247,0.12)",
+                  border: "1px solid rgba(168,85,247,0.15)",
                   zIndex: 0,
                 }}
               />

@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useStore } from "../../store";
+import DashboardTopBar, { ARCHETYPE_EDIT_MAP } from "./DashboardTopBar";
+import DashboardContextBar from "./DashboardContextBar";
+import DashboardStatusBar from "./DashboardStatusBar";
 import DashboardModeToggle from "./DashboardModeToggle";
 import CommandPalette from "./CommandPalette";
 import ExecBriefingLayout from "./modes/ExecBriefingLayout";
@@ -8,37 +11,38 @@ import LiveOpsLayout from "./modes/LiveOpsLayout";
 import StoryLayout from "./modes/StoryLayout";
 import PitchLayout from "./modes/PitchLayout";
 import WorkbookLayout from "./modes/WorkbookLayout";
+import TableauClassicLayout from "./modes/TableauClassicLayout";
 import MobileLayout from "./modes/MobileLayout";
 import useTileLinking from "./lib/useTileLinking";
+import useVoicePipeline from "./hooks/useVoicePipeline";
+import VoiceModeSelector from "./VoiceModeSelector";
+import VoiceTranscriptOverlay from "./VoiceTranscriptOverlay";
 
 /**
- * DashboardShell — Phase 4a archetype shell.
+ * DashboardShell — SP-1 full-stack shell composition.
  *
- * Hosts the six dashboard modes from A spec S7 and swaps the layout
- * component based on the active mode. The shell itself is minimal:
- *   - mode toggle pill at the top
- *   - active layout below
+ * Layout (top to bottom):
+ *   TopBar (52px)     — logo, breadcrumb, archetype pill, edit-mode badge, share/save
+ *   ContextBar (28px) — business summary, refresh timestamp
+ *   FilterBar          — existing GlobalFilterBar (mounted externally or passed as children)
+ *   Content Area       — flex:1, overflow auto, active archetype layout
+ *   StatusBar (32px)  — connection, rows, tier, voice placeholder
  *
- * Phase 4a ships the shell + toggle + skeleton layouts. Phase 4b wires
- * real bin-packing (ExecBriefing), Live Ops WebSocket refresh, Story
- * scroll + annotations, Workbook shared filters, and the Pitch mode's
- * existing PresentationEngine integration. Each mode file carries a
- * TODO(a4b) marker for the deferred work.
- *
- * Not hooked into production routing yet — behind
- * NEW_CHART_EDITOR_ENABLED (see config / Phase 4b cutover). This
- * component is consumable via the /dev/chart-editor dev route or any
- * caller that mounts <DashboardShell />.
+ * Auto-map: archetype change sets edit mode per ARCHETYPE_EDIT_MAP.
+ * Manual override persists until next archetype change.
  */
-const MODES = [
-  { id: "briefing", label: "Briefing", Layout: ExecBriefingLayout },
+
+const ARCHETYPES = [
+  { id: "briefing",  label: "Briefing",  Layout: ExecBriefingLayout },
   { id: "workbench", label: "Workbench", Layout: AnalystWorkbenchLayout },
-  { id: "ops", label: "Live Ops", Layout: LiveOpsLayout },
-  { id: "story", label: "Story", Layout: StoryLayout },
-  { id: "pitch", label: "Pitch", Layout: PitchLayout },
-  { id: "workbook", label: "Workbook", Layout: WorkbookLayout },
-  { id: "mobile", label: "Mobile", Layout: MobileLayout },
+  { id: "ops",       label: "LiveOps",   Layout: LiveOpsLayout },
+  { id: "story",     label: "Story",     Layout: StoryLayout },
+  { id: "pitch",     label: "Pitch",     Layout: PitchLayout },
+  { id: "tableau",   label: "Tableau",   Layout: TableauClassicLayout },
 ];
+
+// Keep mobile as responsive fallback (not shown in pills)
+const MOBILE_BREAKPOINT = 640;
 
 export default function DashboardShell({
   tiles = [],
@@ -50,21 +54,75 @@ export default function DashboardShell({
   onSwitchDashboard,
   onTileClick,
   onLayoutChange,
+  // SP-1 new props
+  orgName,
+  workspaceName,
+  onNameChange,
+  onShare,
+  onSave,
+  saving = false,
+  // Status bar data
+  connectionStatus,
+  dbType,
+  databaseName,
+  lastRefreshed,
+  // GlobalFilterBar can be passed as children
+  children,
+  // SP-2: style override for flex layout when agent panel is docked
+  style: styleProp,
 }) {
   const [mode, setMode] = useState(initialMode);
+  const [editMode, setEditMode] = useState(ARCHETYPE_EDIT_MAP[initialMode] || 'default');
+  const [editModeOverride, setEditModeOverride] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Brush-to-detail cross-tile filtering.
-  // Source tiles call onBrush(sourceTileId, field, range) via their VegaRenderer.
-  // Detail tiles read getFiltersForTile(tileId) and batch-refresh with the filters.
-  const { linkConfig, addLink, removeLink, onBrush, getFiltersForTile } = useTileLinking();
+  // Brush-to-detail cross-tile filtering
+  const { linkConfig, addLink, removeLink, onBrush, getFiltersForTile, allActiveFilters } = useTileLinking();
 
-  // Semantic model + chart editor from store
+  // SP-5: Voice pipeline — transcripts route to agent panel
+  const voiceListening = useStore((s) => s.voiceListening);
+  const voiceTranscribing = useStore((s) => s.voiceTranscribing);
+  const setAgentPanelOpen = useStore((s) => s.setAgentPanelOpen);
+  const setVoiceMode = useStore((s) => s.setVoiceMode);
+  const [voiceModeMenuOpen, setVoiceModeMenuOpen] = useState(false);
+  const [voiceModeAnchor, setVoiceModeAnchor] = useState(null);
+
+  const { supported: voiceSupported, toggleListening: voiceToggle } = useVoicePipeline({
+    onTranscript: (text) => {
+      setAgentPanelOpen(true);
+      useStore.getState().setVoiceFinalTranscript(text);
+    },
+  });
+
+  // Restore per-workspace voice mode from localStorage
+  useEffect(() => {
+    if (!dashboardId) return;
+    try {
+      const saved = localStorage.getItem(`askdb-voice-mode-${dashboardId}`);
+      if (saved && ['ptt', 'wakeword', 'hotmic'].includes(saved)) {
+        setVoiceMode(saved);
+      }
+    } catch { /* ignore */ }
+  }, [dashboardId, setVoiceMode]);
+
+  // Store access
   const activeSemanticModel = useStore((s) => s.activeSemanticModel);
   const setChartEditorSpec = useStore((s) => s.setChartEditorSpec);
+  const agentTierInfo = useStore((s) => s.agentTierInfo);
+  const turboStatus = useStore((s) => s.turboStatus);
+  const connections = useStore((s) => s.connections);
 
-  // ⌘K / Ctrl+K keyboard shortcut to open command palette
+  // Detect mobile viewport
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    setIsMobile(mq.matches);
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // ⌘K / Ctrl+K keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -76,9 +134,27 @@ export default function DashboardShell({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Build semantic commands from the active semantic model.
-  // Each dimension/measure/metric becomes a searchable command that applies
-  // the field to the relevant encoding channel via setChartEditorSpec.
+  // Auto-map edit mode when archetype changes
+  const handleArchetypeChange = (nextMode) => {
+    setMode(nextMode);
+    // Reset edit mode to auto-mapped value (clear override)
+    setEditMode(ARCHETYPE_EDIT_MAP[nextMode] || 'default');
+    setEditModeOverride(false);
+    onModeChange?.(nextMode);
+
+    // SP-5c: Stage Mode (pitch) auto-switches to wake word for hands-free demo
+    if (nextMode === 'pitch') {
+      setVoiceMode('wakeword');
+    }
+  };
+
+  // Manual edit mode override
+  const handleEditModeChange = (nextEditMode) => {
+    setEditMode(nextEditMode);
+    setEditModeOverride(true);
+  };
+
+  // Semantic commands for ⌘K palette
   const semanticCommands = useMemo(() => {
     if (!activeSemanticModel) return [];
 
@@ -87,10 +163,7 @@ export default function DashboardShell({
       const base = current || { $schema: "askdb/chart-spec/v1", type: "cartesian", mark: "bar", encoding: {} };
       setChartEditorSpec({
         ...base,
-        encoding: {
-          ...(base.encoding || {}),
-          [channelKey]: channelValue,
-        },
+        encoding: { ...(base.encoding || {}), [channelKey]: channelValue },
       });
     };
 
@@ -99,12 +172,7 @@ export default function DashboardShell({
       label: dim.label,
       kind: "dimension",
       hint: `${dim.field} · ${dim.semanticType}`,
-      action: () =>
-        applyEncoding("x", {
-          field: dim.field,
-          type: dim.semanticType,
-          title: dim.label,
-        }),
+      action: () => applyEncoding("x", { field: dim.field, type: dim.semanticType, title: dim.label }),
     }));
 
     const measureCommands = (activeSemanticModel.measures || []).map((ms) => ({
@@ -112,13 +180,7 @@ export default function DashboardShell({
       label: ms.label,
       kind: "measure",
       hint: `${ms.aggregate}(${ms.field})`,
-      action: () =>
-        applyEncoding("y", {
-          field: ms.field,
-          type: "quantitative",
-          aggregate: ms.aggregate,
-          title: ms.label,
-        }),
+      action: () => applyEncoding("y", { field: ms.field, type: "quantitative", aggregate: ms.aggregate, title: ms.label }),
     }));
 
     const metricCommands = (activeSemanticModel.metrics || []).map((m) => ({
@@ -126,18 +188,13 @@ export default function DashboardShell({
       label: m.label,
       kind: "metric",
       hint: `${m.formula}${m.format ? " · " + m.format : ""}`,
-      action: () =>
-        applyEncoding("y", {
-          field: `metric:${m.id}`,
-          type: "quantitative",
-          title: m.label,
-        }),
+      action: () => applyEncoding("y", { field: `metric:${m.id}`, type: "quantitative", title: m.label }),
     }));
 
     return [...dimensionCommands, ...measureCommands, ...metricCommands];
   }, [activeSemanticModel, setChartEditorSpec]);
 
-  // Dashboard switch commands for ⌘K palette
+  // Dashboard switch commands
   const dashboardCommands = useMemo(() => {
     if (!dashboardList?.length || !onSwitchDashboard) return [];
     return dashboardList.map((d) => ({
@@ -145,31 +202,36 @@ export default function DashboardShell({
       label: d.name || "Untitled Dashboard",
       kind: "dashboard",
       hint: d.id === dashboardId ? "Current" : `${d.tabs?.length || 0} tabs`,
-      action: () => {
-        onSwitchDashboard(d.id);
-        setPaletteOpen(false);
-      },
+      action: () => { onSwitchDashboard(d.id); setPaletteOpen(false); },
     }));
   }, [dashboardList, dashboardId, onSwitchDashboard]);
 
-  // Merge all commands for the palette
   const allCommands = useMemo(() => [
     ...dashboardCommands,
     ...semanticCommands,
   ], [dashboardCommands, semanticCommands]);
 
-  const handleModeChange = (nextMode) => {
-    setMode(nextMode);
-    onModeChange && onModeChange(nextMode);
-  };
+  // Derive connection info from store if not passed as props
+  const resolvedConnectionStatus = connectionStatus || (connections?.length > 0 ? 'connected' : 'disconnected');
+  const resolvedDbType = dbType || connections?.[0]?.db_type || null;
+  const resolvedDbName = databaseName || connections?.[0]?.database_name || null;
 
-  const active = MODES.find((m) => m.id === mode) ?? MODES[0];
-  const Layout = active.Layout;
+  // Derive tier info from store
+  const resolvedTier = agentTierInfo?.tier || null;
+  const resolvedRowCount = agentTierInfo?.rowCount ?? null;
+  const resolvedQueryTime = agentTierInfo?.queryTimeMs ?? null;
+
+  // Choose layout — mobile override or archetype
+  const activeArchetype = isMobile ? null : (ARCHETYPES.find((m) => m.id === mode) ?? ARCHETYPES[0]);
+  const Layout = isMobile ? MobileLayout : activeArchetype.Layout;
+
+  const archetypeModes = ARCHETYPES.map((m) => ({ id: m.id, label: m.label }));
 
   return (
     <div
       data-testid="dashboard-shell"
       data-active-mode={mode}
+      data-edit-mode={editMode}
       style={{
         height: "100%",
         width: "100%",
@@ -177,188 +239,35 @@ export default function DashboardShell({
         flexDirection: "column",
         background: "var(--bg-page, #06060e)",
         color: "var(--text-primary, #e7e7ea)",
+        ...styleProp,
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "10px 16px",
-          borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
-          {/* Dashboard picker dropdown */}
-          <button
-            onClick={() => setPickerOpen((v) => !v)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "3px 8px",
-              borderRadius: 6,
-              background: "transparent",
-              border: "1px solid transparent",
-              color: "var(--text-secondary, #b0b0b6)",
-              fontSize: 12,
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "all 150ms ease",
-              letterSpacing: "-0.01em",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.06))";
-              e.currentTarget.style.borderColor = "var(--border-subtle, rgba(255,255,255,0.1))";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.borderColor = "transparent";
-            }}
-          >
-            <span style={{ color: "var(--text-muted, rgba(255,255,255,0.4))" }}>Dashboard</span>
-            <span style={{ color: "var(--text-primary, #e7e7ea)", fontWeight: 600 }}>
-              {dashboardName || "Untitled"}
-            </span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" style={{ opacity: 0.5 }}>
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
-          <span style={{ color: "var(--text-muted, rgba(255,255,255,0.25))", fontSize: 11 }}>·</span>
-          <span style={{ color: "var(--text-secondary, #b0b0b6)", fontSize: 12 }}>{active.label}</span>
+      {/* ═══ TopBar ═══ */}
+      <DashboardTopBar
+        dashboardName={dashboardName}
+        orgName={orgName}
+        workspaceName={workspaceName}
+        archetypeMode={mode}
+        archetypeModes={archetypeModes}
+        onArchetypeChange={handleArchetypeChange}
+        editMode={editMode}
+        onEditModeChange={handleEditModeChange}
+        onNameChange={onNameChange}
+        onShare={onShare}
+        onSave={onSave}
+        saving={saving}
+      />
 
-          {/* Dropdown menu */}
-          {pickerOpen && dashboardList.length > 0 && (
-            <>
-              <div
-                onClick={() => setPickerOpen(false)}
-                style={{ position: "fixed", inset: 0, zIndex: 90 }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 6px)",
-                  left: 0,
-                  minWidth: 240,
-                  maxHeight: 320,
-                  overflowY: "auto",
-                  background: "var(--bg-elevated, #18182a)",
-                  border: "1px solid var(--border-default, rgba(255,255,255,0.1))",
-                  borderRadius: 10,
-                  boxShadow: "0 16px 48px -8px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.3)",
-                  zIndex: 100,
-                  padding: "4px",
-                }}
-              >
-                <div style={{
-                  padding: "6px 10px 4px",
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: "var(--text-muted, rgba(255,255,255,0.4))",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}>
-                  Dashboards
-                </div>
-                {dashboardList.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => {
-                      onSwitchDashboard?.(d.id);
-                      setPickerOpen(false);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      width: "100%",
-                      padding: "8px 10px",
-                      borderRadius: 7,
-                      background: d.id === dashboardId
-                        ? "var(--accent-light, rgba(99,102,241,0.12))"
-                        : "transparent",
-                      border: "none",
-                      color: d.id === dashboardId
-                        ? "var(--accent, #6366f1)"
-                        : "var(--text-primary, #e7e7ea)",
-                      fontSize: 12.5,
-                      fontWeight: d.id === dashboardId ? 600 : 400,
-                      cursor: "pointer",
-                      textAlign: "left",
-                      transition: "background 100ms ease",
-                      letterSpacing: "-0.01em",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (d.id !== dashboardId) e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.06))";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (d.id !== dashboardId) e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    <span style={{
-                      width: 6, height: 6, borderRadius: "50%",
-                      background: d.id === dashboardId ? "var(--accent, #6366f1)" : "var(--text-muted, rgba(255,255,255,0.2))",
-                      flexShrink: 0,
-                    }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {d.name || "Untitled"}
-                    </span>
-                    {d.id === dashboardId && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: "auto", flexShrink: 0, opacity: 0.7 }}>
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <DashboardModeToggle
-            modes={MODES.map((m) => ({ id: m.id, label: m.label }))}
-            activeMode={mode}
-            onChange={handleModeChange}
-          />
-          {/* ⌘K command palette trigger */}
-          <button
-            onClick={() => setPaletteOpen(true)}
-            title="Open command palette (⌘K)"
-            aria-label="Open command palette"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "4px 10px",
-              borderRadius: 6,
-              background: "var(--bg-elev-2, rgba(255,255,255,0.04))",
-              border: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
-              color: "var(--text-secondary, #b0b0b6)",
-              fontSize: 11,
-              fontWeight: 500,
-              cursor: "pointer",
-              letterSpacing: "0.02em",
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-            <span>Search</span>
-            <span
-              style={{
-                padding: "1px 5px",
-                borderRadius: 4,
-                background: "var(--bg-elev-3, rgba(255,255,255,0.06))",
-                border: "1px solid var(--border-subtle, rgba(255,255,255,0.1))",
-                fontSize: 10,
-                fontFamily: "ui-monospace, monospace",
-              }}
-            >
-              ⌘K
-            </span>
-          </button>
-        </div>
-      </div>
+      {/* ═══ ContextBar ═══ */}
+      <DashboardContextBar
+        tiles={tiles}
+        lastRefreshed={lastRefreshed}
+      />
+
+      {/* ═══ FilterBar slot (passed as children from parent) ═══ */}
+      {children}
+
+      {/* ═══ Content Area ═══ */}
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <Layout
           tiles={tiles}
@@ -371,15 +280,129 @@ export default function DashboardShell({
           linkConfig={linkConfig}
           addLink={addLink}
           removeLink={removeLink}
+          activeFilters={allActiveFilters}
         />
       </div>
 
-      {/* Command palette — floats above all content */}
+      {/* ═══ StatusBar ═══ */}
+      <DashboardStatusBar
+        connectionStatus={resolvedConnectionStatus}
+        dbType={resolvedDbType}
+        databaseName={resolvedDbName}
+        rowCount={resolvedRowCount}
+        queryTimeMs={resolvedQueryTime}
+        tier={resolvedTier}
+        cached={resolvedTier === 'turbo' || resolvedTier === 'memory'}
+        voiceSupported={voiceSupported}
+        voiceListening={voiceListening}
+        voiceTranscribing={voiceTranscribing}
+        onVoiceToggle={voiceToggle}
+        onVoiceModeMenu={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setVoiceModeAnchor(rect);
+          setVoiceModeMenuOpen(true);
+        }}
+      />
+
+      {/* Command palette — floats above all */}
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
         commands={allCommands}
       />
+
+      {/* SP-5d: Transcription overlay — floats above status bar */}
+      <VoiceTranscriptOverlay archetype={mode} />
+
+      {/* SP-5: Voice mode selector popover */}
+      <VoiceModeSelector
+        open={voiceModeMenuOpen}
+        onClose={() => setVoiceModeMenuOpen(false)}
+        anchorRect={voiceModeAnchor}
+        dashboardId={dashboardId}
+      />
+
+      {/* SP-2: Agent toggle FAB — bottom-right, glass style */}
+      <AgentFAB />
     </div>
+  );
+}
+
+/** Floating action button to toggle the agent panel on/off. */
+function AgentFAB() {
+  const agentPanelOpen = useStore((s) => s.agentPanelOpen);
+  const setAgentPanelOpen = useStore((s) => s.setAgentPanelOpen);
+  const agentLoading = useStore((s) => s.agentLoading);
+
+  return (
+    <button
+      data-testid="agent-fab"
+      onClick={() => setAgentPanelOpen(!agentPanelOpen)}
+      title={agentPanelOpen ? "Close agent panel" : "Open agent panel"}
+      aria-label={agentPanelOpen ? "Close agent panel" : "Open agent panel"}
+      style={{
+        position: "absolute",
+        bottom: 44, // above StatusBar
+        right: 16,
+        zIndex: 40,
+        width: 48,
+        height: 48,
+        borderRadius: 16,
+        border: agentPanelOpen
+          ? "1px solid rgba(37,99,235,0.5)"
+          : "1px solid var(--border-subtle, rgba(255,255,255,0.1))",
+        background: agentPanelOpen
+          ? "linear-gradient(135deg, rgba(37,99,235,0.22), rgba(37,99,235,0.08))"
+          : "var(--glass-bg-card-elevated, rgba(12,12,20,0.85))",
+        backdropFilter: "blur(16px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(16px) saturate(1.4)",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: agentPanelOpen
+          ? "0 4px 24px rgba(37,99,235,0.25), inset 0 1px 0 rgba(255,255,255,0.08)"
+          : "0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)",
+        transition: "all 0.2s ease",
+      }}
+      onMouseEnter={(e) => {
+        if (!agentPanelOpen) e.currentTarget.style.borderColor = "rgba(37,99,235,0.35)";
+      }}
+      onMouseLeave={(e) => {
+        if (!agentPanelOpen) e.currentTarget.style.borderColor = "var(--border-subtle, rgba(255,255,255,0.1))";
+      }}
+    >
+      {/* Sparkle icon — matches AgentStepFeed empty-state icon */}
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={agentPanelOpen ? "#6366f1" : "var(--text-secondary, #b0b0b6)"}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ transition: "stroke 0.2s ease" }}
+      >
+        <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+        <path d="M18.259 8.715L18 9.75l-.259-1.035a2.25 2.25 0 00-1.456-1.456L15.25 7l1.035-.259a2.25 2.25 0 001.456-1.456L18 4.25l.259 1.035a2.25 2.25 0 001.456 1.456L20.75 7l-1.035.259a2.25 2.25 0 00-1.456 1.456z" />
+      </svg>
+      {/* Activity pulse when agent is running */}
+      {agentLoading && (
+        <span
+          style={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: "#6366f1",
+            boxShadow: "0 0 8px rgba(99,102,241,0.6)",
+            animation: "pulse 1.5s ease-in-out infinite",
+          }}
+        />
+      )}
+    </button>
   );
 }
