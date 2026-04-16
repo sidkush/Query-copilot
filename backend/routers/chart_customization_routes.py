@@ -13,7 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import Response as RawResponse
 from pydantic import BaseModel
 
 from auth import get_current_user
@@ -69,6 +70,102 @@ async def remove_user_chart_type(
     if not removed:
         raise HTTPException(status_code=404, detail=f"chart type not found: {type_id}")
     return {"status": "ok", "id": type_id}
+
+
+@router.post("/chart-types/import")
+async def import_chart_type(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    """Upload a .askdbviz ZIP package and install it as a user chart type."""
+    from askdbviz_package import (
+        PackageValidationError,
+        extract_package,
+        validate_package,
+    )
+
+    email = _require_email(user)
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Package exceeds 10 MB limit")
+
+    try:
+        result = validate_package(content)
+    except PackageValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    manifest = result["manifest"]
+    extracted = extract_package(content)
+
+    chart_type: dict[str, Any] = {
+        "id": manifest["id"],
+        "name": manifest["name"],
+        "description": manifest.get("description", ""),
+        "category": manifest.get("category", "custom"),
+        "schemaVersion": 1,
+        "tier": manifest["tier"],
+        "version": manifest["version"],
+    }
+
+    if manifest["tier"] == "spec":
+        chart_type["parameters"] = manifest.get("parameters", [])
+        chart_type["specTemplate"] = manifest.get("specTemplate", {})
+    elif manifest["tier"] == "code":
+        chart_type["bundle"] = extracted.get("bundle")
+        chart_type["capabilities"] = manifest.get("capabilities", [])
+
+    try:
+        saved = save_chart_type(email, chart_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {"chart_type": saved, "manifest": manifest}
+
+
+@router.get("/chart-types/export/{type_id}")
+async def export_chart_type(
+    type_id: str, user: dict = Depends(get_current_user)
+):
+    """Download an installed user chart type as a .askdbviz ZIP package."""
+    from askdbviz_package import build_package
+
+    email = _require_email(user)
+
+    all_types = list_chart_types(email)
+    chart_type = next((ct for ct in all_types if ct.get("id") == type_id), None)
+    if chart_type is None:
+        raise HTTPException(status_code=404, detail=f"chart type not found: {type_id}")
+
+    manifest: dict[str, Any] = {
+        "id": chart_type["id"],
+        "name": chart_type["name"],
+        "description": chart_type.get("description", ""),
+        "category": chart_type.get("category", "custom"),
+        "tier": chart_type["tier"],
+        "version": chart_type.get("version", "1.0.0"),
+    }
+
+    bundle: str | None = None
+    if chart_type["tier"] == "spec":
+        manifest["parameters"] = chart_type.get("parameters", [])
+        manifest["specTemplate"] = chart_type.get("specTemplate", {})
+    elif chart_type["tier"] == "code":
+        bundle = chart_type.get("bundle")
+        manifest["capabilities"] = chart_type.get("capabilities", [])
+        if bundle:
+            manifest["entryPoint"] = "index.js"
+
+    zip_bytes = build_package(manifest, bundle=bundle)
+
+    safe_id = "".join(c if c.isalnum() or c in "-_" else "_" for c in type_id)
+    filename = f"{safe_id}.askdbviz"
+
+    return RawResponse(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Sub-project D ─────────────────────────────────────────────────────
