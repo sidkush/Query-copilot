@@ -16,6 +16,7 @@ import type {
   RendererBackend,
   RenderStrategy,
 } from '../../../chart-ir';
+import type { ColorMap } from '../../../chart-ir/semantic/colorMap';
 import type { View } from 'vega';
 
 /**
@@ -59,6 +60,7 @@ export interface VegaRendererProps {
   /** Called with the Vega View instance when it's ready. Used by
    *  OnObjectOverlay for scenegraph hit-testing. */
   onViewReady?: (view: View) => void;
+  colorMap?: ColorMap;
 }
 
 type Row = Record<string, unknown>;
@@ -87,6 +89,7 @@ export default function VegaRenderer({
   rendererBackend = 'svg',
   strategy,
   onViewReady,
+  colorMap,
 }: VegaRendererProps) {
   const compiled = useMemo(() => {
     try {
@@ -96,7 +99,7 @@ export default function VegaRenderer({
           error: `VegaRenderer only handles cartesian, got ${spec.type}`,
         };
       }
-      const vl = compileToVegaLite(spec);
+      const vl = compileToVegaLite(spec, colorMap);
       return { ok: true as const, vl };
     } catch (err) {
       return {
@@ -104,7 +107,7 @@ export default function VegaRenderer({
         error: err instanceof Error ? err.message : String(err),
       };
     }
-  }, [spec]);
+  }, [spec, colorMap]);
 
   // Convert rows (array of arrays) to array of objects keyed by column name.
   // Memoized on resultSet identity so VegaLite's internal shallow-equal

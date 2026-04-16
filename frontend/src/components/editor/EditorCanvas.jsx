@@ -19,6 +19,7 @@ import { useStore } from "../../store";
 export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
   const [vegaView, setVegaView] = useState(null);
   const handleViewReady = useCallback((view) => setVegaView(view), []);
+  const colorMap = useStore((s) => s.colorMap);
 
   useEffect(() => {
     const handler = (e) => {
@@ -79,6 +80,7 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange }) {
             rendererBackend={strategy.rendererBackend}
             strategy={strategy}
             onViewReady={handleViewReady}
+            colorMap={colorMap}
           />
         </OnObjectOverlay>
       )}
