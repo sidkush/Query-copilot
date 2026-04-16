@@ -148,6 +148,28 @@ TOOL_DEFINITIONS = [
             "required": ["question", "data_preview"],
         },
     },
+    {
+        "name": "find_join_path",
+        "description": (
+            "Find the JOIN path between two tables using foreign key relationships. "
+            "Returns the ordered list of JOIN steps and a ready-to-use SQL JOIN clause. "
+            "Use this when you need to join tables and are unsure of the FK chain."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source_table": {
+                    "type": "string",
+                    "description": "The table already in the FROM clause.",
+                },
+                "target_table": {
+                    "type": "string",
+                    "description": "The table to reach via JOIN hops.",
+                },
+            },
+            "required": ["source_table", "target_table"],
+        },
+    },
 ]
 
 # Dashboard agent tools (#19) — only included when FEATURE_AGENT_DASHBOARD is on
@@ -1121,6 +1143,7 @@ class AgentEngine:
             "ml_analyze_features": self._tool_ml_analyze_features,
             "ml_train": self._tool_ml_train,
             "ml_evaluate": self._tool_ml_evaluate,
+            "find_join_path": self._tool_find_join_path,
         }
         handler = dispatch.get(name)
         if not handler:
@@ -1827,6 +1850,7 @@ class AgentEngine:
                             "run_sql": ("db_exec", "Executing query..."),
                             "suggest_chart": ("thinking", "Choosing visualization..."),
                             "summarize_results": ("thinking", "Analyzing results..."),
+                            "find_join_path": ("schema", "Finding JOIN path..."),
                             "ask_user": ("thinking", "Waiting for your input..."),
                             "create_dashboard_tile": ("thinking", "Creating dashboard tile..."),
                             "update_dashboard_tile": ("thinking", "Updating dashboard tile..."),
@@ -2064,6 +2088,54 @@ class AgentEngine:
         except Exception as e:
             _logger.exception("find_relevant_tables failed")
             return json.dumps({"error": str(e), "tables": []})
+
+    def _tool_find_join_path(self, source_table: str, target_table: str) -> str:
+        """Find the FK-based JOIN path between two tables and return SQL JOIN clause."""
+        schema_profile = getattr(self.connection_entry, "schema_profile", None)
+        if schema_profile is None:
+            return json.dumps({
+                "error": "Schema profile not available. Connect to a database first.",
+                "join_sql": None,
+                "path": [],
+            })
+        try:
+            from join_graph import JoinGraph
+            graph = JoinGraph(schema_profile)
+            path = graph.find_join_path(source_table, target_table)
+            if path is None:
+                return json.dumps({
+                    "found": False,
+                    "message": (
+                        f"No FK-based join path found between '{source_table}' and "
+                        f"'{target_table}'. These tables may not be directly or "
+                        f"indirectly related via foreign keys."
+                    ),
+                    "join_sql": None,
+                    "path": [],
+                })
+            if not path:
+                return json.dumps({
+                    "found": True,
+                    "message": f"'{source_table}' and '{target_table}' are the same table.",
+                    "join_sql": "",
+                    "path": [],
+                })
+            join_sql = graph.get_join_sql(source_table, target_table)
+            return json.dumps({
+                "found": True,
+                "source_table": source_table,
+                "target_table": target_table,
+                "hops": len(path),
+                "path": path,
+                "join_sql": join_sql,
+                "message": (
+                    f"Found {len(path)}-hop path from '{source_table}' to '{target_table}'. "
+                    f"Use the join_sql in your SELECT statement after the FROM clause."
+                ),
+            })
+        except Exception as e:
+            _logger.exception("find_join_path tool failed")
+            return json.dumps({"error": str(e), "join_sql": None, "path": []})
 
     def _tool_inspect_schema(self, table_name: str) -> str:
         """Get DDL + 5 sample rows for a table. Caches results."""

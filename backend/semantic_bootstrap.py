@@ -19,6 +19,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from schema_intelligence import SchemaProfile, TableProfile
+from join_graph import JoinGraph
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,39 @@ def _build_prompt(schema_profile: SchemaProfile, query_history: Optional[List[st
         for q in query_history[:20]:  # cap to keep prompt short
             lines.append(f"  - {q}")
         lines.append("")
+
+    # ── Join paths discovered from FK graph ──────────────────────────────────
+    # Build the join graph once and surface reachable paths between all table
+    # pairs.  This gives the LLM accurate joinPath data for phrasing templates
+    # without hallucinating column names.  Capped to avoid prompt bloat.
+    try:
+        _join_graph = JoinGraph(schema_profile)
+        _all_tables = _join_graph.all_tables()
+        _join_lines: List[str] = []
+        _seen_pairs: set = set()
+        for _src in _all_tables:
+            for _tgt in _all_tables:
+                if _src == _tgt:
+                    continue
+                _pair = tuple(sorted((_src, _tgt)))
+                if _pair in _seen_pairs:
+                    continue
+                _seen_pairs.add(_pair)
+                _sql = _join_graph.get_join_sql(_src, _tgt)
+                if _sql:
+                    _join_lines.append(f"  {_src} → {_tgt}: {_sql}")
+        if _join_lines:
+            lines.append("## Discoverable JOIN paths (from foreign keys)")
+            lines.append(
+                "Use these accurate join paths when generating phrasing templates "
+                "and sample questions that require data from multiple tables:"
+            )
+            # Cap at 20 paths to keep prompt size bounded
+            for _jl in _join_lines[:20]:
+                lines.append(_jl)
+            lines.append("")
+    except Exception as _jg_exc:
+        logger.debug("semantic_bootstrap: join graph failed (non-fatal): %s", _jg_exc)
 
     lines.append("## Task")
     lines.append(
