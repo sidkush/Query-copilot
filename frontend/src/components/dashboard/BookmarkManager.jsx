@@ -3,10 +3,38 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS } from './tokens';
 import { api } from '../../api';
 
-export default function BookmarkManager({ dashboardId, currentState, onApply, onClose, tabNames = {} }) {
+/**
+ * Compare a saved bookmark's tile state against the current live tile list.
+ * Returns sets of tile IDs that were added, removed, or modified since the
+ * bookmark was captured.
+ *
+ * @param {object} bookmark  - Bookmark object including `state.tiles`
+ * @param {Array}  currentTiles - Current array of tile objects (each with `id` + arbitrary fields)
+ * @returns {{ added: string[], removed: string[], modified: string[] }}
+ */
+export function compareBookmark(bookmark, currentTiles) {
+  const savedTiles = bookmark?.state?.tiles ?? [];
+
+  const savedMap = Object.fromEntries(savedTiles.map(t => [t.id, t]));
+  const currentMap = Object.fromEntries((currentTiles ?? []).map(t => [t.id, t]));
+
+  const savedIds = new Set(Object.keys(savedMap));
+  const currentIds = new Set(Object.keys(currentMap));
+
+  const added = [...currentIds].filter(id => !savedIds.has(id));
+  const removed = [...savedIds].filter(id => !currentIds.has(id));
+  const modified = [...savedIds]
+    .filter(id => currentIds.has(id))
+    .filter(id => JSON.stringify(savedMap[id]) !== JSON.stringify(currentMap[id]));
+
+  return { added, removed, modified };
+}
+
+export default function BookmarkManager({ dashboardId, currentState, currentTiles = [], onApply, onClose, tabNames = {} }) {
   const [bookmarks, setBookmarks] = useState([]);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [compareId, setCompareId] = useState(null);
 
   // Escape key to close [ADV-FIX H4]
   useEffect(() => {
@@ -24,24 +52,35 @@ export default function BookmarkManager({ dashboardId, currentState, onApply, on
     if (!name.trim() || !dashboardId) return;
     setSaving(true);
     try {
-      const bm = await api.saveBookmark(dashboardId, name.trim(), currentState);
-      setBookmarks(prev => [...prev, bm]);
+      // Derive next version counter from existing bookmarks for this dashboard.
+      const nextVersion = bookmarks.reduce((max, b) => Math.max(max, b.version ?? 0), 0) + 1;
+      const stateWithMeta = {
+        ...currentState,
+        tiles: currentTiles,
+        _bookmarkVersion: nextVersion,
+        _bookmarkSavedAt: new Date().toISOString(),
+      };
+      const bm = await api.saveBookmark(dashboardId, name.trim(), stateWithMeta);
+      // Attach version fields to the local copy for immediate display.
+      const bmWithVersion = { ...bm, version: nextVersion, savedAt: stateWithMeta._bookmarkSavedAt };
+      setBookmarks(prev => [...prev, bmWithVersion]);
       setName('');
     } catch (err) {
       void err;
     } finally {
       setSaving(false);
     }
-  }, [dashboardId, name, currentState]);
+  }, [dashboardId, name, currentState, currentTiles, bookmarks]);
 
   const handleDelete = useCallback(async (bmId) => {
     try {
       await api.deleteBookmark(dashboardId, bmId);
       setBookmarks(prev => prev.filter(b => b.id !== bmId));
+      if (compareId === bmId) setCompareId(null);
     } catch (err) {
       void err;
     }
-  }, [dashboardId]);
+  }, [dashboardId, compareId]);
 
   const handleShare = useCallback((bmId) => {
     const url = `${window.location.origin}/analytics?view=${bmId}`;
@@ -85,15 +124,33 @@ export default function BookmarkManager({ dashboardId, currentState, onApply, on
               const rangeLabel = dateFilterCount > 0 ? `${dateFilterCount} date filter${dateFilterCount > 1 ? 's' : ''}` : '';
               const details = [tabLabel, rangeLabel, filterCount > 0 ? `${filterCount} filter${filterCount > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
 
+              // Version snapshot fields (present on bookmarks saved after this feature shipped)
+              const version = bm.version ?? s._bookmarkVersion;
+              const savedAt = bm.savedAt ?? s._bookmarkSavedAt;
+
+              // Compare diff — only computed when this bookmark is the active compare target
+              const diff = compareId === bm.id ? compareBookmark(bm, currentTiles) : null;
+              const diffTotal = diff ? diff.added.length + diff.removed.length + diff.modified.length : 0;
+
               return (
                 <div key={bm.id} style={{ padding: '10px 0', borderBottom: `1px solid ${TOKENS.border.default}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <button onClick={() => { onApply(bm.state); onClose(); }} style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: TOKENS.text.primary, fontSize: 13, fontWeight: 500 }}>
                       {bm.name}
+                      {version != null && (
+                        <span style={{ marginLeft: 6, fontSize: 10, color: TOKENS.text.muted, fontWeight: 400 }}>v{version}</span>
+                      )}
                     </button>
                     <span style={{ fontSize: 11, color: TOKENS.text.muted, flexShrink: 0 }}>
-                      {bm.created_at ? new Date(bm.created_at).toLocaleDateString() : ''}
+                      {(savedAt ?? bm.created_at) ? new Date(savedAt ?? bm.created_at).toLocaleDateString() : ''}
                     </span>
+                    <button
+                      onClick={() => setCompareId(prev => prev === bm.id ? null : bm.id)}
+                      title="Compare with current dashboard"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: compareId === bm.id ? TOKENS.accent : TOKENS.text.secondary, fontSize: 12 }}
+                    >
+                      {compareId === bm.id ? 'Hide' : 'Compare'}
+                    </button>
                     <button onClick={() => handleShare(bm.id)} title="Copy share link"
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: TOKENS.text.secondary, fontSize: 12 }}>Link</button>
                     <button onClick={() => handleDelete(bm.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: TOKENS.danger, fontSize: 12 }}>Del</button>
@@ -104,6 +161,20 @@ export default function BookmarkManager({ dashboardId, currentState, onApply, on
                       {(s.globalFilters?.fields || []).map((f, i) => (
                         <span key={i} style={{ marginLeft: 6, color: TOKENS.accentLight, fontSize: 10 }}>{f.column}{f.operator}{f.value}</span>
                       ))}
+                    </div>
+                  )}
+                  {/* Version diff summary — shown when Compare is active */}
+                  {diff && (
+                    <div style={{ marginTop: 6, padding: '6px 8px', background: TOKENS.bg.surface, borderRadius: TOKENS.radius.sm, fontSize: 11 }}>
+                      {diffTotal === 0 ? (
+                        <span style={{ color: TOKENS.text.muted }}>No changes since this snapshot.</span>
+                      ) : (
+                        <span style={{ color: TOKENS.text.secondary }}>
+                          {diff.added.length > 0 && <span style={{ color: '#4ade80', marginRight: 8 }}>+{diff.added.length} added</span>}
+                          {diff.removed.length > 0 && <span style={{ color: TOKENS.danger, marginRight: 8 }}>-{diff.removed.length} removed</span>}
+                          {diff.modified.length > 0 && <span style={{ color: '#facc15' }}>{diff.modified.length} changed</span>}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
