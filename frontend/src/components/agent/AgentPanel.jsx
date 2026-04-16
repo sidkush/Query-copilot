@@ -551,16 +551,19 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float" }) {
         borderRight: `1px solid ${TOKENS.border.default}`,
       };
     }
-    // bottom
+    // bottom — centered with equal margins from content edges
+    const hPad = 24; // horizontal inset from content edges
     return {
       ...base,
       position: "fixed",
-      left: APP_SIDEBAR_W,
-      bottom: 0,
-      width: `calc(100vw - ${APP_SIDEBAR_W}px)`,
+      left: APP_SIDEBAR_W + hPad,
+      bottom: 12,
+      width: `calc(100vw - ${APP_SIDEBAR_W + hPad * 2}px)`,
       height: minimized ? 42 : panelHeight,
       zIndex: 50,
-      borderTop: `1px solid ${TOKENS.border.default}`,
+      borderRadius: TOKENS.radius.lg,
+      border: `1px solid ${TOKENS.border.default}`,
+      boxShadow: "0 -8px 32px -8px rgba(0,0,0,0.3), 0 -2px 8px rgba(0,0,0,0.15)",
     };
   }, [dock, pos.x, pos.y, panelWidth, panelHeight, minimized]);
 
