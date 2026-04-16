@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { recommendCharts, availableChartTypes } from '../recommender/showMe';
 import { analyzeResultShape } from '../recommender/resultShape';
+import { globalUserChartTypeRegistry } from '../userTypes/registry';
 import {
   REVENUE_MEASURE,
   REGION_DIM,
@@ -89,5 +90,69 @@ describe('availableChartTypes', () => {
     const lineEntry = all.find((t) => t.mark === 'line');
     expect(lineEntry?.available).toBe(false);
     expect(lineEntry?.missing).toContain('temporal');
+  });
+});
+
+describe('recommendCharts with user types', () => {
+  beforeEach(() => {
+    globalUserChartTypeRegistry.clear();
+  });
+
+  it('includes matching user types in recommendations', () => {
+    globalUserChartTypeRegistry.register({
+      id: 'org:waterfall',
+      name: 'Revenue Waterfall',
+      schemaVersion: 1,
+      parameters: [
+        { name: 'category', kind: 'field', semanticType: 'nominal' },
+        { name: 'amount', kind: 'field', semanticType: 'quantitative' },
+      ],
+      specTemplate: {
+        $schema: 'askdb/chart-spec/v1',
+        type: 'cartesian',
+        mark: 'bar',
+        encoding: {},
+      },
+    });
+
+    const shape = analyzeResultShape({
+      columns: [REGION_DIM, REVENUE_MEASURE],
+      rowCount: 4,
+    });
+    const recs = recommendCharts(shape);
+    const waterfallRec = recs.find((r) => r.id === 'org:waterfall');
+
+    expect(waterfallRec).toBeDefined();
+    expect(waterfallRec!.label).toBe('Revenue Waterfall');
+    expect(waterfallRec!.score).toBe(50);
+    expect(waterfallRec!.reason).toBe('Custom type: Revenue Waterfall');
+    expect(waterfallRec!.disabled).toBe(false);
+  });
+
+  it('does not include user types that do not match data shape', () => {
+    globalUserChartTypeRegistry.register({
+      id: 'org:geo-heatmap',
+      name: 'Geo Heatmap',
+      schemaVersion: 1,
+      parameters: [
+        { name: 'location', kind: 'field', semanticType: 'geographic' },
+      ],
+      specTemplate: {
+        $schema: 'askdb/chart-spec/v1',
+        type: 'map',
+        mark: 'geoshape',
+        encoding: {},
+      },
+    });
+
+    // Shape has no geographic dimension.
+    const shape = analyzeResultShape({
+      columns: [REGION_DIM, REVENUE_MEASURE],
+      rowCount: 4,
+    });
+    const recs = recommendCharts(shape);
+    const geoRec = recs.find((r) => r.id === 'org:geo-heatmap');
+
+    expect(geoRec).toBeUndefined();
   });
 });

@@ -19,6 +19,7 @@
 import type { Mark, ChartSpec } from '../types';
 import type { ResultShape } from './resultShape';
 import { CHART_TYPES, type ChartTypeDef } from './chartTypes';
+import { globalUserChartTypeRegistry } from '../userTypes/registry';
 
 export interface ChartRecommendation {
   mark: Mark;
@@ -120,6 +121,47 @@ export function recommendCharts(shape: ResultShape): ChartRecommendation[] {
       score,
       reason: def.description,
       specDraft: def.autoAssign(shape),
+      disabled: false,
+    });
+  }
+
+  // Score user-authored chart types from the global registry.
+  for (const userType of globalUserChartTypeRegistry.list()) {
+    const fieldParams = userType.parameters.filter((p) => p.kind === 'field');
+    const allMatch = fieldParams.every((param) => {
+      const st = param.semanticType;
+      if (st === 'nominal') {
+        return shape.columns.some(
+          (c) => c.role === 'dimension' && c.semanticType === 'nominal',
+        );
+      }
+      if (st === 'ordinal') {
+        return shape.columns.some(
+          (c) => c.role === 'dimension' && c.semanticType === 'ordinal',
+        );
+      }
+      if (st === 'quantitative') {
+        return shape.nMeasures >= 1;
+      }
+      if (st === 'temporal') {
+        return shape.hasDate;
+      }
+      if (st === 'geographic') {
+        return shape.hasGeo;
+      }
+      // Field params without a semanticType constraint always match.
+      return true;
+    });
+
+    if (!allMatch) continue;
+
+    recs.push({
+      mark: (userType.specTemplate.mark as Mark) || 'bar',
+      id: userType.id,
+      label: userType.name,
+      score: 50,
+      reason: `Custom type: ${userType.name}`,
+      specDraft: userType.specTemplate,
       disabled: false,
     });
   }
