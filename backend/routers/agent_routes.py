@@ -3,6 +3,7 @@ Agent SSE streaming endpoints.
 
 POST /api/v1/agent/run   — Start agent loop, stream AgentStep events via SSE
 POST /api/v1/agent/respond — Send user response to a waiting agent
+POST /api/v1/agent/perf/telemetry — Fire-and-forget chart render telemetry (B5)
 """
 
 import asyncio
@@ -11,7 +12,9 @@ import logging
 import secrets
 import threading
 import time
-from typing import Optional
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -30,6 +33,83 @@ from provider_registry import get_provider_for_user
 _logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/agent", tags=["agent"])
+
+# ---------------------------------------------------------------------------
+# B5: Chart performance telemetry — fire-and-forget JSONL log
+# ---------------------------------------------------------------------------
+
+_CHART_PERF_LOG_PATH = Path(".data/audit/chart_perf.jsonl")
+_CHART_PERF_MAX_SIZE = 50 * 1024 * 1024  # 50 MB
+_perf_write_lock = threading.Lock()
+
+# Allowlist of field names that are persisted — acts as PII filter.
+# Any fields not in this set are silently dropped before writing.
+_PERF_FIELDS: frozenset = frozenset({
+    "session_id",
+    "tile_id",
+    "tier",
+    "renderer_family",
+    "renderer_backend",
+    "row_count",
+    "downsample_method",
+    "target_points",
+    "first_paint_ms",
+    "median_frame_ms",
+    "p95_frame_ms",
+    "escalations",
+    "evictions",
+    "instance_pressure_at_mount",
+    "gpu_tier",
+    "timestamp",
+})
+
+
+class ChartPerfTelemetry(BaseModel):
+    """Pydantic model for chart render telemetry (Phase B5)."""
+
+    # Required fields
+    session_id: str
+    tile_id: str
+    tier: str
+    renderer_family: str
+    renderer_backend: str
+    row_count: int
+
+    # Optional fields with defaults
+    downsample_method: Optional[str] = None
+    target_points: Optional[int] = None
+    first_paint_ms: Optional[float] = None
+    median_frame_ms: Optional[float] = None
+    p95_frame_ms: Optional[float] = None
+    escalations: List[str] = Field(default_factory=list)
+    evictions: int = 0
+    instance_pressure_at_mount: Optional[float] = None
+    gpu_tier: Optional[str] = None
+
+    model_config = {"extra": "allow"}  # Accept extra fields; they are filtered at write time
+
+
+def _perf_rotate_if_needed(log_path: Path) -> None:
+    """Rotate chart_perf.jsonl if it has exceeded _CHART_PERF_MAX_SIZE.
+
+    Must be called while _perf_write_lock is held.
+    """
+    if not log_path.exists():
+        return
+    if log_path.stat().st_size < _CHART_PERF_MAX_SIZE:
+        return
+
+    stem = log_path.stem    # "chart_perf"
+    suffix = log_path.suffix  # ".jsonl"
+    n = 1
+    while (log_path.parent / f"{stem}.{n}{suffix}").exists():
+        n += 1
+    dest = log_path.parent / f"{stem}.{n}{suffix}"
+    try:
+        log_path.rename(dest)
+        _logger.info("chart_perf telemetry: rotated %s -> %s", log_path, dest)
+    except OSError:
+        _logger.exception("chart_perf telemetry: rotation failed — continuing without rotate")
 
 
 def _strip_record_batch(data: dict) -> dict:
@@ -157,6 +237,39 @@ class ChartStreamRequest(BaseModel):
 
 
 # ── Endpoints ────────────────────────────────────────────────────
+
+@router.post("/perf/telemetry", status_code=204)
+async def chart_perf_telemetry(payload: ChartPerfTelemetry) -> None:
+    """Fire-and-forget chart render telemetry endpoint (Phase B5).
+
+    Accepts chart render metrics and appends to .data/audit/chart_perf.jsonl.
+    No auth required — telemetry is anonymous. Extra fields (potential PII) are
+    silently dropped via the _PERF_FIELDS allowlist before any write.
+
+    Rotation at 50 MB follows the same pattern as audit_trail.py.
+    Returns 204 No Content on success.
+    """
+    # Build the safe entry — only allowlisted fields pass through
+    raw = payload.model_dump()
+    safe_entry = {k: v for k, v in raw.items() if k in _PERF_FIELDS}
+    safe_entry["timestamp"] = datetime.now(tz=timezone.utc).isoformat()
+
+    line = json.dumps(safe_entry, ensure_ascii=False) + "\n"
+
+    log_path = _CHART_PERF_LOG_PATH  # read module-level var (patchable in tests)
+    with _perf_write_lock:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        _perf_rotate_if_needed(log_path)
+        try:
+            with open(log_path, "a", encoding="utf-8") as fh:
+                fh.write(line)
+                fh.flush()
+        except OSError:
+            _logger.exception(
+                "chart_perf telemetry: failed to write entry to %s", log_path
+            )
+    # Return None — FastAPI serializes this as 204 No Content
+
 
 @router.post("/run")
 async def agent_run(req: AgentRunRequest, request: Request,
