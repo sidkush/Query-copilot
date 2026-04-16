@@ -25,6 +25,12 @@ from chart_customization import (
     save_chart_type,
     save_semantic_model,
 )
+from semantic_layer import (
+    hydrate as semantic_hydrate,
+    save_linguistic,
+    save_color_map,
+    save_semantic_model as save_semantic_model_conn,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["chart-customization"])
 
@@ -99,6 +105,53 @@ async def remove_user_semantic_model(
     if not removed:
         raise HTTPException(status_code=404, detail=f"semantic model not found: {model_id}")
     return {"status": "ok", "id": model_id}
+
+
+# ── Sub-project D — per-connection semantic layer ─────────────────────
+
+
+@router.get("/connections/{conn_id}/semantic")
+async def get_connection_semantic(
+    conn_id: str, user: dict = Depends(get_current_user)
+):
+    email = _require_email(user)
+    return semantic_hydrate(email, conn_id)
+
+
+@router.put("/connections/{conn_id}/semantic/linguistic")
+async def put_connection_linguistic(
+    conn_id: str, body: dict, user: dict = Depends(get_current_user)
+):
+    email = _require_email(user)
+    try:
+        saved = save_linguistic(email, conn_id, body)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return saved
+
+
+@router.put("/connections/{conn_id}/semantic/color-map")
+async def put_connection_color_map(
+    conn_id: str, body: dict, user: dict = Depends(get_current_user)
+):
+    email = _require_email(user)
+    try:
+        saved = save_color_map(email, conn_id, body)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return saved
+
+
+@router.put("/connections/{conn_id}/semantic/model")
+async def put_connection_semantic_model(
+    conn_id: str, body: dict, user: dict = Depends(get_current_user)
+):
+    email = _require_email(user)
+    try:
+        saved = save_semantic_model_conn(email, conn_id, body)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return saved
 
 
 # ── helpers ───────────────────────────────────────────────────────────
