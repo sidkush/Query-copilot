@@ -1074,6 +1074,11 @@ export const useStore = create((set, get) => ({
   toggleLayoutOverlayAnalystPro: () =>
     set((s) => ({ analystProLayoutOverlay: !s.analystProLayoutOverlay })),
 
+  // Plan 6b: history inspector panel visibility — ephemeral view-state.
+  analystProHistoryPanelOpen: false,
+  toggleHistoryPanelAnalystPro: () =>
+    set((s) => ({ analystProHistoryPanelOpen: !s.analystProHistoryPanelOpen })),
+
   // Plan 2b: alignment + distribute
   alignSelectionAnalystPro: (op) => {
     const { analystProDashboard: dash, analystProSelection: sel } = get();

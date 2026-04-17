@@ -9,6 +9,7 @@ import AlignmentToolbar from '../freeform/panels/AlignmentToolbar';
 import StructureToolbar from '../freeform/panels/StructureToolbar';
 import LayoutOverlayToggle from '../freeform/panels/LayoutOverlayToggle';
 import ActionsMenuButton from '../freeform/panels/ActionsMenuButton';
+import UndoRedoToolbar from '../freeform/panels/UndoRedoToolbar';
 import ActionsDialog from '../freeform/panels/ActionsDialog';
 import SetsPanel from '../freeform/panels/SetsPanel';
 import ParametersPanel from '../freeform/panels/ParametersPanel';
@@ -188,6 +189,8 @@ export default function AnalystProLayout({
         <StructureToolbar />
         <Separator />
         <LayoutOverlayToggle />
+        <Separator />
+        <UndoRedoToolbar />
         <Separator />
         <ActionsMenuButton />
       </div>
