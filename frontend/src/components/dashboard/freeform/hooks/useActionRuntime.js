@@ -36,9 +36,15 @@ function applyTargetOp(op, token) {
         window.open(op.url, '_blank', 'noopener');
       }
       break;
-    case 'goto-sheet':
-      // Plan 3b: scroll/focus target zone.
+    case 'goto-sheet': {
+      if (typeof document === 'undefined') break;
+      const el = document.querySelector(`[data-zone="${op.sheetId}"]`);
+      if (!el) break;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('analyst-pro-zone-pulse');
+      setTimeout(() => el.classList.remove('analyst-pro-zone-pulse'), 1200);
       break;
+    }
     case 'change-parameter': {
       if (op.value === undefined) break;
       store.setParameterValueAnalystPro(op.parameterId, op.value);
