@@ -108,7 +108,6 @@ function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
     [onContextMenu, zone],
   );
 
-  void onQuickAction; // populated in T5
 
   return (
     <div
@@ -152,7 +151,48 @@ function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
               {label}
             </span>
           )}
-          <span className="analyst-pro-zone-frame__actions" data-testid={`zone-frame-${zone.id}-actions`} />
+          <span className="analyst-pro-zone-frame__actions" data-testid={`zone-frame-${zone.id}-actions`}>
+            <button
+              type="button"
+              className="analyst-pro-zone-frame__action"
+              data-testid={`zone-frame-${zone.id}-action-menu`}
+              aria-label={`Menu for ${label}`}
+              title="More"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (typeof onContextMenu === 'function') onContextMenu(e, zone);
+                if (typeof onQuickAction === 'function') onQuickAction('menu', zone, e);
+              }}
+            >
+              ⋯
+            </button>
+            <button
+              type="button"
+              className="analyst-pro-zone-frame__action"
+              data-testid={`zone-frame-${zone.id}-action-fit`}
+              aria-label={`Fit to content for ${label}`}
+              title="Fit to content"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (typeof onQuickAction === 'function') onQuickAction('fit', zone, e);
+              }}
+            >
+              ⛶
+            </button>
+            <button
+              type="button"
+              className="analyst-pro-zone-frame__action"
+              data-testid={`zone-frame-${zone.id}-action-close`}
+              aria-label={`Close ${label}`}
+              title="Close"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (typeof onQuickAction === 'function') onQuickAction('close', zone, e);
+              }}
+            >
+              ×
+            </button>
+          </span>
         </div>
       )}
       <EdgeHotzones />

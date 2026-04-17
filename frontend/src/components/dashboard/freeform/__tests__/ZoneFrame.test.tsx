@@ -238,3 +238,96 @@ describe('ZoneFrame — inline rename', () => {
     expect(tree.children[0].displayName).toBe('Via blur');
   });
 });
+
+describe('ZoneFrame — quick-action buttons', () => {
+  beforeEach(() => {
+    useStore.setState({
+      analystProDashboard: {
+        schemaVersion: 'askdb/dashboard/v1',
+        id: 'd1',
+        name: 'd',
+        archetype: 'analyst-pro',
+        size: { mode: 'automatic' },
+        tiledRoot: { id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [baseZone] },
+        floatingLayer: [],
+        worksheets: [],
+        parameters: [],
+        sets: [],
+        actions: [],
+      },
+      analystProHoveredZoneId: null,
+    });
+  });
+
+  it('renders three quick-action buttons in the title bar', () => {
+    render(
+      <ZoneFrame zone={baseZone} resolved={{ x: 0, y: 0, width: 400, height: 300 }}>
+        <div />
+      </ZoneFrame>,
+    );
+    expect(screen.getByTestId('zone-frame-z1-action-menu')).toBeInTheDocument();
+    expect(screen.getByTestId('zone-frame-z1-action-fit')).toBeInTheDocument();
+    expect(screen.getByTestId('zone-frame-z1-action-close')).toBeInTheDocument();
+  });
+
+  it('menu button fires onContextMenu AND onQuickAction("menu", …)', () => {
+    const onContextMenu = vi.fn();
+    const onQuickAction = vi.fn();
+    render(
+      <ZoneFrame
+        zone={baseZone}
+        resolved={{ x: 0, y: 0, width: 400, height: 300 }}
+        onContextMenu={onContextMenu}
+        onQuickAction={onQuickAction}
+      >
+        <div />
+      </ZoneFrame>,
+    );
+    fireEvent.click(screen.getByTestId('zone-frame-z1-action-menu'));
+    expect(onContextMenu).toHaveBeenCalledTimes(1);
+    expect(onQuickAction).toHaveBeenCalledWith('menu', baseZone, expect.anything());
+  });
+
+  it('fit button fires onQuickAction("fit", …) only', () => {
+    const onContextMenu = vi.fn();
+    const onQuickAction = vi.fn();
+    render(
+      <ZoneFrame
+        zone={baseZone}
+        resolved={{ x: 0, y: 0, width: 400, height: 300 }}
+        onContextMenu={onContextMenu}
+        onQuickAction={onQuickAction}
+      >
+        <div />
+      </ZoneFrame>,
+    );
+    fireEvent.click(screen.getByTestId('zone-frame-z1-action-fit'));
+    expect(onContextMenu).not.toHaveBeenCalled();
+    expect(onQuickAction).toHaveBeenCalledWith('fit', baseZone, expect.anything());
+  });
+
+  it('close button fires onQuickAction("close", …)', () => {
+    const onQuickAction = vi.fn();
+    render(
+      <ZoneFrame
+        zone={baseZone}
+        resolved={{ x: 0, y: 0, width: 400, height: 300 }}
+        onQuickAction={onQuickAction}
+      >
+        <div />
+      </ZoneFrame>,
+    );
+    fireEvent.click(screen.getByTestId('zone-frame-z1-action-close'));
+    expect(onQuickAction).toHaveBeenCalledWith('close', baseZone, expect.anything());
+  });
+
+  it('clicking a quick-action button does not toggle inline rename', () => {
+    render(
+      <ZoneFrame zone={baseZone} resolved={{ x: 0, y: 0, width: 400, height: 300 }}>
+        <div />
+      </ZoneFrame>,
+    );
+    fireEvent.click(screen.getByTestId('zone-frame-z1-action-menu'));
+    expect(screen.queryByTestId('zone-frame-z1-name-input')).toBeNull();
+  });
+});
