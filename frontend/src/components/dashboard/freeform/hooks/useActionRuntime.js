@@ -39,9 +39,11 @@ function applyTargetOp(op, token) {
     case 'goto-sheet':
       // Plan 3b: scroll/focus target zone.
       break;
-    case 'change-parameter':
-      // Plan 4b: integrate with parameter system.
+    case 'change-parameter': {
+      if (op.value === undefined) break;
+      store.setParameterValueAnalystPro(op.parameterId, op.value);
       break;
+    }
     case 'change-set': {
       const existing = store.analystProDashboard?.sets || [];
       const target = existing.find((x) => x.id === op.setId);
