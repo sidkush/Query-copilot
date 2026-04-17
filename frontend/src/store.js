@@ -752,6 +752,23 @@ export const useStore = create((set, get) => ({
   },
   closeContextMenuAnalystPro: () => set({ analystProContextMenu: null }),
 
+  // Plan 5d: which inspector tab is active ('layout' | 'style' | 'visibility').
+  // Persists across selection changes so switching zones keeps the user's tab.
+  // null = never touched; UI defaults to 'layout' on render.
+  analystProPropertiesTab: null,
+  setPropertiesTabAnalystPro: (tab) => {
+    if (tab !== 'layout' && tab !== 'style' && tab !== 'visibility') return;
+    set({ analystProPropertiesTab: tab });
+  },
+  // Used by Plan 5c context menu: "Background…"/"Border…"/"Padding…" items
+  // dispatch openPropertiesTabAnalystPro('style'); layout items dispatch 'layout'.
+  // Effect is identical to setPropertiesTabAnalystPro today; kept as a distinct
+  // verb so Phase 6c (tabbed sidebar) can hook "also focus the right rail" later.
+  openPropertiesTabAnalystPro: (tab) => {
+    if (tab !== 'layout' && tab !== 'style' && tab !== 'visibility') return;
+    set({ analystProPropertiesTab: tab });
+  },
+
   // Plan 5c: minimal zone clipboard shim (full subtree semantics — Plan 5e).
   // Stores a structured clone of the zone so Paste produces an independent tree.
   analystProZoneClipboard: null,
