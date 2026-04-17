@@ -34,6 +34,10 @@ export type BaseZone = {
   border?: BorderStyle;
   background?: BackgroundStyle;
   visibilityRule?: VisibilityRule;
+  /** Optional user-given display name. If absent, UI derives from type + id. */
+  displayName?: string;
+  /** If true, drag/resize/delete are blocked. Selection still allowed. */
+  locked?: boolean;
 };
 
 export type LeafZone = BaseZone & {
@@ -65,7 +69,6 @@ export type FloatingZone = LeafZone & {
   /** user-authored pixel height. Raw input — pair with ResolvedZone.height for computed layout output. */
   pxH: number;
   zIndex: number;
-  locked?: boolean;
 };
 
 export type SizeMode =
