@@ -1,24 +1,34 @@
 // frontend/src/components/dashboard/freeform/FloatingLayer.jsx
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import { evaluateRule, buildEvaluationContext } from './lib/visibilityRules';
+import { useStore } from '../../../store';
+
+const EMPTY_SETS = Object.freeze([]);
+const EMPTY_PARAMS = Object.freeze([]);
+const EMPTY_FILTERS = Object.freeze({});
 
 /**
  * Renders the floating layer of a freeform dashboard.
- * Each floating zone is absolute-positioned inside a container that sits
- * above the tiled tree. The tiled tree renders underneath via ZoneRenderer.
- *
- * Floating zones are sorted by zIndex ascending so higher z paints last.
+ * Plan 4d: floating zones with a falsy visibilityRule are filtered out
+ * before sort/render — no DOM, no pointer-event surface.
  */
 function FloatingLayer({ zones, renderLeaf }) {
+  const sets = useStore((s) => s.analystProDashboard?.sets ?? EMPTY_SETS);
+  const parameters = useStore((s) => s.analystProDashboard?.parameters ?? EMPTY_PARAMS);
+  const sheetFilters = useStore((s) => s.analystProSheetFilters ?? EMPTY_FILTERS);
+  const ctx = useMemo(
+    () => buildEvaluationContext({ sets, parameters, sheetFilters }),
+    [sets, parameters, sheetFilters],
+  );
+
   if (!zones || zones.length === 0) return null;
-  const sorted = [...zones].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+  const visible = zones.filter((z) => evaluateRule(z.visibilityRule, ctx));
+  if (visible.length === 0) return null;
+  const sorted = [...visible].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   return (
     <div
       data-testid="floating-layer"
-      style={{
-        position: 'absolute',
-        inset: 0,
-        pointerEvents: 'none',
-      }}
+      style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
     >
       {sorted.map((zone) => (
         <div

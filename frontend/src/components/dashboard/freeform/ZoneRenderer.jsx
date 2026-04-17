@@ -1,25 +1,34 @@
 // frontend/src/components/dashboard/freeform/ZoneRenderer.jsx
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { isContainer } from './lib/zoneTree';
+import { evaluateRule, buildEvaluationContext } from './lib/visibilityRules';
+import { useStore } from '../../../store';
+
+const EMPTY_SETS = Object.freeze([]);
+const EMPTY_PARAMS = Object.freeze([]);
+const EMPTY_FILTERS = Object.freeze({});
 
 /**
  * Recursively renders a tiled zone tree using pre-resolved pixel coordinates.
- *
- * - Uses a lookup map (id → ResolvedZone) for O(1) access during recursion.
- * - Containers render as positioned <div>s with their children nested.
- * - Leaves delegate to the consumer-provided `renderLeaf(zone, resolved)` function.
- *
- * This keeps the renderer generic — the consumer (FreeformCanvas) decides
- * how a 'worksheet' leaf becomes a ChartEditor mount, a 'text' leaf becomes
- * a TextTile, etc.
+ * Plan 4d: every recursion step short-circuits when the zone's
+ * visibilityRule evaluates to false. Container subtrees are unmounted as a
+ * unit — children of a hidden container never enter renderNode.
  */
 function ZoneRenderer({ root, resolvedMap, renderLeaf }) {
-  return renderNode(root, resolvedMap, renderLeaf, 0);
+  const sets = useStore((s) => s.analystProDashboard?.sets ?? EMPTY_SETS);
+  const parameters = useStore((s) => s.analystProDashboard?.parameters ?? EMPTY_PARAMS);
+  const sheetFilters = useStore((s) => s.analystProSheetFilters ?? EMPTY_FILTERS);
+  const ctx = useMemo(
+    () => buildEvaluationContext({ sets, parameters, sheetFilters }),
+    [sets, parameters, sheetFilters],
+  );
+  return renderNode(root, resolvedMap, renderLeaf, 0, ctx);
 }
 
-function renderNode(zone, resolvedMap, renderLeaf, depth) {
+function renderNode(zone, resolvedMap, renderLeaf, depth, ctx) {
   const resolved = resolvedMap.get(zone.id);
   if (!resolved) return null;
+  if (!evaluateRule(zone.visibilityRule, ctx)) return null;
 
   if (isContainer(zone)) {
     return (
@@ -37,7 +46,7 @@ function renderNode(zone, resolvedMap, renderLeaf, depth) {
           height: resolved.height,
         }}
       >
-        {zone.children.map((child) => renderNode(child, resolvedMap, renderLeaf, depth + 1))}
+        {zone.children.map((child) => renderNode(child, resolvedMap, renderLeaf, depth + 1, ctx))}
       </div>
     );
   }
