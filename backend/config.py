@@ -251,6 +251,10 @@ class Settings(BaseSettings):
     FEATURE_AUTO_SWITCH: bool = Field(default=False)  # #6: connection switching prediction
     FEATURE_SMART_PRELOAD: bool = Field(default=False)  # #8: dashboard pre-loading
 
+    # ── Analyst Pro archetype (Tableau-parity freeform workbook) ──
+    # Plan 1 ships read-only rendering. Plan 2+ add drag/resize/actions/sets.
+    FEATURE_ANALYST_PRO: bool = False
+
     # Sub-project A — new chart editor + ChartSpec IR cutover (Phase 4b).
     # Phase 4c+2: default flipped to True. /analytics now always renders
     # the new DashboardShell + ChartEditor path (legacy DashboardBuilder
