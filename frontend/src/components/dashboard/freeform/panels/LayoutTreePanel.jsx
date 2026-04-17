@@ -169,12 +169,14 @@ function TreeRow({
       onDragLeave={
         acceptsDrop
           ? (e) => {
-              if (!rowRef.current?.contains(e.relatedTarget)) {
+              const related = e.relatedTarget;
+              if (!(related instanceof Node) || !rowRef.current?.contains(related)) {
                 setDropIndicator(null);
               }
             }
           : undefined
       }
+      onDragEnd={draggable ? () => setDropIndicator(null) : undefined}
       onDrop={
         acceptsDrop
           ? (e) => {
