@@ -650,8 +650,7 @@ export const useStore = create((set, get) => ({
   setInstalledChartTypes: (types) =>
     set({ installedChartTypes: Array.isArray(types) ? types : [] }),
 
-  // ── Analyst Pro archetype (Plan 1) ──
-  // Read-only dashboard viewer state. Plan 2 adds editing actions.
+  // ── Analyst Pro archetype (Plan 1 + 2) ──
   analystProDashboard: null,
   setAnalystProDashboard: (dashboard) => set({ analystProDashboard: dashboard }),
   analystProSize: { mode: 'automatic' },
@@ -665,5 +664,67 @@ export const useStore = create((set, get) => ({
     } else {
       set({ analystProSize: size });
     }
+  },
+
+  // Plan 2: selection
+  analystProSelection: new Set(),
+  setAnalystProSelection: (ids) =>
+    set({ analystProSelection: new Set(Array.isArray(ids) ? ids : [ids]) }),
+  addToSelection: (id) => {
+    const next = new Set(get().analystProSelection);
+    next.add(id);
+    set({ analystProSelection: next });
+  },
+  removeFromSelection: (id) => {
+    const next = new Set(get().analystProSelection);
+    next.delete(id);
+    set({ analystProSelection: next });
+  },
+  clearSelection: () => set({ analystProSelection: new Set() }),
+
+  // Plan 2: drag state
+  analystProDragState: null,
+  setAnalystProDragState: (state) => set({ analystProDragState: state }),
+
+  // Plan 2: snap toggle
+  analystProSnapEnabled: true,
+  setAnalystProSnapEnabled: (enabled) => set({ analystProSnapEnabled: !!enabled }),
+
+  // Plan 2: marquee selection rectangle during drag
+  analystProMarquee: null,
+  setAnalystProMarquee: (rect) => set({ analystProMarquee: rect }),
+
+  // Plan 2: history buffer (undo/redo)
+  // Shape: { past: [dashboard,...], present: dashboard, future: [dashboard,...], maxEntries }
+  analystProHistory: null,
+  initAnalystProHistory: (dashboard) => {
+    set({ analystProHistory: { past: [], present: dashboard, future: [], maxEntries: 500 } });
+  },
+  pushAnalystProHistory: (dashboard) => {
+    const h = get().analystProHistory;
+    if (!h) {
+      set({ analystProHistory: { past: [], present: dashboard, future: [], maxEntries: 500 } });
+      return;
+    }
+    const past = [h.present, ...h.past].slice(0, h.maxEntries);
+    set({ analystProHistory: { ...h, past, present: dashboard, future: [] } });
+  },
+  undoAnalystPro: () => {
+    const h = get().analystProHistory;
+    if (!h || h.past.length === 0) return;
+    const [prev, ...restPast] = h.past;
+    set({
+      analystProHistory: { ...h, past: restPast, present: prev, future: [h.present, ...h.future] },
+      analystProDashboard: prev,
+    });
+  },
+  redoAnalystPro: () => {
+    const h = get().analystProHistory;
+    if (!h || h.future.length === 0) return;
+    const [next, ...restFuture] = h.future;
+    set({
+      analystProHistory: { ...h, past: [h.present, ...h.past], present: next, future: restFuture },
+      analystProDashboard: next,
+    });
   },
 }));
