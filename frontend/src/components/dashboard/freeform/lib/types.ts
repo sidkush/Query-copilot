@@ -1,5 +1,8 @@
 // frontend/src/components/dashboard/freeform/lib/types.ts
 
+import type { DashboardSet } from './setTypes';
+import type { DashboardParameter, ParamValue } from './parameterTypes';
+
 /** Proportional unit — 0 to 100000 where 100000 = 100% of parent container. */
 export type Proportion = number;
 
@@ -21,9 +24,22 @@ export type LeafType =
 
 export type ContainerType = 'container-horz' | 'container-vert';
 
-export type VisibilityRule = {
-  mode: 'field' | 'parameter';
-  source: string;
+export type VisibilityRule =
+  | { kind: 'always' }
+  | { kind: 'setMembership'; setId: string; mode: 'hasAny' | 'isEmpty' }
+  | { kind: 'parameterEquals'; parameterId: string; value: ParamValue }
+  | { kind: 'hasActiveFilter'; sheetId: string };
+
+export type EvaluationContextSheetFilter = {
+  field: string;
+  op: string;
+  value: unknown;
+};
+
+export type EvaluationContext = {
+  sets: readonly DashboardSet[];
+  parameters: readonly DashboardParameter[];
+  sheetFilters: Readonly<Record<string, ReadonlyArray<EvaluationContextSheetFilter>>>;
 };
 
 export type BaseZone = {
