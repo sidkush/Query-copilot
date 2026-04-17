@@ -240,3 +240,56 @@ def test_4e_h_sets_and_parameters_default_empty_when_absent():
     result = legacy_to_freeform_schema(legacy)
     assert result["sets"] == []
     assert result["parameters"] == []
+
+
+def test_plan5d_properties_survive_legacy_to_freeform_schema():
+    """Plan 5d T5 — a legacy tile carrying innerPadding/outerPadding/fitMode
+    must survive the conversion to freeform zones verbatim."""
+    legacy = {
+        "id": "d1",
+        "name": "Test",
+        "tiles": [
+            {
+                "id": "t1",
+                "sql": "select 1",
+                "chart_spec": {"mark": "bar"},
+                "title": "Tile 1",
+                "innerPadding": 10,
+                "outerPadding": 2,
+                "fitMode": "fit-width",
+                "background": {"color": "#ffffff", "opacity": 0.8},
+                "border": {"weight": [0, 0, 1, 0], "color": "#000000", "style": "solid"},
+                "showTitle": False,
+                "showCaption": True,
+            }
+        ],
+    }
+    result = legacy_to_freeform_schema(legacy)
+    zone = result["tiledRoot"]["children"][0]
+    assert zone["innerPadding"] == 10
+    assert zone["outerPadding"] == 2
+    assert zone["fitMode"] == "fit-width"
+    assert zone["background"] == {"color": "#ffffff", "opacity": 0.8}
+    assert zone["border"] == {"weight": [0, 0, 1, 0], "color": "#000000", "style": "solid"}
+    assert zone["showTitle"] is False
+    assert zone["showCaption"] is True
+
+
+def test_plan5d_properties_survive_floating_layer_conversion():
+    legacy = {
+        "id": "d2",
+        "name": "Float",
+        "tiles": [
+            {
+                "id": "f1",
+                "x": 10, "y": 20, "w": 300, "h": 200,
+                "sql": "select 2",
+                "innerPadding": 6,
+                "fitMode": "entire",
+            }
+        ],
+    }
+    result = legacy_to_freeform_schema(legacy)
+    floating = result["floatingLayer"][0]
+    assert floating["innerPadding"] == 6
+    assert floating["fitMode"] == "entire"

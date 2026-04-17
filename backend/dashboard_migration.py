@@ -346,6 +346,34 @@ def migrate_user_dashboards(user_email: str, dashboard_id: str | None = None) ->
     }
 
 
+# Plan 5d — named transform marker. Not a real upgrade/downgrade pair yet
+# (Phase 13 owns TransformNames catalogue per Build_Tableau.md §XVII.4);
+# this is a stable id future migrations can reference when promoting
+# this change to a bidirectional transform.
+class TransformNames:
+    ADD_ZONE_PROPERTIES_V5D = "add-zone-properties-v5d"
+
+
+_PLAN_5D_ZONE_FIELDS = (
+    "innerPadding",
+    "outerPadding",
+    "background",
+    "border",
+    "showTitle",
+    "showCaption",
+    "fitMode",
+)
+
+
+def _copy_plan5d_fields(src: dict, dst: dict) -> None:
+    """Shallow-copy Plan 5d fields from a legacy tile onto an emitted zone
+    dict IFF the source actually carried the field. Missing fields stay
+    absent — do not default-fill (frontend owns defaults via zoneDefaults.ts)."""
+    for field in _PLAN_5D_ZONE_FIELDS:
+        if field in src and src[field] is not None:
+            dst[field] = src[field]
+
+
 def legacy_to_freeform_schema(legacy: dict) -> dict:
     """
     Convert a legacy dashboard (flat tile list OR sections/tiles tree) to the
@@ -440,6 +468,7 @@ def _flat_tiles_to_vert_root(tiles: list) -> dict:
                 child["displayName"] = t.get("displayName") or t.get("title")
             if t.get("locked") is True:
                 child["locked"] = True
+            _copy_plan5d_fields(t, child)
             children.append(child)
         # Re-normalize after clamping to MIN_PROPORTION.
         sum_h = sum(c["h"] for c in children)
@@ -484,6 +513,7 @@ def _tiles_to_floating_layer(tiles: list) -> list:
             zone["displayName"] = display
         if t.get("locked") is True:
             zone["locked"] = True
+        _copy_plan5d_fields(t, zone)
         floating.append(zone)
     return floating
 
@@ -534,11 +564,13 @@ def _flat_tiles_to_horz_children(tiles: list) -> list:
     children = []
     for i, t in enumerate(tiles):
         w = base_w + (drift if i == count - 1 else 0)
-        children.append({
+        child = {
             "id": str(t.get("id", f"t{i}")),
             "type": "worksheet",
             "w": w,
             "h": 100000,
             "worksheetRef": str(t.get("id", f"t{i}")),
-        })
+        }
+        _copy_plan5d_fields(t, child)
+        children.append(child)
     return children
