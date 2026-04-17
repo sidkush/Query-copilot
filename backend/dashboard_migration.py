@@ -67,6 +67,49 @@ _DTYPE_TO_SEMANTIC: dict[str, str] = {
 }
 
 
+_FREEFORM_TILE_TYPES = {
+    "worksheet", "text", "image", "webpage", "blank",
+    "container-horz", "container-vert",
+}
+
+_MIN_PROPORTION = 1000  # must match frontend zoneTreeOps MIN_PROPORTION
+
+
+def _is_floating_tile(tile: dict) -> bool:
+    """True when tile carries x/y/w/h numeric coords like a legacy freeform widget."""
+    return all(isinstance(tile.get(k), (int, float)) for k in ("x", "y", "w", "h"))
+
+
+def _is_corrupt_tile(tile: dict) -> bool:
+    """True when tile is unusable — not a dict, or missing id."""
+    if not isinstance(tile, dict):
+        return True
+    if tile.get("id") in (None, ""):
+        return True
+    return False
+
+
+def _resolve_tile_type(tile: dict) -> str:
+    """Pick the zone type for a legacy tile."""
+    raw = tile.get("type")
+    if raw in _FREEFORM_TILE_TYPES:
+        return raw
+    if tile.get("chart_spec") or tile.get("chartSpec") or tile.get("sql"):
+        return "worksheet"
+    if tile.get("title") and not raw:
+        return "worksheet"  # title-only (case c) — renderer handles null chart
+    return "blank"  # unknown legacy type (case e)
+
+
+def _normalize_child_proportion(value, fallback: int) -> int:
+    """Clamp a proportion value to >= _MIN_PROPORTION. Non-numeric falls back."""
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        n = fallback
+    return max(_MIN_PROPORTION, n)
+
+
 @dataclass
 class MigrationStats:
     tiles_total: int = 0
@@ -300,14 +343,15 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
     Convert a legacy dashboard (flat tile list OR sections/tiles tree) to the
     Analyst Pro freeform schema (schemaVersion='askdb/dashboard/v1').
 
-    Rules:
-      - Flat tile list  -> container-vert root with one worksheet per child.
-        Each child gets h = 100000 / tile_count (last child absorbs drift).
-      - Sections tree   -> container-vert root; each section becomes a
-        container-horz with its tiles split evenly horizontally.
-      - Empty dashboard -> empty container-vert root.
-
-    Output schema matches Analyst Pro spec section 10.1.
+    Edge cases handled (see Plan 4e):
+      (a) zero w/h proportion clamped to _MIN_PROPORTION
+      (b) x/y/w/h tiles routed to floatingLayer
+      (c) title-only tiles become worksheet with displayName = title
+      (d) corrupt tiles (non-dict or missing id) skipped with warning
+      (e) unknown type -> blank with displayName = title or type
+      (f) displayName / locked preserved verbatim
+      (g) actions preserved
+      (h) sets, parameters preserved (graceful when absent)
     """
     dashboard_id = legacy.get("id", "unknown")
     name = legacy.get("name", "Untitled")
@@ -315,34 +359,38 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
     if "sections" in legacy and isinstance(legacy["sections"], list):
         tiled_root = _sections_to_vert_root(legacy["sections"])
         all_tiles = [t for s in legacy["sections"] for t in s.get("tiles", [])]
+        floating_layer: list = []
     else:
-        tiles = legacy.get("tiles", []) or []
-        tiled_root = _flat_tiles_to_vert_root(tiles)
-        all_tiles = tiles
+        raw_tiles = legacy.get("tiles", []) or []
+        tiled_tiles: list[dict] = []
+        floating_tiles: list[dict] = []
+        for i, t in enumerate(raw_tiles):
+            if _is_corrupt_tile(t):
+                logger.warning(
+                    "legacy_to_freeform_schema: skipping corrupt tile at index %d: %r", i, t,
+                )
+                continue
+            if _is_floating_tile(t):
+                floating_tiles.append(t)
+            else:
+                tiled_tiles.append(t)
+        tiled_root = _flat_tiles_to_vert_root(tiled_tiles)
+        floating_layer = _tiles_to_floating_layer(floating_tiles)
+        all_tiles = tiled_tiles + floating_tiles
 
     worksheets = [
         {
             "id": str(t.get("id", f"t{i}")),
             "chartSpec": t.get("chart_spec") or t.get("chartSpec"),
             "sql": t.get("sql"),
+            "displayName": t.get("displayName") or t.get("title"),
         }
         for i, t in enumerate(all_tiles)
     ]
 
-    # Preserve existing actions if present; default to empty list for fresh migrations.
-    existing_actions = legacy.get("actions")
-    if not isinstance(existing_actions, list):
-        existing_actions = []
-
-    # Preserve existing sets if present; default to empty list for fresh migrations.
-    existing_sets = legacy.get("sets")
-    if not isinstance(existing_sets, list):
-        existing_sets = []
-
-    # Preserve existing parameters if present; default to empty list.
-    existing_parameters = legacy.get("parameters")
-    if not isinstance(existing_parameters, list):
-        existing_parameters = []
+    existing_actions = legacy.get("actions") if isinstance(legacy.get("actions"), list) else []
+    existing_sets = legacy.get("sets") if isinstance(legacy.get("sets"), list) else []
+    existing_parameters = legacy.get("parameters") if isinstance(legacy.get("parameters"), list) else []
 
     return {
         "schemaVersion": "askdb/dashboard/v1",
@@ -351,7 +399,7 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
         "archetype": "analyst-pro",
         "size": {"mode": "automatic"},
         "tiledRoot": tiled_root,
-        "floatingLayer": [],
+        "floatingLayer": floating_layer,
         "worksheets": worksheets,
         "parameters": existing_parameters,
         "sets": existing_sets,
@@ -362,19 +410,33 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
 
 def _flat_tiles_to_vert_root(tiles: list) -> dict:
     children = []
-    if tiles:
-        count = len(tiles)
+    count = len(tiles)
+    if count:
         base_h = 100000 // count
         drift = 100000 - (base_h * count)
         for i, t in enumerate(tiles):
-            h = base_h + (drift if i == count - 1 else 0)
-            children.append({
-                "id": str(t.get("id", f"t{i}")),
-                "type": "worksheet",
+            raw_h = t.get("h")
+            fallback = base_h + (drift if i == count - 1 else 0)
+            h = _normalize_child_proportion(raw_h, fallback)
+            ztype = _resolve_tile_type(t)
+            tid = str(t.get("id", f"t{i}"))
+            child: dict = {
+                "id": tid,
+                "type": ztype,
                 "w": 100000,
                 "h": h,
-                "worksheetRef": str(t.get("id", f"t{i}")),
-            })
+            }
+            if ztype == "worksheet":
+                child["worksheetRef"] = tid
+            if t.get("displayName") or t.get("title"):
+                child["displayName"] = t.get("displayName") or t.get("title")
+            if t.get("locked") is True:
+                child["locked"] = True
+            children.append(child)
+        # Re-normalize after clamping to MIN_PROPORTION.
+        sum_h = sum(c["h"] for c in children)
+        if sum_h != 100000 and children:
+            children[-1]["h"] += 100000 - sum_h
     return {
         "id": "root",
         "type": "container-vert",
@@ -382,6 +444,37 @@ def _flat_tiles_to_vert_root(tiles: list) -> dict:
         "h": 100000,
         "children": children,
     }
+
+
+def _tiles_to_floating_layer(tiles: list) -> list:
+    """Convert legacy tiles carrying x/y/w/h into freeform floating zones."""
+    floating = []
+    for i, t in enumerate(tiles):
+        tid = str(t.get("id", f"f{i}"))
+        ztype = _resolve_tile_type(t)
+        display = t.get("displayName") or t.get("title")
+        w_px = max(100, int(t.get("w") or 320))
+        h_px = max(100, int(t.get("h") or 200))
+        zone: dict = {
+            "id": tid,
+            "type": ztype,
+            "w": 0,
+            "h": 0,
+            "floating": True,
+            "x": int(t.get("x") or 0),
+            "y": int(t.get("y") or 0),
+            "pxW": w_px,
+            "pxH": h_px,
+            "zIndex": int(t.get("zIndex") or i + 1),
+        }
+        if ztype == "worksheet":
+            zone["worksheetRef"] = tid
+        if display:
+            zone["displayName"] = display
+        if t.get("locked") is True:
+            zone["locked"] = True
+        floating.append(zone)
+    return floating
 
 
 def _sections_to_vert_root(sections: list) -> dict:
