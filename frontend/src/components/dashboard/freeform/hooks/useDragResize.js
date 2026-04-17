@@ -1,6 +1,7 @@
 // frontend/src/components/dashboard/freeform/hooks/useDragResize.js
 import { useCallback, useRef } from 'react';
 import { useStore } from '../../../../store';
+import { resizeZone } from '../lib/zoneTreeOps';
 import { snapToGrid, snapToEdges } from '../lib/snapMath';
 
 const GRID_SIZE = 8;
@@ -108,7 +109,45 @@ function applyDragDelta(start, dx, dy, snapEnabled, siblings, dashboard, setDash
     });
     setDashboard({ ...dashboard, floatingLayer: floating });
   }
-  // Tiled move/resize: wired in Tasks 10/11 via resizeZone/moveZone.
+
+  // Tiled resize: mutate tiledRoot via resizeZone op.
+  if (!start.isFloating && start.mode === 'resize' && dashboard.tiledRoot) {
+    const initial = start.initialZone;
+    // initial.width / height are pixels from ResolvedZone. We derive an
+    // axis-aware pixel delta from the handle then translate that into a
+    // proportional delta relative to the zone's original proportional size.
+    const zoneId = start.zoneId;
+    const axisDx = start.handle?.includes('e') ? dx : start.handle?.includes('w') ? -dx : 0;
+    const axisDy = start.handle?.includes('s') ? dy : start.handle?.includes('n') ? -dy : 0;
+    const initialPxW = initial.width || 1;
+    const initialPxH = initial.height || 1;
+    // Look up current proportional w/h from the unchanged dashboardAtStart tree.
+    const initialZoneInTree = findById(start.dashboardAtStart.tiledRoot, zoneId);
+    if (!initialZoneInTree) return;
+    const { w: origW, h: origH } = initialZoneInTree;
+    // Proportional delta derived from pixel ratio.
+    const newW = Math.round(origW * ((initialPxW + axisDx) / initialPxW));
+    const newH = Math.round(origH * ((initialPxH + axisDy) / initialPxH));
+    const patch = {};
+    if (start.handle?.includes('e') || start.handle?.includes('w')) patch.w = newW;
+    if (start.handle?.includes('n') || start.handle?.includes('s')) patch.h = newH;
+
+    if (Object.keys(patch).length > 0) {
+      const nextTree = resizeZone(start.dashboardAtStart.tiledRoot, zoneId, patch);
+      setDashboard({ ...dashboard, tiledRoot: nextTree });
+    }
+  }
+}
+
+function findById(zone, id) {
+  if (zone.id === id) return zone;
+  if (zone.children) {
+    for (const c of zone.children) {
+      const f = findById(c, id);
+      if (f) return f;
+    }
+  }
+  return null;
 }
 
 function applyResizeToFloating(f, start, dx, dy, snapEnabled) {
