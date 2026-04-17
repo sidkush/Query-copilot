@@ -21,7 +21,7 @@
 | Phase | Title | Plans | Goal |
 |---|---|---|---|
 | 5 | Fluidity Pass | 5a–5e | Zone chrome, context menu, property inspector, restructure, float toggle. Makes canvas feel like Tableau. |
-| 6 | Canvas Power Controls | 6a ✅ (2026-04-17) / 6b–6e | Zoom/pan/rulers, undo UI, tabbed sidebar, mark interactions, tooltip UX. |
+| 6 | Canvas Power Controls | 6a ✅ (2026-04-17) / 6b ✅ (2026-04-17) / 6c–6e | Zoom/pan/rulers, undo UI, tabbed sidebar, mark interactions, tooltip UX. |
 | 7 | VizQL Engine | 7a–7e | Own 3-stage compilation pipeline matching Tableau's `minerva` → SQL AST → dialect emit. |
 | 8 | Calc Fields + LOD + Table Calcs | 8a–8d | Expression parser, full function catalogue, FIXED/INCLUDE/EXCLUDE, Monaco editor. |
 | 9 | Analytics Pane | 9a–9e | Reference lines, trend, forecast, cluster, box plots, totals. |
@@ -407,6 +407,8 @@
 - Modify: all callsites of `pushAnalystProHistory` — add operation labels
 
 **Task count target:** 6–8.
+
+**Status:** ✅ Shipped 2026-04-17. 7 tasks. New tests: `store.historyEntries` (10), `store.operationLabels` (9), `historyDiff` (6), `UndoRedoToolbar` (5), `HistoryInspectorPanel` (4) — 34 new assertions. All 23 store callsites + 5 hook callsites now pass labels; `jumpToHistoryAnalystPro` enables random-access revert (not Revert-to-saved — §XVII.2 out of scope).
 
 ---
 
