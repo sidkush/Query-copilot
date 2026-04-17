@@ -4243,3 +4243,17 @@ html.theme-transitioning *::after {
 .analyst-pro-layout-overlay [data-container-depth="3"] {
   background: color-mix(in oklab, var(--accent, #3b82f6) 16%, transparent);
 }
+
+/* Plan 4e — GoToSheet pulse (useActionRuntime.js applies .analyst-pro-zone-pulse for 1200ms) */
+@keyframes analyst-pro-zone-pulse-kf {
+  0%   { box-shadow: 0 0 0 0   color-mix(in oklab, var(--accent) 60%, transparent); }
+  25%  { box-shadow: 0 0 0 6px color-mix(in oklab, var(--accent) 35%, transparent); }
+  50%  { box-shadow: 0 0 0 0   color-mix(in oklab, var(--accent) 60%, transparent); }
+  75%  { box-shadow: 0 0 0 6px color-mix(in oklab, var(--accent) 35%, transparent); }
+  100% { box-shadow: 0 0 0 0   color-mix(in oklab, var(--accent) 0%,  transparent); }
+}
+.analyst-pro-zone-pulse {
+  animation: analyst-pro-zone-pulse-kf 1200ms ease-out;
+  outline: 1px solid color-mix(in oklab, var(--accent) 70%, transparent);
+  outline-offset: -1px;
+}
