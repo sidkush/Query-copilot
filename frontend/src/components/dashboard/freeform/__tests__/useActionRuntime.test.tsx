@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useActionRuntime } from '../hooks/useActionRuntime';
 import { publish, _resetForTests } from '../lib/markEventBus';
@@ -43,7 +43,7 @@ describe('useActionRuntime', () => {
     expect(useStore.getState().analystProActionCascadeToken).toBe(0);
   });
 
-  it('bumps cascade token and marks targets when action matches', async () => {
+  it('bumps cascade token, writes filter slices, and marks targets pending', () => {
     useStore.setState({
       analystProDashboard: makeDash([
         {
@@ -54,18 +54,22 @@ describe('useActionRuntime', () => {
           clearBehavior: 'show-all',
         },
       ]),
+      analystProSheetFilters: {},
     });
     renderHook(() => useActionRuntime());
     publish({ sourceSheetId: 'a', trigger: 'select', markData: { Week: 'W12' }, timestamp: 1 });
     const state = useStore.getState();
     expect(state.analystProActionCascadeToken).toBe(1);
-    // Targets initially pending (microtask hasn't run yet)
+    // Plan 4a: filter case sets pending; AnalystProWorksheetTile marks 'done'
+    // once the re-query resolves. Slice is populated synchronously.
     expect(state.analystProActiveCascadeTargets.b).toBe('pending');
-    // Flush microtasks
-    await Promise.resolve();
-    const after = useStore.getState();
-    expect(after.analystProActiveCascadeTargets.b).toBe('done');
-    expect(after.analystProActiveCascadeTargets.c).toBe('done');
+    expect(state.analystProActiveCascadeTargets.c).toBe('pending');
+    expect(state.analystProSheetFilters.b).toEqual([
+      { field: 'Week', op: 'eq', value: 'W12' },
+    ]);
+    expect(state.analystProSheetFilters.c).toEqual([
+      { field: 'Week', op: 'eq', value: 'W12' },
+    ]);
   });
 
   it('stale cascade token is ignored by markCascadeTargetStatus', () => {
