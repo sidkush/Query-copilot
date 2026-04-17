@@ -703,6 +703,11 @@ export const useStore = create((set, get) => ({
   analystProMarquee: null,
   setAnalystProMarquee: (rect) => set({ analystProMarquee: rect }),
 
+  // Plan 5a: hovered zone id (set by ZoneFrame onMouseEnter, cleared on leave)
+  analystProHoveredZoneId: null,
+  setAnalystProHoveredZoneId: (id) =>
+    set({ analystProHoveredZoneId: id == null ? null : String(id) }),
+
   // Plan 3: Actions runtime
   analystProActionCascadeToken: 0,
   analystProActionsDialogOpen: false,
