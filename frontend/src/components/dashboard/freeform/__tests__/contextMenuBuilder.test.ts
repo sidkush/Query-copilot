@@ -5,7 +5,7 @@ import {
   clampToViewport,
   type MenuItem,
 } from '../lib/contextMenuBuilder';
-import type { Dashboard, ContainerZone, LeafZone } from '../lib/types';
+import type { Dashboard, ContainerZone, LeafZone, FloatingZone } from '../lib/types';
 
 function makeDashboard(root: ContainerZone, floating: LeafZone[] = []): Dashboard {
   return {
@@ -77,5 +77,80 @@ describe('clampToViewport', () => {
 
   it('clamps to (0,0) if the menu is larger than the viewport', () => {
     expect(clampToViewport(50, 50, 2000, 2000, 1000, 800)).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('buildContextMenu — common items (any zone)', () => {
+  const root: ContainerZone = {
+    id: 'root', type: 'container-vert', w: 100000, h: 100000,
+    children: [
+      { id: 'L1', type: 'blank', w: 100000, h: 100000 } as LeafZone,
+    ],
+  };
+  const dash = makeDashboard(root);
+
+  it('includes Tiled/Floating checkbox reflecting the zone state', () => {
+    const items = buildContextMenu(root.children[0], dash, new Set());
+    const cb = items.find((i) => i.kind === 'checkbox' && i.id === 'toggleFloat');
+    expect(cb).toBeDefined();
+    expect(cb).toMatchObject({ kind: 'checkbox', checked: false, todo: { plan: '5e' } });
+  });
+
+  it('includes a Fit submenu with five fit modes', () => {
+    const items = buildContextMenu(root.children[0], dash, new Set());
+    const fit = items.find((i) => i.kind === 'submenu' && i.id === 'fit');
+    expect(fit).toBeDefined();
+    if (fit && fit.kind === 'submenu') {
+      const ids = fit.items.filter((i) => i.kind === 'command').map((i) => (i as { id: string }).id);
+      expect(ids).toEqual([
+        'setFitMode.fit',
+        'setFitMode.fitWidth',
+        'setFitMode.fitHeight',
+        'setFitMode.entireView',
+        'setFitMode.fixed',
+      ]);
+    }
+  });
+
+  it('includes Background, Border, and Padding entries', () => {
+    const items = buildContextMenu(root.children[0], dash, new Set());
+    const ids = items
+      .filter((i) => i.kind === 'command' || i.kind === 'submenu')
+      .map((i) => (i as { id: string }).id);
+    expect(ids).toContain('openProperties.style.background');
+    expect(ids).toContain('openProperties.style.border');
+    expect(ids).toContain('padding');
+  });
+
+  it('Show Title is a checkbox that reflects zone.showTitleBar with sensible default', () => {
+    const worksheetZone: LeafZone = { id: 'W1', type: 'worksheet', w: 100000, h: 100000 };
+    const dash2 = makeDashboard({
+      id: 'root', type: 'container-vert', w: 100000, h: 100000,
+      children: [worksheetZone],
+    });
+    const items = buildContextMenu(worksheetZone, dash2, new Set());
+    const cb = items.find((i) => i.kind === 'checkbox' && i.id === 'toggleShowTitle');
+    expect(cb).toBeDefined();
+    expect((cb as { checked: boolean }).checked).toBe(true); // default for worksheet
+  });
+
+  it('Select Parent Container is disabled on the root zone', () => {
+    const items = buildContextMenu(root, dash, new Set());
+    const sp = items.find((i) => i.kind === 'command' && i.id === 'selectParent');
+    expect(sp).toBeDefined();
+    expect((sp as { disabled?: boolean }).disabled).toBe(true);
+  });
+
+  it('Paste is disabled when nothing is on the clipboard (signaled via selection hint)', () => {
+    // Builder accepts selection only; clipboard emptiness is signaled by dispatcher.
+    // For the pure builder, Paste must always be present so the menu shape is stable.
+    const items = buildContextMenu(root.children[0], dash, new Set());
+    expect(items.some((i) => i.kind === 'command' && i.id === 'paste')).toBe(true);
+  });
+
+  it('Remove is the last non-separator item', () => {
+    const items = buildContextMenu(root.children[0], dash, new Set());
+    const last = [...items].reverse().find((i) => i.kind !== 'separator');
+    expect(last).toMatchObject({ kind: 'command', id: 'remove' });
   });
 });

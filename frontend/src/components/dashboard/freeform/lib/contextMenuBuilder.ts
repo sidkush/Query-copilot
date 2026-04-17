@@ -6,7 +6,7 @@
 // a `todo` field so the dispatcher in ContextMenu.jsx logs a single debug line
 // instead of crashing.
 
-import type { ContainerZone, Dashboard, Zone } from './types';
+import type { ContainerZone, Dashboard, FloatingZone, Zone } from './types';
 import { isContainer } from './zoneTree';
 
 export type MenuCommandId =
@@ -75,7 +75,6 @@ export type MenuItem =
     }
   | { kind: 'separator' };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SEP: MenuItem = { kind: 'separator' };
 
 // ----- Pure helpers (exported for tests) ------------------------------------
@@ -121,11 +120,112 @@ export function buildContextMenu(
   selection: ReadonlySet<string>,
 ): MenuItem[] {
   if (!dashboard) return [];
-  if (zone == null) {
-    return buildCanvasEmptyMenu();
-  }
-  // Task 3–6 fill these branches.
-  return [];
+  if (zone == null) return buildCanvasEmptyMenu();
+
+  const items: MenuItem[] = [];
+  appendCommonHead(items, zone, dashboard);
+  // Tasks 4 + 5 inject worksheet-specific / container-specific items here.
+  appendCommonTail(items, zone, dashboard, selection);
+  return items;
+}
+
+function appendCommonHead(items: MenuItem[], zone: Zone, dashboard: Dashboard): void {
+  void dashboard;
+  const isFloating = (zone as FloatingZone).floating === true;
+
+  items.push({
+    kind: 'checkbox',
+    id: 'toggleFloat',
+    label: 'Floating',
+    checked: isFloating,
+    todo: { plan: '5e', reason: 'toggleZoneFloatAnalystPro lands in Plan 5e.' },
+  });
+
+  items.push(SEP);
+
+  items.push({
+    kind: 'submenu',
+    id: 'fit',
+    label: 'Fit',
+    items: [
+      { kind: 'command', id: 'setFitMode.fit',        label: 'Fit',            todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
+      { kind: 'command', id: 'setFitMode.fitWidth',   label: 'Fit Width',      todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
+      { kind: 'command', id: 'setFitMode.fitHeight',  label: 'Fit Height',     todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
+      { kind: 'command', id: 'setFitMode.entireView', label: 'Entire View',    todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
+      { kind: 'command', id: 'setFitMode.fixed',      label: 'Fixed Pixels…',  todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
+    ],
+  });
+
+  items.push(SEP);
+
+  items.push({
+    kind: 'command',
+    id: 'openProperties.style.background',
+    label: 'Background…',
+    todo: { plan: '5d', reason: 'Style tab lands in Plan 5d Properties Panel rewrite.' },
+  });
+  items.push({
+    kind: 'command',
+    id: 'openProperties.style.border',
+    label: 'Border…',
+    todo: { plan: '5d', reason: 'Style tab lands in Plan 5d Properties Panel rewrite.' },
+  });
+  items.push({
+    kind: 'submenu',
+    id: 'padding',
+    label: 'Padding',
+    items: [
+      { kind: 'command', id: 'openProperties.layout.innerPadding', label: 'Inner Padding…', todo: { plan: '5d', reason: 'Layout tab lands in Plan 5d Properties Panel rewrite.' } },
+      { kind: 'command', id: 'openProperties.layout.outerPadding', label: 'Outer Padding…', todo: { plan: '5d', reason: 'Layout tab lands in Plan 5d Properties Panel rewrite.' } },
+    ],
+  });
+
+  items.push(SEP);
+
+  const showTitleDefault = defaultShowTitle(zone);
+  const showTitleChecked = (zone as { showTitleBar?: boolean }).showTitleBar ?? showTitleDefault;
+  items.push({
+    kind: 'checkbox',
+    id: 'toggleShowTitle',
+    label: 'Show Title',
+    checked: showTitleChecked,
+  });
+}
+
+function appendCommonTail(
+  items: MenuItem[], zone: Zone, dashboard: Dashboard, _selection: ReadonlySet<string>,
+): void {
+  items.push(SEP);
+  items.push({ kind: 'command', id: 'deselect', label: 'Deselect' });
+  const parentId = findParentZoneId(dashboard.tiledRoot, zone.id);
+  items.push({
+    kind: 'command',
+    id: 'selectParent',
+    label: 'Select Parent Container',
+    disabled: parentId == null,
+  });
+
+  items.push(SEP);
+  items.push({ kind: 'command', id: 'copy',  label: 'Copy',  shortcut: '⌘C' });
+  items.push({ kind: 'command', id: 'paste', label: 'Paste', shortcut: '⌘V' });
+
+  items.push(SEP);
+  items.push({
+    kind: 'command',
+    id: 'remove',
+    label: 'Remove from Dashboard',
+    shortcut: 'Del',
+    todo: { plan: '5d', reason: 'removeZoneAnalystPro lands in Plan 5d (preserves zone.visibilityRule per Appendix E.15).' },
+  });
+}
+
+// Per roadmap §5a deliverable 3: title bar visible on worksheet + text + webpage.
+const TITLE_BAR_DEFAULT_VISIBLE = new Set<string>([
+  'worksheet', 'text', 'webpage', 'filter', 'legend', 'parameter', 'navigation', 'extension',
+]);
+
+function defaultShowTitle(zone: Zone): boolean {
+  return TITLE_BAR_DEFAULT_VISIBLE.has((zone as { type: string }).type);
 }
 
 function buildCanvasEmptyMenu(): MenuItem[] {
