@@ -6,7 +6,7 @@
  *   A) Pointer-down + move on a locked floating zone does NOT update x/y in the store.
  *   B) Delete key removes unlocked zones in a mixed selection but leaves locked ones intact.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, act, cleanup } from '@testing-library/react';
 import { fireEvent } from '@testing-library/react';
 import FreeformCanvas from '../FreeformCanvas';
@@ -94,6 +94,108 @@ function resetStore() {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// T7: drop-on-canvas wiring
+// ---------------------------------------------------------------------------
+
+const MIME = 'application/askdb-analyst-pro-object+json';
+
+/**
+ * Dispatch a synthetic drop event on `el` with proper clientX/clientY.
+ * fireEvent.drop does not propagate MouseEvent init properties (clientX/Y)
+ * to the DragEvent in jsdom, so we build a real DragEvent and dispatch it.
+ */
+function fireDrop(
+  el: HTMLElement,
+  typePayload: string | null,
+  clientX = 100,
+  clientY = 100,
+) {
+  const dataTransfer = {
+    types: typePayload !== null ? [MIME] : [] as string[],
+    getData: (mime: string) =>
+      mime === MIME && typePayload !== null ? typePayload : '',
+    dropEffect: 'none' as DataTransfer['dropEffect'],
+  };
+
+  // Build a native DragEvent with clientX/clientY in the init dict.
+  const event = new MouseEvent('drop', {
+    bubbles: true,
+    cancelable: true,
+    clientX,
+    clientY,
+  }) as unknown as DragEvent;
+
+  // Attach our mock dataTransfer via defineProperty (read-only on real DragEvent).
+  Object.defineProperty(event, 'dataTransfer', {
+    value: dataTransfer,
+    writable: false,
+  });
+
+  act(() => { el.dispatchEvent(event); });
+}
+
+describe('FreeformCanvas — Plan 2b T7: drop-on-canvas wiring', () => {
+  beforeEach(() => {
+    resetStore();
+    // jsdom getBoundingClientRect returns {left:0, top:0} by default.
+    // Explicitly mock to guarantee zero-origin so clientX=100 → x=100.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 1280, height: 800,
+      right: 1280, bottom: 800, x: 0, y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cleanup();
+  });
+
+  it('drop text payload at (100,100) adds floating zone of type "text"', async () => {
+    const dash = makeBaseDashboard([]);
+    render(<FreeformCanvas dashboard={dash} renderLeaf={renderLeaf} />);
+
+    const sheet = screen.getByTestId('freeform-sheet');
+    fireDrop(sheet, JSON.stringify({ type: 'text' }), 100, 100);
+
+    const state = useStore.getState().analystProDashboard;
+    expect(state?.floatingLayer.length).toBe(1);
+    const zone = state!.floatingLayer[0];
+    expect(zone.type).toBe('text');
+    // rect.left=0, rect.top=0, so x === clientX, y === clientY
+    expect(zone.x).toBe(100);
+    expect(zone.y).toBe(100);
+  });
+
+  it('drop with no payload is a no-op (floatingLayer stays empty)', async () => {
+    const dash = makeBaseDashboard([]);
+    render(<FreeformCanvas dashboard={dash} renderLeaf={renderLeaf} />);
+
+    const sheet = screen.getByTestId('freeform-sheet');
+    fireDrop(sheet, null, 100, 100);
+
+    const state = useStore.getState().analystProDashboard;
+    expect(state?.floatingLayer.length).toBe(0);
+  });
+
+  it('drop container-horz adds zone with one blank child', async () => {
+    const dash = makeBaseDashboard([]);
+    render(<FreeformCanvas dashboard={dash} renderLeaf={renderLeaf} />);
+
+    const sheet = screen.getByTestId('freeform-sheet');
+    fireDrop(sheet, JSON.stringify({ type: 'container-horz' }), 200, 150);
+
+    const state = useStore.getState().analystProDashboard;
+    expect(state?.floatingLayer.length).toBe(1);
+    const zone = state!.floatingLayer[0] as any;
+    expect(zone.type).toBe('container-horz');
+    expect(Array.isArray(zone.children)).toBe(true);
+    expect(zone.children.length).toBe(1);
+    expect(zone.children[0].type).toBe('blank');
+  });
+});
 
 describe('FreeformCanvas — Plan 2b T5: locked zone enforcement', () => {
   beforeEach(() => {

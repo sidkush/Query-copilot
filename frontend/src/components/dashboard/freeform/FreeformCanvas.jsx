@@ -67,7 +67,9 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
   const setDashboardInStore = useStore((s) => s.setAnalystProDashboard);
   const marquee = useStore((s) => s.analystProMarquee);
   const setMarquee = useStore((s) => s.setAnalystProMarquee);
+  const insertObjectAnalystPro = useStore((s) => s.insertObjectAnalystPro);
   const marqueeStartRef = useRef(null);
+  const sheetRef = useRef(null);
 
   // Install history on dashboard mount
   useEffect(() => {
@@ -132,6 +134,35 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     window.addEventListener('pointerup', onUp);
   };
 
+  const handleDragOver = (e) => {
+    if (!e.dataTransfer) return;
+    const types = Array.from(e.dataTransfer.types || []);
+    if (types.includes('application/askdb-analyst-pro-object+json')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  };
+
+  const handleDrop = (e) => {
+    if (!e.dataTransfer) return;
+    const raw = e.dataTransfer.getData('application/askdb-analyst-pro-object+json');
+    if (!raw) return;
+    let payload;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (!payload || typeof payload.type !== 'string') return;
+    e.preventDefault();
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const rect = sheet.getBoundingClientRect();
+    const x = Math.max(0, Math.round(e.clientX - rect.left));
+    const y = Math.max(0, Math.round(e.clientY - rect.top));
+    insertObjectAnalystPro({ type: payload.type, x, y });
+  };
+
   return (
     <div
       ref={containerRef}
@@ -147,8 +178,11 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
       }}
     >
       <div
+        ref={sheetRef}
         data-testid="freeform-sheet"
         onPointerDown={handleSheetPointerDown}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         style={{
           position: 'relative',
           width: canvasSize.width,
