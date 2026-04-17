@@ -52,6 +52,8 @@ export default function AnalystProLayout({
   const snapEnabled = useStore((s) => s.analystProSnapEnabled);
   const setSnapEnabled = useStore((s) => s.setAnalystProSnapEnabled);
   const openContextMenu = useStore((s) => s.openContextMenuAnalystPro);
+  const rulersVisible = useStore((s) => s.analystProRulersVisible);
+  const toggleRulers = useStore((s) => s.toggleRulersAnalystPro);
 
   // Build dashboard object from legacy tile array (Plan 1 read-only path).
   // Plan 2 will receive a full `dashboard` prop instead.
@@ -156,6 +158,28 @@ export default function AnalystProLayout({
           SNAP {snapEnabled ? 'ON' : 'OFF'}
         </button>
         <SizeToggleDropdown currentSize={size} onChange={onSizeChange} />
+        <button
+          type="button"
+          data-testid="rulers-toggle"
+          onClick={toggleRulers}
+          className="premium-btn"
+          style={{
+            padding: '6px 12px',
+            background: rulersVisible ? 'var(--accent)' : 'var(--bg-elevated)',
+            color: rulersVisible ? '#fff' : 'var(--text-primary)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 8,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: "'JetBrains Mono', monospace",
+          }}
+          aria-label={`Toggle rulers (currently ${rulersVisible ? 'on' : 'off'})`}
+          aria-pressed={rulersVisible}
+          title="Rulers"
+        >
+          RULERS {rulersVisible ? 'ON' : 'OFF'}
+        </button>
         <Separator />
         <AlignmentToolbar />
         <Separator />
