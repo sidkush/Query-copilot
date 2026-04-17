@@ -649,4 +649,21 @@ export const useStore = create((set, get) => ({
   installedChartTypes: [],
   setInstalledChartTypes: (types) =>
     set({ installedChartTypes: Array.isArray(types) ? types : [] }),
+
+  // ── Analyst Pro archetype (Plan 1) ──
+  // Read-only dashboard viewer state. Plan 2 adds editing actions.
+  analystProDashboard: null,
+  setAnalystProDashboard: (dashboard) => set({ analystProDashboard: dashboard }),
+  analystProSize: { mode: 'automatic' },
+  setAnalystProSize: (size) => {
+    const dash = get().analystProDashboard;
+    if (dash) {
+      set({
+        analystProDashboard: { ...dash, size },
+        analystProSize: size,
+      });
+    } else {
+      set({ analystProSize: size });
+    }
+  },
 }));
