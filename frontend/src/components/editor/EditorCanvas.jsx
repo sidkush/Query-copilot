@@ -20,7 +20,7 @@ import { TOKENS } from "../dashboard/tokens";
  * other three renderers render placeholder cards explaining when the real
  * integration lands.
  */
-export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthrough, onDeselect, mode }) {
+export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthrough, onDeselect, mode, sheetId, onMarkSelect }) {
   const [vegaView, setVegaView] = useState(null);
   const handleViewReady = useCallback((view) => setVegaView(view), []);
   const colorMap = useStore((s) => s.colorMap);
@@ -184,6 +184,8 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthr
             onViewReady={handleViewReady}
             colorMap={colorMap}
             onDrillthrough={onDrillthrough}
+            sheetId={sheetId}
+            onMarkSelect={onMarkSelect}
           />
         </OnObjectOverlay>
       )}

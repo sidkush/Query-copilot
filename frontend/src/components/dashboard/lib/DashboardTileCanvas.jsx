@@ -64,6 +64,8 @@ export default function DashboardTileCanvas({
   onDrillthrough,
   onTileUpdate,
   onInsightRefresh,
+  sheetId,
+  onMarkSelect,
 }) {
   const spec = tile?.chart_spec || tile?.chartSpec || null;
 
@@ -324,6 +326,8 @@ export default function DashboardTileCanvas({
               spec={spec}
               resultSet={resultSet}
               onDrillthrough={handleDrillthrough}
+              sheetId={sheetId}
+              onMarkSelect={onMarkSelect}
             />
           ) : (
             <div
