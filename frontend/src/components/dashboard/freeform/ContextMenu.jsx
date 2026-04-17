@@ -159,6 +159,7 @@ export default function ContextMenu() {
   const [measured, setMeasured] = useState(null);
   const [focusIndex, setFocusIndex] = useState(-1);
   const [submenuIndex, setSubmenuIndex] = useState(null);
+  const [parentRowRect, setParentRowRect] = useState(null);
 
   useEffect(() => {
     if (menu) {
@@ -337,14 +338,15 @@ export default function ContextMenu() {
     }
   };
 
-  if (!menu || !pos) return null;
+  useEffect(() => {
+    if (submenuIndex == null) { setParentRowRect(null); return; }
+    const node = rootRef.current;
+    if (!node) return;
+    const row = node.querySelector(`[data-menu-index="${submenuIndex}"]`);
+    setParentRowRect(row ? row.getBoundingClientRect() : null);
+  }, [submenuIndex]);
 
-  const parentNode = rootRef.current;
-  const parentRowRect = (() => {
-    if (submenuIndex == null || !parentNode) return null;
-    const row = parentNode.querySelector(`[data-menu-index="${submenuIndex}"]`);
-    return row ? row.getBoundingClientRect() : null;
-  })();
+  if (!menu || !pos) return null;
 
   return createPortal(
     <div
