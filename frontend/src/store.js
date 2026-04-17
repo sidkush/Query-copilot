@@ -4,6 +4,11 @@ import { alignZones, distributeZones } from "./components/dashboard/freeform/lib
 import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating } from "./components/dashboard/freeform/lib/zoneTreeOps";
 import { generateZoneId } from "./components/dashboard/freeform/lib/zoneTree";
 import { applySetChange } from './components/dashboard/freeform/lib/setOps';
+import {
+  validateParamName,
+  coerceValue,
+  validateAgainstDomain,
+} from './components/dashboard/freeform/lib/parameterOps';
 
 let _themeTimer = null;
 
@@ -847,6 +852,69 @@ export const useStore = create((set, get) => ({
     const nextSet = applySetChange(target, members || [], mode);
     const next = existing.map((s) => (s.id === setId ? nextSet : s));
     const nextDash = { ...dash, sets: next };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  // Plan 4c: Parameters subsystem. Parameters live inside
+  // analystProDashboard.parameters so the existing save/load path carries
+  // them for free. Every mutation also pushes an undo snapshot.
+
+  addParameterAnalystPro: (param) => {
+    const dash = get().analystProDashboard;
+    if (!dash || !param || !param.id || !param.name) return;
+    const existing = dash.parameters || [];
+    const check = validateParamName(param.name, existing);
+    if (!check.ok) return;
+    const nextDash = { ...dash, parameters: [...existing, param] };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  updateParameterAnalystPro: (paramId, patch) => {
+    const dash = get().analystProDashboard;
+    if (!dash || !paramId || !patch) return;
+    const existing = dash.parameters || [];
+    const target = existing.find((p) => p.id === paramId);
+    if (!target) return;
+    if (patch.name) {
+      const check = validateParamName(patch.name, existing, paramId);
+      if (!check.ok) return;
+    }
+    const nextParam = { ...target, ...patch };
+    const next = existing.map((p) => (p.id === paramId ? nextParam : p));
+    const nextDash = { ...dash, parameters: next };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  deleteParameterAnalystPro: (paramId) => {
+    const dash = get().analystProDashboard;
+    if (!dash || !paramId) return;
+    const existing = dash.parameters || [];
+    const next = existing.filter((p) => p.id !== paramId);
+    const nextDash = { ...dash, parameters: next };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  setParameterValueAnalystPro: (paramId, rawValue) => {
+    const dash = get().analystProDashboard;
+    if (!dash || !paramId) return;
+    const existing = dash.parameters || [];
+    const target = existing.find((p) => p.id === paramId);
+    if (!target) return;
+    let coerced;
+    try {
+      coerced = coerceValue(target.type, rawValue);
+    } catch {
+      return;
+    }
+    const domainCheck = validateAgainstDomain(target, coerced);
+    if (!domainCheck.ok) return;
+    const nextParam = { ...target, value: coerced };
+    const next = existing.map((p) => (p.id === paramId ? nextParam : p));
+    const nextDash = { ...dash, parameters: next };
     set({ analystProDashboard: nextDash });
     get().pushAnalystProHistory(nextDash);
   },
