@@ -20,6 +20,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useStore } from '../../../../store';
 import { evaluateRule, buildEvaluationContext } from '../lib/visibilityRules';
+import { getZoneFallbackLabel } from '../lib/zoneLabel';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -36,14 +37,6 @@ function ruleSummary(rule) {
   }
 }
 
-function zoneFallbackName(zone) {
-  // First 4 chars of the id give a readable short code, e.g. '#3ab2'
-  const short = String(zone.id).slice(0, 4);
-  if (zone.type === 'container-horz') return `Horz Container #${short}`;
-  if (zone.type === 'container-vert') return `Vert Container #${short}`;
-  const cap = zone.type.charAt(0).toUpperCase() + zone.type.slice(1);
-  return `${cap} #${short}`;
-}
 
 const TREE_MIME = 'application/askdb-analyst-pro-tree-node+json';
 
@@ -89,7 +82,7 @@ function TreeRow({
   const [draft, setDraft] = useState('');
   const rowRef = useRef(null);
 
-  const name = zone.displayName || zoneFallbackName(zone);
+  const name = zone.displayName || getZoneFallbackLabel(zone);
   const hasRule = !!zone.visibilityRule && zone.visibilityRule.kind !== 'always';
   const visible = !hasRule || evaluateRule(zone.visibilityRule, ctx);
   const isContainerZone = zone.type === 'container-horz' || zone.type === 'container-vert';

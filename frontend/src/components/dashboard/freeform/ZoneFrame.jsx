@@ -1,6 +1,7 @@
 // frontend/src/components/dashboard/freeform/ZoneFrame.jsx
 import { memo, useCallback } from 'react';
 import { useStore } from '../../../store';
+import { getZoneDisplayLabel } from './lib/zoneLabel';
 
 /**
  * Zone types whose title bar is shown by default.
@@ -20,20 +21,10 @@ const TITLE_BAR_DEFAULT_VISIBLE = new Set([
   'extension',
 ]);
 
-/**
- * Fall-back display label when zone.displayName is unset.
- * Keeps the title bar informative for freshly inserted zones.
- */
-function inferDisplayName(zone) {
-  if (zone.displayName) return zone.displayName;
-  const typeLabel = (zone.type || 'zone').replace(/[-_]/g, ' ');
-  return `${typeLabel} ${zone.id}`;
-}
-
 function shouldShowTitleBar(zone) {
-  if (zone?.showTitleBar === false) return false;
-  if (zone?.showTitleBar === true) return true;
-  return TITLE_BAR_DEFAULT_VISIBLE.has(zone?.type);
+  if (zone.showTitleBar === false) return false;
+  if (zone.showTitleBar === true) return true;
+  return TITLE_BAR_DEFAULT_VISIBLE.has(zone.type);
 }
 
 function EdgeHotzones() {
@@ -55,7 +46,7 @@ function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
   const setHovered = useStore((s) => s.setAnalystProHoveredZoneId);
 
   const withTitle = shouldShowTitleBar(zone);
-  const label = inferDisplayName(zone);
+  const label = getZoneDisplayLabel(zone);
 
   const handleMouseEnter = useCallback(() => setHovered(zone.id), [setHovered, zone.id]);
   const handleMouseLeave = useCallback(() => setHovered(null), [setHovered]);
