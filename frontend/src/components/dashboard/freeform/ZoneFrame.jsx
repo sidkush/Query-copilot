@@ -43,7 +43,7 @@ function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
   const label = getZoneDisplayLabel(zone);
 
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(label);
+  const [draft, setDraft] = useState('');
   const inputRef = useRef(null);
 
   useEffect(() => {
