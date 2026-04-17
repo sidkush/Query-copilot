@@ -176,6 +176,9 @@ class ExecuteRequest(BaseModel):
     original_sql: Optional[str] = None  # AI-generated SQL before user edits
     # Plan 4a: optional filter predicates injected by Analyst Pro action cascade.
     additional_filters: Optional[list[_AdditionalFilter]] = None
+    # Plan 4c: Analyst Pro parameter token map. Accepts either a list of
+    # parameter dicts or a dict keyed by name. Shape-normalised downstream.
+    parameters: Optional[object] = None
 
 
 class FeedbackRequest(BaseModel):
@@ -256,6 +259,48 @@ def execute_sql(req: ExecuteRequest, user: dict = Depends(get_current_user)):
     """Step 2: Execute user-approved SQL against the database."""
     from main import app
     email = user["email"]
+
+    # Plan 4c: token substitution for Analyst Pro parameters. Runs before
+    # filter injection + validator so the validator sees the final string.
+    if req.parameters:
+        from param_substitution import (
+            substitute_param_tokens,
+            UnknownParameterError,
+            InvalidParameterError,
+        )
+        try:
+            req.sql = substitute_param_tokens(req.sql, req.parameters)
+        except UnknownParameterError as exc:
+            raise HTTPException(status_code=400, detail=f"Unknown parameter token: {exc}")
+        except InvalidParameterError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid parameter: {exc}")
+        try:
+            from audit_trail import _append_entry as _audit_append
+            from datetime import datetime, timezone
+            if isinstance(req.parameters, dict):
+                names = [
+                    v.get("name") if isinstance(v, dict) else None
+                    for v in req.parameters.values()
+                ]
+            else:
+                names = []
+                for p in req.parameters:
+                    if hasattr(p, "model_dump"):
+                        pd = p.model_dump()
+                    elif isinstance(p, dict):
+                        pd = p
+                    else:
+                        pd = {}
+                    names.append(pd.get("name"))
+            _audit_append({
+                "event": "parameters_applied",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "conn_id": req.conn_id or "",
+                "user": email,
+                "param_names": [n for n in names if n],
+            })
+        except Exception:
+            pass
 
     # Plan 4a: wrap SQL with additional_filters before validation/execution.
     if req.additional_filters:
