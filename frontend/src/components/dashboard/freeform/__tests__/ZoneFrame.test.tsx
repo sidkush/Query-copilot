@@ -219,7 +219,7 @@ describe('ZoneFrame — inline rename', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     const tree = useStore.getState().analystProDashboard!.tiledRoot as { children: Array<{ id: string; displayName?: string }> };
-    expect(tree.children[0].displayName == null || tree.children[0].displayName === '').toBe(true);
+    expect(tree.children[0].displayName).toBeUndefined();
   });
 
   it('blur commits the new displayName', () => {

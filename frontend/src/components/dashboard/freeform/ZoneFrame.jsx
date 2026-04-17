@@ -59,13 +59,14 @@ function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
   }, [zone.displayName, label]);
 
   const commit = useCallback(() => {
+    if (!editing) return;
     const trimmed = (draft ?? '').trim();
     const nextDisplayName = trimmed.length === 0 ? undefined : trimmed;
     if (nextDisplayName !== zone.displayName) {
       updateZone(zone.id, { displayName: nextDisplayName });
     }
     setEditing(false);
-  }, [draft, updateZone, zone.id, zone.displayName]);
+  }, [editing, draft, updateZone, zone.id, zone.displayName]);
 
   const cancel = useCallback(() => {
     setDraft(zone.displayName ?? label);
