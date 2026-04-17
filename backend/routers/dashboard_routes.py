@@ -2128,3 +2128,131 @@ def _resolve_tiled(zone: dict, x: int, y: int, w: int, h: int, depth: int, out: 
             child_h = round((c["h"] / denom) * h)
             _resolve_tiled(c, x, cursor, w, child_h, depth + 1, out)
             cursor += child_h
+
+
+# ── Plan 3 T8 — Actions Fire endpoint ──────────────────────────────
+
+import uuid as _uuid
+from typing import Literal, List
+
+class _MarkEventIn(BaseModel):
+    markData: dict
+    trigger: Literal['hover', 'select', 'menu']
+    timestamp: int
+
+class _FireTarget(BaseModel):
+    sheetId: str
+    filterPlanHints: dict
+
+class _FireResponse(BaseModel):
+    accepted: bool
+    cascadeId: str
+    targets: List[_FireTarget]
+    auditRef: Optional[str] = None
+
+
+# Action kinds that require server-side cascade plan building.
+_CASCADE_KINDS = frozenset({"filter", "highlight", "change-parameter", "change-set"})
+# Action kinds handled entirely by the frontend — no target plan needed.
+_LOCAL_KINDS = frozenset({"url", "goto-sheet"})
+
+
+@router.post("/{dashboard_id}/actions/{action_id}/fire", response_model=_FireResponse)
+def fire_action(
+    dashboard_id: str,
+    action_id: str,
+    body: _MarkEventIn,
+    user=Depends(get_current_user),
+) -> _FireResponse:
+    """
+    Receive a mark event, resolve cascade plan hints for the action, write
+    an audit row and return the structured plan.
+
+    This endpoint only builds plan hints and logs — it does NOT execute queries
+    (that is Plan 3b / frontend waterfall router responsibility).
+
+    Gated on FEATURE_ANALYST_PRO. Returns 404 when flag disabled to avoid
+    leaking surface area.
+    """
+    from config import settings
+    if not settings.FEATURE_ANALYST_PRO:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    email = user["email"]
+
+    # Ownership check — load_dashboard only returns dashboards belonging to this user.
+    dashboard = load_dashboard(email, dashboard_id)
+    if not dashboard:
+        raise HTTPException(status_code=404, detail="Dashboard not found")
+
+    # Locate the action in the dashboard's actions list.
+    actions = dashboard.get("actions") or []
+    action = next((a for a in actions if a.get("id") == action_id), None)
+    if action is None:
+        raise HTTPException(status_code=404, detail="Action not found")
+
+    action_kind = action.get("kind", "")
+    cascade_id = _uuid.uuid4().hex[:12]
+    targets: List[_FireTarget] = []
+
+    if action_kind in _LOCAL_KINDS:
+        # url / goto-sheet are handled entirely by the frontend.
+        pass
+
+    elif action_kind in {"filter", "highlight"}:
+        # Build one filterPlanHints entry per target sheet.
+        field_mapping = action.get("fieldMapping") or []
+        mark_data = body.markData
+        for sheet_id in (action.get("targetSheets") or []):
+            hints: dict = {}
+            for mapping in field_mapping:
+                src = mapping.get("source")
+                tgt = mapping.get("target")
+                if src and tgt and src in mark_data:
+                    hints[tgt] = mark_data[src]
+            targets.append(_FireTarget(sheetId=sheet_id, filterPlanHints=hints))
+
+    elif action_kind == "change-parameter":
+        # Single target entry with parameterId → value.
+        field_mapping = action.get("fieldMapping") or []
+        value = None
+        if field_mapping:
+            src = field_mapping[0].get("source")
+            if src and src in body.markData:
+                value = body.markData[src]
+        parameter_id = action.get("targetParameterId", "")
+        targets.append(_FireTarget(sheetId="", filterPlanHints={parameter_id: value}))
+
+    elif action_kind == "change-set":
+        # Single target entry with setId → [member values].
+        field_mapping = action.get("fieldMapping") or []
+        members = []
+        if field_mapping:
+            src = field_mapping[0].get("source")
+            if src and src in body.markData:
+                members = [body.markData[src]]
+        set_id = action.get("targetSetId", "")
+        targets.append(_FireTarget(sheetId="", filterPlanHints={set_id: members}))
+
+    # Write audit row via audit_trail.
+    from audit_trail import _append_entry as _audit_append
+    from datetime import datetime, timezone
+    _audit_append({
+        "event": "action_fire",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "dashboard_id": dashboard_id,
+        "action_id": action_id,
+        "action_kind": action_kind,
+        "trigger": body.trigger,
+        "target_count": len(targets),
+        "cascade_id": cascade_id,
+        "user": email,
+        "mark_keys": list(body.markData.keys()),
+    })
+
+    return _FireResponse(
+        accepted=True,
+        cascadeId=cascade_id,
+        targets=targets,
+        auditRef="query_decisions.jsonl",
+    )
