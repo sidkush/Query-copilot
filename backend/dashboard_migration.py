@@ -334,6 +334,11 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
     if not isinstance(existing_actions, list):
         existing_actions = []
 
+    # Preserve existing sets if present; default to empty list for fresh migrations.
+    existing_sets = legacy.get("sets")
+    if not isinstance(existing_sets, list):
+        existing_sets = []
+
     return {
         "schemaVersion": "askdb/dashboard/v1",
         "id": str(dashboard_id),
@@ -344,7 +349,7 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
         "floatingLayer": [],
         "worksheets": worksheets,
         "parameters": [],
-        "sets": [],
+        "sets": existing_sets,
         "actions": existing_actions,
         "globalStyle": {},
     }
