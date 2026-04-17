@@ -52,12 +52,14 @@ describe('ZonePropertiesPanel', () => {
 
   it('shows "always" by default for a zone without a rule', () => {
     render(<ZonePropertiesPanel />);
+    fireEvent.click(screen.getByRole('tab', { name: /visibility/i }));
     const select = screen.getByLabelText(/visibility rule/i) as HTMLSelectElement;
     expect(select.value).toBe('always');
   });
 
   it('saves a parameterEquals rule', () => {
     render(<ZonePropertiesPanel />);
+    fireEvent.click(screen.getByRole('tab', { name: /visibility/i }));
     fireEvent.change(screen.getByLabelText(/visibility rule/i), { target: { value: 'parameterEquals' } });
     fireEvent.change(screen.getByLabelText(/parameter/i), { target: { value: 'p1' } });
     fireEvent.change(screen.getByLabelText(/value/i), { target: { value: 'priority' } });
@@ -68,6 +70,7 @@ describe('ZonePropertiesPanel', () => {
 
   it('saves a setMembership rule', () => {
     render(<ZonePropertiesPanel />);
+    fireEvent.click(screen.getByRole('tab', { name: /visibility/i }));
     fireEvent.change(screen.getByLabelText(/visibility rule/i), { target: { value: 'setMembership' } });
     fireEvent.change(screen.getByLabelText(/^set$/i), { target: { value: 's1' } });
     fireEvent.change(screen.getByLabelText(/^mode$/i), { target: { value: 'hasAny' } });
@@ -78,6 +81,7 @@ describe('ZonePropertiesPanel', () => {
 
   it('saves a hasActiveFilter rule', () => {
     render(<ZonePropertiesPanel />);
+    fireEvent.click(screen.getByRole('tab', { name: /visibility/i }));
     fireEvent.change(screen.getByLabelText(/visibility rule/i), { target: { value: 'hasActiveFilter' } });
     fireEvent.change(screen.getByLabelText(/^sheet$/i), { target: { value: 'sheet-a' } });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
@@ -90,9 +94,26 @@ describe('ZonePropertiesPanel', () => {
       visibilityRule: { kind: 'parameterEquals', parameterId: 'p1', value: 'priority' },
     });
     render(<ZonePropertiesPanel />);
+    fireEvent.click(screen.getByRole('tab', { name: /visibility/i }));
     fireEvent.change(screen.getByLabelText(/visibility rule/i), { target: { value: 'always' } });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
     const z = useStore.getState().analystProDashboard!.tiledRoot.children[0] as any;
     expect(z.visibilityRule).toBeUndefined();
+  });
+
+  it('switches tabs and shows each tab body (Plan 5d T11)', () => {
+    render(<ZonePropertiesPanel />);
+    fireEvent.click(screen.getByRole('tab', { name: /layout/i }));
+    expect(screen.getByTestId('zone-properties-layout-tab')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: /style/i }));
+    expect(screen.getByTestId('zone-properties-style-tab')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: /visibility/i }));
+    expect(screen.getByTestId('zone-properties-visibility-tab')).toBeInTheDocument();
+  });
+
+  it('defaults to Layout tab when slice is null (Plan 5d T11)', () => {
+    useStore.setState({ analystProPropertiesTab: null } as any);
+    render(<ZonePropertiesPanel />);
+    expect(screen.getByTestId('zone-properties-layout-tab')).toBeInTheDocument();
   });
 });
