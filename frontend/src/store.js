@@ -3,6 +3,7 @@ import { detectCorrections } from "./chart-ir";
 import { alignZones, distributeZones } from "./components/dashboard/freeform/lib/alignmentOps";
 import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating } from "./components/dashboard/freeform/lib/zoneTreeOps";
 import { generateZoneId } from "./components/dashboard/freeform/lib/zoneTree";
+import { applySetChange } from './components/dashboard/freeform/lib/setOps';
 
 let _themeTimer = null;
 
@@ -798,6 +799,57 @@ export const useStore = create((set, get) => ({
 
   clearAllSheetHighlightsAnalystPro: () =>
     set({ analystProSheetHighlights: {} }),
+
+  // Plan 4b: Sets subsystem.
+  // Sets live inside analystProDashboard.sets so the existing save/load path
+  // carries them for free. Every mutation pushes onto analystProHistory —
+  // undo/redo covers every set edit.
+
+  addSetAnalystPro: (newSet) => {
+    const dash = get().analystProDashboard;
+    if (!dash || !newSet || !newSet.id) return;
+    const existing = dash.sets || [];
+    const nextDash = { ...dash, sets: [...existing, newSet] };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  updateSetAnalystPro: (setId, patch) => {
+    const dash = get().analystProDashboard;
+    if (!dash || !setId || !patch) return;
+    const existing = dash.sets || [];
+    const next = existing.map((s) => (s.id === setId ? { ...s, ...patch } : s));
+    const nextDash = { ...dash, sets: next };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  renameSetAnalystPro: (setId, name) => {
+    get().updateSetAnalystPro(setId, { name });
+  },
+
+  deleteSetAnalystPro: (setId) => {
+    const dash = get().analystProDashboard;
+    if (!dash || !setId) return;
+    const existing = dash.sets || [];
+    const next = existing.filter((s) => s.id !== setId);
+    const nextDash = { ...dash, sets: next };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  applySetChangeAnalystPro: (setId, mode, members) => {
+    const dash = get().analystProDashboard;
+    if (!dash || !setId) return;
+    const existing = dash.sets || [];
+    const target = existing.find((s) => s.id === setId);
+    if (!target) return;
+    const nextSet = applySetChange(target, members || [], mode);
+    const next = existing.map((s) => (s.id === setId ? nextSet : s));
+    const nextDash = { ...dash, sets: next };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
 
   // Plan 2: history buffer (undo/redo)
   // Shape: { past: [dashboard,...], present: dashboard, future: [dashboard,...], maxEntries }
