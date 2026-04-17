@@ -155,6 +155,29 @@ export type Dashboard = {
   globalStyle?: { font?: string; background?: string };
 };
 
+// Plan 6a — Device layouts (Build_Tableau.md §IX.5, Appendix A.13, E.15).
+// Tablet/Phone inherit from base Desktop; each DeviceLayoutOverride is a
+// sparse per-zone diff. `visible: false` == Tableau's HiddenByUser: render
+// suppressed, data pipeline still runs.
+export type DashboardDeviceLayout = 'desktop' | 'tablet' | 'phone';
+
+export interface ZoneOverride {
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  visible?: boolean;
+}
+
+export interface DeviceLayoutOverride {
+  zoneOverrides: Record<string, ZoneOverride>;
+}
+
+export interface DashboardDeviceLayouts {
+  tablet?: DeviceLayoutOverride;
+  phone?: DeviceLayoutOverride;
+}
+
 /** Zone with resolved pixel dimensions (output of layoutResolver).
  *  For floating zones: pxW/pxH copy into width/height unchanged.
  *  For tiled zones: width/height are computed from proportional w/h × container size. */
