@@ -3,7 +3,19 @@ import { useMemo } from 'react';
 import FreeformCanvas from '../freeform/FreeformCanvas';
 import SizeToggleDropdown from '../freeform/SizeToggleDropdown';
 import DashboardTileCanvas from '../lib/DashboardTileCanvas';
+import ObjectLibraryPanel from '../freeform/panels/ObjectLibraryPanel';
+import LayoutTreePanel from '../freeform/panels/LayoutTreePanel';
+import AlignmentToolbar from '../freeform/panels/AlignmentToolbar';
+import LayoutOverlayToggle from '../freeform/panels/LayoutOverlayToggle';
 import { useStore } from '../../../store';
+
+/** Thin vertical divider for the top toolbar. */
+const Separator = () => (
+  <span
+    aria-hidden="true"
+    style={{ width: 1, height: 20, background: 'var(--chrome-bar-border, var(--border-default))', margin: '0 4px', flexShrink: 0 }}
+  />
+);
 
 /**
  * Analyst Pro archetype — Tableau-parity freeform authoring shell.
@@ -60,18 +72,19 @@ export default function AnalystProLayout({
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        width: '100%',
         minHeight: 0,
         background: 'var(--archetype-analyst-pro-bg)',
       }}
     >
+      {/* Top toolbar */}
       <div
         data-testid="analyst-pro-toolbar"
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'flex-end',
           padding: '8px 14px',
-          borderBottom: '1px solid var(--border-default)',
+          borderBottom: '1px solid var(--chrome-bar-border, var(--border-default))',
           gap: 8,
           flexShrink: 0,
         }}
@@ -97,9 +110,35 @@ export default function AnalystProLayout({
           SNAP {snapEnabled ? 'ON' : 'OFF'}
         </button>
         <SizeToggleDropdown currentSize={size} onChange={onSizeChange} />
+        <Separator />
+        <AlignmentToolbar />
+        <Separator />
+        <LayoutOverlayToggle />
       </div>
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <FreeformCanvas dashboard={dashboard} renderLeaf={renderLeaf} />
+
+      {/* Body row: left rail + canvas */}
+      <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}>
+        {/* Left rail */}
+        <div
+          data-testid="analyst-pro-left-rail"
+          style={{
+            width: 240,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '1px solid var(--chrome-bar-border, var(--border-default))',
+            overflow: 'hidden',
+          }}
+        >
+          <ObjectLibraryPanel />
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            <LayoutTreePanel />
+          </div>
+        </div>
+
+        {/* Main canvas */}
+        <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'auto', position: 'relative' }}>
+          <FreeformCanvas dashboard={dashboard} renderLeaf={renderLeaf} />
+        </div>
       </div>
     </div>
   );
