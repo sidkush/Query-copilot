@@ -416,3 +416,58 @@ describe('FreeformCanvas integration — ZoneFrame (Plan 5a)', () => {
     expect(state!.items.some((i) => i.kind === 'command' && i.id === 'canvas.paste')).toBe(true);
   });
 });
+
+describe('Plan 6a — device preview', () => {
+  beforeEach(() => {
+    useStore.setState({
+      analystProActiveDevice: 'desktop',
+      analystProCanvasZoom: 1.0,
+      analystProCanvasPan: { x: 0, y: 0 },
+    });
+  });
+  afterEach(cleanup);
+
+  const dashWithOverride = {
+    schemaVersion: 'askdb/dashboard/v1',
+    id: 'dp1',
+    name: 'D',
+    archetype: 'analyst-pro',
+    size: { mode: 'fixed', preset: 'desktop', width: 1366, height: 768 },
+    tiledRoot: {
+      id: 'root', type: 'container-vert', w: 100000, h: 100000,
+      children: [
+        { id: 'z1', type: 'worksheet', w: 100000, h: 50000, worksheetRef: 's1' },
+        { id: 'z2', type: 'worksheet', w: 100000, h: 50000, worksheetRef: 's2' },
+      ],
+    },
+    floatingLayer: [],
+    worksheets: [],
+    parameters: [], sets: [], actions: [],
+    deviceLayouts: { phone: { zoneOverrides: { z2: { visible: false } } } },
+  } as any;
+
+  it('resizes canvas to phone dimensions when device=phone', () => {
+    useStore.setState({ analystProActiveDevice: 'phone' });
+    render(<FreeformCanvas dashboard={dashWithOverride} renderLeaf={() => null} />);
+    const sheet = screen.getByTestId('freeform-sheet');
+    expect(sheet.style.width).toBe('375px');
+    expect(sheet.style.height).toBe('667px');
+  });
+
+  it('marks zone z2 as hidden on phone (data pipeline still runs via renderLeaf)', () => {
+    useStore.setState({ analystProActiveDevice: 'phone' });
+    const seen: { id: string; hidden: boolean }[] = [];
+    render(
+      <FreeformCanvas
+        dashboard={dashWithOverride}
+        renderLeaf={(zone: any) => {
+          seen.push({ id: zone.id, hidden: !!zone.hidden });
+          return <div data-testid={`leaf-${zone.id}`} />;
+        }}
+      />,
+    );
+    const z2 = seen.find((r) => r.id === 'z2');
+    expect(z2).toBeDefined();
+    expect(z2!.hidden).toBe(true);
+  });
+});

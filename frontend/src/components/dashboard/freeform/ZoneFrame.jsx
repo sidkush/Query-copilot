@@ -140,6 +140,19 @@ function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
     [onContextMenu, zone],
   );
 
+  // Plan 6a — HiddenByUser semantics (Build_Tableau.md §IX.5, E.15).
+  // Device-layout override sets zone.hidden=true; data pipeline keeps
+  // running one level up (AnalystProWorksheetTile), only the frame is suppressed.
+  if (zone?.hidden === true) {
+    return (
+      <div
+        data-testid={`zone-hidden-${zone.id}`}
+        data-hidden="true"
+        aria-hidden="true"
+        style={{ display: 'none' }}
+      />
+    );
+  }
 
   return (
     <div
