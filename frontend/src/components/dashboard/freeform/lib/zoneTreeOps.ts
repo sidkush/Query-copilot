@@ -345,3 +345,66 @@ export function toggleLockFloating(
     ...floatingLayer.slice(idx + 1),
   ];
 }
+
+export type ReorderPosition = 'before' | 'after' | 'inside';
+
+/** Walk the subtree rooted at `zone` and return true if `candidateId` is reachable. */
+function isDescendant(zone: Zone, candidateId: string): boolean {
+  if (zone.id === candidateId) return true;
+  if (!isContainer(zone)) return false;
+  return zone.children.some((c) => isDescendant(c, candidateId));
+}
+
+/**
+ * Drag-to-reorder primitive for LayoutTreePanel.
+ *
+ * Semantics:
+ *   - 'before' | 'after': insert source as sibling of target. Target must not be root.
+ *   - 'inside':           insert source as first child of target. Target must be a container.
+ *
+ * Invariants:
+ *   - Returns a new tree — does not mutate input.
+ *   - No-op (returns same reference) when:
+ *       * sourceId === targetId
+ *       * sourceId not present in tree
+ *       * targetId not present in tree
+ *       * target is a descendant of source (would create a cycle)
+ *       * position==='before'|'after' AND target is the root (root has no siblings)
+ *       * position==='inside' AND target is not a container
+ *   - Parent of the removed source is renormalized (via existing removeChild).
+ *   - Parent of the inserted location is renormalized (via existing insertChild).
+ *   - Proportional sums stay at 100000 on both affected containers.
+ */
+export function reorderZone(
+  root: Zone,
+  sourceId: string,
+  targetId: string,
+  position: ReorderPosition,
+): Zone {
+  if (sourceId === targetId) return root;
+
+  const source = findZoneInTree(root, sourceId);
+  if (!source) return root;
+  const target = findZoneInTree(root, targetId);
+  if (!target) return root;
+
+  if (isDescendant(source, targetId)) return root;
+
+  if (position === 'inside') {
+    if (!isContainer(target)) return root;
+    const withoutSource = removeChild(root, sourceId);
+    return insertChild(withoutSource, targetId, source, 0);
+  }
+
+  const targetParent = findParentInTree(root, targetId);
+  if (!targetParent) return root; // target is root
+
+  const withoutSource = removeChild(root, sourceId);
+  const parentInWithout = findParentInTree(withoutSource, targetId);
+  if (!parentInWithout) return root;
+
+  const targetIdx = parentInWithout.children.findIndex((c) => c.id === targetId);
+  if (targetIdx === -1) return root;
+  const insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
+  return insertChild(withoutSource, parentInWithout.id, source, insertIdx);
+}

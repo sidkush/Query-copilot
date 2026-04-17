@@ -428,3 +428,85 @@ describe('toggleLockFloating', () => {
     expect(JSON.stringify(layer)).toBe(snapshot);
   });
 });
+
+import { reorderZone } from '../lib/zoneTreeOps';
+
+describe('reorderZone', () => {
+  const makeTree = (): ContainerZone => ({
+    id: 'root',
+    type: 'container-vert',
+    w: 100000,
+    h: 100000,
+    children: [
+      { id: 'a', type: 'blank', w: 100000, h: 33333 },
+      {
+        id: 'grp',
+        type: 'container-horz',
+        w: 100000,
+        h: 33334,
+        children: [
+          { id: 'g1', type: 'blank', w: 50000, h: 100000 },
+          { id: 'g2', type: 'blank', w: 50000, h: 100000 },
+        ],
+      },
+      { id: 'c', type: 'blank', w: 100000, h: 33333 },
+    ],
+  });
+
+  it('reorders a sibling "before" another sibling', () => {
+    const next = reorderZone(makeTree(), 'c', 'a', 'before') as ContainerZone;
+    expect(next.children.map((z) => z.id)).toEqual(['c', 'a', 'grp']);
+    const sumH = next.children.reduce((s, z) => s + z.h, 0);
+    expect(sumH).toBe(100000);
+  });
+
+  it('reorders "after" a sibling', () => {
+    const next = reorderZone(makeTree(), 'a', 'c', 'after') as ContainerZone;
+    expect(next.children.map((z) => z.id)).toEqual(['grp', 'c', 'a']);
+  });
+
+  it('moves a zone "inside" a container', () => {
+    const next = reorderZone(makeTree(), 'a', 'grp', 'inside') as ContainerZone;
+    const grp = next.children.find((z) => z.id === 'grp') as ContainerZone;
+    expect(grp.children.map((z) => z.id)).toEqual(['a', 'g1', 'g2']);
+    const grpSumW = grp.children.reduce((s, z) => s + z.w, 0);
+    expect(grpSumW).toBe(100000);
+  });
+
+  it('is a no-op when source === target', () => {
+    const root = makeTree();
+    expect(reorderZone(root, 'a', 'a', 'before')).toBe(root);
+  });
+
+  it('rejects moving a container into its own descendant', () => {
+    const root = makeTree();
+    expect(reorderZone(root, 'grp', 'g1', 'inside')).toBe(root);
+  });
+
+  it('rejects "inside" when target is a leaf', () => {
+    const root = makeTree();
+    expect(reorderZone(root, 'a', 'c', 'inside')).toBe(root);
+  });
+
+  it('rejects "before" when target is root', () => {
+    const root = makeTree();
+    expect(reorderZone(root, 'a', 'root', 'before')).toBe(root);
+  });
+
+  it('returns identity when source id missing', () => {
+    const root = makeTree();
+    expect(reorderZone(root, 'nope', 'a', 'before')).toBe(root);
+  });
+
+  it('returns identity when target id missing', () => {
+    const root = makeTree();
+    expect(reorderZone(root, 'a', 'nope', 'before')).toBe(root);
+  });
+
+  it('does not mutate input tree', () => {
+    const root = makeTree();
+    const before = JSON.stringify(root);
+    reorderZone(root, 'a', 'c', 'after');
+    expect(JSON.stringify(root)).toBe(before);
+  });
+});
