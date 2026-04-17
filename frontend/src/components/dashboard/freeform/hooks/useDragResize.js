@@ -59,8 +59,11 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating, resolv
 
     const onMove = (ev) => {
       if (!startRef.current) return;
-      const dx = ev.clientX - startRef.current.startX;
-      const dy = ev.clientY - startRef.current.startY;
+      // Plan 6a — convert client-space delta to sheet-space so canvas zoom
+      // doesn't amplify or shrink drag distance.
+      const zoomNow = useStore.getState().analystProCanvasZoom || 1;
+      const dx = (ev.clientX - startRef.current.startX) / zoomNow;
+      const dy = (ev.clientY - startRef.current.startY) / zoomNow;
 
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {

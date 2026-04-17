@@ -1,7 +1,8 @@
 // frontend/src/components/dashboard/freeform/__tests__/FreeformCanvas.test.tsx
-import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import FreeformCanvas from '../FreeformCanvas';
+import { useStore } from '../../../../store';
 import type { Dashboard } from '../lib/types';
 
 // jsdom lacks ResizeObserver; stub it.
@@ -84,5 +85,40 @@ describe('FreeformCanvas', () => {
     render(<FreeformCanvas dashboard={sampleDashboard} renderLeaf={spy} />);
     const ids = spy.mock.calls.map((c) => (c[0] as { id: string }).id).sort();
     expect(ids).toEqual(['chart', 'f1', 'kpi1', 'kpi2']);
+  });
+
+  describe('Plan 6a — zoom + pan transform', () => {
+    beforeEach(() => {
+      useStore.setState({
+        analystProCanvasZoom: 1.0,
+        analystProCanvasPan: { x: 0, y: 0 },
+      });
+    });
+
+    it('applies transform: translate(pan) scale(zoom) to the sheet', () => {
+      useStore.setState({
+        analystProCanvasZoom: 1.5,
+        analystProCanvasPan: { x: 40, y: 20 },
+      });
+      render(<FreeformCanvas dashboard={sampleDashboard} renderLeaf={renderLeaf} />);
+      const sheet = screen.getByTestId('freeform-sheet');
+      expect(sheet.style.transform).toContain('translate(40px, 20px)');
+      expect(sheet.style.transform).toContain('scale(1.5)');
+    });
+
+    it('Ctrl+wheel zooms the canvas in at the cursor', () => {
+      render(<FreeformCanvas dashboard={sampleDashboard} renderLeaf={renderLeaf} />);
+      const sheet = screen.getByTestId('freeform-sheet');
+      fireEvent.wheel(sheet, { ctrlKey: true, deltaY: -100, clientX: 200, clientY: 200 });
+      expect(useStore.getState().analystProCanvasZoom).toBeGreaterThan(1.0);
+    });
+
+    it('reflects store pan updates in the sheet transform', () => {
+      const { rerender } = render(<FreeformCanvas dashboard={sampleDashboard} renderLeaf={renderLeaf} />);
+      useStore.getState().setCanvasPanAnalystPro(50, 30);
+      rerender(<FreeformCanvas dashboard={sampleDashboard} renderLeaf={renderLeaf} />);
+      const sheet = screen.getByTestId('freeform-sheet');
+      expect(sheet.style.transform).toContain('translate(50px, 30px)');
+    });
   });
 });

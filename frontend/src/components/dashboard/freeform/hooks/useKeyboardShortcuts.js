@@ -38,6 +38,25 @@ export function useKeyboardShortcuts({ canvasRef } = {}) {
       if (mod && (e.key.toLowerCase() === 'z' && e.shiftKey || e.key.toLowerCase() === 'y')) {
         e.preventDefault(); redo(); return;
       }
+      // Plan 6a — canvas zoom shortcuts
+      if (mod && e.key === '0') {
+        e.preventDefault();
+        useStore.getState().setCanvasZoomAnalystPro(1.0);
+        useStore.getState().setCanvasPanAnalystPro(0, 0);
+        return;
+      }
+      if (mod && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        const z = useStore.getState().analystProCanvasZoom;
+        useStore.getState().setCanvasZoomAnalystPro(z * 1.2);
+        return;
+      }
+      if (mod && e.key === '-') {
+        e.preventDefault();
+        const z = useStore.getState().analystProCanvasZoom;
+        useStore.getState().setCanvasZoomAnalystPro(z / 1.2);
+        return;
+      }
       if (mod && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         if (!dashboard) return;

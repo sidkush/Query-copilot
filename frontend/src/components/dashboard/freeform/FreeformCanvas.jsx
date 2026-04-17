@@ -6,6 +6,10 @@ import FloatingLayer from './FloatingLayer';
 import SelectionOverlay from './SelectionOverlay';
 import MarqueeOverlay from './MarqueeOverlay';
 import DropIndicatorOverlay from './DropIndicatorOverlay';
+import CanvasZoomControls from './CanvasZoomControls';
+import CanvasRulers from './CanvasRulers';
+import { screenToSheet, zoomAtAnchor } from './lib/canvasTransform';
+import { applyDeviceOverrides, resolveDeviceCanvasSize } from './lib/deviceLayout';
 import { useSelection } from './hooks/useSelection';
 import { useDragResize } from './hooks/useDragResize';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -13,22 +17,15 @@ import { useStore } from '../../../store';
 import { FIXED_PRESETS } from './lib/types';
 
 /**
- * FreeformCanvas — the root authoring surface for Analyst Pro.
- *
- * Responsibilities in Plan 1 (read-only):
- *   1. Resolve canvas dimensions from `dashboard.size` + container bounds.
- *   2. Run the zone tree + floating layer through `resolveLayout`.
- *   3. Pass resolved coords to ZoneRenderer + FloatingLayer.
- *   4. Re-resolve on viewport resize (Automatic / Range modes).
- *
- * Plan 2 extends this with drag/resize/select handlers, SelectionOverlay,
- * and keyboard shortcut installation.
+ * FreeformCanvas — Analyst Pro root authoring surface.
+ * Plan 6a adds a CSS transform (translate + scale) on `.freeform-sheet` plus
+ * transform-aware pointer math (screenToSheet). Device-preview swaps canvas
+ * size + overlays zone overrides without rebuilding the zone tree.
  */
 export default function FreeformCanvas({ dashboard, renderLeaf }) {
   const containerRef = useRef(null);
   const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 });
 
-  // Measure container on mount + on resize
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
@@ -44,18 +41,34 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     return () => ro.disconnect();
   }, []);
 
-  const canvasSize = useMemo(() => {
-    return resolveCanvasSize(dashboard.size, viewportSize);
-  }, [dashboard.size, viewportSize]);
+  const activeDevice = useStore((s) => s.analystProActiveDevice);
+  const canvasZoom = useStore((s) => s.analystProCanvasZoom);
+  const canvasPan = useStore((s) => s.analystProCanvasPan);
+  const setCanvasZoom = useStore((s) => s.setCanvasZoomAnalystPro);
+  const setCanvasPan = useStore((s) => s.setCanvasPanAnalystPro);
+  const rulersVisible = useStore((s) => s.analystProRulersVisible);
+
+  const effectiveDashboard = useMemo(
+    () => applyDeviceOverrides(dashboard, activeDevice),
+    [dashboard, activeDevice],
+  );
+  const effectiveSize = useMemo(
+    () => resolveDeviceCanvasSize(effectiveDashboard.size, activeDevice),
+    [effectiveDashboard.size, activeDevice],
+  );
+  const canvasSize = useMemo(
+    () => resolveCanvasSize(effectiveSize, viewportSize),
+    [effectiveSize, viewportSize],
+  );
 
   const resolved = useMemo(() => {
     return resolveLayout(
-      dashboard.tiledRoot,
-      dashboard.floatingLayer || [],
+      effectiveDashboard.tiledRoot,
+      effectiveDashboard.floatingLayer || [],
       canvasSize.width,
       canvasSize.height,
     );
-  }, [dashboard.tiledRoot, dashboard.floatingLayer, canvasSize.width, canvasSize.height]);
+  }, [effectiveDashboard.tiledRoot, effectiveDashboard.floatingLayer, canvasSize.width, canvasSize.height]);
 
   const resolvedMap = useMemo(() => {
     const m = new Map();
@@ -73,15 +86,27 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
   const openContextMenuAnalystPro = useStore((s) => s.openContextMenuAnalystPro);
   const marqueeStartRef = useRef(null);
   const sheetRef = useRef(null);
+  const spaceHeldRef = useRef(false);
 
-  // Install history on dashboard mount
   useEffect(() => {
     if (dashboard) {
       initHistory(dashboard);
       setDashboardInStore(dashboard);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- dashboard.id stable across renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dashboard?.id, initHistory, setDashboardInStore]);
+
+  // Plan 6a — Space-hold tracking for pan gesture
+  useEffect(() => {
+    const dn = (e) => { if (e.code === 'Space') spaceHeldRef.current = true; };
+    const up = (e) => { if (e.code === 'Space') spaceHeldRef.current = false; };
+    window.addEventListener('keydown', dn);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', dn);
+      window.removeEventListener('keyup', up);
+    };
+  }, []);
 
   useKeyboardShortcuts({ canvasRef: containerRef });
 
@@ -102,18 +127,63 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     }
   };
 
+  // Plan 6a — Ctrl+wheel zoom anchored at cursor.
+  const handleSheetWheel = (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const zoomOld = useStore.getState().analystProCanvasZoom;
+    const panOld = useStore.getState().analystProCanvasPan;
+    const zoomNew = zoomOld * Math.exp(-e.deltaY * 0.0015);
+    const { zoom, pan } = zoomAtAnchor(
+      zoomOld,
+      panOld,
+      zoomNew,
+      { clientX: e.clientX, clientY: e.clientY },
+      rect,
+    );
+    setCanvasZoom(zoom);
+    setCanvasPan(pan.x, pan.y);
+  };
+
   const handleSheetPointerDown = (e) => {
+    // Plan 6a — pan gesture (Space-hold OR middle-click).
+    const isPan = spaceHeldRef.current || e.button === 1;
+    if (isPan) {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startPan = useStore.getState().analystProCanvasPan;
+      const onPanMove = (ev) => {
+        setCanvasPan(startPan.x + (ev.clientX - startX), startPan.y + (ev.clientY - startY));
+      };
+      const onPanUp = () => {
+        window.removeEventListener('pointermove', onPanMove);
+        window.removeEventListener('pointerup', onPanUp);
+      };
+      window.addEventListener('pointermove', onPanMove);
+      window.addEventListener('pointerup', onPanUp);
+      return;
+    }
+
     if (e.target !== e.currentTarget) return;
     clearSelection();
     const rect = e.currentTarget.getBoundingClientRect();
-    marqueeStartRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    setMarquee({ x: marqueeStartRef.current.x, y: marqueeStartRef.current.y, width: 0, height: 0 });
+    const zoom = useStore.getState().analystProCanvasZoom;
+    const pan = useStore.getState().analystProCanvasPan;
+    const origin = screenToSheet({ clientX: e.clientX, clientY: e.clientY }, rect, zoom, pan);
+    marqueeStartRef.current = { x: origin.x, y: origin.y };
+    setMarquee({ x: origin.x, y: origin.y, width: 0, height: 0 });
 
     const onMove = (ev) => {
       if (!marqueeStartRef.current) return;
-      const mx = ev.clientX - rect.left - marqueeStartRef.current.x;
-      const my = ev.clientY - rect.top - marqueeStartRef.current.y;
-      setMarquee({ x: marqueeStartRef.current.x, y: marqueeStartRef.current.y, width: mx, height: my });
+      const p = screenToSheet({ clientX: ev.clientX, clientY: ev.clientY }, rect, zoom, pan);
+      setMarquee({
+        x: marqueeStartRef.current.x,
+        y: marqueeStartRef.current.y,
+        width: p.x - marqueeStartRef.current.x,
+        height: p.y - marqueeStartRef.current.y,
+      });
     };
     const onUp = () => {
       if (!marqueeStartRef.current) return;
@@ -139,8 +209,6 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
   };
 
   const handleSheetContextMenu = (e) => {
-    // Zone frames stop propagation in their own onContextMenu handler
-    // (ZoneFrame.jsx). Only handle the canvas-empty case here.
     if (e.target !== e.currentTarget) return;
     e.preventDefault();
     openContextMenuAnalystPro(e.clientX, e.clientY, null);
@@ -170,9 +238,10 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     const sheet = sheetRef.current;
     if (!sheet) return;
     const rect = sheet.getBoundingClientRect();
-    const x = Math.max(0, Math.round(e.clientX - rect.left));
-    const y = Math.max(0, Math.round(e.clientY - rect.top));
-    insertObjectAnalystPro({ type: payload.type, x, y });
+    const zoom = useStore.getState().analystProCanvasZoom;
+    const pan = useStore.getState().analystProCanvasPan;
+    const pt = screenToSheet({ clientX: e.clientX, clientY: e.clientY }, rect, zoom, pan);
+    insertObjectAnalystPro({ type: payload.type, x: Math.max(0, Math.round(pt.x)), y: Math.max(0, Math.round(pt.y)) });
   };
 
   return (
@@ -180,7 +249,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
       ref={containerRef}
       data-testid="freeform-canvas"
       data-archetype="analyst-pro"
-      data-size-mode={dashboard.size?.mode ?? 'automatic'}
+      data-size-mode={effectiveDashboard.size?.mode ?? 'automatic'}
       style={{
         position: 'relative',
         width: '100%',
@@ -189,23 +258,36 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
         background: 'var(--archetype-analyst-pro-bg, var(--bg-page))',
       }}
     >
+      {rulersVisible && (
+        <CanvasRulers
+          canvasWidth={canvasSize.width}
+          canvasHeight={canvasSize.height}
+          zoom={canvasZoom}
+          pan={canvasPan}
+        />
+      )}
+      <CanvasZoomControls />
       <div
         ref={sheetRef}
         data-testid="freeform-sheet"
         className={`freeform-sheet${overlayEnabled ? ' analyst-pro-layout-overlay' : ''}`}
         onPointerDown={handleSheetPointerDown}
         onContextMenu={handleSheetContextMenu}
+        onWheel={handleSheetWheel}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         style={{
           position: 'relative',
           width: canvasSize.width,
           height: canvasSize.height,
-          margin: dashboard.size?.mode === 'automatic' ? 0 : '0 auto',
+          margin: effectiveDashboard.size?.mode === 'automatic' ? 0 : '0 auto',
+          transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${canvasZoom})`,
+          transformOrigin: '0 0',
+          cursor: spaceHeldRef.current ? 'grab' : undefined,
         }}
       >
         <ZoneRenderer
-          root={dashboard.tiledRoot}
+          root={effectiveDashboard.tiledRoot}
           resolvedMap={resolvedMap}
           renderLeaf={(zone, resolvedZone) => (
             <div
@@ -221,7 +303,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
           )}
         />
         <FloatingLayer
-          zones={dashboard.floatingLayer || []}
+          zones={effectiveDashboard.floatingLayer || []}
           renderLeaf={(zone) => (
             <div
               onPointerDown={(e) => {
@@ -263,7 +345,7 @@ function resolveCanvasSize(size, viewport) {
   if (size.mode === 'fixed') {
     if (size.preset && size.preset !== 'custom') {
       const preset = FIXED_PRESETS[size.preset];
-      return { width: preset?.width ?? 1200, height: preset?.height ?? 800 };
+      return { width: preset?.width ?? size.width ?? 1200, height: preset?.height ?? size.height ?? 800 };
     }
     return { width: size.width ?? 1200, height: size.height ?? 800 };
   }
