@@ -746,6 +746,59 @@ export const useStore = create((set, get) => ({
     }));
   },
 
+  // Plan 4a: per-sheet filter + highlight state driven by action cascade.
+  // Shape: { [sheetId]: [{ field, op, value }] } for filters,
+  //        { [sheetId]: { [field]: value } } for highlights.
+  analystProSheetFilters: {},
+  analystProSheetHighlights: {},
+
+  setSheetFilterAnalystPro: (sheetId, filters) => {
+    if (!sheetId) return;
+    const normalized = Array.isArray(filters) ? filters : [];
+    set((s) => ({
+      analystProSheetFilters: {
+        ...s.analystProSheetFilters,
+        [sheetId]: normalized,
+      },
+    }));
+  },
+
+  clearSheetFilterAnalystPro: (sheetId) => {
+    if (!sheetId) return;
+    set((s) => {
+      if (!(sheetId in s.analystProSheetFilters)) return s;
+      const next = { ...s.analystProSheetFilters };
+      delete next[sheetId];
+      return { analystProSheetFilters: next };
+    });
+  },
+
+  clearAllSheetFiltersAnalystPro: () =>
+    set({ analystProSheetFilters: {} }),
+
+  setSheetHighlightAnalystPro: (sheetId, fieldValues) => {
+    if (!sheetId) return;
+    set((s) => ({
+      analystProSheetHighlights: {
+        ...s.analystProSheetHighlights,
+        [sheetId]: fieldValues && typeof fieldValues === 'object' ? fieldValues : {},
+      },
+    }));
+  },
+
+  clearSheetHighlightAnalystPro: (sheetId) => {
+    if (!sheetId) return;
+    set((s) => {
+      if (!(sheetId in s.analystProSheetHighlights)) return s;
+      const next = { ...s.analystProSheetHighlights };
+      delete next[sheetId];
+      return { analystProSheetHighlights: next };
+    });
+  },
+
+  clearAllSheetHighlightsAnalystPro: () =>
+    set({ analystProSheetHighlights: {} }),
+
   // Plan 2: history buffer (undo/redo)
   // Shape: { past: [dashboard,...], present: dashboard, future: [dashboard,...], maxEntries }
   analystProHistory: null,
