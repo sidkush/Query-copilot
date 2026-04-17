@@ -402,4 +402,17 @@ describe('FreeformCanvas integration — ZoneFrame (Plan 5a)', () => {
     fireEvent.mouseLeave(frame);
     expect(useStore.getState().analystProHoveredZoneId).toBeNull();
   });
+
+  it('right-clicks on empty canvas open the context menu with canvas-empty items', () => {
+    useStore.setState({ analystProContextMenu: null });
+    const dashboard = makeBaseDashboard([]);
+    useStore.setState({ analystProDashboard: dashboard });
+    render(<FreeformCanvas dashboard={dashboard} renderLeaf={(z) => <div data-testid={`leaf-${z.id}`}>{z.id}</div>} />);
+    const sheet = screen.getByTestId('freeform-sheet');
+    fireEvent.contextMenu(sheet, { clientX: 120, clientY: 150 });
+    const state = useStore.getState().analystProContextMenu;
+    expect(state).not.toBeNull();
+    expect(state!.zoneId).toBeNull();
+    expect(state!.items.some((i) => i.kind === 'command' && i.id === 'canvas.paste')).toBe(true);
+  });
 });

@@ -14,6 +14,7 @@ import ParametersPanel from '../freeform/panels/ParametersPanel';
 import ZonePropertiesPanel from '../freeform/panels/ZonePropertiesPanel';
 import AnalystProWorksheetTile from '../freeform/AnalystProWorksheetTile';
 import ZoneFrame from '../freeform/ZoneFrame';
+import ContextMenu from '../freeform/ContextMenu';
 import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
 import { useStore } from '../../../store';
 
@@ -50,6 +51,7 @@ export default function AnalystProLayout({
 
   const snapEnabled = useStore((s) => s.analystProSnapEnabled);
   const setSnapEnabled = useStore((s) => s.setAnalystProSnapEnabled);
+  const openContextMenu = useStore((s) => s.openContextMenuAnalystPro);
 
   // Build dashboard object from legacy tile array (Plan 1 read-only path).
   // Plan 2 will receive a full `dashboard` prop instead.
@@ -70,13 +72,10 @@ export default function AnalystProLayout({
   }, []);
 
   const handleZoneContextMenu = useCallback((event, zone) => {
-    // Plan 5a: placeholder. Plan 5c mounts the real context menu here and
-    // consumes this event.
-    void event;
-    if (import.meta.env.DEV) {
-      console.debug('[AnalystPro] context-menu', zone?.id);
-    }
-  }, []);
+    // Plan 5c: open the portal-rendered context menu at the cursor.
+    if (!zone) return;
+    openContextMenu(event.clientX, event.clientY, zone.id);
+  }, [openContextMenu]);
 
   const renderLeaf = useMemo(() => {
     return (zone, resolved) => {
@@ -209,6 +208,9 @@ export default function AnalystProLayout({
 
       {/* Actions modal overlay */}
       <ActionsDialog />
+
+      {/* Plan 5c: portal-rendered right-click context menu. */}
+      <ContextMenu />
     </div>
   );
 }

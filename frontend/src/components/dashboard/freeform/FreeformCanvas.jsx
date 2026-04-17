@@ -70,6 +70,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
   const marquee = useStore((s) => s.analystProMarquee);
   const setMarquee = useStore((s) => s.setAnalystProMarquee);
   const insertObjectAnalystPro = useStore((s) => s.insertObjectAnalystPro);
+  const openContextMenuAnalystPro = useStore((s) => s.openContextMenuAnalystPro);
   const marqueeStartRef = useRef(null);
   const sheetRef = useRef(null);
 
@@ -137,6 +138,14 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     window.addEventListener('pointerup', onUp);
   };
 
+  const handleSheetContextMenu = (e) => {
+    // Zone frames stop propagation in their own onContextMenu handler
+    // (ZoneFrame.jsx). Only handle the canvas-empty case here.
+    if (e.target !== e.currentTarget) return;
+    e.preventDefault();
+    openContextMenuAnalystPro(e.clientX, e.clientY, null);
+  };
+
   const handleDragOver = (e) => {
     if (!e.dataTransfer) return;
     const types = Array.from(e.dataTransfer.types || []);
@@ -185,6 +194,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
         data-testid="freeform-sheet"
         className={`freeform-sheet${overlayEnabled ? ' analyst-pro-layout-overlay' : ''}`}
         onPointerDown={handleSheetPointerDown}
+        onContextMenu={handleSheetContextMenu}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         style={{
