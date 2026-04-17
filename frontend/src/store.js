@@ -1052,6 +1052,22 @@ export const useStore = create((set, get) => ({
       analystProDashboard: next.snapshot,
     });
   },
+  jumpToHistoryAnalystPro: (index) => {
+    const h = get().analystProHistory;
+    if (!h) return;
+    if (!Number.isInteger(index) || index < 0 || index >= h.past.length) return;
+    const newPresent = h.past[index];
+    // Entries newer than newPresent in past (in time-ascending order) roll onto
+    // future, followed by the old present, then any pre-existing future. First
+    // redo step walks toward the original present.
+    const newer = h.past.slice(0, index).reverse();
+    const future = [...newer, h.present, ...h.future];
+    const newPast = h.past.slice(index + 1);
+    set({
+      analystProHistory: { ...h, past: newPast, present: newPresent, future },
+      analystProDashboard: newPresent.snapshot,
+    });
+  },
 
   // Plan 2b: layout overlay toggle
   analystProLayoutOverlay: false,

@@ -92,3 +92,48 @@ describe('analyst pro history entry shape (Plan 6b T1)', () => {
     expect(useStore.getState().analystProHistory!.past.length).toBe(500);
   });
 });
+
+describe('jumpToHistoryAnalystPro (Plan 6b T2)', () => {
+  beforeEach(() => {
+    useStore.setState({ analystProDashboard: null, analystProHistory: null } as any);
+    const d0 = baseDash('v0');
+    useStore.getState().initAnalystProHistory(d0);
+    useStore.getState().pushAnalystProHistory(baseDash('v1'), 'op-1');
+    useStore.getState().pushAnalystProHistory(baseDash('v2'), 'op-2');
+    useStore.getState().pushAnalystProHistory(baseDash('v3'), 'op-3');
+    // now: past = [v2(op-2), v1(op-1), v0(initial)], present = v3(op-3), future = []
+  });
+
+  it('jump to index 0 is equivalent to undo', () => {
+    useStore.getState().jumpToHistoryAnalystPro(0);
+    const h = useStore.getState().analystProHistory!;
+    expect(h.present.snapshot.name).toBe('v2');
+    expect(useStore.getState().analystProDashboard.name).toBe('v2');
+    expect(h.past.map((e: any) => e.snapshot.name)).toEqual(['v1', 'v0']);
+    expect(h.future.map((e: any) => e.snapshot.name)).toEqual(['v3']);
+  });
+
+  it('jump to index 2 reverts to the oldest entry (Initial state)', () => {
+    useStore.getState().jumpToHistoryAnalystPro(2);
+    const h = useStore.getState().analystProHistory!;
+    expect(h.present.operation).toBe('Initial state');
+    expect(h.present.snapshot.name).toBe('v0');
+    expect(h.past).toEqual([]);
+    // future preserves forward-walkable order: v1, v2, v3
+    expect(h.future.map((e: any) => e.snapshot.name)).toEqual(['v1', 'v2', 'v3']);
+  });
+
+  it('redo after jump replays the next operation in order', () => {
+    useStore.getState().jumpToHistoryAnalystPro(2);
+    useStore.getState().redoAnalystPro();
+    expect(useStore.getState().analystProDashboard.name).toBe('v1');
+    expect(useStore.getState().analystProHistory!.present.operation).toBe('op-1');
+  });
+
+  it('out-of-range index is a no-op', () => {
+    useStore.getState().jumpToHistoryAnalystPro(99);
+    expect(useStore.getState().analystProHistory!.present.snapshot.name).toBe('v3');
+    useStore.getState().jumpToHistoryAnalystPro(-1);
+    expect(useStore.getState().analystProHistory!.present.snapshot.name).toBe('v3');
+  });
+});
