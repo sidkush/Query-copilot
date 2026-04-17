@@ -3,6 +3,11 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { resolveLayout } from './lib/layoutResolver';
 import ZoneRenderer from './ZoneRenderer';
 import FloatingLayer from './FloatingLayer';
+import SelectionOverlay from './SelectionOverlay';
+import { useSelection } from './hooks/useSelection';
+import { useDragResize } from './hooks/useDragResize';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useStore } from '../../../store';
 import { FIXED_PRESETS } from './lib/types';
 
 /**
@@ -14,7 +19,8 @@ import { FIXED_PRESETS } from './lib/types';
  *   3. Pass resolved coords to ZoneRenderer + FloatingLayer.
  *   4. Re-resolve on viewport resize (Automatic / Range modes).
  *
- * Plan 2 will extend this with drag/resize/select handlers.
+ * Plan 2 extends this with drag/resize/select handlers, SelectionOverlay,
+ * and keyboard shortcut installation.
  */
 export default function FreeformCanvas({ dashboard, renderLeaf }) {
   const containerRef = useRef(null);
@@ -55,6 +61,37 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     return m;
   }, [resolved]);
 
+  const { selection, toggleSelection, clearSelection, select } = useSelection();
+  const initHistory = useStore((s) => s.initAnalystProHistory);
+  const setDashboardInStore = useStore((s) => s.setAnalystProDashboard);
+
+  // Install history on dashboard mount
+  useEffect(() => {
+    if (dashboard) {
+      initHistory(dashboard);
+      setDashboardInStore(dashboard);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dashboard.id stable across renders
+  }, [dashboard?.id, initHistory, setDashboardInStore]);
+
+  useKeyboardShortcuts({ canvasRef: containerRef });
+
+  const { onZonePointerDown } = useDragResize({
+    canvasRef: containerRef,
+    resolvedMap,
+    siblingsFloating: resolved.filter((r) => r.depth === -1),
+  });
+
+  const selectedResolved = resolved.filter((r) => selection.has(r.zone.id));
+
+  const handleZoneClick = (zoneId, event) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey) {
+      toggleSelection(zoneId);
+    } else {
+      select(zoneId);
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -71,6 +108,9 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     >
       <div
         data-testid="freeform-sheet"
+        onPointerDown={(e) => {
+          if (e.target === e.currentTarget) clearSelection();
+        }}
         style={{
           position: 'relative',
           width: canvasSize.width,
@@ -81,9 +121,48 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
         <ZoneRenderer
           root={dashboard.tiledRoot}
           resolvedMap={resolvedMap}
-          renderLeaf={renderLeaf}
+          renderLeaf={(zone, resolvedZone) => (
+            <div
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                handleZoneClick(zone.id, e);
+                onZonePointerDown(zone.id, e, resolvedZone, 'move');
+              }}
+              style={{ width: '100%', height: '100%' }}
+            >
+              {renderLeaf(zone, resolvedZone)}
+            </div>
+          )}
         />
-        <FloatingLayer zones={dashboard.floatingLayer || []} renderLeaf={renderLeaf} />
+        <FloatingLayer
+          zones={dashboard.floatingLayer || []}
+          renderLeaf={(zone) => (
+            <div
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                const resolvedZone = resolvedMap.get(zone.id);
+                handleZoneClick(zone.id, e);
+                onZonePointerDown(zone.id, e, resolvedZone, 'move');
+              }}
+              style={{ width: '100%', height: '100%' }}
+            >
+              {renderLeaf(zone)}
+            </div>
+          )}
+        />
+        <SelectionOverlay
+          selectedResolved={selectedResolved}
+          onResizeHandlePointerDown={(zoneId, handle, e) => {
+            const resolvedZone = resolvedMap.get(zoneId);
+            if (!selection.has(zoneId)) select(zoneId);
+            onZonePointerDown(zoneId, e, resolvedZone, 'resize', handle);
+          }}
+          onSelectionPointerDown={(zoneId, e) => {
+            const resolvedZone = resolvedMap.get(zoneId);
+            handleZoneClick(zoneId, e);
+            onZonePointerDown(zoneId, e, resolvedZone, 'move');
+          }}
+        />
       </div>
     </div>
   );
