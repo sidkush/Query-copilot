@@ -37,3 +37,47 @@ export function hitTestPoint(resolved: ResolvedZone[], x: number, y: number): Re
 function isInside(x: number, y: number, r: ResolvedZone): boolean {
   return x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height;
 }
+
+export type DropEdge = 'top' | 'bottom' | 'left' | 'right' | 'center';
+
+/**
+ * Like hitTestPoint, but only returns tiled (depth >= 0) container zones.
+ * Innermost (deepest) wins. Used by canvas drag to classify the cursor's
+ * enclosing container for drop-into-container UX.
+ */
+export function hitTestContainer(resolved: ResolvedZone[], x: number, y: number): ResolvedZone | null {
+  let best: ResolvedZone | null = null;
+  let bestDepth = -Infinity;
+  for (const r of resolved) {
+    if (r.depth < 0) continue;
+    const t = (r.zone as { type?: string }).type;
+    if (!t || !t.startsWith('container-')) continue;
+    if (!isInside(x, y, r)) continue;
+    if (r.depth > bestDepth) {
+      best = r;
+      bestDepth = r.depth;
+    }
+  }
+  return best;
+}
+
+/**
+ * Classify where within a zone the cursor sits.
+ * Outer 20% band per side → top/bottom/left/right. Inner 60% → center.
+ * Ambiguous corners resolve to the band with smaller normalized distance.
+ */
+export function classifyDropEdge(r: ResolvedZone, x: number, y: number): DropEdge {
+  const dx = (x - r.x) / r.width;
+  const dy = (y - r.y) / r.height;
+  const THRESHOLD = 0.2;
+  const distTop = dy;
+  const distBottom = 1 - dy;
+  const distLeft = dx;
+  const distRight = 1 - dx;
+  const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+  if (minDist >= THRESHOLD) return 'center';
+  if (minDist === distTop) return 'top';
+  if (minDist === distBottom) return 'bottom';
+  if (minDist === distLeft) return 'left';
+  return 'right';
+}
