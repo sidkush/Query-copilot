@@ -38,11 +38,11 @@ const resultSet = {
 };
 
 describe('EditorCanvas routing via routeSpecWithStrategy', () => {
-  it('routes a cartesian spec to VegaRenderer (vega-lite)', () => {
+  it('routes a cartesian spec to VizQLRenderer (vizql)', () => {
     render(<EditorCanvas spec={SIMPLE_BAR} resultSet={resultSet} />);
     const canvas = screen.getByTestId('editor-canvas');
-    expect(canvas.getAttribute('data-renderer-id')).toBe('vega-lite');
-    expect(screen.getByTestId('vega-renderer')).toBeDefined();
+    expect(canvas.getAttribute('data-renderer-id')).toBe('vizql');
+    expect(screen.getByTestId('vizql-renderer')).toBeDefined();
   });
 
   it('routes a map spec to MapLibreRenderer placeholder', () => {
@@ -72,16 +72,12 @@ describe('EditorCanvas routing via routeSpecWithStrategy', () => {
     expect(placeholder.getAttribute('data-title')).toContain('Hologram');
   });
 
-  it('mounts the real VegaLite view for a cartesian spec (B2.2 contract)', () => {
+  it('mounts the VizQL renderer for a cartesian spec (post-VizQL migration)', () => {
     render(<EditorCanvas spec={SIMPLE_BAR} resultSet={resultSet} />);
-    const view = screen.getByTestId('vega-renderer-view');
-    expect(view).toBeDefined();
-    // The VegaLite component renders into the view wrapper. Assert its
-    // presence without depending on Vega's internal DOM structure.
-    const renderer = screen.getByTestId('vega-renderer');
-    expect(renderer.getAttribute('data-vega-backend')).toMatch(/svg|canvas/);
-    expect(Number(renderer.getAttribute('data-row-count'))).toBe(3);
-    expect(Number(renderer.getAttribute('data-downsampled-to'))).toBe(3);
+    const renderer = screen.getByTestId('vizql-renderer');
+    expect(renderer).toBeDefined();
+    // VizQLRenderer renders into a <canvas> child; verify the canvas is mounted.
+    expect(renderer.querySelector('canvas')).not.toBeNull();
   });
 
   it('shows empty state when no spec provided', () => {

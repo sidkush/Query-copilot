@@ -16,9 +16,9 @@ import type { ChartSpec } from '../types';
 const asRenderer = (r: RendererId): RendererId => r;
 
 describe('routeSpec', () => {
-  it('routes a cartesian spec to the vega-lite renderer', () => {
-    expect(routeSpec(SIMPLE_BAR)).toBe(asRenderer('vega-lite'));
-    expect(routeSpec(TIME_SERIES_LINE)).toBe(asRenderer('vega-lite'));
+  it('routes a cartesian spec to the vizql renderer', () => {
+    expect(routeSpec(SIMPLE_BAR)).toBe(asRenderer('vizql'));
+    expect(routeSpec(TIME_SERIES_LINE)).toBe(asRenderer('vizql'));
   });
 
   it('routes a map spec to the maplibre renderer', () => {
@@ -85,7 +85,7 @@ describe('routeSpecWithStrategy (sub-project B B2.1)', () => {
 
   it('returns the same rendererId as routeSpec for a small cartesian chart', () => {
     const { rendererId, strategy } = routeSpecWithStrategy(baseInput());
-    expect(rendererId).toBe(asRenderer('vega-lite'));
+    expect(rendererId).toBe(asRenderer('vizql'));
     expect(strategy.tier).toBe('t0');
     expect(strategy.rendererBackend).toBe('svg');
   });
@@ -101,8 +101,8 @@ describe('routeSpecWithStrategy (sub-project B B2.1)', () => {
         },
       }),
     );
-    // routeSpec would say vega-lite; routeSpecWithStrategy overrides to deckgl
-    expect(routeSpec(TIME_SERIES_LINE)).toBe(asRenderer('vega-lite'));
+    // routeSpec would say vizql; routeSpecWithStrategy overrides to deckgl
+    expect(routeSpec(TIME_SERIES_LINE)).toBe(asRenderer('vizql'));
     expect(rendererId).toBe(asRenderer('deckgl'));
     expect(strategy.tier).toBe('t3');
     expect(strategy.streaming.enabled).toBe(true);
@@ -188,8 +188,8 @@ describe('routeSpecWithStrategy (sub-project B B2.1)', () => {
         instancePressure: { activeContexts: 11, max: 12, pressureRatio: 0.92 },
       }),
     );
-    // Would have been t2 deckgl; downshifts to t1 vega-lite
-    expect(rendererId).toBe(asRenderer('vega-lite'));
+    // Would have been t2 deckgl; downshifts to t1 vizql
+    expect(rendererId).toBe(asRenderer('vizql'));
     expect(strategy.tier).toBe('t1');
   });
 

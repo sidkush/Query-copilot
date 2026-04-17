@@ -60,7 +60,7 @@ test('T1 Canvas for medium line chart', () => {
   );
   expect(s.tier).toBe('t1');
   expect(s.rendererBackend).toBe('canvas');
-  expect(s.rendererFamily).toBe('vega');
+  expect(s.rendererFamily).toBe('vizql');
 });
 
 test('T2 deck.gl for large scatter', () => {
@@ -113,7 +113,7 @@ test('Non-deck-eligible mark stays on Vega even at 500k rows', () => {
       },
     }),
   );
-  expect(s.rendererFamily).toBe('vega');
+  expect(s.rendererFamily).toBe('vizql');
   expect(s.downsample.enabled).toBe(true);
   expect(s.downsample.targetPoints).toBeLessThanOrEqual(4_000);
 });
@@ -131,7 +131,7 @@ test('Low GPU tier clamps at T1', () => {
     }),
   );
   expect(s.tier).toBe('t1');
-  expect(s.rendererFamily).toBe('vega');
+  expect(s.rendererFamily).toBe('vizql');
   expect(s.downsample.enabled).toBe(true);
 });
 
@@ -292,7 +292,7 @@ test('Hint t1 Canvas is honored', () => {
     }),
   );
   expect(s.tier).toBe('t1');
-  expect(s.rendererFamily).toBe('vega');
+  expect(s.rendererFamily).toBe('vizql');
   expect(s.rendererBackend).toBe('canvas');
 });
 
@@ -348,7 +348,7 @@ test('Non-deck-eligible mark with tight frame budget does NOT escalate', () => {
     }),
   );
   expect(s.tier).toBe('t1');
-  expect(s.rendererFamily).toBe('vega');
+  expect(s.rendererFamily).toBe('vizql');
 });
 
 test('Pressure downshift + tight frame escalation net-T2 for deck-eligible', () => {
