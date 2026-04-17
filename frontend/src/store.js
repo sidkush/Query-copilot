@@ -1016,20 +1016,23 @@ export const useStore = create((set, get) => ({
     get().pushAnalystProHistory(nextDash);
   },
 
-  // Plan 2: history buffer (undo/redo)
-  // Shape: { past: [dashboard,...], present: dashboard, future: [dashboard,...], maxEntries }
+  // Plan 6b: history buffer — entries of { snapshot, operation, timestamp }.
+  // Single workbook-level stack (Build_Tableau.md §XVII.1). Each push = one
+  // WorkbookCommittedEdit-equivalent (§I.4). Cap 500; panel shows newest 50.
   analystProHistory: null,
   initAnalystProHistory: (dashboard) => {
-    set({ analystProHistory: { past: [], present: dashboard, future: [], maxEntries: 500 } });
+    const entry = { snapshot: dashboard, operation: 'Initial state', timestamp: Date.now() };
+    set({ analystProHistory: { past: [], present: entry, future: [], maxEntries: 500 } });
   },
-  pushAnalystProHistory: (dashboard) => {
+  pushAnalystProHistory: (dashboard, operation = 'Edit dashboard') => {
     const h = get().analystProHistory;
+    const entry = { snapshot: dashboard, operation, timestamp: Date.now() };
     if (!h) {
-      set({ analystProHistory: { past: [], present: dashboard, future: [], maxEntries: 500 } });
+      set({ analystProHistory: { past: [], present: entry, future: [], maxEntries: 500 } });
       return;
     }
     const past = [h.present, ...h.past].slice(0, h.maxEntries);
-    set({ analystProHistory: { ...h, past, present: dashboard, future: [] } });
+    set({ analystProHistory: { ...h, past, present: entry, future: [] } });
   },
   undoAnalystPro: () => {
     const h = get().analystProHistory;
@@ -1037,7 +1040,7 @@ export const useStore = create((set, get) => ({
     const [prev, ...restPast] = h.past;
     set({
       analystProHistory: { ...h, past: restPast, present: prev, future: [h.present, ...h.future] },
-      analystProDashboard: prev,
+      analystProDashboard: prev.snapshot,
     });
   },
   redoAnalystPro: () => {
@@ -1046,7 +1049,7 @@ export const useStore = create((set, get) => ({
     const [next, ...restFuture] = h.future;
     set({
       analystProHistory: { ...h, past: [h.present, ...h.past], present: next, future: restFuture },
-      analystProDashboard: next,
+      analystProDashboard: next.snapshot,
     });
   },
 
