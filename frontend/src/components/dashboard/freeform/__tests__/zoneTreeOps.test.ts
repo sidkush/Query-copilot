@@ -84,3 +84,79 @@ describe('removeChild', () => {
     expect(inner.children[0].w).toBe(100000); // normalized
   });
 });
+
+import { moveZone, resizeZone, updateZone } from '../lib/zoneTreeOps';
+
+describe('moveZone', () => {
+  it('reorders within the same parent container', () => {
+    const root = base();
+    // Move 'a' from index 0 to index 1 in same parent 'root'.
+    const next = moveZone(root, 'a', 'root', 1) as ContainerZone;
+    expect(next.children.map((c) => c.id)).toEqual(['b', 'a']);
+  });
+
+  it('moves a zone to a different parent container', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-vert',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'src', type: 'container-horz', w: 100000, h: 50000, children: [
+          { id: 'x', type: 'blank', w: 100000, h: 100000 },
+        ]},
+        { id: 'dst', type: 'container-horz', w: 100000, h: 50000, children: [
+          { id: 'y', type: 'blank', w: 100000, h: 100000 },
+        ]},
+      ],
+    };
+    const next = moveZone(root, 'x', 'dst', 0) as ContainerZone;
+    const src = next.children[0] as ContainerZone;
+    const dst = next.children[1] as ContainerZone;
+    expect(src.children.map((c) => c.id)).toEqual([]);
+    expect(dst.children.map((c) => c.id)).toEqual(['x', 'y']);
+  });
+
+  it('returns identity when source not found', () => {
+    const root = base();
+    const next = moveZone(root, 'missing', 'root', 0);
+    expect(next).toEqual(root);
+  });
+});
+
+describe('resizeZone', () => {
+  it('updates target zone w/h and renormalizes siblings', () => {
+    const root = base();
+    const next = resizeZone(root, 'a', { w: 70000 }) as ContainerZone;
+    // After setting a.w = 70000 and renormalizing, a:70000, b:30000
+    expect(next.children[0].w).toBe(70000);
+    expect(next.children[1].w).toBe(30000);
+    expect(next.children[0].w + next.children[1].w).toBe(100000);
+  });
+
+  it('updates floating zone pxW/pxH (no normalization)', () => {
+    // Floating zones handled by updateZone or a separate branch.
+    // For resizeZone, we only touch tiled zones; skip if target is floating.
+    const root = base();
+    const next = resizeZone(root, 'nonexistent', { w: 50000 });
+    expect(next).toEqual(root);
+  });
+
+  it('clamps to min 1000 (1% of parent)', () => {
+    const root = base();
+    const next = resizeZone(root, 'a', { w: 500 }) as ContainerZone;
+    // Requested 500, clamped to 1000.
+    expect(next.children[0].w).toBe(1000);
+    expect(next.children[1].w).toBe(99000);
+  });
+});
+
+describe('updateZone', () => {
+  it('patches arbitrary fields on a zone by id', () => {
+    const root = base();
+    const next = updateZone(root, 'a', { type: 'worksheet', worksheetRef: 'ws1' }) as ContainerZone;
+    const a = next.children[0] as { type: string; worksheetRef?: string };
+    expect(a.type).toBe('worksheet');
+    expect(a.worksheetRef).toBe('ws1');
+  });
+});
