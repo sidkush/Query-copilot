@@ -4,6 +4,7 @@ import { alignZones, distributeZones } from "./components/dashboard/freeform/lib
 import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating, reorderZone, moveZoneAcrossContainers, wrapInContainer, removeChild } from "./components/dashboard/freeform/lib/zoneTreeOps";
 import { generateZoneId } from "./components/dashboard/freeform/lib/zoneTree";
 import { applySetChange } from './components/dashboard/freeform/lib/setOps';
+import { buildContextMenu } from './components/dashboard/freeform/lib/contextMenuBuilder';
 import {
   validateParamName,
   coerceValue,
@@ -11,6 +12,18 @@ import {
 } from './components/dashboard/freeform/lib/parameterOps';
 
 let _themeTimer = null;
+
+function findZoneById(dashboard, id) {
+  if (!dashboard || !id) return null;
+  const stack = [dashboard.tiledRoot, ...(dashboard.floatingLayer || [])];
+  while (stack.length) {
+    const node = stack.pop();
+    if (!node) continue;
+    if (node.id === id) return node;
+    if (node.children && node.children.length) stack.push(...node.children);
+  }
+  return null;
+}
 
 export const useStore = create((set, get) => ({
   user: JSON.parse(localStorage.getItem("user") || "null"),
@@ -717,6 +730,37 @@ export const useStore = create((set, get) => ({
   analystProHoveredZoneId: null,
   setAnalystProHoveredZoneId: (id) =>
     set({ analystProHoveredZoneId: id == null ? null : String(id) }),
+
+  // Plan 5c: right-click context menu.
+  // `items` is computed eagerly by openContextMenuAnalystPro via
+  // buildContextMenu(zone, dashboard, selection) — kept in state so
+  // ContextMenu.jsx stays purely presentational.
+  analystProContextMenu: null,
+  openContextMenuAnalystPro: (x, y, zoneId) => {
+    const dash = get().analystProDashboard;
+    const selection = get().analystProSelection;
+    const zone = zoneId == null ? null : findZoneById(dash, zoneId);
+    const items = buildContextMenu(zone, dash, selection);
+    set({
+      analystProContextMenu: {
+        x: Number(x) || 0,
+        y: Number(y) || 0,
+        zoneId: zoneId == null ? null : String(zoneId),
+        items,
+      },
+    });
+  },
+  closeContextMenuAnalystPro: () => set({ analystProContextMenu: null }),
+
+  // Plan 5c: minimal zone clipboard shim (full subtree semantics — Plan 5e).
+  // Stores a structured clone of the zone so Paste produces an independent tree.
+  analystProZoneClipboard: null,
+  copyZoneToClipboardAnalystPro: (zone) => {
+    if (!zone) return;
+    const clone = JSON.parse(JSON.stringify(zone));
+    set({ analystProZoneClipboard: clone });
+  },
+  clearZoneClipboardAnalystPro: () => set({ analystProZoneClipboard: null }),
 
   // Plan 3: Actions runtime
   analystProActionCascadeToken: 0,
