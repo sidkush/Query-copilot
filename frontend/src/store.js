@@ -697,6 +697,55 @@ export const useStore = create((set, get) => ({
   analystProMarquee: null,
   setAnalystProMarquee: (rect) => set({ analystProMarquee: rect }),
 
+  // Plan 3: Actions runtime
+  analystProActionCascadeToken: 0,
+  analystProActionsDialogOpen: false,
+  analystProActiveCascadeTargets: {},
+
+  setActionsDialogOpen: (open) => set({ analystProActionsDialogOpen: !!open }),
+
+  addActionAnalystPro: (action) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    const nextDash = { ...dash, actions: [...(dash.actions || []), action] };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  updateActionAnalystPro: (actionId, patch) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    const next = (dash.actions || []).map((a) => (a.id === actionId ? { ...a, ...patch } : a));
+    const nextDash = { ...dash, actions: next };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  deleteActionAnalystPro: (actionId) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    const next = (dash.actions || []).filter((a) => a.id !== actionId);
+    const nextDash = { ...dash, actions: next };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  fireActionCascadeAnalystPro: () => {
+    const token = get().analystProActionCascadeToken + 1;
+    set({ analystProActionCascadeToken: token, analystProActiveCascadeTargets: {} });
+    return token;
+  },
+
+  markCascadeTargetStatus: (sheetId, status, token) => {
+    if (token !== get().analystProActionCascadeToken) return;
+    set((s) => ({
+      analystProActiveCascadeTargets: {
+        ...s.analystProActiveCascadeTargets,
+        [sheetId]: status,
+      },
+    }));
+  },
+
   // Plan 2: history buffer (undo/redo)
   // Shape: { past: [dashboard,...], present: dashboard, future: [dashboard,...], maxEntries }
   analystProHistory: null,
