@@ -2,6 +2,7 @@
 import { useCallback, useMemo } from 'react';
 import FreeformCanvas from '../freeform/FreeformCanvas';
 import SizeToggleDropdown from '../freeform/SizeToggleDropdown';
+import DevicePreviewToggle from '../freeform/DevicePreviewToggle';
 import ObjectLibraryPanel from '../freeform/panels/ObjectLibraryPanel';
 import LayoutTreePanel from '../freeform/panels/LayoutTreePanel';
 import AlignmentToolbar from '../freeform/panels/AlignmentToolbar';
@@ -180,6 +181,7 @@ export default function AnalystProLayout({
         >
           RULERS {rulersVisible ? 'ON' : 'OFF'}
         </button>
+        <DevicePreviewToggle />
         <Separator />
         <AlignmentToolbar />
         <Separator />
