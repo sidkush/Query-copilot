@@ -6,6 +6,7 @@ import DashboardTileCanvas from '../lib/DashboardTileCanvas';
 import ObjectLibraryPanel from '../freeform/panels/ObjectLibraryPanel';
 import LayoutTreePanel from '../freeform/panels/LayoutTreePanel';
 import AlignmentToolbar from '../freeform/panels/AlignmentToolbar';
+import StructureToolbar from '../freeform/panels/StructureToolbar';
 import LayoutOverlayToggle from '../freeform/panels/LayoutOverlayToggle';
 import { useStore } from '../../../store';
 
@@ -112,6 +113,8 @@ export default function AnalystProLayout({
         <SizeToggleDropdown currentSize={size} onChange={onSizeChange} />
         <Separator />
         <AlignmentToolbar />
+        <Separator />
+        <StructureToolbar />
         <Separator />
         <LayoutOverlayToggle />
       </div>

@@ -53,7 +53,13 @@ export function useKeyboardShortcuts({ canvasRef } = {}) {
         const step = e.shiftKey ? 10 : 1;
         const dx = e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0;
         const dy = e.key === 'ArrowDown' ? step : e.key === 'ArrowUp' ? -step : 0;
-        const floats = (dashboard.floatingLayer || []).map((f) => selection.has(f.id) ? { ...f, x: f.x + dx, y: f.y + dy } : f);
+        // Only nudge unlocked floating zones — consistent with drag/resize/delete lock semantics.
+        const unlockedSelectedFloating = (dashboard.floatingLayer || []).filter(
+          (z) => selection.has(z.id) && !z.locked,
+        );
+        if (unlockedSelectedFloating.length === 0) return;
+        const unlockedIds = new Set(unlockedSelectedFloating.map((z) => z.id));
+        const floats = (dashboard.floatingLayer || []).map((f) => unlockedIds.has(f.id) ? { ...f, x: f.x + dx, y: f.y + dy } : f);
         if (floats.some((f, i) => f !== dashboard.floatingLayer[i])) {
           e.preventDefault();
           const next = { ...dashboard, floatingLayer: floats };

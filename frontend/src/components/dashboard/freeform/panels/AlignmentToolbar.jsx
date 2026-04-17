@@ -12,7 +12,7 @@ const ALIGN_OPS = [
 
 const DIST_OPS = [
   { axis: 'horizontal', label: 'Distribute Horizontally', glyph: '⇔' },
-  { axis: 'vertical',   label: 'Distribute Vertically',   glyph: '⇕' },
+  { axis: 'vertical',   label: 'Distribute Vertically',   glyph: '⇳' },
 ];
 
 export default function AlignmentToolbar() {

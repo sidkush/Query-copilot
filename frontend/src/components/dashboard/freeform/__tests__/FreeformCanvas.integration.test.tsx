@@ -313,4 +313,27 @@ describe('FreeformCanvas — Plan 2b T5: locked zone enforcement', () => {
     expect(remainingIds).toContain('locked-float');
     expect(remainingIds).not.toContain('unlocked-float');
   });
+
+  it('locked floating zone does not move on ArrowRight', async () => {
+    const dash = makeDashboardWithLockedFloatingZone();
+    render(<FreeformCanvas dashboard={dash} renderLeaf={renderLeaf} />);
+
+    // Select the locked zone via store.
+    await act(async () => {
+      useStore.getState().setAnalystProSelection(['locked-float']);
+    });
+
+    expect(useStore.getState().analystProSelection.has('locked-float')).toBe(true);
+
+    // Fire ArrowRight — nudge should be blocked by lock.
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'ArrowRight', bubbles: true });
+    });
+
+    // x must remain at initial value (100).
+    const afterDash = useStore.getState().analystProDashboard;
+    const lockedZone = afterDash?.floatingLayer.find((f) => f.id === 'locked-float');
+    expect(lockedZone).toBeDefined();
+    expect(lockedZone!.x).toBe(100);
+  });
 });
