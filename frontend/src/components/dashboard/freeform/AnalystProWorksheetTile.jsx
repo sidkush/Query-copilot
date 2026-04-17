@@ -20,7 +20,21 @@ function hasTokens(sql) {
  * a parameter change (analystProDashboard.parameters) also triggers a
  * re-query IF the tile SQL contains at least one {{token}}.
  */
-export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick }) {
+// Plan 5d T7: fitMode → Vega-Lite autosize via spec override. If the
+// rendered tile is not on the Vega-Lite path (e.g. VizQL experimental),
+// autosize is harmless metadata that Phase 7a will consume.
+function fitModeToAutosize(fitMode) {
+  switch (fitMode) {
+    case 'fit':        return { type: 'fit',   contains: 'padding' };
+    case 'fit-width':  return { type: 'fit-x', contains: 'padding' };
+    case 'fit-height': return { type: 'fit-y', contains: 'padding' };
+    case 'entire':     return { type: 'fit',   contains: 'content' };
+    case 'fixed':      return { type: 'pad',   contains: 'padding' };
+    default:           return undefined;
+  }
+}
+
+export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fitMode }) {
   const filters = useStore((s) => s.analystProSheetFilters[sheetId] || null);
   const parameters = useStore((s) => s.analystProDashboard?.parameters || null);
   const cascadeToken = useStore((s) => s.analystProActionCascadeToken);
@@ -76,10 +90,21 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, parameters, tileHasTokens, sheetId, tile?.sql, tile?.question, connId]);
 
+  const autosize = fitModeToAutosize(fitMode);
+  const tileWithAutosize = useMemo(() => {
+    if (!autosize || !tile) return tile;
+    const spec = tile.chart_spec || tile.chartSpec;
+    if (!spec) return tile;
+    const next = { ...tile };
+    if (tile.chart_spec) next.chart_spec = { ...spec, autosize };
+    if (tile.chartSpec && !tile.chart_spec) next.chartSpec = { ...spec, autosize };
+    return next;
+  }, [tile, autosize]);
+
   return (
     <>
       <DashboardTileCanvas
-        tile={tile}
+        tile={tileWithAutosize}
         onTileClick={onTileClick}
         resultSetOverride={override}
       />

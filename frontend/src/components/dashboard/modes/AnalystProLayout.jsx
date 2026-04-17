@@ -88,6 +88,7 @@ export default function AnalystProLayout({
               tile={tile}
               sheetId={zone.worksheetRef}
               onTileClick={onTileClick}
+              fitMode={zone.fitMode}
             />
           );
         }
