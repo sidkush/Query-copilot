@@ -225,7 +225,14 @@ export const api = {
       body: JSON.stringify({ question: sql, conn_id: connId }),
     }),
 
-  executeSQL: (sql, question, connId = null, originalSql = null, additionalFilters = null) =>
+  executeSQL: (
+    sql,
+    question,
+    connId = null,
+    originalSql = null,
+    additionalFilters = null,
+    parameters = null,
+  ) =>
     request("/queries/execute", {
       method: "POST",
       body: JSON.stringify({
@@ -236,6 +243,10 @@ export const api = {
         additional_filters:
           Array.isArray(additionalFilters) && additionalFilters.length > 0
             ? additionalFilters
+            : undefined,
+        parameters:
+          Array.isArray(parameters) && parameters.length > 0
+            ? parameters
             : undefined,
       }),
     }),
