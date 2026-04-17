@@ -124,3 +124,119 @@ def test_multiple_actions_all_preserved():
     assert len(result["actions"]) == 2
     assert result["actions"][0]["id"] == "act-1"
     assert result["actions"][1]["id"] == "act-2"
+
+
+# -- Plan 4e: edge-case regression tests ---------------------------------
+
+
+def test_4e_a_zero_height_widget_coerced_to_minimum():
+    """Widgets with h=0 get clamped to MIN_PROPORTION, and children still sum to 100000."""
+    legacy = {
+        "id": "d1", "name": "T",
+        "tiles": [
+            {"id": "t1", "h": 0},
+            {"id": "t2", "h": 50000},
+        ],
+    }
+    result = legacy_to_freeform_schema(legacy)
+    kids = result["tiledRoot"]["children"]
+    assert kids[0]["h"] >= 1000, "zero-h must be clamped to >= MIN_PROPORTION"
+    assert sum(c["h"] for c in kids) == 100000
+
+
+def test_4e_b_overlapping_widgets_go_to_floating_layer():
+    """Tiles carrying x/y/w/h become floating zones; other tiles stay tiled."""
+    legacy = {
+        "id": "d1", "name": "T",
+        "tiles": [
+            {"id": "tiled", "chart_spec": {"mark": "bar"}},
+            {"id": "floaty", "x": 40, "y": 60, "w": 300, "h": 200},
+        ],
+    }
+    result = legacy_to_freeform_schema(legacy)
+    assert len(result["floatingLayer"]) == 1
+    assert result["floatingLayer"][0]["id"] == "floaty"
+    assert result["floatingLayer"][0]["x"] == 40
+    assert result["floatingLayer"][0]["y"] == 60
+    assert result["floatingLayer"][0]["floating"] is True
+    assert len(result["tiledRoot"]["children"]) == 1
+    assert result["tiledRoot"]["children"][0]["id"] == "tiled"
+
+
+def test_4e_c_title_only_widget_becomes_worksheet_with_displayname():
+    """A tile with no chart_spec / sql / type but a title yields a worksheet zone
+    whose displayName equals the title."""
+    legacy = {
+        "id": "d1", "name": "T",
+        "tiles": [{"id": "t1", "title": "Section Header"}],
+    }
+    result = legacy_to_freeform_schema(legacy)
+    kid = result["tiledRoot"]["children"][0]
+    assert kid["displayName"] == "Section Header"
+    assert result["worksheets"][0]["displayName"] == "Section Header"
+
+
+def test_4e_d_corrupt_widget_skipped_with_warning(caplog):
+    """Tiles missing id are skipped and a warning is logged."""
+    legacy = {
+        "id": "d1", "name": "T",
+        "tiles": [
+            {"id": "good", "chart_spec": {"mark": "bar"}},
+            {"chart_spec": {"mark": "line"}},  # no id -> corrupt
+        ],
+    }
+    with caplog.at_level("WARNING"):
+        result = legacy_to_freeform_schema(legacy)
+    assert any("corrupt tile" in rec.message for rec in caplog.records)
+    ids = [c["id"] for c in result["tiledRoot"]["children"]]
+    assert ids == ["good"]
+
+
+def test_4e_e_unknown_widget_type_becomes_blank():
+    """Unknown legacy tile type falls back to a blank zone; displayName preserved."""
+    legacy = {
+        "id": "d1", "name": "T",
+        "tiles": [{"id": "t1", "type": "qr-code", "title": "Scan Me"}],
+    }
+    result = legacy_to_freeform_schema(legacy)
+    kid = result["tiledRoot"]["children"][0]
+    assert kid["type"] == "blank"
+    assert kid["displayName"] == "Scan Me"
+
+
+def test_4e_f_displayname_and_locked_round_trip():
+    """Plan-2b fields on input are preserved verbatim."""
+    legacy = {
+        "id": "d1", "name": "T",
+        "tiles": [
+            {"id": "t1", "chart_spec": {"mark": "bar"},
+             "displayName": "Revenue Pulse", "locked": True},
+        ],
+    }
+    result = legacy_to_freeform_schema(legacy)
+    kid = result["tiledRoot"]["children"][0]
+    assert kid["displayName"] == "Revenue Pulse"
+    assert kid["locked"] is True
+
+
+def test_4e_h_sets_and_parameters_preserved_when_present():
+    """Plan-4b sets and Plan-4c parameters carry through migration verbatim."""
+    sets = [{"id": "s1", "name": "Top 10", "members": [1, 2, 3]}]
+    parameters = [{"id": "p1", "name": "year", "type": "integer", "value": 2026}]
+    legacy = {
+        "id": "d1", "name": "T",
+        "tiles": [{"id": "t1"}],
+        "sets": sets,
+        "parameters": parameters,
+    }
+    result = legacy_to_freeform_schema(legacy)
+    assert result["sets"] == sets
+    assert result["parameters"] == parameters
+
+
+def test_4e_h_sets_and_parameters_default_empty_when_absent():
+    """Graceful defaults when those keys are missing."""
+    legacy = {"id": "d1", "name": "T", "tiles": [{"id": "t1"}]}
+    result = legacy_to_freeform_schema(legacy)
+    assert result["sets"] == []
+    assert result["parameters"] == []
