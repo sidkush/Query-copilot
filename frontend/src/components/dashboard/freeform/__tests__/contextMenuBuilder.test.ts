@@ -141,9 +141,7 @@ describe('buildContextMenu — common items (any zone)', () => {
     expect((sp as { disabled?: boolean }).disabled).toBe(true);
   });
 
-  it('Paste is disabled when nothing is on the clipboard (signaled via selection hint)', () => {
-    // Builder accepts selection only; clipboard emptiness is signaled by dispatcher.
-    // For the pure builder, Paste must always be present so the menu shape is stable.
+  it('Paste is always present in the menu (dispatcher handles clipboard-empty state)', () => {
     const items = buildContextMenu(root.children[0], dash, new Set());
     expect(items.some((i) => i.kind === 'command' && i.id === 'paste')).toBe(true);
   });

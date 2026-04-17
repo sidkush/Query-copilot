@@ -2,17 +2,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '../../../store';
 import { getZoneDisplayLabel } from './lib/zoneLabel';
-
-const TITLE_BAR_DEFAULT_VISIBLE = new Set([
-  'worksheet',
-  'text',
-  'webpage',
-  'filter',
-  'legend',
-  'parameter',
-  'navigation',
-  'extension',
-]);
+import { TITLE_BAR_DEFAULT_VISIBLE } from './lib/zoneDefaults';
 
 function shouldShowTitleBar(zone) {
   if (zone.showTitleBar === false) return false;

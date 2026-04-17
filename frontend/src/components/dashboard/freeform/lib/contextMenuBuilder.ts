@@ -6,8 +6,9 @@
 // a `todo` field so the dispatcher in ContextMenu.jsx logs a single debug line
 // instead of crashing.
 
-import type { ContainerZone, Dashboard, FloatingZone, Zone } from './types';
+import type { ContainerZone, Dashboard, Zone } from './types';
 import { isContainer } from './zoneTree';
+import { defaultShowTitle, isFloatingZone } from './zoneDefaults';
 
 export type MenuCommandId =
   // ---------------- Plan 5c wired commands (existing store actions) ----------------
@@ -129,15 +130,12 @@ export function buildContextMenu(
   return items;
 }
 
-function appendCommonHead(items: MenuItem[], zone: Zone, dashboard: Dashboard): void {
-  void dashboard;
-  const isFloating = (zone as FloatingZone).floating === true;
-
+function appendCommonHead(items: MenuItem[], zone: Zone, _dashboard: Dashboard): void {
   items.push({
     kind: 'checkbox',
     id: 'toggleFloat',
     label: 'Floating',
-    checked: isFloating,
+    checked: isFloatingZone(zone),
     todo: { plan: '5e', reason: 'toggleZoneFloatAnalystPro lands in Plan 5e.' },
   });
 
@@ -183,6 +181,7 @@ function appendCommonHead(items: MenuItem[], zone: Zone, dashboard: Dashboard): 
   items.push(SEP);
 
   const showTitleDefault = defaultShowTitle(zone);
+  // TODO(plan-5d): drop cast once showTitleBar lands on the Zone union.
   const showTitleChecked = (zone as { showTitleBar?: boolean }).showTitleBar ?? showTitleDefault;
   items.push({
     kind: 'checkbox',
@@ -217,15 +216,6 @@ function appendCommonTail(
     shortcut: 'Del',
     todo: { plan: '5d', reason: 'removeZoneAnalystPro lands in Plan 5d (preserves zone.visibilityRule per Appendix E.15).' },
   });
-}
-
-// Per roadmap §5a deliverable 3: title bar visible on worksheet + text + webpage.
-const TITLE_BAR_DEFAULT_VISIBLE = new Set<string>([
-  'worksheet', 'text', 'webpage', 'filter', 'legend', 'parameter', 'navigation', 'extension',
-]);
-
-function defaultShowTitle(zone: Zone): boolean {
-  return TITLE_BAR_DEFAULT_VISIBLE.has((zone as { type: string }).type);
 }
 
 function buildCanvasEmptyMenu(): MenuItem[] {
