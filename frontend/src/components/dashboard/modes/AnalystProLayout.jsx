@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import FreeformCanvas from '../freeform/FreeformCanvas';
 import SizeToggleDropdown from '../freeform/SizeToggleDropdown';
 import DashboardTileCanvas from '../lib/DashboardTileCanvas';
+import { useStore } from '../../../store';
 
 /**
  * Analyst Pro archetype — Tableau-parity freeform authoring shell.
@@ -25,6 +26,9 @@ export default function AnalystProLayout({
   onSizeChange,
   size,
 }) {
+  const snapEnabled = useStore((s) => s.analystProSnapEnabled);
+  const setSnapEnabled = useStore((s) => s.setAnalystProSnapEnabled);
+
   // Build dashboard object from legacy tile array (Plan 1 read-only path).
   // Plan 2 will receive a full `dashboard` prop instead.
   const dashboard = useMemo(() => legacyTilesToDashboard(tiles, dashboardId, dashboardName, size), [
@@ -72,6 +76,26 @@ export default function AnalystProLayout({
           flexShrink: 0,
         }}
       >
+        <button
+          type="button"
+          data-testid="snap-toggle"
+          onClick={() => setSnapEnabled(!snapEnabled)}
+          className="premium-btn"
+          style={{
+            padding: '6px 12px',
+            background: snapEnabled ? 'var(--accent)' : 'var(--bg-elevated)',
+            color: snapEnabled ? '#fff' : 'var(--text-primary)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 8,
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: "'JetBrains Mono', monospace",
+          }}
+          title={`Snap ${snapEnabled ? 'on' : 'off'} (8px grid + edges)`}
+        >
+          SNAP {snapEnabled ? 'ON' : 'OFF'}
+        </button>
         <SizeToggleDropdown currentSize={size} onChange={onSizeChange} />
       </div>
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
