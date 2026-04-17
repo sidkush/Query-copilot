@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store';
 import { TOKENS } from './tokens';
+import { BreathingDot } from './motion';
 
 /**
  * VoiceTranscriptOverlay — SP-5d floating transcription display.
@@ -36,7 +38,11 @@ export default function VoiceTranscriptOverlay({ archetype = 'workbench' }) {
     return () => clearTimeout(fadeTimerRef.current);
   }, [voiceFinalTranscript, setVoiceFinalTranscript]);
 
-  return (
+  // Portal target — document.body so the overlay never reserves layout space
+  // in the dashboard flex column. Guard for SSR / tests with no document.
+  const portalTarget = typeof document !== 'undefined' ? document.body : null;
+
+  const overlay = (
     <AnimatePresence>
       {hasContent && (
         <Motion.div
@@ -44,8 +50,12 @@ export default function VoiceTranscriptOverlay({ archetype = 'workbench' }) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 12 }}
           transition={{ duration: 0.2 }}
+          role="log"
+          aria-live="polite"
+          aria-atomic="false"
+          aria-label="Voice transcript"
           style={{
-            position: 'absolute',
+            position: 'fixed',
             bottom: isStage ? 80 : 40,
             left: isStage ? '50%' : 'auto',
             right: isStage ? 'auto' : 16,
@@ -56,32 +66,20 @@ export default function VoiceTranscriptOverlay({ archetype = 'workbench' }) {
           }}
         >
           <div
+            className="premium-liquid-glass"
             style={{
-              background: 'rgba(12,12,20,0.92)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid rgba(63,63,70,0.4)',
-              borderRadius: isStage ? 16 : 10,
+              borderRadius: isStage ? 18 : 11,
               padding: isStage ? '12px 24px' : '8px 14px',
               display: 'flex',
               alignItems: 'center',
               gap: 10,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+              boxShadow: '0 8px 32px var(--shadow-deep)',
             }}
           >
-            {/* Listening indicator dot */}
+            {/* Listening indicator — breathing dot (replaces ad-hoc pulse).
+                Larger size in Stage mode for audience visibility. */}
             {voiceListening && (
-              <Motion.span
-                animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
-                transition={{ duration: 1.2, repeat: Infinity }}
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: '#ef4444',
-                  flexShrink: 0,
-                }}
-              />
+              <BreathingDot color="#ef4444" size={isStage ? 10 : 7} />
             )}
 
             <div style={{ minWidth: 0 }}>
@@ -128,4 +126,8 @@ export default function VoiceTranscriptOverlay({ archetype = 'workbench' }) {
       )}
     </AnimatePresence>
   );
+
+  // createPortal so the overlay lives outside the dashboard's flex column
+  // and never reserves layout space in the shell.
+  return portalTarget ? createPortal(overlay, portalTarget) : overlay;
 }

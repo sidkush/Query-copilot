@@ -8,6 +8,7 @@ import {
   STAGE_MODE_THEME,
 } from './tokens';
 import ColorPickerButton from './ColorPickerButton';
+import { BreathingDot, SPRINGS } from './motion';
 
 const PALETTE_KEYS = Object.keys(CHART_PALETTES);
 const PRESET_ENTRIES = Object.values(DASHBOARD_PRESETS);
@@ -65,7 +66,33 @@ const pillBtnStyle = (active) => ({
   transition: `all ${TOKENS.transition}`,
   textTransform: 'capitalize',
   whiteSpace: 'nowrap',
+  // Active presets earn an ambient accent glow
+  boxShadow: active ? TOKENS.shadow.accentGlow : 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
 });
+
+/**
+ * PremiumPill — motion-wrapped preset/palette/density chip.
+ * Adds scale/tap micro-motion, accent glow on active, breathing dot marker.
+ */
+function PremiumPill({ active, onClick, children, title, style, showDot = true }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      title={title}
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
+      transition={SPRINGS.snappy}
+      style={{ ...pillBtnStyle(active), ...style }}
+    >
+      {active && showDot && <BreathingDot color="var(--accent, #2563EB)" size={4} />}
+      {children}
+    </motion.button>
+  );
+}
 
 /**
  * DashboardThemeEditor — SP-4d polished version.
@@ -214,16 +241,15 @@ export default function DashboardThemeEditor({
         initial={{ opacity: 0, scale: 0.96, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 8 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        transition={SPRINGS.fluid}
         onClick={(e) => e.stopPropagation()}
+        className="premium-liquid-glass"
         style={{
           width: '100%', maxWidth: 580, maxHeight: '88vh',
-          background: TOKENS.bg.elevated,
-          border: `1px solid ${TOKENS.border.default}`,
           borderRadius: TOKENS.radius.xl,
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.5), 0 0 40px rgba(37,99,235,0.04)',
+          boxShadow: '0 24px 80px var(--shadow-deep), 0 0 40px var(--accent-glow)',
         }}
       >
         {/* ═══ Header ═══ */}
@@ -275,14 +301,14 @@ export default function DashboardThemeEditor({
             <div style={sectionTitleStyle}>Quick Presets</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
               {PRESET_ENTRIES.map((p) => (
-                <button
+                <PremiumPill
                   key={p.id}
+                  active={activePreset === p.id}
                   onClick={() => applyPreset(p)}
                   title={p.description}
-                  style={pillBtnStyle(activePreset === p.id)}
                 >
                   {p.name}
-                </button>
+                </PremiumPill>
               ))}
             </div>
 
@@ -291,23 +317,24 @@ export default function DashboardThemeEditor({
               <span style={labelStyle}>Archetype Themes</span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {Object.values(ARCHETYPE_THEMES).map((t) => (
-                  <button
+                  <PremiumPill
                     key={t.id}
+                    active={activePreset === t.id}
                     onClick={() => applyArchetype(t.id)}
                     title={t.description}
-                    style={pillBtnStyle(activePreset === t.id)}
                   >
                     {t.name}
-                  </button>
+                  </PremiumPill>
                 ))}
-                <button
+                <PremiumPill
+                  active={activePreset === 'hollywood_hud'}
                   onClick={() => {
                     setActivePreset('hollywood_hud');
                     applyPreset(DASHBOARD_PRESETS.hollywood_hud);
                   }}
                   title={STAGE_MODE_THEME.description}
+                  showDot={false}
                   style={{
-                    ...pillBtnStyle(activePreset === 'hollywood_hud'),
                     background: activePreset === 'hollywood_hud'
                       ? 'rgba(168,85,247,0.15)'
                       : TOKENS.bg.surface,
@@ -317,10 +344,14 @@ export default function DashboardThemeEditor({
                     color: activePreset === 'hollywood_hud'
                       ? '#c084fc'
                       : TOKENS.text.secondary,
+                    boxShadow: activePreset === 'hollywood_hud'
+                      ? '0 0 0 1px #a855f744, 0 8px 28px -12px #a855f780'
+                      : 'none',
                   }}
                 >
+                  {activePreset === 'hollywood_hud' && <BreathingDot color="#c084fc" size={4} />}
                   HUD Stage
-                </button>
+                </PremiumPill>
               </div>
             </div>
           </div>
@@ -330,20 +361,20 @@ export default function DashboardThemeEditor({
             <div style={sectionTitleStyle}>Color Palette</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
               {PALETTE_KEYS.map((key) => (
-                <button
+                <PremiumPill
                   key={key}
+                  active={palette === key}
                   onClick={() => { setPalette(key); setActivePreset(null); }}
-                  style={pillBtnStyle(palette === key)}
                 >
                   {key === 'tableau10' ? 'Tableau' : key}
-                </button>
+                </PremiumPill>
               ))}
-              <button
+              <PremiumPill
+                active={palette === 'custom'}
                 onClick={() => { setPalette('custom'); setActivePreset(null); }}
-                style={pillBtnStyle(palette === 'custom')}
               >
                 Custom
-              </button>
+              </PremiumPill>
             </div>
 
             {/* Swatch preview */}
@@ -352,7 +383,7 @@ export default function DashboardThemeEditor({
                 {CHART_PALETTES[palette].map((c, i) => (
                   <div key={i} style={{
                     width: 22, height: 22, borderRadius: 4,
-                    background: c, border: `1px solid rgba(255,255,255,0.06)`,
+                    background: c, border: `1px solid var(--border-default)`,
                     transition: `transform ${TOKENS.transition}`,
                     cursor: 'default',
                   }}
@@ -388,17 +419,24 @@ export default function DashboardThemeEditor({
               <span style={{ fontSize: 11, fontFamily: TOKENS.fontMono, color: TOKENS.text.muted }}>
                 {accentColor}
               </span>
-              {/* Quick accent presets */}
+              {/* Quick accent presets — spring press + glow on active */}
               {['#2563EB', '#a855f7', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#4E79A7'].map((c) => (
-                <div
+                <motion.button
+                  type="button"
                   key={c}
                   onClick={() => setAccentColor(c)}
+                  aria-label={`Accent ${c}`}
+                  whileHover={{ scale: 1.12, y: -1 }}
+                  whileTap={{ scale: 0.92 }}
+                  transition={SPRINGS.snappy}
+                  className="premium-btn"
                   style={{
-                    width: 18, height: 18, borderRadius: 4, background: c,
-                    cursor: 'pointer', border: accentColor === c
-                      ? '2px solid #fff'
-                      : '1px solid rgba(255,255,255,0.08)',
-                    transition: `border ${TOKENS.transition}`,
+                    width: 20, height: 20, borderRadius: 5, background: c,
+                    cursor: 'pointer', padding: 0,
+                    border: accentColor === c
+                      ? '2px solid var(--bg-elevated)'
+                      : '1px solid var(--border-default)',
+                    boxShadow: accentColor === c ? `0 0 0 2px ${c}55, 0 4px 14px -4px ${c}` : 'none',
                   }}
                 />
               ))}
@@ -437,25 +475,41 @@ export default function DashboardThemeEditor({
             {/* Density quick-select */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
               {DENSITY_OPTIONS.map((d) => (
-                <button
+                <PremiumPill
                   key={d}
+                  active={density === d}
                   onClick={() => applyDensity(d)}
-                  style={pillBtnStyle(density === d)}
                 >
                   {d}
-                </button>
+                </PremiumPill>
               ))}
             </div>
 
-            {/* Fine-tune sliders */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <SliderRow label="Tile Gap" value={tileGap} min={4} max={28}
-                onChange={(v) => { setTileGap(v); setDensity(null); }} />
-              <SliderRow label="Tile Padding" value={tilePadding} min={6} max={40}
-                onChange={(v) => { setTilePadding(v); setDensity(null); }} />
-              <SliderRow label="Border Radius" value={tileRadius} min={0} max={28}
-                onChange={(v) => { setTileRadius(v); setDensity(null); }} />
-            </div>
+            {/* Fine-tune sliders — collapsed by default to reduce perceived
+                control overload; presets + density cover 90% of use cases. */}
+            <details>
+              <summary
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: TOKENS.text.secondary,
+                  cursor: 'pointer',
+                  padding: '4px 0 8px',
+                  userSelect: 'none',
+                  listStyle: 'revert',
+                }}
+              >
+                Advanced
+              </summary>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
+                <SliderRow label="Tile Gap" value={tileGap} min={4} max={28}
+                  onChange={(v) => { setTileGap(v); setDensity(null); }} />
+                <SliderRow label="Tile Padding" value={tilePadding} min={6} max={40}
+                  onChange={(v) => { setTilePadding(v); setDensity(null); }} />
+                <SliderRow label="Border Radius" value={tileRadius} min={0} max={28}
+                  onChange={(v) => { setTileRadius(v); setDensity(null); }} />
+              </div>
+            </details>
           </div>
 
           {/* ── Section: Typography Preview ── */}

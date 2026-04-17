@@ -1,0 +1,176 @@
+<h2>Q2 — Pick a visual identity frame</h2>
+<p class="subtitle">Each frame defines palette, mark style, typography, chrome. All four avoid the Tableau 10 blue-orange categorical look. Click one you like, or tell me to combine.</p>
+
+<style>
+  .frame-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:18px; margin-top:8px; }
+  .frame { display:flex; flex-direction:column; gap:10px; padding:18px; border:1px solid rgba(0,0,0,0.08); border-radius:14px; background:#fafaf7; cursor:pointer; transition:all 200ms cubic-bezier(.16,1,.3,1); }
+  .frame:hover { transform:translateY(-2px); box-shadow:0 18px 40px -20px rgba(0,0,0,.15); border-color:rgba(0,0,0,0.15); }
+  .frame-head { display:flex; flex-direction:column; gap:2px; }
+  .frame-name { font:700 16px 'Satoshi','Outfit',system-ui,sans-serif; letter-spacing:-0.02em; color:#1a1a1f; }
+  .frame-tag { font:500 10px 'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:0.18em; color:#8a8a92; }
+  .frame-preview { background:#fff; border-radius:10px; padding:16px; min-height:180px; border:1px solid rgba(0,0,0,0.06); position:relative; overflow:hidden; }
+  .frame-desc { font:400 13px 'Plus Jakarta Sans',system-ui,sans-serif; color:#52525b; line-height:1.55; }
+  .chip-row { display:flex; gap:6px; flex-wrap:wrap; }
+  .swatch { width:18px; height:18px; border-radius:4px; flex-shrink:0; }
+  .selected-ribbon { position:absolute; top:10px; right:10px; width:8px; height:8px; border-radius:50%; background:#2563eb; opacity:0; transition:opacity 200ms; }
+  .option.selected .selected-ribbon { opacity:1; }
+
+  /* ========== Frame A — Editorial Terminal ========== */
+  .a-preview { background:#F7F5EE; color:#1a1a15; font-family:'JetBrains Mono',monospace; padding:14px; }
+  .a-header { display:flex; justify-content:space-between; font-size:8px; letter-spacing:0.2em; color:#8a8679; text-transform:uppercase; border-bottom:1px solid #d4cfbe; padding-bottom:4px; }
+  .a-bars { display:flex; align-items:flex-end; gap:3px; height:90px; margin-top:14px; border-bottom:1px solid #1a1a15; padding-bottom:0; }
+  .a-bar { width:14px; background:#1a1a15; }
+  .a-bar.accent { background:#B45309; }
+  .a-labels { display:flex; gap:3px; margin-top:4px; font-size:7px; color:#7a7565; }
+  .a-labels span { width:14px; text-align:center; }
+  .a-footer { font-size:8px; margin-top:8px; color:#4a4640; border-top:1px dashed #c9c3b0; padding-top:4px; }
+
+  /* ========== Frame B — Liquid Analytics ========== */
+  .b-preview { background:linear-gradient(135deg,#0f1218 0%,#181b24 100%); color:#e8ecf1; padding:14px; }
+  .b-title { font:600 10px 'Satoshi',sans-serif; letter-spacing:-0.01em; color:#e8ecf1; margin-bottom:10px; }
+  .b-chart { position:relative; height:110px; }
+  .b-blob1 { position:absolute; left:5%; bottom:0; width:60%; height:60%; background:radial-gradient(ellipse at 50% 100%, #0d9488 0%, rgba(13,148,136,0) 70%); border-radius:50%; filter:blur(1px); }
+  .b-blob2 { position:absolute; right:8%; bottom:0; width:55%; height:85%; background:radial-gradient(ellipse at 50% 100%, #B45309 0%, rgba(180,83,9,0) 70%); border-radius:50%; filter:blur(1px); }
+  .b-line { position:absolute; bottom:0; left:0; right:0; height:1.5px; background:linear-gradient(90deg, transparent, rgba(232,236,241,0.25) 20%, rgba(232,236,241,0.25) 80%, transparent); }
+  .b-axis { display:flex; justify-content:space-between; font:500 8px 'JetBrains Mono',monospace; color:#7a828f; margin-top:6px; }
+
+  /* ========== Frame C — Signal Lab ========== */
+  .c-preview { background:#10120f; color:#c5d0bf; padding:14px; font-family:'JetBrains Mono',monospace; position:relative; }
+  .c-grid { position:absolute; inset:14px; background-image:linear-gradient(to right,rgba(100,150,80,0.08) 1px,transparent 1px),linear-gradient(to bottom,rgba(100,150,80,0.08) 1px,transparent 1px); background-size:12px 12px; pointer-events:none; }
+  .c-trace { position:relative; height:110px; margin-top:8px; }
+  .c-trace svg { position:absolute; inset:0; width:100%; height:100%; }
+  .c-header { font-size:8px; color:#7fa46f; letter-spacing:0.2em; text-transform:uppercase; position:relative; z-index:1; display:flex; justify-content:space-between; }
+  .c-annot { position:absolute; right:8px; bottom:8px; font-size:8px; color:#a8c098; border:1px solid #3a4432; padding:3px 6px; background:rgba(16,18,15,0.85); z-index:2; }
+
+  /* ========== Frame D — Kinetic Minimalism ========== */
+  .d-preview { background:#fefefb; color:#0a0a0a; padding:14px; }
+  .d-meta { font:500 8px 'JetBrains Mono',monospace; letter-spacing:0.2em; color:#a8a8a2; text-transform:uppercase; }
+  .d-value { font:800 42px 'Satoshi',sans-serif; letter-spacing:-0.05em; line-height:0.95; color:#0a0a0a; margin-top:4px; }
+  .d-sub { font:500 10px 'Plus Jakarta Sans',sans-serif; color:#5a5a55; margin-top:2px; }
+  .d-marks { display:flex; align-items:flex-end; gap:4px; height:40px; margin-top:12px; }
+  .d-mark { width:5px; background:#0a0a0a; opacity:0.85; }
+  .d-mark.hot { background:#DC2626; }
+  .d-rule { border-top:1px solid #0a0a0a; margin-top:6px; font:500 8px 'JetBrains Mono',monospace; color:#0a0a0a; padding-top:3px; letter-spacing:0.15em; text-transform:uppercase; }
+</style>
+
+<div class="frame-grid options">
+  <!-- Frame A — Editorial Terminal -->
+  <div class="option frame" data-choice="a" onclick="toggleSelect(this)">
+    <div class="selected-ribbon"></div>
+    <div class="frame-head">
+      <div class="frame-tag">A · Editorial Terminal</div>
+      <div class="frame-name">Bloomberg meets Financial Times</div>
+    </div>
+    <div class="frame-preview a-preview">
+      <div class="a-header"><span>REVENUE · MTD</span><span>$47.2M</span></div>
+      <div class="a-bars">
+        <div class="a-bar" style="height:42%"></div>
+        <div class="a-bar" style="height:58%"></div>
+        <div class="a-bar" style="height:51%"></div>
+        <div class="a-bar" style="height:72%"></div>
+        <div class="a-bar accent" style="height:88%"></div>
+        <div class="a-bar" style="height:64%"></div>
+        <div class="a-bar" style="height:55%"></div>
+        <div class="a-bar" style="height:70%"></div>
+        <div class="a-bar" style="height:83%"></div>
+        <div class="a-bar accent" style="height:96%"></div>
+      </div>
+      <div class="a-labels"><span>Q1</span><span>Q2</span><span>Q3</span><span>Q4</span><span>Q5</span><span>Q6</span><span>Q7</span><span>Q8</span><span>Q9</span><span>Q10</span></div>
+      <div class="a-footer">+12.4% QoQ · source: warehouse · 02:14:07 UTC</div>
+    </div>
+    <div class="frame-desc">Mono-everything density. Parchment + charcoal + single warm accent (amber, oxblood). Hairline axes, thin bars flush to ground. Timestamps + provenance baked in. Reads like a terminal, not a dashboard.</div>
+    <div class="chip-row">
+      <div class="swatch" style="background:#F7F5EE"></div>
+      <div class="swatch" style="background:#1a1a15"></div>
+      <div class="swatch" style="background:#B45309"></div>
+      <div class="swatch" style="background:#7a7565"></div>
+    </div>
+  </div>
+
+  <!-- Frame B — Liquid Analytics -->
+  <div class="option frame" data-choice="b" onclick="toggleSelect(this)">
+    <div class="selected-ribbon"></div>
+    <div class="frame-head">
+      <div class="frame-tag">B · Liquid Analytics</div>
+      <div class="frame-name">Soft-painted depth, OKLCH jewel</div>
+    </div>
+    <div class="frame-preview b-preview">
+      <div class="b-title">Revenue distribution · by segment</div>
+      <div class="b-chart">
+        <div class="b-blob1"></div>
+        <div class="b-blob2"></div>
+        <div class="b-line"></div>
+      </div>
+      <div class="b-axis"><span>Enterprise</span><span>Mid-market</span><span>SMB</span><span>Self-serve</span></div>
+    </div>
+    <div class="frame-desc">Marks rendered as soft-painted density clouds instead of hard bars. Deep navy canvas, desaturated teal + ochre + plum (no saturated primaries). WebGL gradient fills with sub-pixel blur. Feels like watercolor over a lab bench.</div>
+    <div class="chip-row">
+      <div class="swatch" style="background:#0f1218"></div>
+      <div class="swatch" style="background:#0d9488"></div>
+      <div class="swatch" style="background:#B45309"></div>
+      <div class="swatch" style="background:#8b5a7b"></div>
+    </div>
+  </div>
+
+  <!-- Frame C — Signal Lab -->
+  <div class="option frame" data-choice="c" onclick="toggleSelect(this)">
+    <div class="selected-ribbon"></div>
+    <div class="frame-head">
+      <div class="frame-tag">C · Signal Lab</div>
+      <div class="frame-name">Oscilloscope + Nature journal</div>
+    </div>
+    <div class="frame-preview c-preview">
+      <div class="c-grid"></div>
+      <div class="c-header"><span>CH1 · LATENCY_MS</span><span>LIVE 165</span></div>
+      <div class="c-trace">
+        <svg viewBox="0 0 300 100" preserveAspectRatio="none">
+          <path d="M 0 70 Q 30 60 50 55 T 100 45 T 150 65 T 200 40 T 250 50 T 300 35" stroke="#7fa46f" stroke-width="1.2" fill="none"/>
+          <path d="M 0 80 Q 30 75 50 72 T 100 68 T 150 78 T 200 65 T 250 72 T 300 60" stroke="#7fa46f" stroke-width="0.6" fill="none" opacity="0.35"/>
+        </svg>
+      </div>
+      <div class="c-annot">anomaly @ t=47 · 2.3σ</div>
+    </div>
+    <div class="frame-desc">Scientific-instrument aesthetic. Gridded paper canvas, phosphor-green traces, annotations in margin like lab notes. Data as waveforms and contours, not boxes. Ops / observability dashboards go here.</div>
+    <div class="chip-row">
+      <div class="swatch" style="background:#10120f"></div>
+      <div class="swatch" style="background:#7fa46f"></div>
+      <div class="swatch" style="background:#c5d0bf"></div>
+      <div class="swatch" style="background:#3a4432"></div>
+    </div>
+  </div>
+
+  <!-- Frame D — Kinetic Minimalism -->
+  <div class="option frame" data-choice="d" onclick="toggleSelect(this)">
+    <div class="selected-ribbon"></div>
+    <div class="frame-head">
+      <div class="frame-tag">D · Kinetic Minimalism</div>
+      <div class="frame-name">Swiss poster that breathes</div>
+    </div>
+    <div class="frame-preview d-preview">
+      <div class="d-meta">Q3 · North America</div>
+      <div class="d-value">47.2M</div>
+      <div class="d-sub">Revenue · QoQ +12.4%</div>
+      <div class="d-marks">
+        <div class="d-mark" style="height:55%"></div>
+        <div class="d-mark" style="height:70%"></div>
+        <div class="d-mark" style="height:62%"></div>
+        <div class="d-mark hot" style="height:92%"></div>
+        <div class="d-mark" style="height:81%"></div>
+        <div class="d-mark" style="height:75%"></div>
+        <div class="d-mark" style="height:88%"></div>
+      </div>
+      <div class="d-rule">JAN — JUL 2026</div>
+    </div>
+    <div class="frame-desc">Massive display numeric + tiny mono eyebrow + hairline rule. Almost no chrome. Single-hue-per-tile accent. Every chart feels like a Swiss poster; motion carries meaning (hot mark pulses, data-in staggered wipe).</div>
+    <div class="chip-row">
+      <div class="swatch" style="background:#fefefb"></div>
+      <div class="swatch" style="background:#0a0a0a"></div>
+      <div class="swatch" style="background:#DC2626"></div>
+      <div class="swatch" style="background:#5a5a55"></div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:22px; padding:14px 18px; background:rgba(37,99,235,0.04); border-radius:10px; font:400 13px 'Plus Jakarta Sans',sans-serif; color:#3a3a42;">
+  <strong style="color:#1a1a1f;">Tip —</strong> These aren't mutually exclusive. You can pick a primary frame that governs the default aesthetic, and cherry-pick moves from others (e.g. <em>Kinetic Minimalism</em> for exec briefing tiles, <em>Signal Lab</em> for LiveOps, <em>Editorial Terminal</em> for Workbench). Tell me which frame sets the default + whether any per-archetype overrides make sense.
+</div>

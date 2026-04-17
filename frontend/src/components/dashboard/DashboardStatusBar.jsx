@@ -1,5 +1,6 @@
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store';
+import { BreathingDot } from './motion';
 import { TOKENS } from './tokens';
 
 const T = TOKENS.statusBar;
@@ -28,15 +29,17 @@ const Divider = () => (
   />
 );
 
-const DataValue = ({ children, muted }) => (
+const DataValue = ({ children, muted, mono = true }) => (
   <span
     style={{
-      fontFamily: T.font,
+      fontFamily: mono ? TOKENS.fontMono : T.font,
       fontSize: T.fontSize,
       color: muted ? T.label : T.value,
       fontWeight: 500,
       letterSpacing: '0.01em',
       whiteSpace: 'nowrap',
+      // Tabular figures — stable column width for mono digits
+      fontVariantNumeric: 'tabular-nums',
     }}
   >
     {children}
@@ -98,18 +101,15 @@ export default function DashboardStatusBar({
       }}
     >
       {/* ═══ LEFT: Connection ═══ */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        {/* Status dot */}
-        <span
-          style={{
-            width: T.dotSize,
-            height: T.dotSize,
-            borderRadius: '50%',
-            background: dotColor,
-            flexShrink: 0,
-            boxShadow: connectionStatus === 'connected' ? `0 0 6px ${dotColor}` : 'none',
-          }}
-          aria-label={`Connection: ${connectionStatus}`}
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
+        aria-label={`Connection: ${connectionStatus}`}
+      >
+        {/* Breathing status dot — connected = success green, else warning/danger */}
+        <BreathingDot
+          color={dotColor}
+          size={T.dotSize}
+          glow={connectionStatus === 'connected'}
         />
         {dbType && <DataValue>{dbType}</DataValue>}
         {dbType && databaseName && (
@@ -149,7 +149,11 @@ export default function DashboardStatusBar({
       </div>
 
       {/* ═══ RIGHT: Voice controls (SP-5) ═══ */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+      <div
+        role="status"
+        aria-live="polite"
+        style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+      >
         {/* Interim transcript preview */}
         <AnimatePresence>
           {voiceTranscript && (
@@ -200,7 +204,14 @@ export default function DashboardStatusBar({
             voiceListening ? 'Stop listening' :
             `Start voice (${VOICE_MODE_LABELS[voiceMode]})`
           }
-          aria-label={voiceListening ? 'Stop listening' : 'Start voice mode'}
+          aria-label={
+            voiceListening
+              ? 'Listening, click to stop'
+              : voiceTranscribing
+                ? 'Processing speech'
+                : 'Start voice mode'
+          }
+          aria-pressed={voiceListening}
           style={{
             width: 22,
             height: 22,
@@ -241,19 +252,20 @@ export default function DashboardStatusBar({
             <line x1="8" y1="23" x2="16" y2="23" />
           </svg>
 
-          {/* Pulsing ring when listening */}
+          {/* Listening indicator — perpetual breathing dot replaces ad-hoc pulse ring */}
           {voiceListening && (
-            <Motion.div
+            <span
+              role="status"
+              aria-live="polite"
               style={{
                 position: 'absolute',
-                inset: -2,
-                borderRadius: 8,
-                border: '1.5px solid #ef4444',
+                top: -3,
+                right: -3,
                 pointerEvents: 'none',
               }}
-              animate={{ scale: [1, 1.25, 1], opacity: [0.6, 0, 0.6] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
+            >
+              <BreathingDot color="#ef4444" size={8} />
+            </span>
           )}
 
           {/* Animated bars when transcribing */}

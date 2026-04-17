@@ -11,6 +11,7 @@ import TierBadge from "./TierBadge";
 import IframeChartHost from "../chartTypes/IframeChartHost";
 import DevVizLoader from "../chartTypes/DevVizLoader";
 import { useStore } from "../../store";
+import { TOKENS } from "../dashboard/tokens";
 
 /**
  * EditorCanvas — center pane. Dispatches to a renderer via
@@ -19,7 +20,7 @@ import { useStore } from "../../store";
  * other three renderers render placeholder cards explaining when the real
  * integration lands.
  */
-export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthrough }) {
+export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthrough, onDeselect, mode }) {
   const [vegaView, setVegaView] = useState(null);
   const handleViewReady = useCallback((view) => setVegaView(view), []);
   const colorMap = useStore((s) => s.colorMap);
@@ -36,11 +37,28 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthr
       if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'p') {
         e.preventDefault();
         useStore.getState().toggleTierBadge();
+        return;
+      }
+      // Escape — clear any selection / exit inline editor on the canvas.
+      // Ignore when typing into an input or contenteditable surface so we
+      // don't steal ESC from the BottomDock text field.
+      if (e.key === 'Escape') {
+        const t = e.target;
+        const tag = t?.tagName;
+        const editable =
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          tag === 'SELECT' ||
+          t?.isContentEditable;
+        if (editable) return;
+        if (typeof onDeselect === 'function') {
+          onDeselect();
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [onDeselect]);
   const resultProfile = useMemo(() => buildResultProfile(spec, resultSet), [spec, resultSet]);
 
   const routing = useMemo(() => {
@@ -95,10 +113,10 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthr
     : null;
 
   if (!spec) {
-    return <CanvasEmpty message="No chart spec provided" />;
+    return <CanvasEmpty message="No chart spec provided" mode={mode} />;
   }
   if (routing?.error) {
-    return <CanvasEmpty message={`Routing error: ${routing.error}`} />;
+    return <CanvasEmpty message={`Routing error: ${routing.error}`} mode={mode} />;
   }
 
   // Render Tier 2 iframe sandbox if the spec targets a code-based user type.
@@ -129,12 +147,14 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthr
   }
 
   const { rendererId, strategy } = routing;
+  const isStage = mode === "stage";
 
   return (
     <div
       data-testid="editor-canvas"
       data-renderer-id={rendererId}
       data-strategy-tier={strategy.tier}
+      className="premium-grid-canvas"
       style={{
         position: "relative",
         height: "100%",
@@ -142,6 +162,7 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthr
         padding: 16,
         background: "var(--bg-canvas, rgba(255,255,255,0.015))",
         overflow: "auto",
+        boxShadow: isStage ? TOKENS.shadow.innerGlass : undefined,
       }}
     >
       <TierBadge strategy={strategy} />
@@ -184,20 +205,87 @@ function buildResultProfile(spec, resultSet) {
   };
 }
 
-function CanvasEmpty({ message }) {
+function CanvasEmpty({ message, mode }) {
+  const isStage = mode === "stage";
   return (
     <div
       data-testid="editor-canvas-empty"
+      className="premium-grid-canvas"
       style={{
+        position: "relative",
         height: "100%",
+        width: "100%",
+        padding: 20,
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "var(--text-muted, rgba(255,255,255,0.5))",
-        fontSize: 13,
+        flexDirection: "column",
+        gap: 14,
+        background: "var(--bg-canvas, rgba(255,255,255,0.015))",
+        boxShadow: isStage ? TOKENS.shadow.innerGlass : undefined,
       }}
     >
-      {message}
+      {/* Title row skeleton */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          className="premium-shimmer-surface"
+          style={{
+            width: 180,
+            height: 14,
+            borderRadius: 4,
+            background: "var(--overlay-light)",
+          }}
+        />
+        <div
+          className="premium-shimmer-surface"
+          style={{
+            width: 64,
+            height: 10,
+            borderRadius: 4,
+            background: "var(--overlay-subtle)",
+          }}
+        />
+      </div>
+      {/* Chart body skeleton — aspect-ratio respecting rectangle */}
+      <div
+        className="premium-shimmer-surface"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          borderRadius: 8,
+          background: "var(--overlay-faint)",
+          border: "1px solid var(--border-subtle)",
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          padding: 20,
+          gap: 12,
+        }}
+      >
+        {/* Column bars — hint at chart shape */}
+        {[0.62, 0.38, 0.78, 0.45, 0.68, 0.52, 0.84].map((h, i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              height: `${h * 100}%`,
+              borderRadius: 3,
+              background: "var(--overlay-subtle)",
+            }}
+          />
+        ))}
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          bottom: 12,
+          right: 16,
+          fontSize: 11,
+          fontFamily: TOKENS.fontMono,
+          color: "var(--text-muted, rgba(255,255,255,0.4))",
+          letterSpacing: "0.02em",
+        }}
+      >
+        {message}
+      </div>
     </div>
   );
 }

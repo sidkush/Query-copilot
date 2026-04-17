@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { TOKENS } from './tokens';
+import { BreathingDot } from './motion';
 
 /**
  * InsightTile — AI-generated narrative summary card.
@@ -63,7 +64,7 @@ function highlightMetrics(text) {
   return sanitizeInsight(escaped);
 }
 
-export default function InsightTile({ tile, onRefresh, onLinkedTileClick }) {
+export default function InsightTile({ tile, onRefresh, onLinkedTileClick, index = 0 }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
@@ -81,6 +82,14 @@ export default function InsightTile({ tile, onRefresh, onLinkedTileClick }) {
   const linkedTiles = tile?.linkedTileIds || [];
   const hasContent = Boolean(insightText);
 
+  // "Fresh" = generated within the last 5 minutes. Drives the breathing
+  // accent dot on the eyebrow label.
+  const isFresh = useMemo(() => {
+    if (!generatedAt) return false;
+    const age = Date.now() - new Date(generatedAt).getTime();
+    return age < 5 * 60 * 1000;
+  }, [generatedAt]);
+
   return (
     <div
       data-testid="insight-tile"
@@ -91,9 +100,11 @@ export default function InsightTile({ tile, onRefresh, onLinkedTileClick }) {
         padding: '20px 24px 18px',
         fontFamily: TOKENS.fontBody,
         overflow: 'auto',
+        '--mount-index': index,
       }}
     >
-      {/* Eyebrow label */}
+      {/* Eyebrow label — unified eyebrow spec (see TOKENS.tile.eyebrow*).
+          Accent color kept on the primary eyebrow to mark this as AI-generated. */}
       <div
         style={{
           display: 'flex',
@@ -102,11 +113,12 @@ export default function InsightTile({ tile, onRefresh, onLinkedTileClick }) {
           marginBottom: 16,
         }}
       >
+        {isFresh && <BreathingDot color="var(--accent, #2563EB)" size={4} />}
         <span
           style={{
-            fontSize: 9,
+            fontSize: TOKENS.tile.eyebrowSize,
             fontWeight: 700,
-            letterSpacing: '0.18em',
+            letterSpacing: TOKENS.tile.eyebrowLetterSpacing,
             textTransform: 'uppercase',
             color: TOKENS.accent,
             fontFamily: TOKENS.fontDisplay,
@@ -116,9 +128,9 @@ export default function InsightTile({ tile, onRefresh, onLinkedTileClick }) {
         </span>
         <span
           style={{
-            fontSize: 9,
+            fontSize: TOKENS.tile.eyebrowSize,
             fontWeight: 700,
-            letterSpacing: '0.18em',
+            letterSpacing: TOKENS.tile.eyebrowLetterSpacing,
             textTransform: 'uppercase',
             color: TOKENS.text.muted,
             fontFamily: TOKENS.fontDisplay,
@@ -241,7 +253,10 @@ export default function InsightTile({ tile, onRefresh, onLinkedTileClick }) {
                 type="button"
                 onClick={() => onLinkedTileClick?.(tid)}
                 style={{
+                  // Fallback first, then color-mix for modern browsers.
+                  // Accent-tinted translucent chip — adapts to theme accent var.
                   background: 'rgba(99,102,241,0.1)',
+                  backgroundImage: 'linear-gradient(color-mix(in oklab, var(--accent) 12%, transparent), color-mix(in oklab, var(--accent) 12%, transparent))',
                   border: '1px solid rgba(99,102,241,0.2)',
                   borderRadius: 4,
                   color: TOKENS.accent,

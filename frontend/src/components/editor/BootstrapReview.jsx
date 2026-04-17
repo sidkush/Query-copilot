@@ -1,5 +1,20 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../../api";
+import { SPRINGS } from "../dashboard/motion";
+
+// ── Type badge palette (top-of-file for discoverability) ───────────────────
+// TODO: migrate to TOKENS.typeColors once defined in tokens.js
+const TYPE_COLORS = {
+  table:       { bg: "rgba(94,234,212,0.12)",  color: "#5eead4" },
+  column:      { bg: "rgba(167,139,250,0.12)", color: "#a78bfa" },
+  verb:        { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24" },
+  attribute:   { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24" },
+  name:        { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24" },
+  adjective:   { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24" },
+  preposition: { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24" },
+  question:    { bg: "rgba(52,211,153,0.12)",  color: "#34d399" },
+};
 
 /* ─────────────────────────────────────────────────────────────────────────
  * BootstrapReview — D1 Task 4
@@ -25,9 +40,9 @@ const S = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "rgba(0,0,0,0.72)",
-    backdropFilter: "blur(4px)",
-    WebkitBackdropFilter: "blur(4px)",
+    background: "var(--modal-overlay, rgba(0,0,0,0.72))",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
     padding: "20px 16px",
   },
   card: {
@@ -36,11 +51,9 @@ const S = {
     maxHeight: "80vh",
     display: "flex",
     flexDirection: "column",
-    borderRadius: 14,
-    border: "1px solid var(--border-default, rgba(255,255,255,0.06))",
-    background: "var(--bg-surface, #1a1a2e)",
+    borderRadius: 16,
     boxShadow:
-      "0 24px 64px rgba(0,0,0,0.6), 0 0 40px rgba(37,99,235,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
+      "0 24px 64px var(--shadow-deep), 0 0 40px var(--accent-glow), inset 0 1px 0 var(--glass-highlight)",
     overflow: "hidden",
   },
   header: {
@@ -143,7 +156,7 @@ const S = {
     borderColor: "rgba(37,99,235,0.15)",
   },
   rowUnchecked: {
-    background: "rgba(255,255,255,0.02)",
+    background: "var(--overlay-faint)",
     borderColor: "transparent",
   },
   checkbox: {
@@ -227,7 +240,7 @@ const S = {
     background: disabled
       ? "rgba(37,99,235,0.25)"
       : "var(--accent, #2563eb)",
-    color: disabled ? "rgba(255,255,255,0.3)" : "#fff",
+    color: disabled ? "var(--text-muted)" : "#fff",
     cursor: disabled ? "not-allowed" : "pointer",
     transition: "all 0.15s",
     display: "flex",
@@ -370,20 +383,14 @@ function SpinnerIcon() {
   );
 }
 
-const TYPE_COLORS = {
-  table:    { bg: "rgba(94,234,212,0.12)",  color: "#5eead4" },
-  column:   { bg: "rgba(167,139,250,0.12)", color: "#a78bfa" },
-  verb:     { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24" },
-  attribute:{ bg: "rgba(251,191,36,0.12)",  color: "#fbbf24" },
-  name:     { bg: "rgba(251,191,36,0.12)",  color: "#fbbf24" },
-  adjective:{ bg: "rgba(251,191,36,0.12)",  color: "#fbbf24" },
-  preposition:{ bg: "rgba(251,191,36,0.12)",color: "#fbbf24" },
-  question: { bg: "rgba(52,211,153,0.12)",  color: "#34d399" },
-};
-
-function SuggestionRow({ item, checked, onToggle }) {
+function SuggestionRow({ item, checked, onToggle, index = 0 }) {
   const isChecked = checked.has(item.id);
+  const [hovered, setHovered] = useState(false);
   const typeColor = TYPE_COLORS[item.typeTag] ?? { bg: "rgba(255,255,255,0.06)", color: "var(--text-muted)" };
+
+  const borderColor = hovered
+    ? (isChecked ? "rgba(37,99,235,0.25)" : "var(--border-hover, rgba(255,255,255,0.10))")
+    : (isChecked ? "rgba(37,99,235,0.15)" : "transparent");
 
   return (
     <div
@@ -392,19 +399,15 @@ function SuggestionRow({ item, checked, onToggle }) {
       tabIndex={0}
       onClick={() => onToggle(item.id)}
       onKeyDown={(e) => (e.key === " " || e.key === "Enter") && onToggle(item.id)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
       style={{
         ...S.row,
         ...(isChecked ? S.rowChecked : S.rowUnchecked),
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = isChecked
-          ? "rgba(37,99,235,0.25)"
-          : "var(--border-hover, rgba(255,255,255,0.10))";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = isChecked
-          ? "rgba(37,99,235,0.15)"
-          : "transparent";
+        borderColor,
+        '--mount-index': index,
       }}
     >
       {/* Checkbox */}
@@ -423,12 +426,13 @@ function SuggestionRow({ item, checked, onToggle }) {
         {item.sub && <span style={S.rowSub}>{item.sub}</span>}
       </div>
 
-      {/* Type badge */}
+      {/* Type badge — liquid-glass edge via inset + outer ring */}
       <span
         style={{
           ...S.typeBadge,
           background: typeColor.bg,
           color: typeColor.color,
+          boxShadow: `inset 0 0 0 1px ${typeColor.color}22, 0 0 0 1px ${typeColor.color}44`,
         }}
       >
         {item.typeTag}
@@ -437,19 +441,22 @@ function SuggestionRow({ item, checked, onToggle }) {
   );
 }
 
-function Section({ title, items, checked, onToggle }) {
+function Section({ title, items, checked, onToggle, indexOffset = 0 }) {
   if (items.length === 0) return null;
   return (
     <div style={S.section}>
       <div style={S.sectionHeader}>{title}</div>
-      {items.map((item) => (
-        <SuggestionRow
-          key={item.id}
-          item={item}
-          checked={checked}
-          onToggle={onToggle}
-        />
-      ))}
+      <div className="premium-mount-stagger" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {items.map((item, i) => (
+          <SuggestionRow
+            key={item.id}
+            item={item}
+            checked={checked}
+            onToggle={onToggle}
+            index={indexOffset + i}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -461,6 +468,48 @@ export default function BootstrapReview({ connId, linguistic, onClose, onAccepte
   const [checked, setChecked] = useState(() => initialChecked(allItems));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  // Accessibility refs: modal container (focus trap scope) + close button (initial focus)
+  const modalRef = useRef(null);
+  const closeBtnRef = useRef(null);
+
+  // ESC to close + focus trap (Tab/Shift+Tab wrap)
+  useEffect(() => {
+    const focusableSelector =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+    const handleKey = (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key === "Tab" && modalRef.current) {
+        const nodes = modalRef.current.querySelectorAll(focusableSelector);
+        const visible = Array.from(nodes).filter(
+          (n) => !n.hasAttribute("disabled") && n.offsetParent !== null,
+        );
+        if (visible.length === 0) return;
+        const first = visible[0];
+        const last = visible[visible.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && active === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  // Initial focus on close button when modal opens
+  useEffect(() => {
+    closeBtnRef.current?.focus();
+  }, []);
 
   const checkedCount = checked.size;
   const totalCount = allItems.length;
@@ -525,31 +574,76 @@ export default function BootstrapReview({ connId, linguistic, onClose, onAccepte
 
   return (
     <>
-      {/* Inject keyframe for spinner */}
+      {/* Inject keyframes + declarative hover + scroll-fade styles */}
       <style>{`
         @keyframes br-spin { to { transform: rotate(360deg); } }
         [data-br-spin] { animation: br-spin 0.75s linear infinite; }
+
+        .br-close-btn:hover,
+        .br-close-btn:focus-visible {
+          background: var(--bg-hover, rgba(255,255,255,0.05));
+          color: var(--text-primary, #ededef);
+        }
+        .br-dismiss-btn:hover,
+        .br-dismiss-btn:focus-visible {
+          background: var(--bg-hover, rgba(255,255,255,0.05));
+          color: var(--text-primary, #ededef);
+        }
+        .br-accept-btn:not(:disabled):hover,
+        .br-accept-btn:not(:disabled):focus-visible {
+          background: var(--accent-light, #3b82f6);
+          box-shadow: 0 6px 20px rgba(37,99,235,0.45);
+        }
+
+        /* Subtle bottom fade when scrollable content overflows */
+        .br-body { position: relative; }
+        .br-body::after {
+          content: '';
+          position: sticky;
+          display: block;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 24px;
+          margin-top: -24px;
+          background: linear-gradient(to top, var(--bg-surface, #1a1a2e), transparent);
+          pointer-events: none;
+        }
       `}</style>
 
-      <div style={S.overlay} onClick={handleBackdropClick} role="dialog" aria-modal="true" aria-label="Review Semantic Suggestions">
-        <div style={S.card}>
+      <AnimatePresence>
+        <motion.div
+          key="br-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          style={S.overlay}
+          onClick={handleBackdropClick}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Review Semantic Suggestions"
+        >
+          <motion.div
+            ref={modalRef}
+            className="premium-liquid-glass"
+            initial={{ opacity: 0, scale: 0.97, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 10 }}
+            transition={SPRINGS.fluid}
+            style={S.card}
+          >
 
           {/* ── Header ─────────────────────────────────────────── */}
           <div style={S.header}>
             <h2 style={S.headerTitle}>Review Semantic Suggestions</h2>
             <button
+              ref={closeBtnRef}
               type="button"
               onClick={onClose}
               aria-label="Close"
+              className="br-close-btn"
               style={S.closeBtn}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.05))";
-                e.currentTarget.style.color = "var(--text-primary, #ededef)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--text-muted, #5c5f66)";
-              }}
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -558,7 +652,7 @@ export default function BootstrapReview({ connId, linguistic, onClose, onAccepte
           </div>
 
           {/* ── Body ───────────────────────────────────────────── */}
-          <div style={S.body}>
+          <div className="br-body" style={S.body}>
             {/* Description */}
             <p style={S.description}>
               AskDB analysed your database schema and generated synonyms, relationship
@@ -629,30 +723,34 @@ export default function BootstrapReview({ connId, linguistic, onClose, onAccepte
               </div>
             )}
 
-            {/* Sections */}
+            {/* Sections — cascade indexOffset so global mount-in forms a single waterfall */}
             <Section
               title="Table Synonyms"
               items={tableSynItems}
               checked={checked}
               onToggle={handleToggle}
+              indexOffset={0}
             />
             <Section
               title="Column Synonyms"
               items={colSynItems}
               checked={checked}
               onToggle={handleToggle}
+              indexOffset={tableSynItems.length}
             />
             <Section
               title="Relationship Phrasings"
               items={phrasItems}
               checked={checked}
               onToggle={handleToggle}
+              indexOffset={tableSynItems.length + colSynItems.length}
             />
             <Section
               title="Sample Questions"
               items={sqItems}
               checked={checked}
               onToggle={handleToggle}
+              indexOffset={tableSynItems.length + colSynItems.length + phrasItems.length}
             />
           </div>
 
@@ -661,15 +759,8 @@ export default function BootstrapReview({ connId, linguistic, onClose, onAccepte
             <button
               type="button"
               onClick={onClose}
+              className="br-dismiss-btn"
               style={S.dismissBtn}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--bg-hover, rgba(255,255,255,0.05))";
-                e.currentTarget.style.color = "var(--text-primary, #ededef)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--text-secondary, #8a8f98)";
-              }}
             >
               Dismiss All
             </button>
@@ -678,19 +769,8 @@ export default function BootstrapReview({ connId, linguistic, onClose, onAccepte
               type="button"
               onClick={handleAccept}
               disabled={acceptDisabled}
+              className={`br-accept-btn premium-btn${acceptDisabled ? "" : " premium-sheen"}`}
               style={S.acceptBtn(acceptDisabled)}
-              onMouseEnter={(e) => {
-                if (!acceptDisabled) {
-                  e.currentTarget.style.background = "var(--accent-light, #3b82f6)";
-                  e.currentTarget.style.boxShadow = "0 6px 20px rgba(37,99,235,0.45)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!acceptDisabled) {
-                  e.currentTarget.style.background = "var(--accent, #2563eb)";
-                  e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.35)";
-                }
-              }}
             >
               {saving && (
                 <div
@@ -708,8 +788,9 @@ export default function BootstrapReview({ connId, linguistic, onClose, onAccepte
             </button>
           </div>
 
-        </div>
-      </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
     </>
   );
 }

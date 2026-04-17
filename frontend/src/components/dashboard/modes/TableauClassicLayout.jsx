@@ -1,7 +1,9 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import GridLayout from "react-grid-layout";
+import { motion } from "framer-motion";
 import DashboardTileCanvas from "../lib/DashboardTileCanvas";
-import { ARCHETYPE_THEMES } from "../tokens";
+import { ARCHETYPE_THEMES, TOKENS } from "../tokens";
+import { SPRINGS } from "../motion";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -92,10 +94,13 @@ function TableauFilterBar({ filters, onAdd, onRemove, onClear }) {
         Filters
       </span>
 
-      {/* Active filter pills */}
+      {/* Active filter pills — spring-lift on hover */}
       {filters.map((f) => (
-        <span
+        <motion.span
           key={f.id}
+          layout
+          whileHover={{ scale: 1.04 }}
+          transition={SPRINGS.snappy}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -103,15 +108,18 @@ function TableauFilterBar({ filters, onAdd, onRemove, onClear }) {
             padding: "2px 8px",
             fontSize: 10,
             fontWeight: 600,
+            fontFamily: TOKENS.fontMono,
             background: theme.filterBar.chipBg,
             color: theme.filterBar.chipText,
             borderRadius: 3,
+            boxShadow: "0 0 0 1px rgba(78,121,167,0.3), 0 2px 6px -2px rgba(78,121,167,0.35)",
           }}
         >
           {f.field} {f.op} {String(f.value)}
           <button
             type="button"
             onClick={() => onRemove(f.id)}
+            className="premium-btn"
             style={{
               background: "none",
               border: "none",
@@ -121,10 +129,11 @@ function TableauFilterBar({ filters, onAdd, onRemove, onClear }) {
               padding: 0,
               lineHeight: 1,
             }}
+            aria-label={`Remove filter ${f.field}`}
           >
             &times;
           </button>
-        </span>
+        </motion.span>
       ))}
 
       {/* Dropdown-style filter form (single column input, op dropdown, value input) */}
@@ -154,11 +163,11 @@ function TableauFilterBar({ filters, onAdd, onRemove, onClear }) {
           onChange={(e) => setValue(e.target.value)}
           style={inputStyle}
         />
-        <button type="submit" style={btnStyle}>
+        <button type="submit" style={btnStyle} className="premium-btn premium-sheen">
           Apply
         </button>
         {filters.length > 0 && (
-          <button type="button" onClick={onClear} style={clearBtnStyle}>
+          <button type="button" onClick={onClear} style={clearBtnStyle} className="premium-btn">
             Clear All
           </button>
         )}
@@ -170,9 +179,9 @@ function TableauFilterBar({ filters, onAdd, onRemove, onClear }) {
 const dropdownStyle = {
   padding: "3px 6px",
   fontSize: 10,
-  background: "#fff",
-  color: "#111",
-  border: "1px solid rgba(0,0,0,0.12)",
+  background: "var(--bg-elevated)",
+  color: "var(--text-primary)",
+  border: "1px solid var(--border-default)",
   borderRadius: 2,
   fontFamily: "inherit",
 };
@@ -180,19 +189,22 @@ const dropdownStyle = {
 const inputStyle = {
   padding: "3px 6px",
   fontSize: 10,
-  background: "#fff",
-  color: "#111",
-  border: "1px solid rgba(0,0,0,0.12)",
+  background: "var(--bg-elevated)",
+  color: "var(--text-primary)",
+  border: "1px solid var(--border-default)",
   borderRadius: 2,
   width: 80,
   fontFamily: "inherit",
 };
 
+// Apply button — resolves accent from the tableau archetype theme when
+// available, falling back to the global --accent CSS var, then the classic
+// Tableau 10 blue (#4E79A7) for browsers without CSS var support.
 const btnStyle = {
   padding: "3px 10px",
   fontSize: 10,
   fontWeight: 600,
-  background: "#4E79A7",
+  background: theme?.accent || "var(--accent, #4E79A7)",
   color: "#fff",
   border: "none",
   borderRadius: 2,
@@ -296,11 +308,20 @@ export default function TableauClassicLayout({
         flexDirection: "column",
         gap: 8,
         background: theme.background.dashboard,
-        color: "#111827",
+        color: "var(--text-primary, #111827)",
         fontFamily: theme.typography.bodyFont,
         minHeight: "100%",
       }}
     >
+      {/* Scoped row-hover tint — Tableau-class table rows glow subtly
+          when the user hovers over a tile's rendered table-body rows. */}
+      <style>{`
+        [data-testid="layout-tableau"] .vega-embed table tbody tr:hover,
+        [data-testid="layout-tableau"] [role="row"]:hover {
+          background: var(--bg-hover, rgba(78,121,167,0.06));
+        }
+      `}</style>
+
       {/* Dropdown filter bar across top */}
       <TableauFilterBar
         filters={filters}
@@ -334,7 +355,7 @@ export default function TableauClassicLayout({
               data-testid={`layout-tableau-tile-${l.i}`}
               style={{
                 background: theme.background.tile,
-                border: `1px solid rgba(0,0,0,0.08)`,
+                border: `1px solid var(--border-default)`,
                 borderRadius: theme.spacing.tileRadius,
                 overflow: "hidden",
               }}

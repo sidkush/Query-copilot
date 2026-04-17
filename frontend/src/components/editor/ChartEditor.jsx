@@ -1,5 +1,8 @@
 import { useMemo } from "react";
+import { motion } from "framer-motion";
 import { useStore } from "../../store";
+import { TOKENS } from "../dashboard/tokens";
+import { SPRINGS } from "../dashboard/motion";
 import ChartEditorTopbar from "./ChartEditorTopbar";
 import DataRail from "./DataRail";
 import EditorCanvas from "./EditorCanvas";
@@ -47,9 +50,12 @@ export default function ChartEditor({
   const showDock = mode !== "stage";
 
   const gridTemplateColumns = useMemo(() => {
-    const left = showDataRail ? "200px" : "0px";
-    const right = showInspector ? "320px" : "0px";
-    return `${left} 1fr ${right}`;
+    // Use minmax() so rails can shrink when the canvas is narrow; combined
+    // with minWidth:0 on each grid child this lets inner content ellipsize
+    // instead of forcing horizontal overflow.
+    const left = showDataRail ? "minmax(180px, 220px)" : "0px";
+    const right = showInspector ? "minmax(280px, 340px)" : "0px";
+    return `${left} minmax(0, 1fr) ${right}`;
   }, [showDataRail, showInspector]);
 
   const gridTemplateRows = useMemo(() => {
@@ -59,11 +65,14 @@ export default function ChartEditor({
   }, [showDock]);
 
   return (
-    <div
+    <motion.div
       data-testid="chart-editor"
       data-mode={mode}
       data-surface={surface}
-      className="chart-editor"
+      className="chart-editor premium-liquid-glass"
+      initial={{ opacity: 0, scale: 0.99 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={SPRINGS.fluid}
       style={{
         display: "grid",
         gridTemplateColumns,
@@ -78,7 +87,7 @@ export default function ChartEditor({
         minHeight: 0,
         background: "var(--bg-page, #06060e)",
         color: "var(--text-primary, #e7e7ea)",
-        fontFamily: "Inter, system-ui, sans-serif",
+        fontFamily: TOKENS.fontDisplay,
       }}
     >
       <div style={{ gridArea: "topbar", minWidth: 0 }}>
@@ -96,8 +105,9 @@ export default function ChartEditor({
           spec={spec}
           resultSet={resultSet}
           onSpecChange={onSpecChange}
+          mode={mode}
         />
-        <CorrectionToast connId={connId} />
+        <CorrectionToast connId={connId} dockVisible={showDock} />
       </div>
 
 
@@ -116,6 +126,6 @@ export default function ChartEditor({
           <BottomDock />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

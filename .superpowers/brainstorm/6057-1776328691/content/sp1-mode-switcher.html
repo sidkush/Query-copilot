@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>SP-1: Mode Switcher Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { height: 100%; }
+  body {
+    min-height: 100%;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #0f0f13;
+    color: #e4e4e7;
+    line-height: 1.6;
+    padding: 40px 48px 80px;
+  }
+  h2 { font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 6px; letter-spacing: -0.5px; }
+  .subtitle { color: #71717a; font-size: 14px; margin-bottom: 36px; line-height: 1.7; }
+
+  .options-grid { display: flex; flex-direction: column; gap: 28px; margin-bottom: 36px; }
+
+  .opt-card {
+    background: #18181b;
+    border: 2px solid #27272a;
+    border-radius: 16px;
+    padding: 0;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    overflow: hidden;
+  }
+  .opt-card:hover { border-color: #3f3f46; }
+  .opt-card.selected { border-color: #8b5cf6; }
+
+  /* Header mockup area */
+  .mockup-zone {
+    background: #111114;
+    padding: 0;
+    border-bottom: 1px solid #27272a;
+  }
+
+  /* Dashboard header mockup */
+  .dash-header {
+    display: flex;
+    align-items: center;
+    height: 52px;
+    padding: 0 20px;
+    background: rgba(24,24,27,0.95);
+    border-bottom: 1px solid rgba(63,63,70,0.5);
+    gap: 12px;
+  }
+  .dash-logo {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: #fff; flex-shrink: 0;
+  }
+  .dash-breadcrumb {
+    font-size: 13px; color: #71717a;
+  }
+  .dash-breadcrumb span { color: #a1a1aa; }
+  .dash-breadcrumb .current { color: #fff; font-weight: 600; }
+  .dash-spacer { flex: 1; }
+
+  /* Pill switcher */
+  .pill-group {
+    display: flex;
+    background: rgba(39,39,42,0.8);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .pill {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #71717a;
+    cursor: default;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .pill.active {
+    background: rgba(139,92,246,0.2);
+    color: #c4b5fd;
+    font-weight: 600;
+  }
+  .pill.active-blue {
+    background: rgba(59,130,246,0.2);
+    color: #93c5fd;
+    font-weight: 600;
+  }
+  .pill.active-white {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* Header buttons */
+  .hdr-btn {
+    padding: 5px 12px; border-radius: 6px; font-size: 12px;
+    font-weight: 500; border: 1px solid #3f3f46; color: #a1a1aa;
+    background: transparent; cursor: default;
+  }
+  .hdr-btn-primary {
+    background: #8b5cf6; border-color: #8b5cf6; color: #fff;
+  }
+
+  /* Summary line */
+  .summary-line {
+    display: flex; align-items: center; gap: 16px;
+    font-size: 11px; color: #52525b;
+    padding: 0 20px; height: 28px;
+    border-bottom: 1px solid rgba(39,39,42,0.5);
+  }
+  .summary-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
+
+  /* Main content area placeholder */
+  .dash-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    padding: 16px 20px;
+    min-height: 100px;
+  }
+  .tile-placeholder {
+    background: rgba(39,39,42,0.3);
+    border: 1px solid rgba(63,63,70,0.3);
+    border-radius: 8px;
+    height: 48px;
+  }
+  .tile-placeholder.wide { grid-column: span 2; }
+  .tile-placeholder.tall { height: 80px; }
+
+  /* Option description */
+  .opt-desc {
+    padding: 20px 24px;
+  }
+  .opt-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  }
+  .opt-letter {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: #fff; flex-shrink: 0;
+  }
+  .opt-title { font-size: 17px; font-weight: 650; color: #fff; }
+  .opt-subtitle { font-size: 13px; color: #71717a; margin-left: auto; }
+
+  .opt-bullets {
+    list-style: none; padding: 0; margin: 0;
+    font-size: 13px; line-height: 1.9; color: rgba(255,255,255,0.65);
+  }
+  .opt-bullets li { padding-left: 16px; position: relative; }
+  .opt-bullets li::before {
+    content: '\203A'; position: absolute; left: 0;
+    font-weight: 700; opacity: 0.4;
+  }
+  .opt-bullets strong { color: #fff; font-weight: 600; }
+
+  /* Annotation arrows/labels */
+  .annotation {
+    position: absolute;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .anno-purple { background: rgba(139,92,246,0.2); color: #c4b5fd; }
+  .anno-blue { background: rgba(59,130,246,0.2); color: #93c5fd; }
+  .anno-green { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+
+  .mockup-wrapper { position: relative; }
+  .callout-tag {
+    position: absolute;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    pointer-events: none;
+  }
+
+  .reco {
+    padding: 20px 24px;
+    background: rgba(16,185,129,0.06);
+    border: 1px solid rgba(16,185,129,0.2);
+    border-radius: 14px;
+    margin-top: 8px;
+  }
+  .reco .rlabel {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: rgba(16,185,129,0.8); font-weight: 600; margin-bottom: 8px;
+  }
+  .reco p { font-size: 14px; line-height: 1.8; color: rgba(255,255,255,0.75); }
+  .reco strong { color: #fff; }
+
+  .hint { color: #52525b; font-size: 13px; text-align: center; margin-top: 20px; }
+</style>
+<script>
+  function selectCard(el, id) {
+    document.querySelectorAll('.opt-card').forEach(function(c) { c.classList.remove('selected'); });
+    el.classList.add('selected');
+    if (window.__sendEvent) window.__sendEvent({ type: 'click', choice: id, text: el.querySelector('.opt-title').textContent });
+  }
+</script>
+</head>
+<body>
+
+<h2>How should archetype mode + edit mode live in the header?</h2>
+<p class="subtitle">Your dashboard has two concepts: the <strong style="color:#c4b5fd">layout archetype</strong> (Briefing, Workbench, LiveOps...) and the <strong style="color:#93c5fd">editing mode</strong> (Default, Pro, Stage). Both need controls in the header. Here are three ways they can coexist.</p>
+
+<div class="options-grid">
+
+  <!-- OPTION A: Two separate controls -->
+  <div class="opt-card" onclick="selectCard(this, 'A')">
+    <div class="mockup-zone">
+      <div class="mockup-wrapper">
+        <div class="dash-header">
+          <div class="dash-logo">A</div>
+          <div class="dash-breadcrumb">Sales Org <span>/</span> Pipeline <span>/</span> <span class="current">Q4 2026 Workbench</span></div>
+          <div class="dash-spacer"></div>
+
+          <!-- Archetype pill - LEFT -->
+          <div class="pill-group">
+            <div class="pill">Briefing</div>
+            <div class="pill active">Workbench</div>
+            <div class="pill">LiveOps</div>
+            <div class="pill">Story</div>
+            <div class="pill">Pitch</div>
+            <div class="pill">Tableau</div>
+          </div>
+
+          <!-- Gap between the two -->
+          <div style="width: 16px; height: 1px; background: #3f3f46; margin: 0 4px;"></div>
+
+          <!-- Edit mode pill - RIGHT -->
+          <div class="pill-group">
+            <div class="pill active-blue">Default</div>
+            <div class="pill">Pro</div>
+            <div class="pill">Stage</div>
+          </div>
+
+          <div class="hdr-btn">Share</div>
+          <div class="hdr-btn-primary">Save</div>
+        </div>
+        <div class="summary-line">
+          <div class="summary-dot"></div>
+          <span>Postgres &middot; sales_prod</span>
+          <span>1,247 rows &middot; cached</span>
+          <span>Query: 142 ms</span>
+          <span>Tier: Turbo (DuckDB twin)</span>
+          <span style="margin-left:auto;">Refreshed 2 min ago</span>
+        </div>
+
+        <!-- Annotation tags -->
+        <div class="callout-tag anno-purple" style="top: 14px; right: 380px;">Archetype (layout)</div>
+        <div class="callout-tag anno-blue" style="top: 14px; right: 190px;">Edit mode (UX)</div>
+      </div>
+
+      <div class="dash-body">
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder wide tall"></div>
+        <div class="tile-placeholder wide tall"></div>
+        <div class="tile-placeholder tall"></div>
+      </div>
+    </div>
+
+    <div class="opt-desc">
+      <div class="opt-header">
+        <div class="opt-letter" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);">A</div>
+        <span class="opt-title">Two Separate Controls</span>
+        <span class="opt-subtitle">Independent toggles, always visible</span>
+      </div>
+      <ul class="opt-bullets">
+        <li><strong>Left pill:</strong> Archetype (Briefing / Workbench / LiveOps / Story / Pitch / Tableau) &mdash; changes the layout</li>
+        <li><strong>Right pill:</strong> Edit mode (Default / Pro / Stage) &mdash; changes how you interact with tiles</li>
+        <li>Both always visible. Switch either independently.</li>
+        <li><strong>Pro:</strong> Maximum clarity. User always knows both states.</li>
+        <li><strong>Con:</strong> Header gets crowded with 9 pills. Two pill groups may confuse new users.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- OPTION B: Edit mode nested -->
+  <div class="opt-card" onclick="selectCard(this, 'B')">
+    <div class="mockup-zone">
+      <div class="mockup-wrapper">
+        <div class="dash-header">
+          <div class="dash-logo">A</div>
+          <div class="dash-breadcrumb">Sales Org <span>/</span> Pipeline <span>/</span> <span class="current">Q4 2026 Workbench</span></div>
+          <div class="dash-spacer"></div>
+
+          <!-- Archetype pill - prominent -->
+          <div class="pill-group">
+            <div class="pill">Briefing</div>
+            <div class="pill active">Workbench</div>
+            <div class="pill">LiveOps</div>
+            <div class="pill">Story</div>
+            <div class="pill">Pitch</div>
+            <div class="pill">Tableau</div>
+          </div>
+
+          <div class="hdr-btn">Share</div>
+          <div class="hdr-btn-primary">Save</div>
+        </div>
+
+        <!-- Sub-bar with edit mode -->
+        <div style="display:flex; align-items:center; padding: 0 20px; height: 36px; background: rgba(17,17,20,0.8); border-bottom: 1px solid rgba(39,39,42,0.5); gap: 12px;">
+          <span style="font-size: 11px; color: #52525b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Editing</span>
+          <div class="pill-group" style="background: rgba(39,39,42,0.5);">
+            <div class="pill active-blue">Default</div>
+            <div class="pill">Pro</div>
+            <div class="pill">Stage</div>
+          </div>
+          <div style="flex:1;"></div>
+          <span style="font-size: 11px; color: #52525b;">
+            <span class="summary-dot" style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#4ade80; vertical-align:middle; margin-right:6px;"></span>
+            Postgres &middot; 1,247 rows &middot; 142 ms &middot; Turbo &middot; Refreshed 2 min ago
+          </span>
+        </div>
+
+        <!-- Annotations -->
+        <div class="callout-tag anno-purple" style="top: 14px; right: 190px;">Archetype (primary)</div>
+        <div class="callout-tag anno-blue" style="top: 56px; left: 100px;">Edit mode (sub-bar)</div>
+      </div>
+
+      <div class="dash-body">
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder"></div>
+        <div class="tile-placeholder wide tall"></div>
+        <div class="tile-placeholder wide tall"></div>
+        <div class="tile-placeholder tall"></div>
+      </div>
+    </div>
+
+    <div class="opt-desc">
+      <div class="opt-header">
+        <div class="opt-letter" style="background: linear-gradient(135deg, #3b82f6, #0ea5e9);">B</div>
+        <span class="opt-title">Edit Mode in Sub-bar</span>
+        <span class="opt-subtitle">Archetype is primary, edit mode lives below</span>
+      </div>
+      <ul class="opt-bullets">
+        <li><strong>Main header:</strong> Archetype pill only &mdash; clean, one concern</li>
+        <li><strong>Sub-bar below:</strong> Edit mode (Default / Pro / Stage) + connection status + summary stats</li>
+        <li>Edit mode is always accessible but visually secondary to archetype</li>
+        <li><strong>Pro:</strong> Clean header. Edit mode grouped with status info. Clear hierarchy.</li>
+        <li><strong>Con:</strong> Uses more vertical space (header + sub-bar = 88px total). Edit mode less prominent.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- OPTION C: Auto-switch -->
+  <div class="opt-card" onclick="selectCard(this, 'C')">
+    <div class="mockup-zone">
+      <div class="mockup-wrapper">
+        <div class="dash-header">
+          <div class="dash-logo">A</div>
+          <div class="dash-breadcrumb">Sales Org <span>/</span> Pipeline <span>/</span> <span class="current">Q4 2026 Workbench</span></div>
+          <div class="dash-spacer"></div>
+
+          <!-- Single unified pill -->
+          <div class="pill-group">
+            <div class="pill">Briefing</div>
+            <div class="pill active">Workbench</div>
+            <div class="pill">LiveOps</div>
+            <div class="pill">Story</div>
+            <div class="pill">Pitch</div>
+            <div class="pill">Tableau</div>
+          </div>
+
+          <!-- Edit mode indicator (not a switcher, just a badge) -->
+          <div style="display:flex; align-items:center; gap: 6px; padding: 4px 10px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); border-radius: 6px;">
+            <div style="width:6px; height:6px; border-radius:50%; background:#3b82f6;"></div>
+            <span style="font-size: 11px; color: #93c5fd; font-weight: 600;">Default mode</span>
+          </div>
+
+          <div class="hdr-btn">Share</div>
+          <div class="hdr-btn-primary">Save</div>
+        </div>
+        <div class="summary-line">
+          <div class="summary-dot"></div>
+          <span>Postgres &middot; sales_prod</span>
+          <span>1,247 rows &middot; cached</span>
+          <span>Query: 142 ms</span>
+          <span style="margin-left:auto;">Refreshed 2 min ago</span>
+        </div>
+
+        <!-- Annotations -->
+        <div class="callout-tag anno-purple" style="top: 14px; right: 300px;">Archetype (you choose)</div>
+        <div class="callout-tag anno-green" style="top: 14px; right: 150px;">Edit mode (auto / click to override)</div>
+      </div>
+
+      <!-- Show state transitions -->
+      <div style="padding: 16px 20px 8px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <div style="flex:1; min-width: 200px; padding: 12px 16px; background: rgba(39,39,42,0.3); border-radius: 8px; border: 1px solid rgba(63,63,70,0.3);">
+          <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #52525b; font-weight: 600; margin-bottom: 6px;">Viewing dashboard</div>
+          <div style="font-size: 13px; color: #a1a1aa;">Edit mode badge shows <span style="color:#93c5fd; font-weight:600;">Default</span></div>
+          <div style="font-size: 11px; color: #52525b; margin-top: 4px;">Just looking at tiles. No editing UI.</div>
+        </div>
+        <div style="font-size: 18px; color: #3f3f46; display:flex; align-items:center;">&#8594;</div>
+        <div style="flex:1; min-width: 200px; padding: 12px 16px; background: rgba(139,92,246,0.05); border-radius: 8px; border: 1px solid rgba(139,92,246,0.2);">
+          <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8b5cf6; font-weight: 600; margin-bottom: 6px;">Click tile or ask agent</div>
+          <div style="font-size: 13px; color: #c4b5fd;">Auto-switches to <span style="font-weight:600;">Pro</span> (Workbench) or <span style="font-weight:600;">Default</span> (Briefing)</div>
+          <div style="font-size: 11px; color: #52525b; margin-top: 4px;">Edit drawer opens. Badge updates.</div>
+        </div>
+        <div style="font-size: 18px; color: #3f3f46; display:flex; align-items:center;">&#8594;</div>
+        <div style="flex:1; min-width: 200px; padding: 12px 16px; background: rgba(16,185,129,0.05); border-radius: 8px; border: 1px solid rgba(16,185,129,0.2);">
+          <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #10b981; font-weight: 600; margin-bottom: 6px;">Switch to Pitch archetype</div>
+          <div style="font-size: 13px; color: #6ee7b7;">Auto-switches to <span style="font-weight:600;">Stage</span> mode</div>
+          <div style="font-size: 11px; color: #52525b; margin-top: 4px;">Full-screen presentation. Voice = Wake Word.</div>
+        </div>
+      </div>
+
+      <div style="padding: 8px 20px 16px;">
+        <div style="font-size: 11px; color: #52525b; text-align: center;">Click the badge anytime to manually override the auto-selected edit mode</div>
+      </div>
+    </div>
+
+    <div class="opt-desc">
+      <div class="opt-header">
+        <div class="opt-letter" style="background: linear-gradient(135deg, #10b981, #059669);">C</div>
+        <span class="opt-title">Smart Auto-Switch</span>
+        <span class="opt-subtitle">Archetype drives edit mode, with manual override</span>
+      </div>
+      <ul class="opt-bullets">
+        <li><strong>Archetype pill</strong> is the only switcher. Edit mode is a small badge/indicator, not a pill group.</li>
+        <li><strong>Auto-mapping:</strong> Workbench &rarr; Pro, Briefing &rarr; Default, Pitch &rarr; Stage, LiveOps &rarr; Default, Story &rarr; Default, Tableau &rarr; Pro</li>
+        <li><strong>Context-aware:</strong> Click a tile &rarr; auto-enters edit mode. Close editor &rarr; returns to view mode.</li>
+        <li><strong>Manual override:</strong> Click the badge to change edit mode if auto-selection is wrong.</li>
+        <li><strong>Pro:</strong> Simplest header. Feels intelligent. Less cognitive load.</li>
+        <li><strong>Con:</strong> Magic can surprise users. "Why did my mode change?" Override click target is small.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<div class="reco">
+  <div class="rlabel">My Recommendation</div>
+  <p><strong>Option C (Smart Auto-Switch)</strong> &mdash; the archetype IS the primary decision. Most users won't manually toggle edit modes. Workbench users want Pro editing. Pitch users want Stage. Let the system be smart and get out of the way. The override badge is there for the 5% who want manual control. Keeps the header clean, reduces cognitive load, and matches the "one architecture, three faces" philosophy from wireframe 1.</p>
+</div>
+
+<p class="hint">Click the option that feels right, then respond in terminal.</p>
+
+</body>
+</html>

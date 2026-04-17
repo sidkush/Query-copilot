@@ -39,6 +39,28 @@ function sanitizeHtml(html) {
   return safe;
 }
 
+// Escape plain text so it cannot inject HTML when interpolated.
+function escapeHtml(raw) {
+  return String(raw)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Validate a raw URL before splicing into an href. Blocks javascript:, data:,
+// vbscript:, file:, and any scheme not in the explicit allowlist. Returns "#"
+// as a safe no-op when the URL fails validation.
+function safeHref(raw) {
+  if (!raw) return '#';
+  const trimmed = String(raw).trim();
+  // Allow: absolute http(s), mailto, tel, same-page fragment, relative paths
+  if (/^(https?:\/\/|mailto:|tel:)/i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('#') || trimmed.startsWith('/')) return trimmed;
+  return '#';
+}
+
 
 // ── Minimal Markdown → HTML ──────────────────────────────────────────
 // Covers: headings, bold, italic, inline code, code blocks, links,
@@ -70,8 +92,14 @@ function parseMarkdown(md) {
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
 
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
+  // Links — validate URL (block javascript:/data:/etc.) and HTML-escape the
+  // visible label. Prevents [clickme](javascript:alert(1)) and
+  // [<img onerror=…>](https://x) style XSS.
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, url) => {
+    const href = safeHref(url);
+    const safeLabel = escapeHtml(label);
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="md-link">${safeLabel}</a>`;
+  });
 
   // Unordered lists (simple — single level)
   html = html.replace(/^[-*] (.+)$/gm, '<li class="md-li">$1</li>');
@@ -96,13 +124,14 @@ function ToolbarBtn({ icon, title, active, onClick }) {
       type="button"
       title={title}
       onClick={onClick}
+      className="premium-btn premium-sheen"
       style={{
-        background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
+        background: active ? 'var(--overlay-medium)' : 'transparent',
         border: 'none',
-        borderRadius: 4,
+        borderRadius: 5,
         color: active ? TOKENS.text.primary : TOKENS.text.muted,
         cursor: 'pointer',
-        padding: '3px 6px',
+        padding: '3px 7px',
         fontSize: 12,
         fontFamily: TOKENS.fontMono,
         fontWeight: 600,
@@ -118,7 +147,7 @@ function ToolbarBtn({ icon, title, active, onClick }) {
 
 // ── Text Tile Component ──────────────────────────────────────────────
 
-export default function TextTile({ tile, onUpdate }) {
+export default function TextTile({ tile, onUpdate, index = 0 }) {
   const [editing, setEditing] = useState(false);
   const [sourceMode, setSourceMode] = useState(false);
   const [draft, setDraft] = useState(tile?.content || '');
@@ -169,6 +198,7 @@ export default function TextTile({ tile, onUpdate }) {
           cursor: 'text',
           overflow: 'auto',
           fontFamily: TOKENS.fontBody,
+          '--mount-index': index,
         }}
       >
         {content ? (
@@ -204,9 +234,11 @@ export default function TextTile({ tile, onUpdate }) {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        '--mount-index': index,
       }}
     >
-      {/* Toolbar */}
+      {/* Toolbar — includes a small TEXT eyebrow so users can identify this
+          as an editable content tile at a glance (header-consistency pattern). */}
       <div
         style={{
           display: 'flex',
@@ -217,6 +249,21 @@ export default function TextTile({ tile, onUpdate }) {
           flexShrink: 0,
         }}
       >
+        <span
+          aria-hidden="true"
+          style={{
+            fontSize: TOKENS.tile.eyebrowSize,
+            fontWeight: 700,
+            letterSpacing: TOKENS.tile.eyebrowLetterSpacing,
+            textTransform: 'uppercase',
+            color: TOKENS.text.muted,
+            fontFamily: TOKENS.fontDisplay,
+            marginRight: 8,
+            userSelect: 'none',
+          }}
+        >
+          Text
+        </span>
         <ToolbarBtn icon="B" title="Bold (**text**)" onClick={() => insertMarkdown('**', '**')} />
         <ToolbarBtn icon="I" title="Italic (*text*)" onClick={() => insertMarkdown('*', '*')} />
         <ToolbarBtn icon="H" title="Heading (# )" onClick={() => insertMarkdown('## ', '')} />
@@ -242,6 +289,7 @@ export default function TextTile({ tile, onUpdate }) {
         <button
           type="button"
           onClick={save}
+          className="premium-btn premium-sheen"
           style={{
             background: TOKENS.accent,
             color: '#fff',
@@ -252,6 +300,7 @@ export default function TextTile({ tile, onUpdate }) {
             fontWeight: 600,
             cursor: 'pointer',
             marginLeft: 6,
+            boxShadow: TOKENS.shadow.accentGlow,
           }}
         >
           Done

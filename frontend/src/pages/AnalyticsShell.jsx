@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../store";
 import { api } from "../api";
 import DashboardShell from "../components/dashboard/DashboardShell";
@@ -115,6 +116,20 @@ export default function AnalyticsShell() {
   const [editorMode, setEditorMode] = useState("pro");
   const [schemaColumns, setSchemaColumns] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  // Document-level ESC → close editor modal.
+  useEffect(() => {
+    if (!selectedTile) return;
+    const onKey = (e) => { if (e.key === 'Escape') setSelectedTile(null); };
+    document.addEventListener('keydown', onKey);
+    // Lock body scroll while modal open
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [selectedTile]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -334,82 +349,8 @@ export default function AnalyticsShell() {
         lastRefreshed={dashboard.updated_at}
         style={{ flex: 1, minWidth: 0 }}
       />
-      {/* Right panel: Agent OR ChartEditor drawer (tile edit takes priority) */}
-      {selectedTile ? (
-        <Suspense fallback={<div style={{width:480,height:'100%',background:'#06060e',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)',fontSize:12}}>Loading editor…</div>}>
-          <EditorErrorBoundary onClose={() => setSelectedTile(null)}>
-            <div
-              data-testid="chart-editor-drawer"
-              style={{
-                width: 520,
-                flexShrink: 0,
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                borderLeft: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
-                background: "var(--bg-page, #06060e)",
-              }}
-            >
-              {/* Drawer header — tile name + close */}
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 14px",
-                borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
-                flexShrink: 0,
-              }}>
-                <button
-                  onClick={() => setSelectedTile(null)}
-                  style={{
-                    background: "var(--bg-elev-2, rgba(255,255,255,0.06))",
-                    border: "1px solid var(--border-subtle, rgba(255,255,255,0.1))",
-                    cursor: "pointer",
-                    color: "var(--text-secondary, #b0b0b6)",
-                    padding: "4px 8px",
-                    borderRadius: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 11,
-                    fontWeight: 500,
-                  }}
-                  aria-label="Close editor"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-                  Back
-                </button>
-                <span style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "var(--text-primary, #e7e7ea)",
-                  letterSpacing: "-0.01em",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  flex: 1,
-                }}>
-                  {selectedTile.title || "Edit tile"}
-                </span>
-              </div>
-              {/* ChartEditor fills drawer body */}
-              <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-                <ChartEditor
-                  spec={selectedTile.chart_spec || selectedTile.chartSpec || { $schema: "askdb/chart-spec/v1", type: "cartesian", mark: "bar", encoding: {} }}
-                  resultSet={buildTileResultSet(selectedTile, schemaColumns)}
-                  mode={editorMode}
-                  surface="dashboard-tile"
-                  onModeChange={setEditorMode}
-                  onSpecChange={(next) => {
-                    setChartEditorSpec(next);
-                    setSelectedTile(prev => prev ? { ...prev, chart_spec: next } : null);
-                  }}
-                />
-              </div>
-            </div>
-          </EditorErrorBoundary>
-        </Suspense>
-      ) : agentPanelOpen ? (
+      {/* Agent panel (only when no tile being edited) */}
+      {!selectedTile && agentPanelOpen ? (
         <Suspense fallback={null}>
           <AgentPanel
             connId={activeConn?.conn_id}
@@ -418,6 +359,156 @@ export default function AnalyticsShell() {
           />
         </Suspense>
       ) : null}
+
+      {/* ChartEditor — full-screen modal overlay (replaces 520px side drawer)
+          Portal'd to body so it escapes the dashboard layout flow.
+          ESC or Back button returns to dashboard. */}
+      <AnimatePresence>
+        {selectedTile && (
+          <motion.div
+            key="editor-modal"
+            data-testid="chart-editor-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Edit tile: ${selectedTile.title || 'Chart'}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            onKeyDown={(e) => { if (e.key === 'Escape') setSelectedTile(null); }}
+            tabIndex={-1}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 120,
+              background: 'var(--bg-page, #06060e)',
+              display: 'flex',
+              flexDirection: 'column',
+              backdropFilter: 'blur(2px)',
+            }}
+          >
+            <Suspense fallback={
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                Loading editor…
+              </div>
+            }>
+              <EditorErrorBoundary onClose={() => setSelectedTile(null)}>
+                {/* Modal header — Back + title + breadcrumb */}
+                <motion.div
+                  initial={{ y: -8, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.05, duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    padding: '12px 20px',
+                    borderBottom: '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
+                    flexShrink: 0,
+                    background: 'var(--bg-elevated, #111114)',
+                    backdropFilter: 'blur(14px) saturate(140%)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTile(null)}
+                    className="premium-btn"
+                    style={{
+                      background: 'var(--bg-elev-2, rgba(255,255,255,0.06))',
+                      border: '1px solid var(--border-subtle, rgba(255,255,255,0.1))',
+                      cursor: 'pointer',
+                      color: 'var(--text-primary, #e7e7ea)',
+                      padding: '7px 14px',
+                      borderRadius: 8,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      letterSpacing: '-0.01em',
+                      fontFamily: "'Satoshi','Outfit',system-ui,sans-serif",
+                    }}
+                    aria-label="Back to dashboard"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+                    Back
+                  </button>
+                  <span
+                    aria-hidden="true"
+                    style={{ width: 1, height: 18, background: 'var(--border-subtle, rgba(255,255,255,0.1))' }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: '0.18em',
+                      textTransform: 'uppercase',
+                      color: 'var(--text-muted, rgba(255,255,255,0.5))',
+                      fontFamily: "'Satoshi','Outfit',system-ui,sans-serif",
+                    }}>
+                      Editing tile
+                    </span>
+                    <span style={{
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: 'var(--text-primary, #e7e7ea)',
+                      letterSpacing: '-0.01em',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontFamily: "'Satoshi','Outfit',system-ui,sans-serif",
+                    }}>
+                      {selectedTile.title || 'Untitled chart'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTile(null)}
+                    className="premium-btn"
+                    aria-label="Close editor"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted, rgba(255,255,255,0.55))',
+                      padding: 6,
+                      borderRadius: 8,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 28,
+                      height: 28,
+                    }}
+                    title="Close (Esc)"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                  </button>
+                </motion.div>
+
+                {/* ChartEditor fills remaining viewport */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.995 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.08, duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
+                >
+                  <ChartEditor
+                    spec={selectedTile.chart_spec || selectedTile.chartSpec || { $schema: "askdb/chart-spec/v1", type: "cartesian", mark: "bar", encoding: {} }}
+                    resultSet={buildTileResultSet(selectedTile, schemaColumns)}
+                    mode={editorMode}
+                    surface="dashboard-tile"
+                    onModeChange={setEditorMode}
+                    onSpecChange={(next) => {
+                      setChartEditorSpec(next);
+                      setSelectedTile(prev => prev ? { ...prev, chart_spec: next } : null);
+                    }}
+                  />
+                </motion.div>
+              </EditorErrorBoundary>
+            </Suspense>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

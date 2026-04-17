@@ -1,0 +1,230 @@
+<h2>Dashboard Feature Roadmap — Sub-project Decomposition</h2>
+<p class="subtitle">Six focused sub-projects, dependency-ordered. Each gets its own spec → plan → build cycle.<br>
+The wireframe vision is the target. Here's how we get there without boiling the ocean.</p>
+
+<div style="margin: 32px 0 24px; padding: 20px 24px; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.25); border-radius: 12px;">
+  <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(139,92,246,0.9); margin-bottom: 8px; font-weight: 600;">Dependency Flow</div>
+  <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 2; color: rgba(255,255,255,0.85);">
+    <span style="color: #a78bfa;">SP-1</span> Shell &amp; Chrome → <span style="color: #a78bfa;">SP-2</span> Agent Panel → <span style="color: #a78bfa;">SP-5</span> Voice on Dashboard<br>
+    <span style="color: #a78bfa;">SP-1</span> Shell &amp; Chrome → <span style="color: #a78bfa;">SP-3</span> Text Tiles &amp; Content <span style="opacity:0.4">(parallel with SP-2)</span><br>
+    <span style="color: #a78bfa;">SP-4</span> Theme System <span style="opacity:0.4">(parallel with SP-1, iterative throughout)</span><br>
+    <span style="color: #a78bfa;">SP-6</span> Layout Mode Polish <span style="opacity:0.4">(after SP-2 + SP-3 + SP-4, final pass)</span>
+  </div>
+</div>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="sp1" onclick="toggleSelect(this)">
+    <div class="letter" style="background: linear-gradient(135deg, #3b82f6, #6366f1);">1</div>
+    <div class="content">
+      <h3>SP-1: Dashboard Shell & Chrome</h3>
+      <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 8px;">FOUNDATION — everything else sits on this</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+        <div>
+          <div style="color: #f87171; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Currently Missing</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.7);">
+            <li>Status bar (connection · rows · tier · voice)</li>
+            <li>Full breadcrumb (Org / Workspace / Dashboard)</li>
+            <li>Mode switcher in header (Default / Pro / Stage)</li>
+            <li>Dashboard summary line ("1,247 rows · Refreshed 2 min ago")</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color: #4ade80; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Already Working</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.5);">
+            <li>DashboardHeader (title, save status)</li>
+            <li>DashboardModeToggle (7 archetype modes)</li>
+            <li>AlertManager, BookmarkManager</li>
+            <li>CommandPalette (Cmd+K)</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 8px 12px; background: rgba(59,130,246,0.1); border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.6);">
+        <strong style="color: #93c5fd;">Effort:</strong> ~2-3 days · 4-5 new components · No backend changes
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="sp2" onclick="toggleSelect(this)">
+    <div class="letter" style="background: linear-gradient(135deg, #8b5cf6, #a855f7);">2</div>
+    <div class="content">
+      <h3>SP-2: Agent Panel on Dashboard</h3>
+      <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 8px;">THE CORE DIFFERENTIATOR — conversational composer from wireframe 5</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+        <div>
+          <div style="color: #f87171; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Stubbed / Missing</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.7);">
+            <li>Mount AgentPanel in DashboardShell</li>
+            <li>Agent → tile CRUD pipeline (create, resize, move)</li>
+            <li>Inline tile edit drawer (click tile → ChartEditor)</li>
+            <li>"AGENT EDITING" badge on active tile</li>
+            <li>Suggested action chips after agent response</li>
+            <li>Tool call cards visible in panel (run_sql, create_tile, etc.)</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color: #4ade80; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Already Working</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.5);">
+            <li>AgentPanel component (dockable, resizable)</li>
+            <li>AgentStepFeed (thinking, tool calls, streaming)</li>
+            <li>Backend agent tools (create/update/delete tile)</li>
+            <li>SSE streaming for agent responses</li>
+            <li>Click detection on tiles (3-5px threshold)</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 8px 12px; background: rgba(139,92,246,0.1); border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.6);">
+        <strong style="color: #c4b5fd;">Effort:</strong> ~4-5 days · Wiring + new drawer + state management · Some backend glue
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="sp3" onclick="toggleSelect(this)">
+    <div class="letter" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">3</div>
+    <div class="content">
+      <h3>SP-3: Text Tiles & Rich Content</h3>
+      <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 8px;">CONTENT RICHNESS — markdown, insights, activity, narrative tiles</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+        <div>
+          <div style="color: #f87171; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Missing</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.7);">
+            <li>Generic text/markdown tile type</li>
+            <li>AI insight summary tile (LLM-generated)</li>
+            <li>Recent Activity feed tile</li>
+            <li>Rich-text editor for manual text tiles</li>
+            <li>Tile type picker ("Add tile" → chart / text / KPI / activity)</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color: #4ade80; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Partial</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.5);">
+            <li>Story mode tile annotations (text beside chart)</li>
+            <li>NotesPanel (comments, not tiles)</li>
+            <li>KPICard handles numeric summaries</li>
+            <li>Backend tile model accepts arbitrary fields</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 8px 12px; background: rgba(6,182,212,0.1); border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.6);">
+        <strong style="color: #67e8f9;">Effort:</strong> ~3-4 days · New tile types + renderer + backend insight pipeline
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="sp4" onclick="toggleSelect(this)">
+    <div class="letter" style="background: linear-gradient(135deg, #f59e0b, #d97706);">4</div>
+    <div class="content">
+      <h3>SP-4: Theme System & Visual Modes</h3>
+      <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 8px;">THE POLISH — Premium Editorial base, HUD stage swap, Tableau-classic workbook</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+        <div>
+          <div style="color: #f87171; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Needs Work</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.7);">
+            <li>Premium Editorial as daily-driver base</li>
+            <li>Hollywood HUD mode swap for Stage</li>
+            <li>Data Cinema principles (Tufte data-ink ratio)</li>
+            <li>Tableau-classic workbook archetype (#6)</li>
+            <li>Per-archetype token overrides</li>
+            <li>DashboardThemeEditor live preview polish</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color: #4ade80; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Foundation Exists</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.5);">
+            <li>tokens.js design token system</li>
+            <li>6 chart palettes (default, ocean, sunset, etc.)</li>
+            <li>DASHBOARD_PRESETS (creative_dark, minimal_light)</li>
+            <li>Glass morphism + shadow stack defaults</li>
+            <li>DashboardThemeEditor component exists</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 8px 12px; background: rgba(245,158,11,0.1); border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.6);">
+        <strong style="color: #fcd34d;">Effort:</strong> ~3-4 days · Token tuning + new presets + theme editor UX · Can iterate throughout
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="sp5" onclick="toggleSelect(this)">
+    <div class="letter" style="background: linear-gradient(135deg, #10b981, #059669);">5</div>
+    <div class="content">
+      <h3>SP-5: Voice Integration on Dashboard</h3>
+      <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 8px;">THE DIFFERENTIATOR — PTT / Wake Word / Hot Mic on dashboard</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+        <div>
+          <div style="color: #f87171; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Missing on Dashboard</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.7);">
+            <li>Voice button in dashboard status bar</li>
+            <li>Voice mode selector (PTT / Wake / Hot Mic)</li>
+            <li>Voice → agent pipeline on dashboard context</li>
+            <li>Stage Mode auto-switch to Wake Word</li>
+            <li>Transcription overlay / indicator</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color: #4ade80; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Already Built</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.5);">
+            <li>VoiceButton + VoiceIndicator components</li>
+            <li>Whisper STT integration</li>
+            <li>Voice state in Zustand store</li>
+            <li>WebSocket voice pipeline</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 8px 12px; background: rgba(16,185,129,0.1); border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.6);">
+        <strong style="color: #6ee7b7;">Effort:</strong> ~2-3 days · Mostly wiring + mode logic · Depends on SP-1 (status bar) + SP-2 (agent panel)
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="sp6" onclick="toggleSelect(this)">
+    <div class="letter" style="background: linear-gradient(135deg, #ec4899, #be185d);">6</div>
+    <div class="content">
+      <h3>SP-6: Layout Mode Polish (Final Pass)</h3>
+      <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-bottom: 8px;">WIREFRAME FIDELITY — make each archetype match the high-fi mockups</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+        <div>
+          <div style="color: #f87171; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Per-Archetype Polish</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.7);">
+            <li><strong>Briefing:</strong> KPI hero row + narrative AI summary</li>
+            <li><strong>Workbench:</strong> Match wireframe 5 density + agent panel</li>
+            <li><strong>LiveOps:</strong> Traffic-light KPIs + event stream tile</li>
+            <li><strong>Story:</strong> Editorial typography + scroll chapters</li>
+            <li><strong>Pitch:</strong> Keynote slides + presentation nav</li>
+            <li><strong>Tableau-classic:</strong> New archetype replacing Workbook</li>
+          </ul>
+        </div>
+        <div>
+          <div style="color: #4ade80; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px;">Layout Shells Exist</div>
+          <ul style="margin: 0; padding-left: 16px; line-height: 1.7; color: rgba(255,255,255,0.5);">
+            <li>All 6 layout components built</li>
+            <li>Mode switching works</li>
+            <li>Bin-packing, grid, scroll, slide logic in place</li>
+            <li>Per-mode refresh strategies wired</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding: 8px 12px; background: rgba(236,72,153,0.1); border-radius: 8px; font-size: 12px; color: rgba(255,255,255,0.6);">
+        <strong style="color: #f9a8d4;">Effort:</strong> ~4-5 days · Visual polish + new Tableau archetype · Depends on SP-2, SP-3, SP-4 all landing
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top: 32px; padding: 20px 24px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); border-radius: 12px;">
+  <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(16,185,129,0.9); margin-bottom: 10px; font-weight: 600;">My Recommendation</div>
+  <div style="font-size: 14px; line-height: 1.8; color: rgba(255,255,255,0.85);">
+    <strong>Build order: SP-1 → SP-2 → SP-3 (parallel with SP-4) → SP-5 → SP-6</strong><br><br>
+    SP-1 (Shell) is 2-3 days of foundation that unblocks everything. SP-2 (Agent Panel) is the <em>wow moment</em> —
+    the conversational composer from wireframe 5 is what makes AskDB different from every other BI tool.
+    SP-3 and SP-4 can run in parallel (text tiles don't depend on theme, theme doesn't depend on text tiles).
+    SP-5 (Voice) needs agent panel + status bar, so it comes after. SP-6 is the final polish pass when all pieces exist.<br><br>
+    <strong>Total estimate: ~18-24 days across 6 sub-projects.</strong> Each sub-project gets its own brainstorm → spec → plan → build cycle.
+    We spec SP-1 now, build it, then spec SP-2, and so on.
+  </div>
+</div>
+
+<p style="margin-top: 20px; color: rgba(255,255,255,0.4); font-size: 13px;">
+  Multi-select on. Click sub-projects to confirm build order, or tell me in terminal if you want to reorder, merge, or cut any.
+</p>

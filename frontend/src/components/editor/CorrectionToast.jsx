@@ -1,6 +1,8 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../../store";
 import { api } from "../../api";
+import { SPRINGS } from "../dashboard/motion";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * CorrectionToast — D3 Task 2
@@ -19,32 +21,29 @@ import { api } from "../../api";
  *   connId  string  active connection id (used for API persist calls)
  * ──────────────────────────────────────────────────────────────────────── */
 
-const AUTO_DISMISS_MS = 8000;
+const DEFAULT_AUTO_DISMISS_MS = 8000;
 
 // ── Style constants ────────────────────────────────────────────────────────
 
 const S = {
-  container: {
+  container: (dockVisible) => ({
     position: "absolute",
-    bottom: 64,
+    // Offset bottom edge based on whether BottomDock is rendered. When the
+    // dock is visible we clear it with 96px; when hidden, 24px from canvas edge.
+    bottom: dockVisible ? 96 : 24,
     right: 16,
     width: 360,
     zIndex: 60,
     pointerEvents: "all",
-  },
+  }),
   card: {
     width: "100%",
-    borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(30,30,50,0.95)",
-    backdropFilter: "blur(8px)",
-    WebkitBackdropFilter: "blur(8px)",
-    boxShadow:
-      "0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset",
+    borderRadius: 14,
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
-    animation: "ct-slide-in 0.22s cubic-bezier(0.16,1,0.3,1) both",
+    boxShadow:
+      "0 16px 48px var(--shadow-deep), 0 0 0 1px var(--glass-highlight) inset",
   },
   body: {
     padding: "14px 16px 10px",
@@ -96,9 +95,9 @@ const S = {
     fontSize: 12,
     fontWeight: 600,
     borderRadius: 7,
-    border: "1px solid rgba(255,255,255,0.08)",
+    border: "1px solid var(--border-default)",
     background: "transparent",
-    color: "var(--text-muted, #6b7280)",
+    color: "var(--text-muted)",
     cursor: "pointer",
     transition: "all 0.15s",
     letterSpacing: "0.01em",
@@ -112,16 +111,17 @@ const S = {
     background: "var(--accent, #2563eb)",
     color: "#fff",
     cursor: "pointer",
-    transition: "all 0.15s",
     letterSpacing: "0.01em",
     boxShadow: "0 3px 10px rgba(37,99,235,0.35)",
     display: "flex",
     alignItems: "center",
     gap: 6,
+    position: "relative",
+    overflow: "hidden",
   },
   progressTrack: {
     height: 2,
-    background: "rgba(255,255,255,0.06)",
+    background: "var(--overlay-medium)",
     borderRadius: 0,
     overflow: "hidden",
     flexShrink: 0,
@@ -131,7 +131,12 @@ const S = {
     background: "rgba(167,139,250,0.6)",
     borderRadius: 0,
     transformOrigin: "left center",
-    animation: `ct-shrink ${AUTO_DISMISS_MS}ms linear forwards`,
+    animationName: "ct-shrink",
+    animationTimingFunction: "linear",
+    animationFillMode: "forwards",
+    position: "relative",
+    overflow: "hidden",
+    // animationDuration supplied inline at render-time so JS timer + CSS bar stay in sync
   },
 };
 
@@ -171,13 +176,21 @@ function Spinner() {
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export default function CorrectionToast({ connId }) {
+export default function CorrectionToast({
+  connId,
+  dockVisible = true,
+  dismissTimeMs = DEFAULT_AUTO_DISMISS_MS,
+}) {
   const correctionSuggestions = useStore((s) => s.correctionSuggestions);
   const dismissCorrectionSuggestion = useStore((s) => s.dismissCorrectionSuggestion);
   const linguisticModel = useStore((s) => s.linguisticModel);
   const colorMap = useStore((s) => s.colorMap);
   const setLinguisticModel = useStore((s) => s.setLinguisticModel);
   const setColorMap = useStore((s) => s.setColorMap);
+
+  // Reactive hover state — no DOM style mutation
+  const [dismissHover, setDismissHover] = useState(false);
+  const [acceptHover, setAcceptHover] = useState(false);
 
   // We only ever show the first item in the queue
   const current = correctionSuggestions[0] ?? null;
@@ -200,10 +213,10 @@ export default function CorrectionToast({ connId }) {
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       dismissCorrectionSuggestion(current.id);
-    }, AUTO_DISMISS_MS);
+    }, dismissTimeMs);
 
     return () => clearTimeout(timerRef.current);
-  }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current?.id, dismissTimeMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Accept handler ────────────────────────────────────────────────────
 
@@ -263,18 +276,12 @@ export default function CorrectionToast({ connId }) {
 
   // ── Render ────────────────────────────────────────────────────────────
 
-  if (!current) return null;
-
-  const subtitle = subtitleFor(current);
+  const subtitle = current ? subtitleFor(current) : "";
 
   return (
     <>
       {/* Keyframes — injected once; idempotent via className scope */}
       <style>{`
-        @keyframes ct-slide-in {
-          from { opacity: 0; transform: translateY(10px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0)    scale(1);    }
-        }
         @keyframes ct-shrink {
           from { transform: scaleX(1); }
           to   { transform: scaleX(0); }
@@ -284,69 +291,94 @@ export default function CorrectionToast({ connId }) {
         }
       `}</style>
 
-      <div style={S.container} data-testid="correction-toast">
-        <div style={S.card}>
+      <AnimatePresence>
+        {current && (
+          <motion.div
+            key={current.id}
+            style={S.container(dockVisible)}
+            data-testid="correction-toast"
+            initial={{ opacity: 0, y: 20, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.96 }}
+            transition={SPRINGS.fluid}
+          >
+            <div className="premium-liquid-glass" style={S.card}>
 
-          {/* ── Body ─────────────────────────────────────────────── */}
-          <div style={S.body}>
-            <div style={S.eyebrow}>
-              <span style={S.eyebrowDot} />
-              Correction Suggestion
+              {/* ── Body ─────────────────────────────────────────────── */}
+              <div style={S.body}>
+                <div style={S.eyebrow}>
+                  <span style={S.eyebrowDot} className="premium-breathe" />
+                  Correction Suggestion
+                </div>
+                <p style={S.message}>{current.message}</p>
+                {subtitle && <p style={S.subtitle}>{subtitle}</p>}
+              </div>
+
+              {/* ── Footer: Dismiss + Accept ──────────────────────────── */}
+              <div style={S.footer}>
+                <button
+                  type="button"
+                  onClick={dismiss}
+                  onMouseEnter={() => setDismissHover(true)}
+                  onMouseLeave={() => setDismissHover(false)}
+                  onFocus={() => setDismissHover(true)}
+                  onBlur={() => setDismissHover(false)}
+                  className="premium-btn"
+                  style={{
+                    ...S.dismissBtn,
+                    background: dismissHover ? "var(--bg-hover)" : "transparent",
+                    color: dismissHover
+                      ? "var(--text-primary)"
+                      : "var(--text-muted)",
+                    borderColor: dismissHover
+                      ? "var(--border-hover)"
+                      : "var(--border-default)",
+                  }}
+                >
+                  Dismiss
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAccept}
+                  onMouseEnter={() => setAcceptHover(true)}
+                  onMouseLeave={() => setAcceptHover(false)}
+                  onFocus={() => setAcceptHover(true)}
+                  onBlur={() => setAcceptHover(false)}
+                  className="premium-btn premium-sheen"
+                  style={{
+                    ...S.acceptBtn,
+                    background: acceptHover
+                      ? "var(--accent-light, #3b82f6)"
+                      : "var(--accent, #2563eb)",
+                    boxShadow: acceptHover
+                      ? "0 4px 14px rgba(37,99,235,0.45)"
+                      : "0 3px 10px rgba(37,99,235,0.35)",
+                  }}
+                >
+                  {savingRef.current && <Spinner />}
+                  Accept
+                </button>
+              </div>
+
+              {/* ── Auto-dismiss progress bar — shimmer overlay makes it alive ── */}
+              <div style={S.progressTrack}>
+                {/*
+                  key={current.id} forces the animation to restart when the
+                  suggestion changes — otherwise a residual bar from the previous
+                  toast would carry over to the new one.
+                */}
+                <div
+                  key={current.id}
+                  className="premium-shimmer-surface"
+                  style={{ ...S.progressBar, animationDuration: `${dismissTimeMs}ms` }}
+                />
+              </div>
+
             </div>
-            <p style={S.message}>{current.message}</p>
-            {subtitle && <p style={S.subtitle}>{subtitle}</p>}
-          </div>
-
-          {/* ── Footer: Dismiss + Accept ──────────────────────────── */}
-          <div style={S.footer}>
-            <button
-              type="button"
-              onClick={dismiss}
-              style={S.dismissBtn}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                e.currentTarget.style.color = "var(--text-primary, #ededef)";
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--text-muted, #6b7280)";
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-              }}
-            >
-              Dismiss
-            </button>
-
-            <button
-              type="button"
-              onClick={handleAccept}
-              style={S.acceptBtn}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--accent-light, #3b82f6)";
-                e.currentTarget.style.boxShadow = "0 4px 14px rgba(37,99,235,0.45)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "var(--accent, #2563eb)";
-                e.currentTarget.style.boxShadow = "0 3px 10px rgba(37,99,235,0.35)";
-              }}
-            >
-              {savingRef.current && <Spinner />}
-              Accept
-            </button>
-          </div>
-
-          {/* ── Auto-dismiss progress bar ─────────────────────────── */}
-          <div style={S.progressTrack}>
-            {/*
-              key={current.id} forces the animation to restart when the
-              suggestion changes — otherwise a residual bar from the previous
-              toast would carry over to the new one.
-            */}
-            <div key={current.id} style={S.progressBar} />
-          </div>
-
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

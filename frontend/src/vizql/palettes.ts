@@ -31,12 +31,56 @@ export const RDBU_10 = [
 /** Default gray for single-series charts */
 export const DEFAULT_MARK_COLOR = '#4e79a7';
 
-/** Background/grid colors */
-export const CHART_BG = '#ffffff';
-export const GRID_COLOR = '#e8e8e8';
-export const AXIS_COLOR = '#333333';
-export const TICK_COLOR = '#888888';
-export const LABEL_COLOR = '#555555';
+/**
+ * Chart chrome colors — theme-reactive via ES-module `export let` live bindings.
+ * Consumers use `import { CHART_BG } from './palettes'` as before; values update
+ * automatically when the `.light` class is toggled on `<html>`.
+ *
+ * CHART_BG is `transparent` so the tile's own background shows through — this
+ * fixes the "white chart on dark tile" visual clash across all dashboard modes.
+ */
+export let CHART_BG = 'transparent';
+export let GRID_COLOR = 'rgba(255,255,255,0.06)';
+export let AXIS_COLOR = 'rgba(255,255,255,0.55)';
+export let TICK_COLOR = 'rgba(255,255,255,0.35)';
+export let LABEL_COLOR = 'rgba(255,255,255,0.72)';
+
+function _applyChartTheme(scheme: 'dark' | 'light'): void {
+  if (scheme === 'light') {
+    CHART_BG = 'transparent';
+    GRID_COLOR = 'rgba(15,23,42,0.08)';
+    AXIS_COLOR = 'rgba(15,23,42,0.65)';
+    TICK_COLOR = 'rgba(15,23,42,0.45)';
+    LABEL_COLOR = 'rgba(15,23,42,0.78)';
+  } else {
+    CHART_BG = 'transparent';
+    GRID_COLOR = 'rgba(255,255,255,0.06)';
+    AXIS_COLOR = 'rgba(255,255,255,0.55)';
+    TICK_COLOR = 'rgba(255,255,255,0.35)';
+    LABEL_COLOR = 'rgba(255,255,255,0.72)';
+  }
+}
+
+/**
+ * Force a chart-chrome scheme. Called by the theme store subscriber and by
+ * dashboard-mode enforcement logic (e.g. LiveOps forces dark, Story forces light).
+ */
+export function setChartChromeScheme(scheme: 'dark' | 'light'): void {
+  _applyChartTheme(scheme);
+}
+
+// On load + whenever <html> class changes — sync to the active theme.
+if (typeof document !== 'undefined') {
+  const html = document.documentElement;
+  const read = () => (html.classList.contains('light') ? 'light' : 'dark');
+  _applyChartTheme(read());
+  try {
+    const obs = new MutationObserver(() => _applyChartTheme(read()));
+    obs.observe(html, { attributes: true, attributeFilter: ['class'] });
+  } catch {
+    // SSR / restrictive env — one-shot apply is fine.
+  }
+}
 
 /**
  * Get a categorical color for a value index.

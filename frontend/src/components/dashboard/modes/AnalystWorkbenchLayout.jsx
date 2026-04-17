@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import GridLayout from "react-grid-layout";
 import DashboardTileCanvas from "../lib/DashboardTileCanvas";
-import { ARCHETYPE_THEMES } from "../tokens";
+import { ARCHETYPE_THEMES, TOKENS } from "../tokens";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -70,6 +70,7 @@ export default function AnalystWorkbenchLayout({
   onLayoutChange,
   onTileClick,
   activeFilters = [],
+  editing = true, // workbench defaults to edit-mode — grid canvas shows by default
 }) {
   const [layout, setLayout] = useState(() => buildInitialLayout(tiles, initialLayout));
   const [setContainerRef, width] = useContainerWidth();
@@ -145,10 +146,10 @@ export default function AnalystWorkbenchLayout({
       data-tile-count={tiles.length}
       ref={setContainerRef}
       style={{
-        padding: 8,
+        padding: THEME.spacing.tilePadding ?? 8,
         display: "flex",
         flexDirection: "column",
-        gap: 8,
+        gap: THEME.spacing.tileGap ?? 8,
         background: THEME.background.dashboard,
         color: "var(--text-primary, #e7e7ea)",
         fontFamily: THEME.typography.bodyFont,
@@ -161,7 +162,7 @@ export default function AnalystWorkbenchLayout({
         tileCount={tiles.length}
       />
       <GridLayout
-        className="layout-workbench-grid"
+        className={`layout-workbench-grid${editing ? ' premium-grid-canvas' : ''}`}
         layout={layout}
         cols={COLS}
         rowHeight={ROW_HEIGHT}
@@ -184,9 +185,11 @@ export default function AnalystWorkbenchLayout({
               data-testid={`layout-workbench-tile-${l.i}`}
               style={{
                 background: THEME.background.tile,
-                border: `${THEME.tile.borderWidth}px solid rgba(255,255,255,0.06)`,
+                // Tight 1px border + inner glass edge highlight — IDE-grade polish
+                border: `1px solid var(--border-default)`,
                 borderRadius: THEME.spacing.tileRadius,
                 overflow: "hidden",
+                boxShadow: TOKENS.shadow.innerGlass,
               }}
             >
               <DashboardTileCanvas tile={tile} onTileClick={onTileClick} />
@@ -218,7 +221,7 @@ function WorkbenchChipRow({ filters = [], tileCount }) {
         color: "var(--text-muted, rgba(255,255,255,0.55))",
         textTransform: "uppercase",
         letterSpacing: "0.08em",
-        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        borderBottom: "1px solid var(--border-default)",
         flexWrap: "wrap",
       }}
     >
@@ -235,11 +238,17 @@ function WorkbenchChipRow({ filters = [], tileCount }) {
             padding: "2px 8px",
             fontSize: 10,
             fontWeight: 600,
+            fontFamily: TOKENS.fontMono,
+            // Solid fallback first — browsers without color-mix (in oklab)
+            // support ignore the second declaration and keep the solid tint.
+            backgroundColor: "rgba(37,99,235,0.16)",
             background: "color-mix(in oklab, var(--accent, #2563EB) 14%, transparent)",
             color: "var(--accent, #60a5fa)",
             borderRadius: 3,
             letterSpacing: "0.02em",
             textTransform: "none",
+            // Active filter chip earns the accent glow (token helper)
+            boxShadow: TOKENS.shadow.accentGlow,
           }}
         >
           {f.field} {f.op || "="} {String(f.value ?? "")}

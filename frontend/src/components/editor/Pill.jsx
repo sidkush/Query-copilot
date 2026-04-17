@@ -204,7 +204,7 @@ export default function Pill({
                 borderRadius: 4,
                 background: "var(--bg-elev-3, #13131b)",
                 border: "1px solid var(--border-subtle, rgba(255,255,255,0.1))",
-                boxShadow: "0 10px 28px rgba(0,0,0,0.55)",
+                boxShadow: "0 10px 28px var(--shadow-deep)",
                 zIndex: 1001,
               }}
             >
@@ -235,7 +235,7 @@ export default function Pill({
                 borderRadius: 4,
                 background: "var(--bg-elev-3, #13131b)",
                 border: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+                boxShadow: "0 8px 24px var(--shadow-mid)",
                 zIndex: 50,
               }}
             >

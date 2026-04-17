@@ -1,6 +1,8 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import PresentationEngine from "../PresentationEngine";
-import { ARCHETYPE_THEMES } from "../tokens";
+import { ARCHETYPE_THEMES, TOKENS } from "../tokens";
+import { BreathingDot, TWEENS } from "../motion";
 
 /**
  * PitchLayout — SP-6 polish pass.
@@ -182,27 +184,41 @@ export default function PitchLayout({
           pointerEvents: "auto",
         }}
       >
-        <div
-          data-testid="pitch-slide-counter"
-          style={{
-            padding: "6px 12px",
-            fontSize: 11,
-            fontFamily: THEME.typography.dataFont,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.7)",
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 4,
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
-          }}
-        >
-          Slide {slideIndex + 1} of {totalSlides}
-        </div>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={slideIndex}
+            data-testid="pitch-slide-counter"
+            className="premium-liquid-glass"
+            initial={{ opacity: 0, scale: 0.98, y: -2 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 1.02, y: 2 }}
+            transition={TWEENS.ease}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 12px",
+              fontSize: 11,
+              fontFamily: TOKENS.fontMono,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.78)",
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 4,
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            <BreathingDot color="rgba(255,255,255,0.85)" size={5} glow={false} />
+            Slide {slideIndex + 1} of {totalSlides}
+          </motion.div>
+        </AnimatePresence>
         <button
           type="button"
           data-testid="pitch-fullscreen-toggle"
+          className="pitch-chrome-btn premium-btn"
           onClick={toggleFullscreen}
           title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
           aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
@@ -230,6 +246,15 @@ export default function PitchLayout({
           </svg>
         </button>
       </div>
+
+      {/* Scoped focus-visible ring for chrome buttons — keyboard users need
+          a visible focus indicator on top of the cinematic black background. */}
+      <style>{`
+        .pitch-chrome-btn:focus-visible {
+          outline: 2px solid rgba(255,255,255,0.85);
+          outline-offset: 2px;
+        }
+      `}</style>
     </div>
   );
 }

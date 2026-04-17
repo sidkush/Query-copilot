@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { useStore } from "../../../store";
 import MarksCard from "../MarksCard";
 import SemanticFieldRail from "../SemanticFieldRail";
+import { TOKENS } from "../../dashboard/tokens";
+import { SPRINGS } from "../../dashboard/motion";
 
 /**
  * InspectorRoot — right rail shell with Setup/Style tab switcher.
@@ -58,7 +61,9 @@ export default function InspectorRoot({ spec, onSpecChange, columnProfile = [] }
               aria-selected={active}
               data-testid={`inspector-tab-${t.id}`}
               onClick={() => setActiveTab(t.id)}
+              className="premium-btn"
               style={{
+                position: "relative",
                 flex: 1,
                 padding: "8px 12px",
                 fontSize: 12,
@@ -67,14 +72,29 @@ export default function InspectorRoot({ spec, onSpecChange, columnProfile = [] }
                   ? "var(--text-primary, #e7e7ea)"
                   : "var(--text-secondary, #b0b0b6)",
                 border: "none",
-                borderBottom: active
-                  ? "2px solid var(--accent, rgba(96,165,250,0.85))"
-                  : "2px solid transparent",
                 cursor: "pointer",
-                fontWeight: active ? 600 : 400,
+                fontWeight: active ? 600 : 500,
+                fontFamily: TOKENS.fontDisplay,
+                letterSpacing: "-0.005em",
+                transition: "color 200ms cubic-bezier(0.16,1,0.3,1)",
               }}
             >
               {t.label}
+              {active && (
+                <motion.span
+                  layoutId="inspector-tab-underline"
+                  transition={SPRINGS.snappy}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: -1,
+                    height: 2,
+                    background: "var(--accent, rgba(96,165,250,0.85))",
+                    borderRadius: 2,
+                  }}
+                />
+              )}
             </button>
           );
         })}

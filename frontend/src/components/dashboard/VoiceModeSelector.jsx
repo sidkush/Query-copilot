@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store';
 import { TOKENS } from './tokens';
+import { SPRINGS } from './motion';
 
 /**
  * VoiceModeSelector — SP-5b popover for choosing voice input mode.
@@ -49,10 +50,18 @@ const MODES = [
   },
 ];
 
-export default function VoiceModeSelector({ open, onClose, anchorRect, dashboardId }) {
+export default function VoiceModeSelector({ open, onClose, anchorRect, anchorRef, dashboardId }) {
   const voiceMode = useStore((s) => s.voiceMode);
   const setVoiceMode = useStore((s) => s.setVoiceMode);
   const popoverRef = useRef(null);
+  // Shadow the incoming anchorRect so we can re-compute it on viewport resize
+  // (fixes stale position when the window is resized while the popover is open).
+  const [liveAnchorRect, setLiveAnchorRect] = useState(anchorRect || null);
+
+  // Keep liveAnchorRect in sync when the prop updates (re-open at new position)
+  useEffect(() => {
+    setLiveAnchorRect(anchorRect || null);
+  }, [anchorRect]);
 
   // Close on outside click
   useEffect(() => {
@@ -72,6 +81,20 @@ export default function VoiceModeSelector({ open, onClose, anchorRect, dashboard
     return () => document.removeEventListener('keydown', handler);
   }, [open, onClose]);
 
+  // Re-compute anchorRect on window resize so the popover stays pinned to the
+  // trigger button — prevents stale position when the status bar reflows.
+  useEffect(() => {
+    if (!open) return;
+    const handler = () => {
+      const el = anchorRef?.current;
+      if (el && typeof el.getBoundingClientRect === 'function') {
+        setLiveAnchorRect(el.getBoundingClientRect());
+      }
+    };
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, [open, anchorRef]);
+
   const handleSelect = (modeId) => {
     setVoiceMode(modeId);
     // Persist per-workspace
@@ -84,12 +107,13 @@ export default function VoiceModeSelector({ open, onClose, anchorRect, dashboard
     onClose();
   };
 
-  // Position above the mic button
+  // Position above the mic button (use liveAnchorRect so resize updates reflow)
+  const rect = liveAnchorRect || anchorRect;
   const popoverStyle = {
     position: 'fixed',
-    bottom: anchorRect ? window.innerHeight - anchorRect.top + 6 : 40,
-    right: anchorRect ? window.innerWidth - anchorRect.right : 16,
-    zIndex: 9999,
+    bottom: rect ? window.innerHeight - rect.top + 6 : 40,
+    right: rect ? window.innerWidth - rect.right : 16,
+    zIndex: 100,
   };
 
   return (
@@ -100,22 +124,21 @@ export default function VoiceModeSelector({ open, onClose, anchorRect, dashboard
           initial={{ opacity: 0, y: 6, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 6, scale: 0.96 }}
-          transition={{ duration: 0.15 }}
+          transition={SPRINGS.snappy}
+          className="premium-liquid-glass"
           style={{
             ...popoverStyle,
-            background: 'rgba(24,24,27,0.97)',
-            backdropFilter: 'blur(20px) saturate(1.4)',
-            WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
-            border: '1px solid rgba(63,63,70,0.5)',
-            borderRadius: 12,
+            borderRadius: 13,
             padding: '6px 0',
             minWidth: 220,
-            boxShadow: '0 12px 40px rgba(0,0,0,0.5), 0 0 1px rgba(255,255,255,0.08) inset',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            boxShadow: '0 12px 40px var(--shadow-deep), 0 0 1px var(--border-default) inset',
           }}
           role="menu"
           aria-label="Voice mode selector"
         >
-          <div style={{ padding: '6px 12px 8px', borderBottom: '1px solid rgba(63,63,70,0.3)' }}>
+          <div style={{ padding: '6px 12px 8px', borderBottom: '1px solid var(--chrome-bar-border-subtle)' }}>
             <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: TOKENS.text.muted }}>
               Voice Mode
             </span>
@@ -127,21 +150,38 @@ export default function VoiceModeSelector({ open, onClose, anchorRect, dashboard
                 key={m.id}
                 role="menuitem"
                 onClick={() => handleSelect(m.id)}
+                className="premium-btn"
                 style={{
+                  position: 'relative',
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: 10,
                   width: '100%',
                   padding: '8px 12px',
                   border: 'none',
-                  background: active ? 'rgba(99,102,241,0.12)' : 'transparent',
+                  background: 'transparent',
                   cursor: 'pointer',
                   textAlign: 'left',
-                  transition: 'background 0.15s ease',
+                  transition: 'color 200ms cubic-bezier(0.16,1,0.3,1)',
                 }}
-                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--bg-hover)'; }}
                 onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
               >
+                {active && (
+                  <Motion.span
+                    layoutId="voice-mode-pill"
+                    transition={SPRINGS.snappy}
+                    style={{
+                      position: 'absolute',
+                      inset: '2px 4px',
+                      borderRadius: 8,
+                      background: 'rgba(99,102,241,0.14)',
+                      border: '1px solid rgba(99,102,241,0.24)',
+                      zIndex: 0,
+                    }}
+                  />
+                )}
+                <span style={{ position: 'relative', zIndex: 1, display: 'contents' }}>
                 <span style={{ color: active ? '#6366f1' : TOKENS.text.secondary, marginTop: 1, flexShrink: 0 }}>
                   {m.icon}
                 </span>
@@ -159,6 +199,7 @@ export default function VoiceModeSelector({ open, onClose, anchorRect, dashboard
                     <div style={{ fontSize: 9, color: TOKENS.warning, marginTop: 2, opacity: 0.8 }}>{m.warn}</div>
                   )}
                 </div>
+                </span>
               </button>
             );
           })}

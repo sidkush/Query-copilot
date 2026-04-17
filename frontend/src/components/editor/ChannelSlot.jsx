@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import Pill from "./Pill";
+import { TOKENS } from "../dashboard/tokens";
+import { SPRINGS } from "../dashboard/motion";
 
 /**
  * ChannelSlot — a single encoding channel drop target (Color, Size, Label,
@@ -135,27 +138,35 @@ export default function ChannelSlot({
       ? "var(--accent, rgba(96,165,250,0.6))"
       : "var(--border-subtle, rgba(255,255,255,0.08))";
 
+  const isEmpty = !fieldRef;
+
   return (
-    <div
+    <motion.div
       data-testid={`channel-slot-${channel}`}
       data-over={over || undefined}
       data-invalid={invalid || undefined}
       data-filled={fieldRef ? "true" : "false"}
+      className={isEmpty ? "premium-shimmer-surface" : undefined}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      animate={{
+        scale: over ? 1.02 : 1,
+        boxShadow: over ? TOKENS.shadow.accentGlow : "0 0 0 0 transparent",
+      }}
+      transition={SPRINGS.snappy}
       style={{
         display: "flex",
         alignItems: "center",
         gap: 6,
         padding: "4px 8px",
         minHeight: 26,
-        borderRadius: 4,
+        borderRadius: 5,
         background: over
           ? "var(--accent-bg, rgba(96,165,250,0.08))"
           : "var(--bg-elev-1, rgba(255,255,255,0.02))",
         border: `1px dashed ${borderColor}`,
-        transition: "background-color 120ms, border-color 120ms",
+        transition: "background-color 140ms cubic-bezier(0.16,1,0.3,1), border-color 140ms cubic-bezier(0.16,1,0.3,1)",
       }}
     >
       <span
@@ -189,6 +200,6 @@ export default function ChannelSlot({
           drop field
         </span>
       )}
-    </div>
+    </motion.div>
   );
 }

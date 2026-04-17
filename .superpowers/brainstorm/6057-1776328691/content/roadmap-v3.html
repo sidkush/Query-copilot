@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AskDB Dashboard Roadmap</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { height: 100%; }
+  body {
+    min-height: 100%;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #0f0f13;
+    color: #e4e4e7;
+    line-height: 1.6;
+    padding: 40px 48px 80px;
+  }
+  h2 { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 6px; letter-spacing: -0.5px; }
+  .subtitle { color: #71717a; font-size: 15px; margin-bottom: 32px; line-height: 1.7; }
+
+  .callout {
+    padding: 20px 24px;
+    border-radius: 14px;
+    margin-bottom: 28px;
+  }
+  .callout-amber { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); }
+  .callout-purple { background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.2); }
+  .callout-green { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); }
+  .callout .clabel {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+    font-weight: 600; margin-bottom: 8px;
+  }
+  .callout-amber .clabel { color: rgba(245,158,11,0.8); }
+  .callout-purple .clabel { color: rgba(139,92,246,0.8); }
+  .callout-green .clabel { color: rgba(16,185,129,0.8); }
+  .callout p { font-size: 14px; line-height: 1.9; color: rgba(255,255,255,0.75); }
+  .callout strong { color: #fff; }
+  .callout .amber-hl { color: #fbbf24; }
+  .callout pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 2.2; color: rgba(255,255,255,0.8);
+    white-space: pre-wrap; margin-top: 4px;
+  }
+  .tag { color: #a78bfa; font-weight: 600; }
+  .dim { opacity: 0.4; }
+
+  .sp-grid { display: flex; flex-direction: column; gap: 16px; margin-bottom: 36px; }
+  .sp-card {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 14px;
+    padding: 24px 28px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .sp-card:hover { border-color: #3f3f46; }
+
+  .sp-hdr { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .sp-n {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: #fff; flex-shrink: 0;
+  }
+  .sp-t { font-size: 18px; font-weight: 650; color: #fff; }
+  .sp-badge {
+    display: inline-block; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 1px; padding: 3px 8px; border-radius: 4px;
+    margin-left: 10px; font-weight: 600;
+  }
+
+  .sp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .sp-cols { grid-template-columns: 1fr; } }
+
+  .col-lbl {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    font-weight: 600; margin-bottom: 6px;
+  }
+  .col-lbl-r { color: #f87171; }
+  .col-lbl-g { color: #4ade80; }
+
+  .sl { list-style: none; padding: 0; font-size: 13px; line-height: 1.8; }
+  .sl-m { color: rgba(255,255,255,0.7); }
+  .sl-w { color: rgba(255,255,255,0.4); }
+  .sl li { padding-left: 14px; position: relative; }
+  .sl li::before {
+    content: '\203A'; position: absolute; left: 0;
+    font-weight: 700; opacity: 0.4;
+  }
+
+  .sp-ft {
+    margin-top: 16px; padding: 10px 14px;
+    border-radius: 8px; font-size: 12px;
+    color: rgba(255,255,255,0.5);
+  }
+  .sp-ft strong { color: rgba(255,255,255,0.7); }
+
+  .hint { color: #52525b; font-size: 13px; text-align: center; margin-top: 16px; }
+  .hl { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h2>Dashboard Feature Roadmap</h2>
+<p class="subtitle">Six focused sub-projects to close the gap between current state and the wireframe vision.<br>
+Each gets its own spec, plan, and build cycle. Dependency-ordered.</p>
+
+<div class="callout callout-amber">
+  <div class="clabel">Quality Bar: Wireframe 4 (Dashboard Archetypes)</div>
+  <p>The high-fidelity archetypes mockup is the target. Every sub-project ships at <span class="amber-hl hl">that level of premium polish</span> &mdash; editorial typography, glass morphism, cinematic density, data-ink discipline. If it doesn't look like it belongs in wireframe 4, it's not done.</p>
+</div>
+
+<div class="callout callout-purple">
+  <div class="clabel">Dependency Flow</div>
+  <pre><span class="tag">SP-1</span> Shell &amp; Chrome  &rarr;  <span class="tag">SP-2</span> Agent Panel  &rarr;  <span class="tag">SP-5</span> Voice on Dashboard
+<span class="tag">SP-1</span> Shell &amp; Chrome  &rarr;  <span class="tag">SP-3</span> Text Tiles   <span class="dim">(parallel with SP-2)</span>
+<span class="tag">SP-4</span> Theme System    <span class="dim">(parallel with SP-1, iterative throughout)</span>
+<span class="tag">SP-6</span> Layout Polish   <span class="dim">(after SP-2 + SP-3 + SP-4 land &mdash; final pass)</span></pre>
+</div>
+
+<div class="sp-grid">
+
+  <div class="sp-card" onclick="this.style.borderColor=this.style.borderColor==='rgb(139, 92, 246)'?'#27272a':'#8b5cf6'">
+    <div class="sp-hdr">
+      <div class="sp-n" style="background: linear-gradient(135deg, #3b82f6, #6366f1);">1</div>
+      <span class="sp-t">Shell &amp; Chrome</span>
+      <span class="sp-badge" style="background: rgba(59,130,246,0.15); color: #60a5fa;">FOUNDATION</span>
+    </div>
+    <div class="sp-cols">
+      <div>
+        <div class="col-lbl col-lbl-r">Missing / Broken</div>
+        <ul class="sl sl-m">
+          <li>Status bar (connection, rows, query tier, voice mode)</li>
+          <li>Full breadcrumb (Org / Workspace / Dashboard)</li>
+          <li>Edit mode switcher (Default / Pro / Stage) in header</li>
+          <li>Dashboard summary line ("1,247 rows &middot; Refreshed 2 min ago")</li>
+          <li>Share / Save / Bookmark buttons &mdash; premium styling</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-lbl col-lbl-g">Already Working</div>
+        <ul class="sl sl-w">
+          <li>DashboardHeader (title, auto-save status)</li>
+          <li>DashboardModeToggle (7 archetype modes)</li>
+          <li>AlertManager, BookmarkManager, VersionHistory</li>
+          <li>CommandPalette (Cmd+K)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sp-ft" style="background: rgba(59,130,246,0.06);">
+      <strong style="color: #93c5fd;">~2-3 days</strong> &middot; 4-5 components &middot; No backend changes &middot; Unblocks everything
+    </div>
+  </div>
+
+  <div class="sp-card" onclick="this.style.borderColor=this.style.borderColor==='rgb(139, 92, 246)'?'#27272a':'#8b5cf6'">
+    <div class="sp-hdr">
+      <div class="sp-n" style="background: linear-gradient(135deg, #8b5cf6, #a855f7);">2</div>
+      <span class="sp-t">Agent Panel on Dashboard</span>
+      <span class="sp-badge" style="background: rgba(139,92,246,0.15); color: #c4b5fd;">WOW MOMENT</span>
+    </div>
+    <div class="sp-cols">
+      <div>
+        <div class="col-lbl col-lbl-r">Stubbed / Not Wired</div>
+        <ul class="sl sl-m">
+          <li>Mount AgentPanel in DashboardShell (right dock)</li>
+          <li>Agent &rarr; tile CRUD pipeline (create, resize, move via chat)</li>
+          <li>Inline tile edit drawer (click tile &rarr; ChartEditor slides in)</li>
+          <li>"AGENT EDITING" badge on active tile</li>
+          <li>Suggested action chips after agent response</li>
+          <li>Tool call cards visible (run_sql, create_tile, update_layout)</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-lbl col-lbl-g">Already Built</div>
+        <ul class="sl sl-w">
+          <li>AgentPanel component (dockable, draggable, resizable)</li>
+          <li>AgentStepFeed (thinking steps, tool calls, streaming)</li>
+          <li>Backend agent tools defined (create/update/delete tile)</li>
+          <li>SSE streaming for agent responses</li>
+          <li>Click detection on tiles (3-5px drag threshold)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sp-ft" style="background: rgba(139,92,246,0.06);">
+      <strong style="color: #c4b5fd;">~4-5 days</strong> &middot; Wiring + edit drawer + state management &middot; Some backend glue
+    </div>
+  </div>
+
+  <div class="sp-card" onclick="this.style.borderColor=this.style.borderColor==='rgb(139, 92, 246)'?'#27272a':'#8b5cf6'">
+    <div class="sp-hdr">
+      <div class="sp-n" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">3</div>
+      <span class="sp-t">Text Tiles &amp; Rich Content</span>
+      <span class="sp-badge" style="background: rgba(6,182,212,0.15); color: #67e8f9;">NEW TILE TYPES</span>
+    </div>
+    <div class="sp-cols">
+      <div>
+        <div class="col-lbl col-lbl-r">Missing</div>
+        <ul class="sl sl-m">
+          <li>Generic text/markdown tile type</li>
+          <li>AI insight summary tile (LLM-generated narrative)</li>
+          <li>Recent Activity feed tile</li>
+          <li>Rich-text inline editor for manual text tiles</li>
+          <li>Tile type picker (chart / text / KPI / activity)</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-lbl col-lbl-g">Partial</div>
+        <ul class="sl sl-w">
+          <li>Story mode tile annotations (text beside chart)</li>
+          <li>NotesPanel (comments UI, not a tile)</li>
+          <li>KPICard handles numeric summaries</li>
+          <li>Backend tile model accepts arbitrary fields</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sp-ft" style="background: rgba(6,182,212,0.06);">
+      <strong style="color: #67e8f9;">~3-4 days</strong> &middot; New tile types + renderer + backend insight pipeline &middot; Parallel with SP-2
+    </div>
+  </div>
+
+  <div class="sp-card" onclick="this.style.borderColor=this.style.borderColor==='rgb(139, 92, 246)'?'#27272a':'#8b5cf6'">
+    <div class="sp-hdr">
+      <div class="sp-n" style="background: linear-gradient(135deg, #f59e0b, #d97706);">4</div>
+      <span class="sp-t">Theme System &amp; Visual Modes</span>
+      <span class="sp-badge" style="background: rgba(245,158,11,0.15); color: #fcd34d;">PREMIUM FEEL</span>
+    </div>
+    <div class="sp-cols">
+      <div>
+        <div class="col-lbl col-lbl-r">Needs Work</div>
+        <ul class="sl sl-m">
+          <li>Premium Editorial as daily-driver base theme</li>
+          <li>Hollywood HUD swap for Stage mode (neon, particles)</li>
+          <li>Data Cinema principles (Tufte data-ink ratio)</li>
+          <li>Tableau-classic archetype for workbook mode (#6)</li>
+          <li>Per-archetype token overrides (colors, type, spacing)</li>
+          <li>DashboardThemeEditor live-preview polish</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-lbl col-lbl-g">Foundation</div>
+        <ul class="sl sl-w">
+          <li>tokens.js design token system</li>
+          <li>6 chart palettes (default, ocean, sunset, forest, etc.)</li>
+          <li>DASHBOARD_PRESETS (creative_dark, minimal_light)</li>
+          <li>Glass morphism + shadow stack defaults</li>
+          <li>DashboardThemeEditor component exists</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sp-ft" style="background: rgba(245,158,11,0.06);">
+      <strong style="color: #fcd34d;">~3-4 days</strong> &middot; Token tuning + presets + theme editor &middot; Iterative throughout
+    </div>
+  </div>
+
+  <div class="sp-card" onclick="this.style.borderColor=this.style.borderColor==='rgb(139, 92, 246)'?'#27272a':'#8b5cf6'">
+    <div class="sp-hdr">
+      <div class="sp-n" style="background: linear-gradient(135deg, #10b981, #059669);">5</div>
+      <span class="sp-t">Voice on Dashboard</span>
+      <span class="sp-badge" style="background: rgba(16,185,129,0.15); color: #6ee7b7;">DIFFERENTIATOR</span>
+    </div>
+    <div class="sp-cols">
+      <div>
+        <div class="col-lbl col-lbl-r">Not on Dashboard Yet</div>
+        <ul class="sl sl-m">
+          <li>Voice button in status bar (mic icon + state)</li>
+          <li>Voice mode selector (PTT / Wake Word / Hot Mic)</li>
+          <li>Voice &rarr; agent pipeline on dashboard context</li>
+          <li>Stage Mode auto-switch to Wake Word ("Hey Ask")</li>
+          <li>Transcription overlay / listening indicator</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-lbl col-lbl-g">Already Built</div>
+        <ul class="sl sl-w">
+          <li>VoiceButton + VoiceIndicator components</li>
+          <li>Whisper STT integration + WebSocket pipeline</li>
+          <li>Voice state in Zustand store</li>
+          <li>Works in ChartEditor BottomDock today</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sp-ft" style="background: rgba(16,185,129,0.06);">
+      <strong style="color: #6ee7b7;">~2-3 days</strong> &middot; Mostly wiring + mode logic &middot; Needs SP-1 + SP-2
+    </div>
+  </div>
+
+  <div class="sp-card" onclick="this.style.borderColor=this.style.borderColor==='rgb(139, 92, 246)'?'#27272a':'#8b5cf6'">
+    <div class="sp-hdr">
+      <div class="sp-n" style="background: linear-gradient(135deg, #ec4899, #be185d);">6</div>
+      <span class="sp-t">Layout Mode Polish &mdash; Wireframe Fidelity</span>
+      <span class="sp-badge" style="background: rgba(236,72,153,0.15); color: #f9a8d4;">FINAL PASS</span>
+    </div>
+    <div class="sp-cols">
+      <div>
+        <div class="col-lbl col-lbl-r">Per-Archetype Polish to Match Wireframes</div>
+        <ul class="sl sl-m">
+          <li><strong style="color:#fff;">Briefing:</strong> KPI hero row + AI narrative summary card</li>
+          <li><strong style="color:#fff;">Workbench:</strong> Match wireframe 5 density + agent panel dock</li>
+          <li><strong style="color:#fff;">LiveOps:</strong> Traffic-light KPIs + real-time event stream</li>
+          <li><strong style="color:#fff;">Story:</strong> NYT/Pudding editorial typography + scroll chapters</li>
+          <li><strong style="color:#fff;">Pitch:</strong> Keynote slides + presentation nav</li>
+          <li><strong style="color:#fff;">Tableau-classic:</strong> New archetype &mdash; dense grid, filters top</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-lbl col-lbl-g">Layout Shells Exist</div>
+        <ul class="sl sl-w">
+          <li>All 6 layout components exist and mount</li>
+          <li>Mode switching works (Framer Motion pill)</li>
+          <li>Bin-packing, grid, scroll, slide logic in place</li>
+          <li>Per-mode refresh strategies wired</li>
+        </ul>
+      </div>
+    </div>
+    <div class="sp-ft" style="background: rgba(236,72,153,0.06);">
+      <strong style="color: #f9a8d4;">~4-5 days</strong> &middot; Visual polish + Tableau archetype &middot; After SP-2, SP-3, SP-4
+    </div>
+  </div>
+
+</div>
+
+<div class="callout callout-green">
+  <div class="clabel">Recommended Build Order</div>
+  <p><strong>SP-1 &rarr; SP-2 &rarr; SP-3 (parallel with SP-4) &rarr; SP-5 &rarr; SP-6</strong></p>
+  <p>SP-1 (Shell) is 2-3 days of foundation. SP-2 (Agent Panel) is the demo wow moment &mdash; the conversational composer from wireframe 5. SP-3 and SP-4 run in parallel. SP-5 (Voice) needs agent panel + status bar. SP-6 is the final polish pass matching wireframe 4 fidelity.</p>
+  <p style="margin-top: 12px;"><strong>Total: ~18-24 days across 6 sub-projects.</strong> We spec SP-1 now, build it, then SP-2, and so on.</p>
+</div>
+
+<p class="hint">Click cards to highlight. Respond in terminal to confirm order, reorder, merge, or cut.</p>
+
+</body>
+</html>

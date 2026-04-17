@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AskDB — Visual Identity Frames (Full-Page Mockups)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@500,600,700,800,900&display=swap" rel="stylesheet">
+<style>
+  :root { --bar: 48px; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #0a0a0c; color: #e7e7ea; }
+
+  /* ════════════════════ Tab switcher ════════════════════ */
+  .tabs {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; gap: 0;
+    background: rgba(15,15,20,0.95);
+    backdrop-filter: blur(14px) saturate(1.4);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 10px 18px;
+    font-family: 'Satoshi', system-ui, sans-serif;
+  }
+  .tabs .title {
+    font-weight: 700; font-size: 13px; letter-spacing: -0.01em; color: #e7e7ea;
+    display: flex; align-items: center; gap: 10px; margin-right: auto;
+  }
+  .tabs .title .dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #22c55e;
+    box-shadow: 0 0 8px #22c55e;
+  }
+  .tabs button {
+    appearance: none; border: none; cursor: pointer;
+    background: transparent; color: #a1a1aa;
+    font: 600 12px/1 'Satoshi', system-ui, sans-serif;
+    padding: 8px 14px; border-radius: 8px;
+    letter-spacing: -0.005em;
+    transition: all 180ms cubic-bezier(.16,1,.3,1);
+  }
+  .tabs button:hover { color: #e7e7ea; background: rgba(255,255,255,0.05); }
+  .tabs button.active {
+    color: #fff;
+    background: rgba(37,99,235,0.15);
+    box-shadow: inset 0 0 0 1px rgba(37,99,235,0.35);
+  }
+  .tabs .hint {
+    font: 500 10px 'JetBrains Mono', monospace; color: #71717a;
+    letter-spacing: 0.15em; text-transform: uppercase; margin-left: 14px;
+    padding-left: 14px; border-left: 1px solid rgba(255,255,255,0.08);
+  }
+
+  /* Each dashboard occupies full viewport height */
+  .dashboard { display: none; min-height: calc(100vh - 58px); }
+  .dashboard.active { display: block; }
+
+  /* Shared: a generic tile baseline (overridden per frame) */
+  .t-title { font-weight: 600; letter-spacing: -0.01em; }
+  .t-sub { opacity: 0.7; }
+  .t-grid { display: grid; gap: 14px; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     FRAME A  —  EDITORIAL TERMINAL   Bloomberg × Financial Times
+     ═══════════════════════════════════════════════════════════════ */
+  .fa { background: #F7F5EE; color: #1a1a15; font-family: 'JetBrains Mono', monospace; }
+  .fa .topbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 10px 22px;
+    background: #ECE8DB; border-bottom: 1px solid #1a1a15;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.18em;
+  }
+  .fa .topbar .brand { font-weight: 700; color: #1a1a15; display: flex; align-items: center; gap: 10px; }
+  .fa .topbar .brand::before { content:''; width:14px; height:14px; background:#B45309; display:inline-block; }
+  .fa .topbar .ticker { flex: 1; display: flex; gap: 24px; font-size: 10px; color: #4a4640; overflow: hidden; white-space: nowrap; }
+  .fa .topbar .ticker strong { color: #1a1a15; font-weight: 700; }
+  .fa .topbar .ticker .up { color: #166534; }
+  .fa .topbar .ticker .dn { color: #991b1b; }
+  .fa .topbar .time { font-size: 10px; color: #4a4640; }
+
+  .fa .chrome {
+    display: grid; grid-template-columns: 280px 1fr; gap: 0;
+    padding: 14px 22px;
+    border-bottom: 1px dashed #c9c3b0;
+  }
+  .fa .eyebrow { font-weight: 700; font-size: 10px; letter-spacing: 0.25em; color: #4a4640; }
+  .fa .title-xl { font: 600 28px/1.1 'Source Serif 4', Georgia, serif; letter-spacing: -0.01em; color: #1a1a15; margin-top: 4px; }
+  .fa .title-xl em { font-style: italic; color: #B45309; }
+  .fa .meta { font-size: 10px; color: #4a4640; line-height: 1.7; }
+  .fa .meta strong { color: #1a1a15; }
+
+  .fa .body { padding: 18px 22px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+  .fa .tile { background: #FDFBF5; border: 1px solid #1a1a15; padding: 14px 16px; }
+  .fa .tile-eyebrow { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: #4a4640; border-bottom: 1px solid #1a1a15; padding-bottom: 4px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .fa .tile-eyebrow .badge { color: #B45309; font-weight: 700; }
+  .fa .kpi-val { font: 700 34px/1 'Source Serif 4', Georgia, serif; color: #1a1a15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .fa .kpi-delta { font-size: 10px; margin-top: 4px; display: flex; gap: 6px; align-items: center; }
+  .fa .kpi-delta.up { color: #166534; }
+  .fa .kpi-delta.dn { color: #991b1b; }
+  .fa .kpi-delta::before { content: '▲'; font-size: 8px; }
+  .fa .kpi-delta.dn::before { content: '▼'; }
+
+  .fa .bars-block { height: 140px; display: flex; align-items: flex-end; gap: 3px; margin-top: 8px; border-bottom: 1px solid #1a1a15; padding-bottom: 0; }
+  .fa .bars-block .bar { width: 100%; background: #1a1a15; }
+  .fa .bars-block .bar.accent { background: #B45309; }
+  .fa .x-labels { display: flex; justify-content: space-between; font-size: 8px; color: #7a7565; margin-top: 6px; }
+
+  .fa .line-chart { height: 160px; position: relative; }
+  .fa .line-chart svg { width: 100%; height: 100%; }
+  .fa .line-chart .grid-line { stroke: #c9c3b0; stroke-width: 0.5; stroke-dasharray: 2 3; }
+  .fa .line-chart .axis-label { font: 500 8px 'JetBrains Mono', monospace; fill: #7a7565; letter-spacing: 0.1em; }
+  .fa .line-chart .trace { stroke: #1a1a15; stroke-width: 1.2; fill: none; }
+  .fa .line-chart .trace.accent { stroke: #B45309; stroke-width: 1.6; }
+  .fa .line-chart .annot { font: 500 9px 'JetBrains Mono', monospace; fill: #B45309; }
+
+  .fa .table-row { display: grid; grid-template-columns: 20px 1fr 90px 70px; gap: 10px; font-size: 11px; padding: 5px 0; border-bottom: 1px dashed #d4cfbe; align-items: center; }
+  .fa .table-row:last-child { border-bottom: none; }
+  .fa .table-row.head { font-size: 9px; text-transform: uppercase; letter-spacing: 0.18em; color: #7a7565; border-bottom: 1px solid #1a1a15; }
+  .fa .table-row .rank { color: #7a7565; font-weight: 700; }
+  .fa .table-row .val { text-align: right; font-weight: 700; color: #1a1a15; font-variant-numeric: tabular-nums; }
+  .fa .table-row .delta { text-align: right; font-size: 10px; color: #166534; }
+  .fa .table-row .delta.dn { color: #991b1b; }
+
+  .fa .narrative {
+    font: 400 14px/1.65 'Source Serif 4', Georgia, serif;
+    color: #1a1a15;
+    column-count: 1;
+  }
+  .fa .narrative .lede::first-letter {
+    float: left; font-size: 42px; line-height: 0.85; padding-right: 6px; padding-top: 2px;
+    font-weight: 700; color: #B45309;
+  }
+  .fa .narrative h4 { font: 700 10px 'JetBrains Mono', monospace; letter-spacing: 0.22em; text-transform: uppercase; color: #4a4640; margin: 0 0 10px; }
+  .fa .narrative .tag { font: 500 9px 'JetBrains Mono', monospace; color: #B45309; letter-spacing: 0.18em; text-transform: uppercase; }
+
+  .fa .statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 22px;
+    border-top: 1px solid #1a1a15;
+    font-size: 10px; color: #4a4640; letter-spacing: 0.18em; text-transform: uppercase;
+    background: #ECE8DB;
+  }
+  .fa .statusbar .live { color: #166534; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .fa .statusbar .live::before { content: ''; width: 7px; height: 7px; background: #166534; border-radius: 50%; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     FRAME B  —  LIQUID ANALYTICS     Soft-painted depth, OKLCH jewel
+     ═══════════════════════════════════════════════════════════════ */
+  .fb { background: radial-gradient(1200px 800px at 15% 10%, #141822 0%, #0b0d14 60%); color: #e7ecf2; font-family: 'Satoshi', 'Plus Jakarta Sans', system-ui, sans-serif; min-height: inherit; }
+  .fb .topbar { display: flex; align-items: center; gap: 18px; padding: 14px 28px; border-bottom: 1px solid rgba(232,236,242,0.06); }
+  .fb .topbar .logo { width: 32px; height: 32px; border-radius: 10px; background: conic-gradient(from 210deg, #0d9488, #3b5f7c 40%, #8b5a7b 65%, #B45309 90%, #0d9488); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 4px 16px -4px rgba(13,148,136,0.4); }
+  .fb .topbar .brand { font: 700 14px 'Satoshi', sans-serif; letter-spacing: -0.015em; }
+  .fb .topbar .breadcrumb { font: 500 11px 'JetBrains Mono', monospace; color: #7a828f; letter-spacing: 0.02em; }
+  .fb .topbar .pillbar { display: flex; gap: 2px; margin-left: auto; background: rgba(255,255,255,0.04); border-radius: 999px; padding: 3px; border: 1px solid rgba(255,255,255,0.05); }
+  .fb .topbar .pill { padding: 6px 13px; font: 600 11px 'Satoshi', sans-serif; border-radius: 999px; color: #9ca5b3; cursor: pointer; }
+  .fb .topbar .pill.active { background: rgba(232,236,242,0.09); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); }
+
+  .fb .hero-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; padding: 22px 28px 14px; }
+  .fb .kpi-tile { padding: 22px 24px; background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01)); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; backdrop-filter: blur(10px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 20px 40px -25px rgba(0,0,0,0.6); }
+  .fb .kpi-tile .label { font: 600 10px 'Satoshi', sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: #7a828f; }
+  .fb .kpi-tile .val { font: 800 42px/1 'Satoshi', sans-serif; letter-spacing: -0.04em; margin-top: 6px; color: #f6f8fb; font-variant-numeric: tabular-nums; }
+  .fb .kpi-tile .val .unit { font-size: 22px; color: #8a95a4; font-weight: 700; letter-spacing: -0.02em; margin-left: 2px; }
+  .fb .kpi-tile .meta-row { display: flex; gap: 10px; margin-top: 10px; align-items: center; font: 500 11px 'JetBrains Mono', monospace; }
+  .fb .kpi-tile .chip { padding: 2px 8px; border-radius: 999px; font-size: 10px; }
+  .fb .kpi-tile .chip.up { background: color-mix(in oklab, #10b981 20%, transparent); color: #6ee7b7; }
+  .fb .kpi-tile .chip.dn { background: color-mix(in oklab, #f43f5e 20%, transparent); color: #fda4af; }
+  .fb .kpi-tile .chip.flat { background: rgba(255,255,255,0.06); color: #a1a9b5; }
+  .fb .kpi-tile .sub { color: #7a828f; font-size: 11px; }
+  .fb .kpi-tile .spark { height: 26px; margin-top: 10px; }
+
+  .fb .body { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; padding: 0 28px 28px; }
+  .fb .tile { background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.008)); border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; padding: 22px 26px; backdrop-filter: blur(12px); }
+  .fb .tile-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .fb .tile-head .title { font: 700 14px 'Satoshi', sans-serif; letter-spacing: -0.015em; color: #f6f8fb; }
+  .fb .tile-head .sub { font: 500 10px 'JetBrains Mono', monospace; color: #7a828f; letter-spacing: 0.15em; text-transform: uppercase; }
+  .fb .chart-area { height: 280px; position: relative; }
+  .fb .chart-area svg { width: 100%; height: 100%; }
+  .fb .chart-area .grid { stroke: rgba(232,236,242,0.05); stroke-width: 0.5; }
+  .fb .chart-area .axis-label { font: 500 10px 'JetBrains Mono', monospace; fill: #7a828f; }
+  .fb .chart-area .value-label { font: 600 11px 'Satoshi', sans-serif; fill: #f6f8fb; }
+
+  .fb .stack-col { display: flex; flex-direction: column; gap: 14px; }
+  .fb .list-row { display: grid; grid-template-columns: 28px 1fr 88px; align-items: center; gap: 10px; padding: 7px 0; font: 500 12px 'Satoshi', sans-serif; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .fb .list-row:last-child { border: none; }
+  .fb .list-row .rank { color: #7a828f; font-size: 11px; font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
+  .fb .list-row .name { color: #e7ecf2; }
+  .fb .list-row .val { text-align: right; color: #f6f8fb; font-weight: 700; font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
+  .fb .list-row .name .sub { color: #7a828f; font-size: 10px; }
+
+  .fb .insight { background: linear-gradient(180deg, rgba(13,148,136,0.08), rgba(13,148,136,0.02)); border: 1px solid rgba(13,148,136,0.22); border-radius: 20px; padding: 20px 24px; }
+  .fb .insight .eyebrow { display: flex; align-items: center; gap: 6px; font: 700 9px 'JetBrains Mono', monospace; letter-spacing: 0.22em; text-transform: uppercase; color: #5eead4; }
+  .fb .insight .eyebrow::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #5eead4; box-shadow: 0 0 8px #5eead4; animation: pulse 2.5s ease-in-out infinite; }
+  .fb .insight h3 { font: 700 17px 'Satoshi', sans-serif; letter-spacing: -0.015em; color: #f6f8fb; margin: 10px 0 8px; }
+  .fb .insight p { font: 400 13px/1.6 'Plus Jakarta Sans', sans-serif; color: #bfc7d1; margin: 0; }
+  .fb .insight p strong { color: #5eead4; font-weight: 600; }
+
+  .fb .statusbar { display: flex; justify-content: space-between; padding: 10px 28px; border-top: 1px solid rgba(255,255,255,0.06); font: 500 11px 'JetBrains Mono', monospace; color: #7a828f; letter-spacing: 0.02em; background: rgba(10,12,16,0.5); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* ═══════════════════════════════════════════════════════════════
+     FRAME C  —  SIGNAL LAB       Oscilloscope + Nature journal
+     ═══════════════════════════════════════════════════════════════ */
+  .fc { background: #0a0d08; color: #c5d0bf; font-family: 'JetBrains Mono', monospace; min-height: inherit; position: relative; }
+  .fc::before { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(to right, rgba(127,164,111,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(127,164,111,0.04) 1px, transparent 1px); background-size: 24px 24px; }
+  .fc > * { position: relative; z-index: 1; }
+  .fc .topbar { display: flex; align-items: center; gap: 20px; padding: 10px 22px; background: rgba(16,18,15,0.85); border-bottom: 1px solid #3a4432; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; }
+  .fc .topbar .lab { color: #7fa46f; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .fc .topbar .lab::before { content: ''; width: 7px; height: 7px; background: #7fa46f; border-radius: 50%; box-shadow: 0 0 10px #7fa46f; animation: pulse 2s ease-in-out infinite; }
+  .fc .topbar .meta { display: flex; gap: 18px; color: #5d7550; }
+  .fc .topbar .meta strong { color: #a8c098; }
+  .fc .topbar .right { margin-left: auto; display: flex; gap: 14px; color: #5d7550; }
+
+  .fc .sector { border-bottom: 1px dashed #3a4432; padding: 18px 22px; }
+  .fc .sector-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+  .fc .sector-title { font-size: 12px; color: #a8c098; letter-spacing: 0.25em; text-transform: uppercase; }
+  .fc .sector-title::before { content: '▶ '; color: #7fa46f; }
+  .fc .sector-meta { font-size: 10px; color: #5d7550; }
+
+  .fc .panel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #3a4432; border: 1px solid #3a4432; }
+  .fc .panel { background: #10120f; padding: 14px 16px; }
+  .fc .panel-label { font-size: 9px; color: #5d7550; letter-spacing: 0.22em; text-transform: uppercase; }
+  .fc .panel-val { font: 700 28px/1 'JetBrains Mono', monospace; color: #e5f0d9; margin-top: 6px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .fc .panel-val .unit { font-size: 14px; color: #7fa46f; }
+  .fc .panel-meta { display: flex; justify-content: space-between; margin-top: 8px; font-size: 9px; color: #7fa46f; }
+  .fc .panel-meta .alarm { color: #ef4444; }
+  .fc .panel-meta .ok { color: #7fa46f; }
+  .fc .panel .spark { height: 26px; margin-top: 6px; }
+
+  .fc .trace-panel { background: #0a0d08; border: 1px solid #3a4432; padding: 16px 18px; position: relative; }
+  .fc .trace-panel .t-head { display: flex; justify-content: space-between; font-size: 10px; color: #7fa46f; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 6px; }
+  .fc .trace-panel .t-head .live { color: #a8c098; }
+  .fc .scope { height: 220px; position: relative; }
+  .fc .scope svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .fc .scope .trace { stroke: #7fa46f; stroke-width: 1.3; fill: none; filter: drop-shadow(0 0 4px rgba(127,164,111,0.4)); }
+  .fc .scope .trace-faint { stroke: #7fa46f; stroke-width: 0.6; fill: none; opacity: 0.3; }
+  .fc .scope .annot { font: 500 9px 'JetBrains Mono', monospace; fill: #e5f0d9; }
+  .fc .scope .annot-line { stroke: #ef4444; stroke-width: 0.5; stroke-dasharray: 2 2; }
+  .fc .annot-card { position: absolute; top: 20px; right: 18px; background: rgba(16,18,15,0.95); border: 1px solid #7fa46f; padding: 8px 12px; font-size: 9px; color: #a8c098; letter-spacing: 0.08em; }
+  .fc .annot-card .tag { color: #ef4444; }
+
+  .fc .two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 1px; background: #3a4432; border: 1px solid #3a4432; margin-top: 18px; }
+
+  .fc .dist-panel { background: #10120f; padding: 16px; }
+  .fc .dist-bars { display: flex; align-items: flex-end; gap: 4px; height: 150px; border-bottom: 1px solid #3a4432; padding-bottom: 0; margin-top: 10px; }
+  .fc .dist-bars .db { flex: 1; background: linear-gradient(to top, #7fa46f 0%, rgba(127,164,111,0.3) 100%); outline: 1px solid #3a4432; }
+  .fc .dist-bars .db.highlight { background: linear-gradient(to top, #ef4444 0%, rgba(239,68,68,0.3) 100%); }
+  .fc .dist-labels { display: flex; justify-content: space-between; font-size: 8px; color: #5d7550; margin-top: 5px; letter-spacing: 0.1em; }
+
+  .fc .log { background: #10120f; padding: 14px 16px; font-size: 10px; line-height: 1.75; }
+  .fc .log .entry { display: grid; grid-template-columns: 50px 14px 1fr; gap: 8px; padding: 2px 0; }
+  .fc .log .entry .t { color: #5d7550; }
+  .fc .log .entry .lvl { text-transform: uppercase; font-weight: 700; }
+  .fc .log .entry .lvl.info { color: #7fa46f; }
+  .fc .log .entry .lvl.warn { color: #eab308; }
+  .fc .log .entry .lvl.err { color: #ef4444; }
+  .fc .log .entry .msg { color: #c5d0bf; }
+
+  .fc .statusbar { display: flex; justify-content: space-between; padding: 8px 22px; background: #10120f; border-top: 1px solid #3a4432; font-size: 10px; color: #5d7550; letter-spacing: 0.2em; text-transform: uppercase; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     FRAME D  —  KINETIC MINIMALISM    Swiss poster that breathes
+     ═══════════════════════════════════════════════════════════════ */
+  .fd { background: #FAFAF7; color: #0a0a0a; font-family: 'Satoshi', system-ui, sans-serif; min-height: inherit; position: relative; }
+  .fd::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(900px 600px at 15% 10%, rgba(37,99,235,0.05), transparent 60%), radial-gradient(700px 500px at 85% 90%, rgba(220,38,38,0.04), transparent 55%); }
+  .fd > * { position: relative; z-index: 1; }
+
+  .fd .topbar { display: flex; align-items: center; gap: 20px; padding: 20px 36px; border-bottom: 1px solid #0a0a0a; }
+  .fd .topbar .mark { width: 20px; height: 20px; background: #0a0a0a; }
+  .fd .topbar .brand { font: 900 18px 'Satoshi', sans-serif; letter-spacing: -0.04em; }
+  .fd .topbar .ctx { font: 500 10px 'JetBrains Mono', monospace; letter-spacing: 0.22em; text-transform: uppercase; color: #5a5a55; margin-left: 14px; padding-left: 14px; border-left: 1px solid #0a0a0a; }
+  .fd .topbar .live { margin-left: auto; font: 500 10px 'JetBrains Mono', monospace; letter-spacing: 0.22em; text-transform: uppercase; color: #0a0a0a; display: flex; align-items: center; gap: 8px; }
+  .fd .topbar .live::before { content: ''; width: 8px; height: 8px; background: #DC2626; border-radius: 50%; animation: pulse 1.8s ease-in-out infinite; }
+
+  .fd .hero { padding: 50px 36px 28px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 80px; align-items: end; border-bottom: 1px solid #0a0a0a; }
+  .fd .hero .eyebrow { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: 0.3em; text-transform: uppercase; color: #5a5a55; }
+  .fd .hero h1 { font: 800 92px/0.88 'Satoshi', sans-serif; letter-spacing: -0.065em; margin: 14px 0 12px; color: #0a0a0a; font-variant-numeric: tabular-nums; }
+  .fd .hero h1 .unit { font-size: 52px; color: #5a5a55; letter-spacing: -0.03em; }
+  .fd .hero .lede { font: 500 16px/1.55 'Plus Jakarta Sans', sans-serif; color: #5a5a55; max-width: 42ch; }
+  .fd .hero .lede strong { color: #DC2626; font-weight: 700; }
+  .fd .hero .side { display: flex; flex-direction: column; gap: 24px; }
+  .fd .hero .side .tick-row { display: flex; justify-content: space-between; padding: 14px 0; border-top: 1px solid #0a0a0a; font: 500 12px 'Plus Jakarta Sans', sans-serif; }
+  .fd .hero .side .tick-row:last-child { border-bottom: 1px solid #0a0a0a; }
+  .fd .hero .side .tick-row .val { font: 700 18px 'Satoshi', sans-serif; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .fd .hero .side .tick-row .val.pos { color: #0a0a0a; }
+  .fd .hero .side .tick-row .val.neg { color: #DC2626; }
+
+  .fd .body { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0; }
+  .fd .cell { padding: 32px 28px; border-right: 1px solid #0a0a0a; border-bottom: 1px solid #0a0a0a; min-height: 280px; display: flex; flex-direction: column; gap: 16px; }
+  .fd .cell:nth-child(3n) { border-right: none; }
+  .fd .cell .eyebrow { font: 500 10px 'JetBrains Mono', monospace; letter-spacing: 0.28em; text-transform: uppercase; color: #5a5a55; }
+  .fd .cell .title { font: 700 22px/1.1 'Satoshi', sans-serif; letter-spacing: -0.025em; color: #0a0a0a; margin-bottom: 6px; }
+  .fd .cell .sub { font: 500 12px 'Plus Jakarta Sans', sans-serif; color: #5a5a55; }
+  .fd .cell .bars-min { display: flex; align-items: flex-end; gap: 6px; height: 100px; margin-top: auto; }
+  .fd .cell .bar-min { flex: 1; background: #0a0a0a; }
+  .fd .cell .bar-min.hot { background: #DC2626; }
+  .fd .cell .bar-min.muted { background: #c5c5c0; }
+  .fd .cell .axis-ends { display: flex; justify-content: space-between; font: 500 9px 'JetBrains Mono', monospace; color: #5a5a55; letter-spacing: 0.18em; text-transform: uppercase; padding-top: 4px; border-top: 1px solid #0a0a0a; margin-top: 6px; }
+  .fd .cell.wide { grid-column: span 6; }
+  .fd .cell.tall { grid-column: span 6; }
+  .fd .cell.flat { padding: 28px; }
+
+  .fd .progress-ring { width: 120px; height: 120px; position: relative; }
+  .fd .progress-ring .pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 800 26px 'Satoshi', sans-serif; letter-spacing: -0.03em; }
+  .fd .line-svg { height: 160px; margin-top: auto; }
+  .fd .line-svg svg { width: 100%; height: 100%; }
+  .fd .line-svg .t { stroke: #0a0a0a; stroke-width: 1.5; fill: none; }
+  .fd .line-svg .t.hot { stroke: #DC2626; stroke-width: 2.5; }
+  .fd .line-svg .fill { fill: rgba(10,10,10,0.05); }
+  .fd .cell .ranked { font: 500 13px 'Plus Jakarta Sans', sans-serif; }
+  .fd .cell .ranked .row { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid #d8d8d2; font-variant-numeric: tabular-nums; }
+  .fd .cell .ranked .row:first-of-type { border: none; }
+
+  .fd .footer-bar { padding: 16px 36px; border-top: 1px solid #0a0a0a; display: flex; justify-content: space-between; font: 500 10px 'JetBrains Mono', monospace; letter-spacing: 0.22em; text-transform: uppercase; color: #5a5a55; }
+  .fd .footer-bar .mark-row { display: flex; gap: 8px; align-items: center; color: #0a0a0a; }
+  .fd .footer-bar .mark-row::before { content: ''; width: 6px; height: 6px; background: #DC2626; border-radius: 50%; }
+
+</style>
+</head>
+<body>
+
+<!-- ──────────────────────────  Tab switcher  ────────────────────────── -->
+<nav class="tabs">
+  <div class="title"><span class="dot"></span>AskDB · Visual Identity Frames</div>
+  <button data-frame="a" class="active" onclick="showFrame('a')">A · Editorial Terminal</button>
+  <button data-frame="b" onclick="showFrame('b')">B · Liquid Analytics</button>
+  <button data-frame="c" onclick="showFrame('c')">C · Signal Lab</button>
+  <button data-frame="d" onclick="showFrame('d')">D · Kinetic Minimalism</button>
+  <span class="hint">Same data · 4 visual languages</span>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     FRAME A — EDITORIAL TERMINAL
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="dashboard active fa" id="frame-a">
+
+  <div class="topbar">
+    <div class="brand">ASKDB · Q3 REVIEW</div>
+    <div class="ticker">
+      <span><strong>ARR</strong> $29.6M <span class="up">+8.7%</span></span>
+      <span><strong>NRR</strong> 117% <span class="up">+3pp</span></span>
+      <span><strong>CHURN</strong> 2.31% <span class="up">-0.4pp</span></span>
+      <span><strong>LTV:CAC</strong> 4.7× <span class="up">+0.3</span></span>
+      <span><strong>PAYBACK</strong> 14.2mo <span class="dn">+0.8</span></span>
+      <span><strong>NEW LOGOS</strong> 47</span>
+    </div>
+    <div class="time">17 APR 2026 · 09:42:14 UTC · v2.8.1</div>
+  </div>
+
+  <div class="chrome">
+    <div>
+      <div class="eyebrow">Q3 2026 · BOARD PACK</div>
+      <div class="title-xl">The Quarter <em>Was Made</em> in July</div>
+      <div class="meta" style="margin-top:6px">by <strong>M. Chen, CFO</strong> · reviewed by <strong>D. Park</strong> · last refresh 02:14 UTC</div>
+    </div>
+    <div class="meta" style="padding-left:40px; border-left:1px solid #1a1a15">
+      Revenue <strong>$2.47M MRR</strong> (+12.4% QoQ) driven by three enterprise expansions in wk 27. Net revenue retention at <strong>117%</strong>, up from 114%. Gross margin held at <strong>78.1%</strong> despite infra expansion.<br>
+      Risk: three accounts at &gt;85% churn-risk score together represent $340K MRR — noted in Risk section below.
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- KPIs -->
+    <div class="tile" style="grid-column: span 3">
+      <div class="tile-eyebrow"><span>MRR</span><span class="badge">+12.4%</span></div>
+      <div class="kpi-val">$2.47M</div>
+      <div class="kpi-delta up">vs $2.20M prior</div>
+    </div>
+    <div class="tile" style="grid-column: span 3">
+      <div class="tile-eyebrow"><span>ARR</span><span class="badge">+8.7%</span></div>
+      <div class="kpi-val">$29.6M</div>
+      <div class="kpi-delta up">vs $27.2M prior</div>
+    </div>
+    <div class="tile" style="grid-column: span 3">
+      <div class="tile-eyebrow"><span>Gross Churn</span><span class="badge">-0.4pp</span></div>
+      <div class="kpi-val">2.31%</div>
+      <div class="kpi-delta up">vs 2.72% prior</div>
+    </div>
+    <div class="tile" style="grid-column: span 3">
+      <div class="tile-eyebrow"><span>LTV : CAC</span><span class="badge">+0.3</span></div>
+      <div class="kpi-val">4.7×</div>
+      <div class="kpi-delta up">vs 4.4× prior</div>
+    </div>
+
+    <!-- Revenue chart (flagship) -->
+    <div class="tile" style="grid-column: span 8">
+      <div class="tile-eyebrow"><span>Revenue · 12-MONTH TRACE</span><span style="color:#7a7565">MRR & forecast · monthly</span></div>
+      <div class="line-chart">
+        <svg viewBox="0 0 680 160" preserveAspectRatio="none">
+          <line class="grid-line" x1="0" y1="30" x2="680" y2="30"/>
+          <line class="grid-line" x1="0" y1="65" x2="680" y2="65"/>
+          <line class="grid-line" x1="0" y1="100" x2="680" y2="100"/>
+          <line class="grid-line" x1="0" y1="135" x2="680" y2="135"/>
+          <text class="axis-label" x="4" y="30">$3.0M</text>
+          <text class="axis-label" x="4" y="65">$2.5M</text>
+          <text class="axis-label" x="4" y="100">$2.0M</text>
+          <text class="axis-label" x="4" y="135">$1.5M</text>
+          <!-- actuals -->
+          <path class="trace" d="M 50 130 L 104 124 L 158 118 L 212 110 L 266 102 L 320 95 L 374 89 L 428 72 L 482 64 L 536 55 L 590 42 L 644 28"/>
+          <!-- forecast (dashed-ish) -->
+          <path class="trace accent" stroke-dasharray="4 3" d="M 644 28 L 680 20"/>
+          <!-- annot -->
+          <circle cx="428" cy="72" r="3" fill="#B45309"/>
+          <text class="annot" x="436" y="68">Acme renewal · +$48K</text>
+          <circle cx="590" cy="42" r="3" fill="#B45309"/>
+          <text class="annot" x="498" y="34">Beta-Axion expansion · +$120K</text>
+        </svg>
+      </div>
+      <div class="x-labels" style="padding:0 30px">
+        <span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span>
+      </div>
+    </div>
+
+    <!-- Top accounts -->
+    <div class="tile" style="grid-column: span 4">
+      <div class="tile-eyebrow"><span>Top accounts by MRR</span><span style="color:#7a7565">Top 8 · Q3</span></div>
+      <div class="table-row head"><span>#</span><span>Account</span><span>MRR</span><span>Δ QoQ</span></div>
+      <div class="table-row"><span class="rank">01</span><span>Amberline Logistics</span><span class="val">$124,800</span><span class="delta">+18%</span></div>
+      <div class="table-row"><span class="rank">02</span><span>Northfield Biotech</span><span class="val">$108,400</span><span class="delta">+11%</span></div>
+      <div class="table-row"><span class="rank">03</span><span>Waverly Capital</span><span class="val">$96,200</span><span class="delta dn">-4%</span></div>
+      <div class="table-row"><span class="rank">04</span><span>Kestrel Aerospace</span><span class="val">$88,700</span><span class="delta">+22%</span></div>
+      <div class="table-row"><span class="rank">05</span><span>Ordinance Retail Co</span><span class="val">$72,100</span><span class="delta">+6%</span></div>
+      <div class="table-row"><span class="rank">06</span><span>Thornton Medical</span><span class="val">$64,900</span><span class="delta dn">-1%</span></div>
+      <div class="table-row"><span class="rank">07</span><span>Sable Investment Trust</span><span class="val">$58,300</span><span class="delta">+14%</span></div>
+      <div class="table-row"><span class="rank">08</span><span>Quill Typography Ltd</span><span class="val">$51,700</span><span class="delta">+2%</span></div>
+    </div>
+
+    <!-- Churn risk histogram -->
+    <div class="tile" style="grid-column: span 6">
+      <div class="tile-eyebrow"><span>Churn risk distribution</span><span style="color:#7a7565">N=842 active accounts</span></div>
+      <div class="bars-block">
+        <div class="bar" style="height:22%"></div>
+        <div class="bar" style="height:38%"></div>
+        <div class="bar" style="height:55%"></div>
+        <div class="bar" style="height:72%"></div>
+        <div class="bar" style="height:88%"></div>
+        <div class="bar" style="height:76%"></div>
+        <div class="bar" style="height:52%"></div>
+        <div class="bar" style="height:34%"></div>
+        <div class="bar" style="height:22%"></div>
+        <div class="bar" style="height:14%"></div>
+        <div class="bar accent" style="height:10%"></div>
+        <div class="bar accent" style="height:8%"></div>
+      </div>
+      <div class="x-labels"><span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span><span>85</span><span>90</span><span>95+</span></div>
+    </div>
+
+    <!-- Narrative -->
+    <div class="tile" style="grid-column: span 6">
+      <div class="tile-eyebrow"><span>Analyst commentary</span><span class="badge">AI-DRAFTED · REVIEWED</span></div>
+      <div class="narrative">
+        <p class="lede">Three enterprise expansions in July (Acme, Beta-Axion, and Amberline) together added <strong>$290K</strong> to MRR, accounting for ~61% of the quarter's net new. The remaining growth came from 47 new logos weighted toward mid-market — encouraging on top-of-funnel but the per-account contribution stayed modest at $4.1K ACV.</p>
+        <p>Churn improved to <strong>2.31%</strong>, a 41-basis-point improvement driven by the success-team reorganisation in April. However, two enterprise renewals in Q4 carry elevated risk: Waverly Capital's usage has flat-lined for 6 weeks, and Thornton Medical's adoption score dropped below 40 after a leadership change.</p>
+        <p class="tag">recommended next: 1. schedule QBR with Waverly before Oct 15 · 2. assign AE to Thornton succession plan · 3. revisit pricing for mid-market bucket (slope suggests headroom)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <div class="live">LIVE · warehouse ok · tier 1 · 2.3s refresh</div>
+    <div>bigquery://prod.finance_reports · q3_review_v12 · last-mod 09:42Z</div>
+    <div>RENDER 128ms · CACHE 94%</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     FRAME B — LIQUID ANALYTICS
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="dashboard fb" id="frame-b">
+
+  <div class="topbar">
+    <div class="logo"></div>
+    <div>
+      <div class="brand">Q3 · Revenue Review</div>
+      <div class="breadcrumb">Finance / Board / Q3 2026</div>
+    </div>
+    <div class="pillbar">
+      <div class="pill">Briefing</div>
+      <div class="pill active">Workbench</div>
+      <div class="pill">LiveOps</div>
+      <div class="pill">Story</div>
+      <div class="pill">Pitch</div>
+    </div>
+  </div>
+
+  <div class="hero-row">
+    <div class="kpi-tile">
+      <div class="label">MRR</div>
+      <div class="val">2.47<span class="unit">M</span></div>
+      <div class="meta-row">
+        <span class="chip up">+12.4%</span>
+        <span class="sub">vs $2.20M last Q</span>
+      </div>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none">
+        <defs><linearGradient id="gb1" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#0d9488" stop-opacity="0.7"/><stop offset="100%" stop-color="#0d9488" stop-opacity="0"/></linearGradient></defs>
+        <path d="M 0 20 L 15 18 L 30 15 L 45 16 L 60 12 L 75 10 L 90 6 L 105 5 L 120 2 L 120 26 L 0 26 Z" fill="url(#gb1)"/>
+        <path d="M 0 20 L 15 18 L 30 15 L 45 16 L 60 12 L 75 10 L 90 6 L 105 5 L 120 2" stroke="#0d9488" stroke-width="1.4" fill="none"/>
+      </svg>
+    </div>
+    <div class="kpi-tile">
+      <div class="label">ARR</div>
+      <div class="val">29.6<span class="unit">M</span></div>
+      <div class="meta-row">
+        <span class="chip up">+8.7%</span>
+        <span class="sub">vs $27.2M</span>
+      </div>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none">
+        <defs><linearGradient id="gb2" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#B45309" stop-opacity="0.7"/><stop offset="100%" stop-color="#B45309" stop-opacity="0"/></linearGradient></defs>
+        <path d="M 0 22 L 20 20 L 40 18 L 60 14 L 80 12 L 100 8 L 120 4 L 120 26 L 0 26 Z" fill="url(#gb2)"/>
+        <path d="M 0 22 L 20 20 L 40 18 L 60 14 L 80 12 L 100 8 L 120 4" stroke="#B45309" stroke-width="1.4" fill="none"/>
+      </svg>
+    </div>
+    <div class="kpi-tile">
+      <div class="label">Gross Churn</div>
+      <div class="val">2.31<span class="unit">%</span></div>
+      <div class="meta-row">
+        <span class="chip up">-0.4pp</span>
+        <span class="sub">vs 2.72% last Q</span>
+      </div>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none">
+        <defs><linearGradient id="gb3" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#8b5a7b" stop-opacity="0.6"/><stop offset="100%" stop-color="#8b5a7b" stop-opacity="0"/></linearGradient></defs>
+        <path d="M 0 6 L 20 10 L 40 14 L 60 12 L 80 18 L 100 16 L 120 20 L 120 26 L 0 26 Z" fill="url(#gb3)"/>
+        <path d="M 0 6 L 20 10 L 40 14 L 60 12 L 80 18 L 100 16 L 120 20" stroke="#8b5a7b" stroke-width="1.4" fill="none"/>
+      </svg>
+    </div>
+    <div class="kpi-tile">
+      <div class="label">LTV : CAC</div>
+      <div class="val">4.7<span class="unit">×</span></div>
+      <div class="meta-row">
+        <span class="chip up">+0.3</span>
+        <span class="sub">healthy · target 3.0×</span>
+      </div>
+      <svg class="spark" viewBox="0 0 120 26" preserveAspectRatio="none">
+        <defs><linearGradient id="gb4" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#3b5f7c" stop-opacity="0.7"/><stop offset="100%" stop-color="#3b5f7c" stop-opacity="0"/></linearGradient></defs>
+        <path d="M 0 18 L 20 15 L 40 17 L 60 12 L 80 10 L 100 7 L 120 5 L 120 26 L 0 26 Z" fill="url(#gb4)"/>
+        <path d="M 0 18 L 20 15 L 40 17 L 60 12 L 80 10 L 100 7 L 120 5" stroke="#3b5f7c" stroke-width="1.4" fill="none"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- Density area chart -->
+    <div class="tile">
+      <div class="tile-head">
+        <div>
+          <div class="title">Revenue composition · 12 months</div>
+          <div style="font: 500 11px 'JetBrains Mono', monospace; color: #7a828f; margin-top: 4px;">Stacked by segment · stream density</div>
+        </div>
+        <div class="sub">live · refresh 2s</div>
+      </div>
+      <div class="chart-area">
+        <svg viewBox="0 0 680 280" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="stream1" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#0d9488" stop-opacity="0.55"/><stop offset="100%" stop-color="#0d9488" stop-opacity="0.1"/></linearGradient>
+            <linearGradient id="stream2" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#B45309" stop-opacity="0.5"/><stop offset="100%" stop-color="#B45309" stop-opacity="0.08"/></linearGradient>
+            <linearGradient id="stream3" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#8b5a7b" stop-opacity="0.5"/><stop offset="100%" stop-color="#8b5a7b" stop-opacity="0.08"/></linearGradient>
+            <linearGradient id="stream4" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#3b5f7c" stop-opacity="0.5"/><stop offset="100%" stop-color="#3b5f7c" stop-opacity="0.08"/></linearGradient>
+          </defs>
+          <line class="grid" x1="0" y1="60" x2="680" y2="60"/>
+          <line class="grid" x1="0" y1="120" x2="680" y2="120"/>
+          <line class="grid" x1="0" y1="180" x2="680" y2="180"/>
+          <line class="grid" x1="0" y1="240" x2="680" y2="240"/>
+          <!-- Enterprise -->
+          <path fill="url(#stream1)" d="M 0 240 C 50 230, 100 220, 150 215 S 250 200, 300 190 S 400 165, 450 150 S 550 115, 600 95 S 680 65, 680 60 L 680 280 L 0 280 Z"/>
+          <!-- Mid-market -->
+          <path fill="url(#stream2)" d="M 0 260 C 50 255, 100 250, 150 244 S 250 235, 300 225 S 400 210, 450 195 S 550 170, 600 155 S 680 130, 680 128 L 680 280 L 0 280 Z"/>
+          <!-- SMB -->
+          <path fill="url(#stream3)" d="M 0 270 C 50 267, 100 264, 150 259 S 250 252, 300 246 S 400 235, 450 226 S 550 210, 600 202 S 680 188, 680 185 L 680 280 L 0 280 Z"/>
+          <!-- Self-serve -->
+          <path fill="url(#stream4)" d="M 0 277 C 50 275, 100 273, 150 270 S 250 266, 300 261 S 400 254, 450 248 S 550 238, 600 232 S 680 222, 680 220 L 680 280 L 0 280 Z"/>
+          <text class="axis-label" x="8" y="60">$3.0M</text>
+          <text class="axis-label" x="8" y="120">$2.0M</text>
+          <text class="axis-label" x="8" y="180">$1.0M</text>
+          <text class="axis-label" x="8" y="240">0</text>
+        </svg>
+        <div style="display: flex; justify-content: space-between; font: 500 10px 'JetBrains Mono', monospace; color: #7a828f; letter-spacing: 0.1em; margin-top: 6px;">
+          <span>Aug '25</span><span>Nov</span><span>Feb '26</span><span>May</span><span>Jul</span>
+        </div>
+        <div style="display: flex; gap: 14px; margin-top: 14px; font: 500 11px 'Satoshi', sans-serif; color: #bfc7d1;">
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#0d9488;border-radius:2px"></span>Enterprise 58%</span>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#B45309;border-radius:2px"></span>Mid-market 22%</span>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#8b5a7b;border-radius:2px"></span>SMB 14%</span>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:#3b5f7c;border-radius:2px"></span>Self-serve 6%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack-col">
+      <!-- AI insight -->
+      <div class="insight">
+        <div class="eyebrow">Signal detected · 2 min ago</div>
+        <h3>Enterprise expansion is concentrated in three accounts</h3>
+        <p>Amberline, Beta-Axion, and Northfield together added <strong>$290K MRR</strong> — 61% of net new. Pipeline coverage for Q4 enterprise is 2.1× (target 3×). <strong>Consider accelerating two mid-market conversions.</strong></p>
+      </div>
+
+      <!-- Top accounts -->
+      <div class="tile">
+        <div class="tile-head">
+          <div><div class="title">Top accounts · MRR</div></div>
+          <div class="sub">Q3</div>
+        </div>
+        <div class="list-row"><span class="rank">01</span><span class="name">Amberline Logistics<br><span class="sub">Enterprise · Logistics</span></span><span class="val">$124.8K</span></div>
+        <div class="list-row"><span class="rank">02</span><span class="name">Northfield Biotech<br><span class="sub">Enterprise · Pharma</span></span><span class="val">$108.4K</span></div>
+        <div class="list-row"><span class="rank">03</span><span class="name">Waverly Capital<br><span class="sub">Enterprise · Finance</span></span><span class="val">$96.2K</span></div>
+        <div class="list-row"><span class="rank">04</span><span class="name">Kestrel Aerospace<br><span class="sub">Enterprise · Aero</span></span><span class="val">$88.7K</span></div>
+        <div class="list-row"><span class="rank">05</span><span class="name">Ordinance Retail Co<br><span class="sub">Mid-market · Retail</span></span><span class="val">$72.1K</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span>bigquery · prod.finance_reports · warehouse ok</span>
+    <span>render 156ms · cache 94% hit · tier 1</span>
+    <span>last refresh 09:42:14 UTC</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     FRAME C — SIGNAL LAB
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="dashboard fc" id="frame-c">
+
+  <div class="topbar">
+    <span class="lab">LAB · LIVE</span>
+    <span class="meta"><strong>SYSTEM</strong> prod-eu-1</span>
+    <span class="meta"><strong>RUN</strong> Q3-2026-042</span>
+    <span class="meta"><strong>OPERATOR</strong> m.chen</span>
+    <span class="right">
+      <span>T+00:42:14</span>
+      <span>REV 2.8.1</span>
+      <span>0 ANOMALY · 3 WATCH</span>
+    </span>
+  </div>
+
+  <div class="sector">
+    <div class="sector-head">
+      <div class="sector-title">CH.1 — REVENUE SIGNAL</div>
+      <div class="sector-meta">Δ 12.4% · confidence 0.97 · sample n=842</div>
+    </div>
+    <div class="panel-grid">
+      <div class="panel">
+        <div class="panel-label">MRR · CH.1A</div>
+        <div class="panel-val">2.47<span class="unit">M$</span></div>
+        <div class="panel-meta"><span class="ok">+12.4%</span><span>nom</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">ARR · CH.1B</div>
+        <div class="panel-val">29.6<span class="unit">M$</span></div>
+        <div class="panel-meta"><span class="ok">+8.7%</span><span>nom</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">CHURN · CH.1C</div>
+        <div class="panel-val">2.31<span class="unit">%</span></div>
+        <div class="panel-meta"><span class="ok">-0.4pp</span><span>nom</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">PAYBACK · CH.1D</div>
+        <div class="panel-val">14.2<span class="unit">mo</span></div>
+        <div class="panel-meta"><span class="alarm">+0.8mo</span><span>WATCH</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sector">
+    <div class="sector-head">
+      <div class="sector-title">CH.2 — REVENUE TRACE</div>
+      <div class="sector-meta">12mo · bandwidth 30d · sampling 1/day</div>
+    </div>
+    <div class="trace-panel">
+      <div class="t-head">
+        <span>TRACE · REVENUE_USD</span>
+        <span class="live">● LIVE</span>
+      </div>
+      <div class="scope">
+        <svg viewBox="0 0 800 220" preserveAspectRatio="none">
+          <line class="annot-line" x1="460" y1="0" x2="460" y2="220"/>
+          <path class="trace-faint" d="M 0 170 Q 40 165 70 162 T 140 155 T 210 160 T 280 140 T 350 135 T 420 120 T 490 100 T 560 85 T 630 60 T 700 40 T 800 30"/>
+          <path class="trace" d="M 0 165 Q 40 160 70 158 T 140 150 T 210 155 T 280 134 T 350 128 T 420 115 T 490 92 T 560 78 T 630 52 T 700 32 T 800 22"/>
+          <circle cx="490" cy="92" r="3" fill="#ef4444"/>
+          <text class="annot" x="498" y="86">EVT ▲ BetaAxion +$120K</text>
+          <text class="annot" x="8" y="14">3.0M</text>
+          <text class="annot" x="8" y="58">2.5M</text>
+          <text class="annot" x="8" y="108">2.0M</text>
+          <text class="annot" x="8" y="158">1.5M</text>
+          <text class="annot" x="8" y="208">1.0M</text>
+        </svg>
+        <div class="annot-card">
+          <div class="tag">ANOMALY · T+490</div>
+          <div>ΔSlope 2.3σ above baseline</div>
+          <div style="margin-top:2px">corr: acme_renewal · 0.89</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sector" style="border-bottom: none;">
+    <div class="two-col">
+      <div class="dist-panel">
+        <div class="panel-label">CH.3 — CHURN RISK DISTRIBUTION</div>
+        <div class="dist-bars">
+          <div class="db" style="height:22%"></div>
+          <div class="db" style="height:38%"></div>
+          <div class="db" style="height:55%"></div>
+          <div class="db" style="height:72%"></div>
+          <div class="db" style="height:88%"></div>
+          <div class="db" style="height:76%"></div>
+          <div class="db" style="height:52%"></div>
+          <div class="db" style="height:34%"></div>
+          <div class="db" style="height:22%"></div>
+          <div class="db" style="height:14%"></div>
+          <div class="db highlight" style="height:12%"></div>
+          <div class="db highlight" style="height:8%"></div>
+        </div>
+        <div class="dist-labels">
+          <span>0</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span><span>85</span><span>90</span><span>95+</span>
+        </div>
+      </div>
+      <div class="log">
+        <div class="panel-label" style="margin-bottom:10px">CH.4 — EVENT LOG</div>
+        <div class="entry"><span class="t">09:42:14</span><span class="lvl info">OK</span><span class="msg">Warehouse ingest 247K rows · p95=148ms</span></div>
+        <div class="entry"><span class="t">09:41:58</span><span class="lvl info">OK</span><span class="msg">Cache warmed · schema_hash=a3f91c</span></div>
+        <div class="entry"><span class="t">09:41:12</span><span class="lvl warn">WARN</span><span class="msg">Waverly flat 6wk · churn_score 87</span></div>
+        <div class="entry"><span class="t">09:40:44</span><span class="lvl info">OK</span><span class="msg">Amberline expansion confirmed +18%</span></div>
+        <div class="entry"><span class="t">09:40:02</span><span class="lvl warn">WARN</span><span class="msg">Thornton adoption ↓40 after leader chg</span></div>
+        <div class="entry"><span class="t">09:39:48</span><span class="lvl err">ERR</span><span class="msg">bigquery slot saturation (recovered 3s)</span></div>
+        <div class="entry"><span class="t">09:39:12</span><span class="lvl info">OK</span><span class="msg">Beta-Axion seat expansion ·+48 seats</span></div>
+        <div class="entry"><span class="t">09:38:44</span><span class="lvl info">OK</span><span class="msg">Q3 close report drafted · reviewed by d.park</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span>▶ bigquery://prod.finance_reports</span>
+    <span>SAMPLE 1/1d · BAND 30d · FILT none</span>
+    <span>CPU 8.4% · MEM 412M · UPLINK OK</span>
+    <span>RENDER 128ms</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     FRAME D — KINETIC MINIMALISM
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="dashboard fd" id="frame-d">
+
+  <div class="topbar">
+    <div class="mark"></div>
+    <div class="brand">AskDB</div>
+    <div class="ctx">Q3 Revenue · Board Pack</div>
+    <div class="live">LIVE · AUTO-REFRESH 2s</div>
+  </div>
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Q3 2026 · Net New MRR</div>
+      <h1>+$478<span class="unit">K</span></h1>
+      <div class="lede">Three enterprise expansions in July together added <strong>$290K MRR</strong> — 61% of net new. Mid-market added 47 logos. <strong>Watch:</strong> enterprise Q4 pipe at 2.1× coverage.</div>
+    </div>
+    <div class="side">
+      <div class="tick-row"><span>MRR</span><span class="val pos">$2.47M <span style="color:#5a5a55; font-weight:500; font-size:12px">+12.4%</span></span></div>
+      <div class="tick-row"><span>ARR</span><span class="val pos">$29.6M <span style="color:#5a5a55; font-weight:500; font-size:12px">+8.7%</span></span></div>
+      <div class="tick-row"><span>Churn</span><span class="val pos">2.31% <span style="color:#5a5a55; font-weight:500; font-size:12px">-0.4pp</span></span></div>
+      <div class="tick-row"><span>LTV : CAC</span><span class="val pos">4.7× <span style="color:#5a5a55; font-weight:500; font-size:12px">+0.3</span></span></div>
+      <div class="tick-row"><span>Payback</span><span class="val neg">14.2mo <span style="color:#5a5a55; font-weight:500; font-size:12px">+0.8</span></span></div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="cell wide">
+      <div class="eyebrow">Revenue · 12mo</div>
+      <div class="title">Growth compounded in late Q3</div>
+      <div class="sub">Forecast suggests $3.1M MRR by Oct · dashed</div>
+      <div class="line-svg">
+        <svg viewBox="0 0 680 160" preserveAspectRatio="none">
+          <path class="fill" d="M 0 130 L 54 124 L 108 118 L 162 110 L 216 102 L 270 95 L 324 89 L 378 72 L 432 64 L 486 55 L 540 42 L 594 28 L 648 20 L 680 16 L 680 160 L 0 160 Z"/>
+          <path class="t" d="M 0 130 L 54 124 L 108 118 L 162 110 L 216 102 L 270 95 L 324 89 L 378 72 L 432 64 L 486 55 L 540 42 L 594 28 L 648 20"/>
+          <path class="t hot" stroke-dasharray="6 4" d="M 648 20 L 680 10"/>
+          <circle cx="432" cy="64" r="5" fill="#0a0a0a"/>
+          <circle cx="594" cy="28" r="5" fill="#DC2626"/>
+        </svg>
+      </div>
+      <div class="axis-ends"><span>Aug '25</span><span>Jul '26 · +12.4%</span></div>
+    </div>
+
+    <div class="cell tall">
+      <div class="eyebrow">Top Accounts · MRR</div>
+      <div class="title">Five accounts = 41% of MRR</div>
+      <div class="sub">Concentration risk · monitor Waverly (-4%)</div>
+      <div class="ranked" style="margin-top:auto">
+        <div class="row"><span>Amberline Logistics</span><span>$124.8K <strong style="color:#DC2626; margin-left:8px; font-weight:600">+18%</strong></span></div>
+        <div class="row"><span>Northfield Biotech</span><span>$108.4K <strong style="color:#5a5a55; margin-left:8px; font-weight:600">+11%</strong></span></div>
+        <div class="row"><span>Waverly Capital</span><span>$96.2K <strong style="color:#DC2626; margin-left:8px; font-weight:600">-4%</strong></span></div>
+        <div class="row"><span>Kestrel Aerospace</span><span>$88.7K <strong style="color:#5a5a55; margin-left:8px; font-weight:600">+22%</strong></span></div>
+        <div class="row"><span>Ordinance Retail</span><span>$72.1K <strong style="color:#5a5a55; margin-left:8px; font-weight:600">+6%</strong></span></div>
+      </div>
+    </div>
+
+    <div class="cell flat">
+      <div class="eyebrow">Churn Risk · dist.</div>
+      <div class="title">Tail is manageable</div>
+      <div class="sub">12 accounts above 85 · $340K MRR</div>
+      <div class="bars-min" style="margin-top:auto">
+        <div class="bar-min muted" style="height:22%"></div>
+        <div class="bar-min muted" style="height:38%"></div>
+        <div class="bar-min muted" style="height:55%"></div>
+        <div class="bar-min muted" style="height:72%"></div>
+        <div class="bar-min" style="height:88%"></div>
+        <div class="bar-min" style="height:76%"></div>
+        <div class="bar-min muted" style="height:52%"></div>
+        <div class="bar-min muted" style="height:34%"></div>
+        <div class="bar-min muted" style="height:22%"></div>
+        <div class="bar-min muted" style="height:14%"></div>
+        <div class="bar-min hot" style="height:12%"></div>
+        <div class="bar-min hot" style="height:8%"></div>
+      </div>
+      <div class="axis-ends"><span>0</span><span>95+</span></div>
+    </div>
+
+    <div class="cell flat">
+      <div class="eyebrow">Cohort · July '25</div>
+      <div class="title">Retention holds</div>
+      <div class="sub">M12 retention = 92.1% · best cohort YTD</div>
+      <div style="display:grid; grid-template-columns: repeat(12, 1fr); gap: 2px; margin-top: auto;">
+        <div style="background:#0a0a0a; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.95; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.92; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.9; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.88; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.86; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.85; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.84; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.83; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.82; height:14px"></div>
+        <div style="background:#0a0a0a; opacity:0.815; height:14px"></div>
+        <div style="background:#DC2626; opacity:0.92; height:14px"></div>
+      </div>
+      <div class="axis-ends"><span>M0 100%</span><span>M12 92.1%</span></div>
+    </div>
+
+    <div class="cell flat">
+      <div class="eyebrow">Insight</div>
+      <div class="title">Enterprise concentration is the Q4 lever</div>
+      <div class="sub" style="font-size:13px; line-height:1.65;">Pipeline coverage 2.1× below target 3.0×. <strong style="color:#DC2626">Accelerate Acme tier-up + 2 mid-market upsells</strong> to hit Q4 expansion plan. Recommend QBR scheduled for Waverly before Oct 15.</div>
+      <div class="axis-ends" style="margin-top:auto"><span>AI · reviewed</span><span>2min ago</span></div>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <span class="mark-row">bigquery · prod.finance_reports</span>
+    <span>render 128ms · cache 94% · tier 1</span>
+    <span>AskDB v2.8.1 · 09:42:14 UTC</span>
+  </div>
+</div>
+
+<script>
+  function showFrame(f) {
+    document.querySelectorAll('.dashboard').forEach(d => d.classList.remove('active'));
+    document.getElementById('frame-' + f).classList.add('active');
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelector('.tabs button[data-frame="' + f + '"]').classList.add('active');
+    window.scrollTo({ top: 0 });
+  }
+</script>
+
+</body>
+</html>

@@ -1,10 +1,13 @@
 import { useMemo, useCallback, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useStore } from "../../../store";
 import EditorCanvas from "../../editor/EditorCanvas";
 import useViewportMount from "../../../lib/useViewportMount";
 import TextTile from "../TextTile";
 import InsightTile from "../InsightTile";
 import ActivityTile from "../ActivityTile";
+import { SPRINGS } from "../motion";
+import { TOKENS } from "../tokens";
 
 /**
  * DashboardTileCanvas — tile-sized ChartEditor view.
@@ -165,12 +168,41 @@ export default function DashboardTileCanvas({
     if (onTileClick) onTileClick(tile);
   };
 
+  // Cursor-tracked spotlight — rAF-throttled on the mousemove event target
+  // itself, so we avoid mutating the viewport ref from useViewportMount
+  // (React hooks guard: hook-returned refs must not be written externally).
+  const rafRef = useRef(0);
+  const handleSpotlightMove = useCallback((e) => {
+    const el = e.currentTarget;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      el.style.setProperty('--spot-x', `${x}%`);
+      el.style.setProperty('--spot-y', `${y}%`);
+    });
+  }, []);
+
+  // Flagship tile — gets the sheen hover sweep. Guarded so not every tile lights up.
+  const isFlagship =
+    tile?.importance === 'high' ||
+    tile?.kind === 'hero' ||
+    tile?.chart_spec?.importance === 'high';
+
+  const spotlightClass = 'premium-spotlight';
+  const sheenClass = isFlagship ? 'premium-sheen' : '';
+
   return (
-    <div
+    <motion.div
       ref={viewportRef}
       data-testid={`dashboard-tile-canvas-${tile?.id || "tile"}`}
       data-has-spec={spec ? "true" : "false"}
-      className="dashboard-tile-canvas"
+      className={`dashboard-tile-canvas ${spotlightClass} ${sheenClass}`.trim()}
+      onMouseMove={handleSpotlightMove}
+      whileHover={{ y: -2 }}
+      transition={SPRINGS.fluid}
       style={{
         height,
         minHeight: 0,
@@ -184,7 +216,7 @@ export default function DashboardTileCanvas({
           : "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
         boxShadow: isAgentEditing
           ? "0 0 20px rgba(139,92,246,0.15), inset 0 0 12px rgba(139,92,246,0.04)"
-          : undefined,
+          : TOKENS.shadow.innerGlass,
         transition: "border-color 0.3s ease, box-shadow 0.3s ease",
         position: "relative",
       }}
@@ -199,22 +231,26 @@ export default function DashboardTileCanvas({
             gap: 8,
             borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.05))",
             flexShrink: 0,
+            minWidth: 0, // allow child title to truncate with ellipsis on narrow tiles (<220px)
           }}
         >
           <span
             style={{
               fontSize: 13,
-              fontWeight: 600,
+              fontWeight: 650,
               color: "var(--text-primary, #e7e7ea)",
-              letterSpacing: "-0.01em",
+              fontFamily: TOKENS.fontDisplay,
+              letterSpacing: "-0.018em",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
+              minWidth: 0,
+              flex: "1 1 auto",
             }}
           >
             {tile?.title || tile?.id || "Untitled"}
           </span>
-          {/* SP-2: AGENT EDITING badge */}
+          {/* SP-2: AGENT EDITING badge — truncates to "Agent..." at extreme narrow widths */}
           {isAgentEditing && (
             <span
               data-testid="agent-editing-badge"
@@ -232,10 +268,14 @@ export default function DashboardTileCanvas({
                 color: "#a78bfa",
                 border: "1px solid rgba(139,92,246,0.3)",
                 flexShrink: 0,
+                maxWidth: 100,
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                textOverflow: "ellipsis",
                 animation: "pulse 2s ease-in-out infinite",
               }}
             >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                 <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
               </svg>
               Agent editing
@@ -290,7 +330,7 @@ export default function DashboardTileCanvas({
               data-testid="tile-viewport-skeleton"
               style={{
                 height: '100%',
-                background: 'rgba(255,255,255,0.02)',
+                background: 'var(--overlay-faint)',
                 borderRadius: 6,
                 display: 'flex',
                 alignItems: 'center',
@@ -325,13 +365,13 @@ export default function DashboardTileCanvas({
             whiteSpace: "nowrap",
             pointerEvents: "none",
             zIndex: 20,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            boxShadow: "0 4px 16px var(--shadow-mid)",
           }}
         >
           {drillToast}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

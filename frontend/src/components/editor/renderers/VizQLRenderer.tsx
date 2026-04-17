@@ -236,17 +236,12 @@ export default function VizQLRenderer({
     const h = Math.floor(canvasSize.height * dpr);
     if (w <= 0 || h <= 0) return;
 
-    // Sync canvas physical + CSS dimensions atomically before drawing
-    canvas.width = w;
-    canvas.height = h;
-    canvas.style.width = `${canvasSize.width}px`;
-    canvas.style.height = `${canvasSize.height}px`;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const t0 = performance.now();
 
+    const paint = () => {
     // Scale context for HiDPI
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -359,6 +354,21 @@ export default function VizQLRenderer({
       `(${aggregated.rows.length} rows, tier=${rsrStrategy.tier}, ` +
       `strategy=${strategy?.tier ?? 'n/a'})`,
     );
+    };
+    // Batch all four canvas size writes into one rAF so physical + CSS
+    // dimensions land in a single frame (prevents drag-resize flicker).
+    // No reads between writes.
+    let rafId: number | null = requestAnimationFrame(() => {
+      rafId = null;
+      canvas.width = w;
+      canvas.height = h;
+      canvas.style.width = `${canvasSize.width}px`;
+      canvas.style.height = `${canvasSize.height}px`;
+      paint();
+    });
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [vizqlSpec, data, canvasSize, strategy]);
 
   // -- Tooltip (mousemove) -----------------------------------------------
@@ -487,7 +497,7 @@ export default function VizQLRenderer({
       >
         <div style={{
           fontSize: 'clamp(28px, 5vw, 48px)', fontWeight: 700,
-          color: 'var(--text-primary, #1a1a2e)', letterSpacing: '-0.03em',
+          color: 'var(--text-primary, #e7e7ea)', letterSpacing: '-0.03em',
           lineHeight: 1.1,
         }}>
           {formatted}
@@ -495,7 +505,7 @@ export default function VizQLRenderer({
         <div style={{
           fontSize: 11, fontWeight: 500, textTransform: 'uppercase',
           letterSpacing: '0.06em',
-          color: 'var(--text-muted, rgba(0,0,0,0.45))',
+          color: 'var(--text-muted, rgba(255,255,255,0.5))',
         }}>
           {label.replace(/_/g, ' ')}
         </div>

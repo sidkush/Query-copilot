@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { TOKENS } from './tokens';
 
 /**
@@ -49,7 +49,7 @@ function relativeTime(iso) {
 }
 
 
-export default function ActivityTile({ tile }) {
+export default function ActivityTile({ tile, index = 0 }) {
   const scrollRef = useRef(null);
   const rawEvents = tile?.events;
 
@@ -69,6 +69,28 @@ export default function ActivityTile({ tile }) {
       scrollRef.current.scrollTop = 0;
     }
   }, [sorted.length]);
+
+  // Highlight the latest event with a 2s shimmer after it mounts.
+  // freshId is driven exclusively by timeouts — no synchronous setState in
+  // the effect body. On latestId change we schedule setFreshId(latestId) via
+  // a microtask and setFreshId(null) via a 2s timer.
+  const latestId = sorted[0]?.id ?? sorted[0]?.timestamp ?? null;
+  const [freshId, setFreshId] = useState(null);
+  useEffect(() => {
+    if (!latestId) return;
+    let cancelled = false;
+    const raf = requestAnimationFrame(() => {
+      if (!cancelled) setFreshId(latestId);
+    });
+    const t = setTimeout(() => {
+      if (!cancelled) setFreshId(null);
+    }, 2000);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, [latestId]);
 
   if (sorted.length === 0) {
     return (
@@ -100,12 +122,13 @@ export default function ActivityTile({ tile }) {
         flexDirection: 'column',
         overflow: 'hidden',
         fontFamily: TOKENS.fontBody,
+        '--mount-index': index,
       }}
     >
-      {/* Header */}
+      {/* Header — unified eyebrow spec (see TOKENS.tile.eyebrow*) */}
       <div
         style={{
-          padding: '12px 18px 8px',
+          padding: '12px 16px 8px',
           display: 'flex',
           alignItems: 'center',
           gap: 8,
@@ -114,9 +137,9 @@ export default function ActivityTile({ tile }) {
       >
         <span
           style={{
-            fontSize: 9,
+            fontSize: TOKENS.tile.eyebrowSize,
             fontWeight: 700,
-            letterSpacing: '0.18em',
+            letterSpacing: TOKENS.tile.eyebrowLetterSpacing,
             textTransform: 'uppercase',
             color: TOKENS.text.muted,
             fontFamily: TOKENS.fontDisplay,
@@ -149,27 +172,37 @@ export default function ActivityTile({ tile }) {
       >
         {sorted.map((event, i) => {
           const cfg = getEventConfig(event.type);
+          const eventKey = event.id || event.timestamp || `evt-${i}`;
+          const isFresh = freshId && (event.id === freshId || event.timestamp === freshId);
           return (
             <div
-              key={event.id || `evt-${i}`}
+              key={eventKey}
               data-testid={`activity-event-${i}`}
+              className={isFresh ? 'premium-shimmer-surface' : undefined}
               style={{
+                position: 'relative',
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: 10,
                 padding: '8px 4px',
+                borderRadius: 6,
                 borderBottom: i < sorted.length - 1
-                  ? '1px solid rgba(255,255,255,0.04)'
+                  ? '1px solid var(--border-subtle)'
                   : 'none',
               }}
             >
-              {/* Color-coded dot */}
+              {/* Color-coded dot — fallback plain-color bg for pre-2023 Safari
+                  (no color-mix support), then the oklab color-mix overrides. */}
               <div
                 style={{
                   width: 22,
                   height: 22,
                   borderRadius: '50%',
-                  background: `color-mix(in oklab, ${cfg.dot} 20%, transparent)`,
+                  // First declaration: plain hex at 20% opacity via rgba-ish
+                  // stand-in. Safari <16.2 reads this; modern browsers use the
+                  // color-mix backgroundImage below.
+                  background: `${cfg.dot}33`, // hex + 33 = ~20% alpha
+                  backgroundImage: `linear-gradient(color-mix(in oklab, ${cfg.dot} 20%, transparent), color-mix(in oklab, ${cfg.dot} 20%, transparent))`,
                   border: `1.5px solid ${cfg.dot}`,
                   display: 'flex',
                   alignItems: 'center',

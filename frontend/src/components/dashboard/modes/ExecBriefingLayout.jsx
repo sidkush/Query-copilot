@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { briefingGridPlacement } from "../lib/importanceScoring";
 import DashboardTileCanvas from "../lib/DashboardTileCanvas";
-import { ARCHETYPE_THEMES } from "../tokens";
+import { ARCHETYPE_THEMES, TOKENS } from "../tokens";
 import { getArchetypeStyles } from "../lib/archetypeStyling";
+import { BreathingDot, TileReveal } from "../motion";
 
 /**
  * ExecBriefingLayout — SP-6 polish pass.
@@ -25,6 +26,23 @@ export default function ExecBriefingLayout({ tiles = [], onTileClick }) {
   const placement = useMemo(() => briefingGridPlacement(tiles), [tiles]);
   const containerStyle = useMemo(() => getArchetypeStyles("briefing"), []);
 
+  // Asymmetric bento: first KPI gets 6 cols, second 3, third 3 — importance rank.
+  // Only applied when we have ≥3 leading KPI tiles; otherwise keep the stock 3-col
+  // rhythm so briefings with few KPIs still look balanced. We pre-compute each
+  // entry's kpi-rank up front (pure), so no mutation during render.
+  // Must run before the early return to keep hook order stable.
+  const { asymmetric, kpiRanks } = useMemo(() => {
+    const ranks = new Map();
+    let seen = 0;
+    placement.forEach((entry, i) => {
+      if (entry.rowHint === "kpi") {
+        ranks.set(i, seen);
+        seen += 1;
+      }
+    });
+    return { asymmetric: seen >= 3, kpiRanks: ranks };
+  }, [placement]);
+
   if (placement.length === 0) {
     return (
       <div
@@ -42,7 +60,8 @@ export default function ExecBriefingLayout({ tiles = [], onTileClick }) {
   }
 
   return (
-    <div
+    <TileReveal
+      as="div"
       data-testid="layout-briefing"
       data-tile-count={placement.length}
       className="briefing-layout-print"
@@ -66,9 +85,21 @@ export default function ExecBriefingLayout({ tiles = [], onTileClick }) {
           tile.chartType === "insight" ||
           tile.kind === "insight" ||
           Boolean(tile.narrative && tile.narrative.length > 0);
-        const colSpan = isInsight ? 12 : entry.colSpan;
+        // Asymmetric bento — boost the first KPI to span 6 cols (importance rank).
+        const kpiRank = kpiRanks.get(idx);
+        let colSpan = isInsight ? 12 : entry.colSpan;
+        if (!isInsight && asymmetric && entry.rowHint === "kpi") {
+          colSpan = kpiRank === 0 ? 6 : 3;
+        }
+        // Enrich the tile with hero-importance so DashboardTileCanvas
+        // turns on the premium-sheen sweep on flagship charts + lead KPI.
+        const importance =
+          entry.rowHint === "hero" || (asymmetric && entry.rowHint === "kpi" && kpiRank === 0)
+            ? "high"
+            : tile.importance;
+        const enrichedTile = importance && !tile.importance ? { ...tile, importance } : tile;
         return (
-          <div
+          <TileReveal.Child
             key={tile.id || idx}
             data-testid={`layout-briefing-tile-${tile.id || idx}`}
             data-row-hint={entry.rowHint}
@@ -79,23 +110,36 @@ export default function ExecBriefingLayout({ tiles = [], onTileClick }) {
               minHeight: entry.rowHint === "hero" ? 320 : isInsight ? 160 : 200,
               display: "flex",
               flexDirection: "column",
+              // Hero + lead-KPI tiles lift off the page with a diffusion shadow
+              filter:
+                entry.rowHint === "hero"
+                  ? "drop-shadow(0 24px 60px rgba(0,0,0,0.35))"
+                  : undefined,
+              // Premium heading typography: tabular figures on KPI values
+              fontFamily: TOKENS.fontDisplay,
+              letterSpacing: "-0.02em",
+              fontVariantNumeric: "tabular-nums",
+              fontFeatureSettings: "'ss01', 'tnum'",
             }}
           >
             {isInsight ? (
-              <InsightNarrativeCard tile={tile} />
+              <InsightNarrativeCard tile={enrichedTile} />
             ) : (
-              <DashboardTileCanvas tile={tile} onTileClick={onTileClick} />
+              <DashboardTileCanvas tile={enrichedTile} onTileClick={onTileClick} />
             )}
-          </div>
+          </TileReveal.Child>
         );
       })}
 
-      {/* Print-friendly overrides: strip glass, whitish bg, page-break hints */}
+      {/* Print-friendly overrides: strip glass, theme-aware bg, page-break hints.
+          Uses light-dark() with color-scheme fallback so print styles respect
+          the active theme instead of forcing hardcoded light values. */}
       <style>{`
         @media print {
           .briefing-layout-print {
-            background: #ffffff !important;
-            color: #0f172a !important;
+            color-scheme: light dark;
+            background: light-dark(#ffffff, var(--bg-primary, #0b0b12)) !important;
+            color: light-dark(#0f172a, var(--text-primary, #e7e7ea)) !important;
             padding: 16mm !important;
           }
           .briefing-layout-print [data-row-hint="hero"] {
@@ -105,18 +149,18 @@ export default function ExecBriefingLayout({ tiles = [], onTileClick }) {
           .briefing-layout-print [data-kind="insight"] {
             break-before: auto;
             page-break-before: auto;
-            background: #f8fafc !important;
-            border: 1px solid rgba(15,23,42,0.1) !important;
+            background: light-dark(#f8fafc, var(--glass-bg-card, rgba(255,255,255,0.03))) !important;
+            border: 1px solid light-dark(rgba(15,23,42,0.1), rgba(255,255,255,0.12)) !important;
           }
           .briefing-layout-print .dashboard-tile-canvas {
             box-shadow: none !important;
             backdrop-filter: none !important;
-            background: #ffffff !important;
-            border: 1px solid rgba(15,23,42,0.1) !important;
+            background: light-dark(#ffffff, var(--bg-tile, #141420)) !important;
+            border: 1px solid light-dark(rgba(15,23,42,0.1), rgba(255,255,255,0.12)) !important;
           }
         }
       `}</style>
-    </div>
+    </TileReveal>
   );
 }
 
@@ -139,37 +183,49 @@ function InsightNarrativeCard({ tile }) {
   return (
     <div
       data-testid={`briefing-insight-${tile.id}`}
+      className="premium-liquid-glass"
       style={{
-        background:
-          "linear-gradient(135deg, var(--glass-bg-card, rgba(255,255,255,0.03)), rgba(37,99,235,0.04))",
+        background: "var(--glass-bg-card, rgba(255,255,255,0.03))",
         border: "1px solid var(--glass-border, rgba(37,99,235,0.18))",
-        borderLeft: `3px solid ${accent}`,
         borderRadius: THEME.spacing.tileRadius,
         padding: "22px 28px",
         display: "flex",
         flexDirection: "column",
         gap: 10,
         fontFamily: THEME.typography.bodyFont,
+        // Refined diffusion shadow — replaces flat border for material lift
+        boxShadow: TOKENS.shadow.diffusion,
       }}
     >
-      <div
+      {/* Eyebrow chip — narrative label + breathing freshness dot */}
+      <span
         style={{
+          alignSelf: "flex-start",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "3px 10px",
           fontSize: 10,
           letterSpacing: "0.22em",
           textTransform: "uppercase",
           color: accent,
           fontWeight: 700,
+          background: "color-mix(in oklab, var(--accent, #2563EB) 12%, transparent)",
+          border: "1px solid color-mix(in oklab, var(--accent, #2563EB) 30%, transparent)",
+          borderRadius: 3,
+          fontFamily: THEME.typography.bodyFont,
         }}
       >
-        AI Insight
-      </div>
+        <BreathingDot color={accent} size={5} glow={false} />
+        Narrative
+      </span>
       {tile.title && (
         <div
           style={{
-            fontSize: 20,
+            fontSize: 22,
             fontWeight: 700,
-            fontFamily: THEME.typography.headingFont,
-            letterSpacing: "-0.02em",
+            fontFamily: TOKENS.fontDisplay,
+            letterSpacing: "-0.028em",
             color: "var(--text-primary, #e7e7ea)",
           }}
         >

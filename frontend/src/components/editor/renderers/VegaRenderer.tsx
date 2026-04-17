@@ -114,6 +114,16 @@ export default function VegaRenderer({
   onDrillthrough,
   onBrush,
 }: VegaRendererProps) {
+  // One-time deprecation warning in dev — rollback path preserved.
+  useEffect(() => {
+    if ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) {
+      console.warn(
+        '[VegaRenderer] deprecated — use VizQLRenderer in Stage mode, ' +
+        'VegaRenderer only for legacy fallback',
+      );
+    }
+  }, []);
+
   const compiled = useMemo(() => {
     try {
       if (spec.type !== 'cartesian') {

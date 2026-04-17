@@ -1,11 +1,18 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { TOKENS } from './tokens';
+import { SPRINGS } from './motion';
 
 /**
  * TileTypePicker — tile type selection modal/dropdown.
  *
  * SP-3a: When adding a new tile (via "+ Add tile" or agent), shows
  * a picker with all available tile types grouped by category.
+ *
+ * Premium pass:
+ *   - Modal wrapper: .premium-liquid-glass, motion entrance
+ *   - Picker list: .premium-mount-stagger so rows cascade in
+ *   - Tile options: motion whileHover/tap, .premium-sheen hover sweep
  *
  * Props:
  *   - onSelect   (tileType: string) => void
@@ -42,28 +49,36 @@ const TILE_TYPES = [
   },
 ];
 
-function TypeCard({ item, onSelect }) {
-  const [hovered, setHovered] = useState(false);
-
+function TypeCard({ item, onSelect, index }) {
   return (
-    <button
+    <motion.button
       type="button"
       onClick={() => onSelect(item.type)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      transition={SPRINGS.snappy}
       data-testid={`tile-type-${item.type}`}
+      className="premium-sheen"
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: 12,
         padding: '10px 14px',
-        background: hovered ? TOKENS.bg.hover : 'transparent',
-        border: `1px solid ${hovered ? TOKENS.border.hover : 'transparent'}`,
+        background: 'transparent',
+        border: '1px solid transparent',
         borderRadius: 10,
         cursor: 'pointer',
         textAlign: 'left',
         width: '100%',
-        transition: `background ${TOKENS.transition}, border-color ${TOKENS.transition}`,
+        '--mount-index': index,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = TOKENS.bg.hover;
+        e.currentTarget.style.borderColor = TOKENS.border.hover;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent';
+        e.currentTarget.style.borderColor = 'transparent';
       }}
     >
       {/* Icon */}
@@ -82,6 +97,7 @@ function TypeCard({ item, onSelect }) {
           color: TOKENS.accent,
           flexShrink: 0,
           fontFamily: TOKENS.fontDisplay,
+          boxShadow: TOKENS.shadow.innerGlass,
         }}
       >
         {item.icon}
@@ -111,7 +127,7 @@ function TypeCard({ item, onSelect }) {
           {item.desc}
         </div>
       </div>
-    </button>
+    </motion.button>
   );
 }
 
@@ -123,41 +139,51 @@ export default function TileTypePicker({ open, onSelect, onClose }) {
 
   if (!open) return null;
 
+  // Global stagger index across categories so items cascade in as one list
+  let idx = 0;
+
   return (
     <div
       data-testid="tile-type-picker"
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9999,
+        // zIndex 100 — "modals" band per DashboardShell.jsx z-index scale.
+        zIndex: 100,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
       {/* Backdrop */}
-      <div
+      <motion.div
         onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.16 }}
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(4px)',
+          background: 'var(--modal-overlay, rgba(0,0,0,0.55))',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
         }}
       />
 
       {/* Modal */}
-      <div
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={SPRINGS.fluid}
+        className="premium-liquid-glass"
         style={{
           position: 'relative',
-          background: TOKENS.bg.elevated,
-          border: `1px solid ${TOKENS.border.default}`,
           borderRadius: 16,
           padding: '24px 20px',
           width: 420,
           maxHeight: '80vh',
           overflow: 'auto',
-          boxShadow: '0 24px 48px -12px rgba(0,0,0,0.5)',
+          boxShadow: '0 24px 48px -12px var(--shadow-deep)',
         }}
       >
         {/* Header */}
@@ -184,6 +210,7 @@ export default function TileTypePicker({ open, onSelect, onClose }) {
           <button
             type="button"
             onClick={onClose}
+            className="premium-btn"
             style={{
               background: 'none',
               border: 'none',
@@ -214,14 +241,15 @@ export default function TileTypePicker({ open, onSelect, onClose }) {
             >
               {group.category}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {group.items.map((item) => (
-                <TypeCard key={item.type} item={item} onSelect={handleSelect} />
-              ))}
+            <div className="premium-mount-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {group.items.map((item) => {
+                const thisIdx = idx++;
+                return <TypeCard key={item.type} item={item} onSelect={handleSelect} index={thisIdx} />;
+              })}
             </div>
           </div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }

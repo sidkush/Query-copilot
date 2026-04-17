@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
 import TitleInlineEditor from "./onobject/TitleInlineEditor";
+import { TOKENS } from "../dashboard/tokens";
+import { BreathingDot, SPRINGS } from "../dashboard/motion";
 
 /**
  * Top bar: breadcrumb + mode toggle + Save/Share buttons.
@@ -7,6 +9,9 @@ import TitleInlineEditor from "./onobject/TitleInlineEditor";
  *
  * Phase 2b: the "Untitled chart" crumb is replaced by a click-to-edit
  * TitleInlineEditor driven by spec.title and onSpecChange.
+ *
+ * Premium pass: morphing layoutId pill, accent glow on active, breadcrumb
+ * breathing dot indicating current mode, premium-btn/premium-sheen surfaces.
  */
 const MODES = [
   { id: "default", label: "Default" },
@@ -27,6 +32,7 @@ export default function ChartEditorTopbar({ mode = "default", onModeChange, spec
         borderBottom: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
         fontSize: 13,
         background: "var(--bg-elev-1, rgba(255,255,255,0.02))",
+        fontFamily: TOKENS.fontDisplay,
       }}
     >
       <div
@@ -34,12 +40,14 @@ export default function ChartEditorTopbar({ mode = "default", onModeChange, spec
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 6,
+          gap: 7,
           color: "var(--text-secondary, #b0b0b6)",
+          letterSpacing: "-0.005em",
         }}
       >
-        <span>Dashboard</span>
-        <span style={{ opacity: 0.5 }}>/</span>
+        <BreathingDot color="var(--accent, #2563EB)" size={5} />
+        <span style={{ fontWeight: 600 }}>Data</span>
+        <span style={{ opacity: 0.45 }}>→</span>
         <TitleInlineEditor spec={spec} onSpecChange={onSpecChange} />
       </div>
 
@@ -49,10 +57,11 @@ export default function ChartEditorTopbar({ mode = "default", onModeChange, spec
         style={{
           display: "flex",
           padding: 2,
-          borderRadius: 6,
+          borderRadius: 7,
           background: "var(--bg-elev-2, rgba(255,255,255,0.04))",
           border: "1px solid var(--border-subtle, rgba(255,255,255,0.06))",
           position: "relative",
+          boxShadow: TOKENS.shadow.innerGlass,
         }}
       >
         {MODES.map((m) => {
@@ -64,27 +73,32 @@ export default function ChartEditorTopbar({ mode = "default", onModeChange, spec
               aria-selected={active}
               data-testid={`mode-toggle-${m.id}`}
               onClick={() => onModeChange && onModeChange(m.id)}
+              className="premium-btn premium-sheen"
               style={{
                 position: "relative",
-                padding: "4px 12px",
+                padding: "4px 14px",
                 fontSize: 12,
-                fontWeight: 500,
-                borderRadius: 4,
+                fontWeight: 600,
+                borderRadius: 5,
                 background: "transparent",
                 color: active ? "var(--text-primary, #e7e7ea)" : "var(--text-secondary, #b0b0b6)",
                 cursor: onModeChange ? "pointer" : "default",
                 border: "none",
-                minWidth: 56,
+                minWidth: 60,
+                letterSpacing: "-0.005em",
+                fontFamily: TOKENS.fontDisplay,
+                boxShadow: active ? TOKENS.shadow.accentGlow : "none",
+                transition: "color 200ms cubic-bezier(0.16,1,0.3,1), box-shadow 200ms cubic-bezier(0.16,1,0.3,1)",
               }}
             >
               {active && (
                 <motion.span
-                  layoutId="mode-toggle-bg"
-                  transition={{ type: "spring", stiffness: 320, damping: 28 }}
+                  layoutId="editor-mode-pill"
+                  transition={SPRINGS.snappy}
                   style={{
                     position: "absolute",
                     inset: 0,
-                    borderRadius: 4,
+                    borderRadius: 5,
                     background: "var(--accent, rgba(96,165,250,0.22))",
                     zIndex: 0,
                   }}
@@ -100,6 +114,7 @@ export default function ChartEditorTopbar({ mode = "default", onModeChange, spec
         <button
           data-testid="topbar-save"
           disabled
+          className="premium-btn"
           style={topbarButton}
         >
           Save
@@ -107,6 +122,7 @@ export default function ChartEditorTopbar({ mode = "default", onModeChange, spec
         <button
           data-testid="topbar-share"
           disabled
+          className="premium-btn"
           style={topbarButton}
         >
           Share
@@ -119,11 +135,12 @@ export default function ChartEditorTopbar({ mode = "default", onModeChange, spec
 const topbarButton = {
   padding: "4px 12px",
   fontSize: 12,
-  fontWeight: 500,
-  borderRadius: 4,
+  fontWeight: 600,
+  borderRadius: 5,
   background: "var(--bg-elev-2, rgba(255,255,255,0.04))",
   color: "var(--text-secondary, #b0b0b6)",
   border: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
   cursor: "not-allowed",
   opacity: 0.7,
+  letterSpacing: "-0.005em",
 };

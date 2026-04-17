@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { SPRINGS } from './motion';
 import { TOKENS } from './tokens';
 
 const T = TOKENS.contextBar;
@@ -63,9 +65,13 @@ export default function DashboardContextBar({ tiles = [], lastRefreshed }) {
   // Hide when empty
   if (!summary) return null;
 
+  // Split summary on " · " so each segment can respond individually to hover
+  const summaryParts = summary.split(' \u00b7 ');
+
   return (
     <div
       data-testid="dashboard-context-bar"
+      className="premium-liquid-glass"
       style={{
         height: T.height,
         display: 'flex',
@@ -77,21 +83,41 @@ export default function DashboardContextBar({ tiles = [], lastRefreshed }) {
         flexShrink: 0,
       }}
     >
-      {/* Business summary */}
-      <span
+      {/* Business summary — each segment is a spring-hover chip */}
+      <div
         style={{
-          fontSize: T.fontSize,
-          color: T.color,
-          fontFamily: TOKENS.fontBody,
-          fontWeight: 500,
-          letterSpacing: '-0.01em',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          minWidth: 0,
           overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
         }}
       >
-        {summary}
-      </span>
+        {summaryParts.map((part, idx) => (
+          <motion.span
+            key={`${part}-${idx}`}
+            whileHover={{ scale: 1.04, color: 'var(--text-secondary)' }}
+            transition={SPRINGS.snappy}
+            style={{
+              fontSize: T.fontSize,
+              color: T.color,
+              fontFamily: TOKENS.fontBody,
+              fontWeight: 500,
+              letterSpacing: '-0.01em',
+              whiteSpace: 'nowrap',
+              cursor: 'default',
+              display: 'inline-flex',
+              alignItems: 'center',
+              transformOrigin: 'center',
+            }}
+          >
+            {idx > 0 && (
+              <span aria-hidden style={{ opacity: 0.4, margin: '0 8px' }}>&middot;</span>
+            )}
+            {part}
+          </motion.span>
+        ))}
+      </div>
 
       {/* Refresh timestamp */}
       {relTime && (
@@ -99,10 +125,12 @@ export default function DashboardContextBar({ tiles = [], lastRefreshed }) {
           style={{
             fontSize: T.fontSize,
             color: T.color,
-            fontFamily: TOKENS.fontBody,
+            fontFamily: TOKENS.fontMono,
             fontWeight: 400,
             flexShrink: 0,
             marginLeft: 16,
+            letterSpacing: '0.01em',
+            fontVariantNumeric: 'tabular-nums',
           }}
         >
           {relTime}
