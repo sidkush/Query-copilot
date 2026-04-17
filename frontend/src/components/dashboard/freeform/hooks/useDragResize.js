@@ -33,6 +33,12 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating }) {
   const onZonePointerDown = useCallback((zoneId, event, resolvedZone, mode = 'move', handle = null) => {
     const canvas = canvasRef.current;
     if (!canvas || !dashboard) return;
+
+    // T5: block drag/resize on locked zones — check both floating and tiled layers.
+    const floatingZone = (dashboard.floatingLayer || []).find((f) => f.id === zoneId);
+    if (floatingZone?.locked === true) return;
+    if (!floatingZone && resolvedZone?.zone?.locked === true) return;
+
     event.preventDefault();
     canvas.setPointerCapture?.(event.pointerId);
 

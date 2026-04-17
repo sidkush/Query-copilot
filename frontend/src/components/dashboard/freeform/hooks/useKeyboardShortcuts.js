@@ -62,6 +62,46 @@ export function useKeyboardShortcuts({ canvasRef } = {}) {
         }
       }
 
+      // T5: Delete/Backspace — remove selected zones, but skip locked ones.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && dashboard && selection.size > 0) {
+        e.preventDefault();
+        // Build a set of locked ids so we can skip them.
+        const lockedIds = new Set([
+          ...(dashboard.floatingLayer || []).filter((z) => z.locked === true).map((z) => z.id),
+        ]);
+        // Helper to find locked tiled zone ids inside the tiled tree.
+        const collectLockedTiled = (zone) => {
+          if (zone.locked === true) lockedIds.add(zone.id);
+          if (zone.children) zone.children.forEach(collectLockedTiled);
+        };
+        if (dashboard.tiledRoot) collectLockedTiled(dashboard.tiledRoot);
+
+        const idsToDelete = [...selection].filter((id) => !lockedIds.has(id));
+        if (idsToDelete.length === 0) return;
+
+        // Remove from floatingLayer.
+        const deleteSet = new Set(idsToDelete);
+        let nextFloating = (dashboard.floatingLayer || []).filter((z) => !deleteSet.has(z.id));
+
+        // Remove from tiledRoot (walk and filter).
+        const removeFromTree = (zone) => {
+          if (!zone.children) return zone;
+          const nextChildren = zone.children
+            .filter((c) => !deleteSet.has(c.id))
+            .map(removeFromTree);
+          return { ...zone, children: nextChildren };
+        };
+        const nextRoot = removeFromTree(dashboard.tiledRoot);
+
+        const nextDash = { ...dashboard, floatingLayer: nextFloating, tiledRoot: nextRoot };
+        setDashboard(nextDash);
+        pushHistory(nextDash);
+        // Clear deleted ids from selection; keep locked ones still selected.
+        const nextSel = [...selection].filter((id) => !deleteSet.has(id));
+        setSelection(nextSel);
+        return;
+      }
+
       if ((e.key === ']' || e.key === '[') && dashboard) {
         const forward = e.key === ']';
         const big = e.shiftKey;
