@@ -232,3 +232,45 @@ describe('buildContextMenu — container-specific', () => {
     expect(ids).not.toContain('toggleShowCaption');
   });
 });
+
+describe('buildContextMenu — floating z-order', () => {
+  it('adds a z-order submenu with 4 items on floating zones', () => {
+    const floating: FloatingZone = {
+      id: 'F1', type: 'blank', w: 0, h: 0, floating: true,
+      x: 10, y: 10, pxW: 200, pxH: 100, zIndex: 1,
+    };
+    const root: ContainerZone = {
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [],
+    };
+    const dash = makeDashboard(root, [floating]);
+    const items = buildContextMenu(floating, dash, new Set());
+    const zo = items.find((i) => i.kind === 'submenu' && i.id === 'zOrder');
+    expect(zo).toBeDefined();
+    if (zo && zo.kind === 'submenu') {
+      const ids = zo.items.filter((i) => i.kind === 'command').map((i) => (i as { id: string }).id);
+      expect(ids).toEqual(['bringForward', 'sendBackward', 'bringToFront', 'sendToBack']);
+    }
+  });
+
+  it('tiled zones do not include a z-order submenu', () => {
+    const leaf: LeafZone = { id: 'L1', type: 'blank', w: 100000, h: 100000 };
+    const root: ContainerZone = {
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [leaf],
+    };
+    const items = buildContextMenu(leaf, makeDashboard(root), new Set());
+    expect(items.find((i) => i.kind === 'submenu' && i.id === 'zOrder')).toBeUndefined();
+  });
+});
+
+describe('buildContextMenu — canvas-empty variant', () => {
+  it('returns Paste + Add Text + Add Image + Add Blank only', () => {
+    const root: ContainerZone = {
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [],
+    };
+    const items = buildContextMenu(null, makeDashboard(root), new Set());
+    const ids = items.filter((i) => i.kind === 'command').map((i) => (i as { id: string }).id);
+    expect(ids).toEqual(['canvas.paste', 'canvas.addText', 'canvas.addImage', 'canvas.addBlank']);
+    expect(items.some((i) => i.kind === 'checkbox')).toBe(false);
+    expect(items.some((i) => i.kind === 'submenu')).toBe(false);
+  });
+});

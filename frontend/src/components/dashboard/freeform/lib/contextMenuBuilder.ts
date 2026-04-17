@@ -128,8 +128,25 @@ export function buildContextMenu(
   // Tasks 4 + 5 inject worksheet-specific / container-specific items here.
   appendWorksheetExtras(items, zone);
   appendContainerExtras(items, zone, dashboard);
+  appendFloatingExtras(items, zone);
   appendCommonTail(items, zone, dashboard, selection);
   return items;
+}
+
+function appendFloatingExtras(items: MenuItem[], zone: Zone): void {
+  if (!isFloatingZone(zone)) return;
+  items.push(SEP);
+  items.push({
+    kind: 'submenu',
+    id: 'zOrder',
+    label: 'Z-Order',
+    items: [
+      { kind: 'command', id: 'bringForward',  label: 'Bring Forward',   todo: { plan: '5e', reason: 'Float z-order actions land in Plan 5e.' } },
+      { kind: 'command', id: 'sendBackward',  label: 'Send Backward',   todo: { plan: '5e', reason: 'Float z-order actions land in Plan 5e.' } },
+      { kind: 'command', id: 'bringToFront',  label: 'Bring to Front',  todo: { plan: '5e', reason: 'Float z-order actions land in Plan 5e.' } },
+      { kind: 'command', id: 'sendToBack',    label: 'Send to Back',    todo: { plan: '5e', reason: 'Float z-order actions land in Plan 5e.' } },
+    ],
+  });
 }
 
 function appendWorksheetExtras(items: MenuItem[], zone: Zone): void {
@@ -290,6 +307,11 @@ function appendCommonTail(
 }
 
 function buildCanvasEmptyMenu(): MenuItem[] {
-  // Filled in Task 6.
-  return [{ kind: 'command', id: 'canvas.paste', label: 'Paste', shortcut: '⌘V' }];
+  return [
+    { kind: 'command', id: 'canvas.paste',    label: 'Paste',     shortcut: '⌘V' },
+    SEP,
+    { kind: 'command', id: 'canvas.addText',  label: 'Add Text'  },
+    { kind: 'command', id: 'canvas.addImage', label: 'Add Image' },
+    { kind: 'command', id: 'canvas.addBlank', label: 'Add Blank' },
+  ];
 }
