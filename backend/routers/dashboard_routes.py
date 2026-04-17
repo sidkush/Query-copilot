@@ -2,7 +2,7 @@
 
 import asyncio
 import json as _json
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -2048,3 +2048,83 @@ async def dashboard_refresh_stream(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Analyst Pro: server-side freeform layout resolver ──────────────
+
+class _Viewport(BaseModel):
+    width: int
+    height: int
+
+
+class _ResolveLayoutRequest(BaseModel):
+    dashboard: dict
+    viewport: _Viewport
+
+
+@router.post("/{dashboard_id}/resolve-layout")
+def resolve_dashboard_layout(dashboard_id: str, payload: _ResolveLayoutRequest = Body(...)) -> dict:
+    """
+    Resolve a freeform dashboard's zone tree + floating layer to absolute
+    pixel coordinates. Mirrors the frontend `resolveLayout` so first paint
+    can happen without client-side layout math.
+
+    Note: uses max(100000, sum) as the proportion denominator to match
+    frontend semantics — proportions are absolute percentages of 100000, so
+    a single child with h=25000 occupies 25% of parent, not 100%.
+    """
+    d = payload.dashboard
+    size = d.get("size", {"mode": "automatic"})
+    mode = size.get("mode")
+
+    if mode == "fixed":
+        # Prefer explicit dimensions over preset (preset is descriptive metadata)
+        canvas_w = int(size.get("width", 1200))
+        canvas_h = int(size.get("height", 800))
+    elif mode == "automatic":
+        canvas_w = payload.viewport.width
+        canvas_h = payload.viewport.height
+    elif mode == "range":
+        canvas_w = max(min(payload.viewport.width, size["maxWidth"]), size["minWidth"])
+        canvas_h = max(min(payload.viewport.height, size["maxHeight"]), size["minHeight"])
+    else:
+        raise HTTPException(status_code=400, detail=f"unknown size mode: {mode}")
+
+    resolved: list[dict] = []
+    _resolve_tiled(d["tiledRoot"], 0, 0, canvas_w, canvas_h, 0, resolved)
+    for f in d.get("floatingLayer", []):
+        resolved.append({
+            "id": f["id"],
+            "x": f["x"],
+            "y": f["y"],
+            "width": f["pxW"],
+            "height": f["pxH"],
+            "depth": -1,
+        })
+    return {"dashboardId": dashboard_id, "canvasWidth": canvas_w, "canvasHeight": canvas_h, "resolved": resolved}
+
+
+def _resolve_tiled(zone: dict, x: int, y: int, w: int, h: int, depth: int, out: list) -> None:
+    out.append({"id": zone["id"], "x": x, "y": y, "width": w, "height": h, "depth": depth})
+    t = zone.get("type")
+    if t not in ("container-horz", "container-vert"):
+        return
+    children = zone.get("children", []) or []
+    if not children:
+        return
+    if t == "container-horz":
+        actual_sum = sum(c["w"] for c in children)
+        denom = max(100000, actual_sum)
+        cursor = x
+        for c in children:
+            child_w = round((c["w"] / denom) * w)
+            _resolve_tiled(c, cursor, y, child_w, h, depth + 1, out)
+            cursor += child_w
+    else:
+        actual_sum = sum(c["h"] for c in children)
+        denom = max(100000, actual_sum)
+        cursor = y
+        for c in children:
+            child_h = round((c["h"] / denom) * h)
+            _resolve_tiled(c, x, cursor, w, child_h, depth + 1, out)
+            cursor += child_h
