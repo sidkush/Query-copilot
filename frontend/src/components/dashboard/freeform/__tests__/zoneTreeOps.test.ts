@@ -261,6 +261,13 @@ describe('groupSelection', () => {
     const parentSum = parent.children.reduce((s, ch) => s + ch.w, 0);
     expect(parentSum).toBe(100000);
   });
+
+  it('does not mutate input tree', () => {
+    const root = threeChildRoot();
+    const snapshot = JSON.stringify(root);
+    groupSelection(root, ['a', 'b']);
+    expect(JSON.stringify(root)).toBe(snapshot);
+  });
 });
 
 // ─── T3: ungroupContainer ────────────────────────────────────────────────────
@@ -318,6 +325,13 @@ describe('ungroupContainer', () => {
     const sum = next.children.reduce((s, c) => s + c.w, 0);
     expect(Math.abs(sum - 100000)).toBeLessThanOrEqual(1);
   });
+
+  it('does not mutate input tree', () => {
+    const root = ungroupRoot();
+    const snapshot = JSON.stringify(root);
+    ungroupContainer(root, 'inner');
+    expect(JSON.stringify(root)).toBe(snapshot);
+  });
 });
 
 // ─── T3: toggleLock ──────────────────────────────────────────────────────────
@@ -348,6 +362,13 @@ describe('toggleLock', () => {
     const root = base();
     const next = toggleLock(root, 'nonexistent');
     expect(next).toBe(root);
+  });
+
+  it('does not mutate input tree', () => {
+    const root = base();
+    const snapshot = JSON.stringify(root);
+    toggleLock(root, 'a');
+    expect(JSON.stringify(root)).toBe(snapshot);
   });
 });
 
@@ -398,5 +419,12 @@ describe('toggleLockFloating', () => {
     const layer = makeFloating();
     const next = toggleLockFloating(layer, 'nonexistent');
     expect(next).toBe(layer);
+  });
+
+  it('does not mutate input array', () => {
+    const layer = makeFloating();
+    const snapshot = JSON.stringify(layer);
+    toggleLockFloating(layer, 'f1');
+    expect(JSON.stringify(layer)).toBe(snapshot);
   });
 });

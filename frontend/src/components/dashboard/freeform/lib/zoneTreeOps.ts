@@ -174,6 +174,10 @@ function findParentInTree(root: Zone, childId: string): ContainerZone | null {
  * - Inside the new container, grouped zones' proportions are normalized to sum to 100000.
  * - Parent is renormalized so its remaining children + new container sum to 100000.
  * - New container gets a fresh id via `generateZoneId()`. Type is 'container-horz'.
+ * Non-contiguous selections compact to the first selected position: selecting
+ * zones at indices [0, 2] from a parent with children [A, B, C] yields
+ * [new-container(A,C), B] — the unselected zone between them is pushed to
+ * the position after the new container.
  */
 export function groupSelection(
   root: Zone,
