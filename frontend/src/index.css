@@ -4207,6 +4207,11 @@ html.theme-transitioning *::after {
   animation: premium-sheen 900ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* ── Analyst Pro — ObjectLibraryPanel hover highlight ── */
+.analyst-pro-object-library__item:hover {
+  background: var(--bg-hover);
+}
+
 /* Reduced motion — nuke all perpetual animations */
 @media (prefers-reduced-motion: reduce) {
   .premium-breathe,
