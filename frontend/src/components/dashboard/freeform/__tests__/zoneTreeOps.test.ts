@@ -85,43 +85,57 @@ describe('removeChild', () => {
   });
 });
 
-import { moveZone, resizeZone, updateZone, groupSelection, ungroupContainer, toggleLock, toggleLockFloating } from '../lib/zoneTreeOps';
+import { reorderZone, resizeZone, updateZone, groupSelection, ungroupContainer, toggleLock, toggleLockFloating } from '../lib/zoneTreeOps';
 import type { FloatingZone } from '../lib/types';
 
-describe('moveZone', () => {
-  it('reorders within the same parent container', () => {
+// useDragResize drop-commit translation: given a same-parent reorder from
+// currentIdx → targetIdx (currentIdx !== targetIdx), call reorderZone with
+// siblings[targetIdx] as target and position 'after' when moving forward,
+// 'before' when moving backward. These parity tests pin the translation
+// that replaces the old moveZone(..., parentId, targetIdx) call.
+describe('reorderZone — same-parent drop translation', () => {
+  const dropReorder = (
+    root: ContainerZone,
+    parent: ContainerZone,
+    zoneId: string,
+    targetIdx: number,
+  ): ContainerZone => {
+    const currentIdx = parent.children.findIndex((c) => c.id === zoneId);
+    if (currentIdx === targetIdx) return root;
+    const targetId = parent.children[targetIdx].id;
+    const position = targetIdx > currentIdx ? 'after' : 'before';
+    return reorderZone(root, zoneId, targetId, position) as ContainerZone;
+  };
+
+  it('shifts first child to the end of a 2-child parent (0 → 1, "after")', () => {
     const root = base();
-    // Move 'a' from index 0 to index 1 in same parent 'root'.
-    const next = moveZone(root, 'a', 'root', 1) as ContainerZone;
+    const next = dropReorder(root, root, 'a', 1);
     expect(next.children.map((c) => c.id)).toEqual(['b', 'a']);
   });
 
-  it('moves a zone to a different parent container', () => {
-    const root: ContainerZone = {
-      id: 'root',
-      type: 'container-vert',
-      w: 100000,
-      h: 100000,
-      children: [
-        { id: 'src', type: 'container-horz', w: 100000, h: 50000, children: [
-          { id: 'x', type: 'blank', w: 100000, h: 100000 },
-        ]},
-        { id: 'dst', type: 'container-horz', w: 100000, h: 50000, children: [
-          { id: 'y', type: 'blank', w: 100000, h: 100000 },
-        ]},
-      ],
-    };
-    const next = moveZone(root, 'x', 'dst', 0) as ContainerZone;
-    const src = next.children[0] as ContainerZone;
-    const dst = next.children[1] as ContainerZone;
-    expect(src.children.map((c) => c.id)).toEqual([]);
-    expect(dst.children.map((c) => c.id)).toEqual(['x', 'y']);
+  it('shifts last child to the start of a 2-child parent (1 → 0, "before")', () => {
+    const root = base();
+    const next = dropReorder(root, root, 'b', 0);
+    expect(next.children.map((c) => c.id)).toEqual(['b', 'a']);
   });
 
-  it('returns identity when source not found', () => {
-    const root = base();
-    const next = moveZone(root, 'missing', 'root', 0);
-    expect(next).toEqual(root);
+  it('shifts middle child to the end of a 3-child parent (1 → 2, "after")', () => {
+    const root = threeChildRoot();
+    const next = dropReorder(root, root, 'b', 2);
+    expect(next.children.map((c) => c.id)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('shifts last child to the middle of a 3-child parent (2 → 1, "before")', () => {
+    const root = threeChildRoot();
+    const next = dropReorder(root, root, 'c', 1);
+    expect(next.children.map((c) => c.id)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('renormalizes parent proportions to sum 100000 after drop reorder', () => {
+    const root = threeChildRoot();
+    const next = dropReorder(root, root, 'a', 2);
+    const sumW = next.children.reduce((s, c) => s + c.w, 0);
+    expect(sumW).toBe(100000);
   });
 });
 
@@ -428,8 +442,6 @@ describe('toggleLockFloating', () => {
     expect(JSON.stringify(layer)).toBe(snapshot);
   });
 });
-
-import { reorderZone } from '../lib/zoneTreeOps';
 
 describe('reorderZone', () => {
   const makeTree = (): ContainerZone => ({

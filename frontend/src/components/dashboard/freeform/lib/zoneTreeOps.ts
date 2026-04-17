@@ -52,23 +52,6 @@ function mapTree(zone: Zone, transform: (z: Zone) => Zone): Zone {
 }
 
 /**
- * Move a zone (by id) to a new parent container at given index.
- * Removes from its current parent + inserts into target parent.
- * Both source and target are renormalized.
- */
-export function moveZone(
-  root: Zone,
-  zoneId: string,
-  targetParentId: string,
-  targetIndex: number,
-): Zone {
-  const source = findZoneInTree(root, zoneId);
-  if (!source) return root;
-  const withoutSource = removeChild(root, zoneId);
-  return insertChild(withoutSource, targetParentId, source, targetIndex);
-}
-
-/**
  * Resize a zone by setting new w/h proportions. Renormalizes the parent
  * container so sibling proportions sum to 100000. Clamps to min 1000.
  * Floating zones unchanged by this op — use updateZone for pxW/pxH.

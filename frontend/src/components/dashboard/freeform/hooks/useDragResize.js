@@ -1,7 +1,7 @@
 // frontend/src/components/dashboard/freeform/hooks/useDragResize.js
 import { useCallback, useRef } from 'react';
 import { useStore } from '../../../../store';
-import { moveZone, resizeZone } from '../lib/zoneTreeOps';
+import { reorderZone, resizeZone } from '../lib/zoneTreeOps';
 import { snapToGrid, snapToEdges } from '../lib/snapMath';
 
 const GRID_SIZE = 8;
@@ -19,7 +19,7 @@ const SNAP_THRESHOLD = 6;
  *   - Pointerup releases capture, pushes history snapshot, clears dragState.
  *
  * Floating zones: mutate `dashboard.floatingLayer[idx].{x,y}` (move) or {pxW,pxH} (resize).
- * Tiled zones: wired in Tasks 10/11 (resize via resizeZone, reorder via moveZone).
+ * Tiled zones: wired in Tasks 10/11 (resize via resizeZone, reorder via reorderZone).
  */
 export function useDragResize({ canvasRef, resolvedMap, siblingsFloating }) {
   const rafRef = useRef(0);
@@ -69,7 +69,9 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating }) {
     const onUp = () => {
       if (!startRef.current) return;
       const drag = useStore.getState().analystProDragState;
-      // Commit tiled reorder: compute target index from final dx/dy, then moveZone.
+      // Commit tiled reorder: compute target index from final dx/dy, then
+      // translate to reorderZone(sourceId, targetId, before|after) — shared
+      // primitive with LayoutTreePanel drag-drop.
       if (drag && startRef.current.mode === 'move' && !startRef.current.isFloating) {
         const dashAtEnd = useStore.getState().analystProDashboard;
         if (dashAtEnd?.tiledRoot) {
@@ -83,7 +85,9 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating }) {
             if (axis > 40) targetIdx = Math.min(parent.children.length - 1, currentIdx + 1);
             else if (axis < -40) targetIdx = Math.max(0, currentIdx - 1);
             if (targetIdx !== currentIdx) {
-              const next = moveZone(dashAtEnd.tiledRoot, drag.zoneId, parent.id, targetIdx);
+              const targetId = parent.children[targetIdx].id;
+              const position = targetIdx > currentIdx ? 'after' : 'before';
+              const next = reorderZone(dashAtEnd.tiledRoot, drag.zoneId, targetId, position);
               setDashboard({ ...dashAtEnd, tiledRoot: next });
             }
           }
