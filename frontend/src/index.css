@@ -4399,3 +4399,53 @@ html.theme-transitioning *::after {
     opacity: 1;
   }
 }
+
+/* Plan 5b — drop indicators + smart guides */
+.analyst-pro-drop-indicator-bar {
+  position: absolute;
+  background: var(--accent-blue, #3b82f6);
+  border-radius: 2px;
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.45);
+  transition: opacity 100ms linear;
+  z-index: 40;
+}
+.analyst-pro-drop-indicator-edge {
+  position: absolute;
+  background: rgba(59, 130, 246, 0.35);
+  border: 1px solid var(--accent-blue, #3b82f6);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: opacity 100ms linear;
+  z-index: 40;
+}
+.analyst-pro-drop-indicator-center {
+  position: absolute;
+  border: 2px dashed var(--accent-blue, #3b82f6);
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.08);
+  pointer-events: none;
+  transition: opacity 100ms linear;
+  z-index: 40;
+}
+.analyst-pro-smart-guide {
+  position: absolute;
+  pointer-events: none;
+  transition: opacity 100ms linear;
+  z-index: 39;
+}
+.analyst-pro-smart-guide[data-axis="x"] {
+  width: 0;
+  border-left: 1px dashed var(--accent-amber, #f59e0b);
+}
+.analyst-pro-smart-guide[data-axis="y"] {
+  height: 0;
+  border-top: 1px dashed var(--accent-amber, #f59e0b);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analyst-pro-drop-indicator-bar,
+  .analyst-pro-drop-indicator-edge,
+  .analyst-pro-drop-indicator-center,
+  .analyst-pro-smart-guide { transition: none; }
+}
