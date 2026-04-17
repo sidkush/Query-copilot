@@ -26,6 +26,28 @@ describe('resolveFilters', () => {
     const result = resolveFilters([], { Week: '2026-W12' });
     expect(result).toEqual({});
   });
+
+  it('resolveFilters emits __setRef marker for setRef entries', () => {
+    const out = resolveFilters(
+      [{ setRef: 's1', target: 'Region' }],
+      {},
+    );
+    expect(out).toEqual({ Region: { __setRef: 's1' } });
+  });
+
+  it('resolveFilters mixes source and setRef entries', () => {
+    const out = resolveFilters(
+      [
+        { source: 'Year', target: 'Year' },
+        { setRef: 's1', target: 'Region' },
+      ],
+      { Year: 2026 },
+    );
+    expect(out).toEqual({
+      Year: 2026,
+      Region: { __setRef: 's1' },
+    });
+  });
 });
 
 describe('substituteUrlTemplate', () => {
@@ -71,5 +93,16 @@ describe('extractSetMembers', () => {
   it('empty mapping returns empty array', () => {
     const result = extractSetMembers([], [{ Category: 'Furniture' }]);
     expect(result).toEqual([]);
+  });
+
+  it('extractSetMembers returns [] when mapping[0] is a setRef even if mapping[1] has a valid source', () => {
+    const out = extractSetMembers(
+      [
+        { setRef: 's1', target: 't1' },
+        { source: 'x', target: 't2' },
+      ],
+      [{ x: 'A' }, { x: 'B' }],
+    );
+    expect(out).toEqual([]);
   });
 });

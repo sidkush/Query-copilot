@@ -2,9 +2,18 @@ export type ActionTrigger = 'hover' | 'select' | 'menu';
 export type ActionClearBehavior = 'leave-filter' | 'show-all' | 'exclude-all';
 export type UrlTarget = 'new-tab' | 'iframe' | 'current-tab';
 
-export type FieldMappingEntry =
-  | { source: string; target: string }
-  | { setRef: string; target: string };
+/** Runtime marker emitted by resolveFilters to defer set-member lookup
+ *  until the runtime hook has access to the dashboard sets list. */
+export type SetRefMarker = { __setRef: string };
+
+/** A mapping entry that pulls a value from mark data at runtime. */
+export type SourceMapping = { source: string; target: string };
+
+/** A mapping entry that resolves to a dashboard Set's members at runtime. */
+export type SetRefMapping = { setRef: string; target: string };
+
+/** Any mapping entry — convenience union. */
+export type FieldMappingEntry = SourceMapping | SetRefMapping;
 
 export type BaseAction = {
   id: string;
@@ -24,7 +33,7 @@ export type FilterAction = BaseAction & {
 export type HighlightAction = BaseAction & {
   kind: 'highlight';
   targetSheets: string[];
-  fieldMapping: FieldMappingEntry[];
+  fieldMapping: SourceMapping[];
 };
 
 export type UrlAction = BaseAction & {
@@ -41,14 +50,14 @@ export type GoToSheetAction = BaseAction & {
 export type ChangeParameterAction = BaseAction & {
   kind: 'change-parameter';
   targetParameterId: string;
-  fieldMapping: FieldMappingEntry[];  // single-entry: source mark field → parameter value
+  fieldMapping: SourceMapping[];  // single-entry: source mark field → parameter value
   aggregation?: 'first' | 'sum' | 'avg';  // if multi-mark selection
 };
 
 export type ChangeSetAction = BaseAction & {
   kind: 'change-set';
   targetSetId: string;
-  fieldMapping: FieldMappingEntry[];
+  fieldMapping: SourceMapping[];
   operation: 'replace' | 'add' | 'remove' | 'toggle';
 };
 
@@ -71,12 +80,7 @@ export type MarkEvent = {
 
 /** A single target operation emitted by the executor. */
 export type TargetOp =
-  | {
-      kind: 'filter';
-      sheetId: string;
-      filters: Record<string, unknown | { __setRef: string }>;
-      clearBehavior: ActionClearBehavior;
-    }
+  | { kind: 'filter'; sheetId: string; filters: Record<string, unknown>; clearBehavior: ActionClearBehavior }
   | { kind: 'highlight'; sheetId: string; fieldValues: Record<string, unknown> }
   | { kind: 'url'; url: string; urlTarget: UrlTarget }
   | { kind: 'goto-sheet'; sheetId: string }

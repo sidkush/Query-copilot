@@ -1,4 +1,4 @@
-import type { FieldMappingEntry } from './actionTypes';
+import type { FieldMappingEntry, SetRefMarker } from './actionTypes';
 
 export function resolveFilters(
   mapping: FieldMappingEntry[],
@@ -7,7 +7,8 @@ export function resolveFilters(
   const out: Record<string, unknown> = {};
   for (const m of mapping) {
     if ('setRef' in m) {
-      out[m.target] = { __setRef: m.setRef };
+      const marker: SetRefMarker = { __setRef: m.setRef };
+      out[m.target] = marker;
       continue;
     }
     if (m.source in markData) out[m.target] = markData[m.source];

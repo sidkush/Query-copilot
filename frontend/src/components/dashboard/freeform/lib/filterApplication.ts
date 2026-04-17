@@ -1,4 +1,4 @@
-import type { TargetOp } from './actionTypes';
+import type { TargetOp, SetRefMarker } from './actionTypes';
 import type { DashboardSet, SetMember } from './setTypes';
 
 export type Filter =
@@ -7,7 +7,7 @@ export type Filter =
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-function isSetRefMarker(v: unknown): v is { __setRef: string } {
+function isSetRefMarker(v: unknown): v is SetRefMarker {
   return typeof v === 'object' && v !== null && '__setRef' in v
     && typeof (v as { __setRef: unknown }).__setRef === 'string';
 }
