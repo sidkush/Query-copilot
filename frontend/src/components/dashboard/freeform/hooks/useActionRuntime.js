@@ -2,18 +2,34 @@ import { useEffect } from 'react';
 import { useStore } from '../../../../store';
 import { subscribe } from '../lib/markEventBus';
 import { executeCascade } from '../lib/actionExecutor';
+import { buildAdditionalFilters } from '../lib/filterApplication';
 
 function applyTargetOp(op, token) {
   const store = useStore.getState();
   switch (op.kind) {
-    case 'filter':
+    case 'filter': {
+      const filters = buildAdditionalFilters(op);
+      if (filters.length === 0) {
+        store.clearSheetFilterAnalystPro(op.sheetId);
+      } else {
+        store.setSheetFilterAnalystPro(op.sheetId, filters);
+      }
       store.markCascadeTargetStatus(op.sheetId, 'pending', token);
-      // Plan 3b: actual query fire via waterfall router. For now, mark done on next tick.
-      queueMicrotask(() => store.markCascadeTargetStatus(op.sheetId, 'done', token));
+      // AnalystProWorksheetTile (Plan 4a T8) observes the slice, kicks off
+      // the re-query, and calls markCascadeTargetStatus(..., 'done', token)
+      // once the response arrives.
       break;
-    case 'highlight':
+    }
+    case 'highlight': {
+      const fieldValues = op.fieldValues || {};
+      if (Object.keys(fieldValues).length === 0) {
+        store.clearSheetHighlightAnalystPro(op.sheetId);
+      } else {
+        store.setSheetHighlightAnalystPro(op.sheetId, fieldValues);
+      }
       store.markCascadeTargetStatus(op.sheetId, 'done', token);
       break;
+    }
     case 'url':
       if (op.urlTarget === 'new-tab' && typeof window !== 'undefined') {
         window.open(op.url, '_blank', 'noopener');
@@ -23,10 +39,10 @@ function applyTargetOp(op, token) {
       // Plan 3b: scroll/focus target zone.
       break;
     case 'change-parameter':
-      // Plan 4: integrate with parameter system.
+      // Plan 4b: integrate with parameter system.
       break;
     case 'change-set':
-      // Plan 4: integrate with set system.
+      // Plan 4b: integrate with set system.
       break;
   }
 }

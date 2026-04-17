@@ -24,10 +24,12 @@ describe('ActionRuntime integration — end-to-end cascade flow', () => {
       analystProDashboard: null,
       analystProActionCascadeToken: 0,
       analystProActiveCascadeTargets: {},
+      analystProSheetFilters: {},
+      analystProSheetHighlights: {},
     });
   });
 
-  it('fires cascade end-to-end: mark event → executor → target statuses', async () => {
+  it('fires filter cascade: mark event → slice write + pending status', () => {
     const action = {
       id: 'f1',
       name: 'Week Filter',
@@ -43,7 +45,6 @@ describe('ActionRuntime integration — end-to-end cascade flow', () => {
 
     renderHook(() => useActionRuntime());
 
-    // Publish a mark event on source sheet
     publish({
       sourceSheetId: 'A',
       trigger: 'select',
@@ -51,19 +52,16 @@ describe('ActionRuntime integration — end-to-end cascade flow', () => {
       timestamp: 1,
     });
 
-    // Immediately: cascade token bumped, target B marked pending
-    let state = useStore.getState();
+    const state = useStore.getState();
     expect(state.analystProActionCascadeToken).toBe(1);
     expect(state.analystProActiveCascadeTargets.B).toBe('pending');
-
-    // Flush microtasks — target transitions to done
-    await Promise.resolve();
-    await Promise.resolve();
-    state = useStore.getState();
-    expect(state.analystProActiveCascadeTargets.B).toBe('done');
+    // Plan 4a: slice now holds the filter; AnalystProWorksheetTile (T8) marks 'done'.
+    expect(state.analystProSheetFilters.B).toEqual([
+      { field: 'Week', op: 'eq', value: '2026-W12' },
+    ]);
   });
 
-  it('cancel-on-newer: stale cascade writes are ignored', async () => {
+  it('cancel-on-newer: latest cascade token wins for slice writes', () => {
     const action = {
       id: 'f1', name: 'X', kind: 'filter',
       sourceSheets: ['A'], targetSheets: ['B'],
@@ -73,17 +71,16 @@ describe('ActionRuntime integration — end-to-end cascade flow', () => {
     useStore.setState({ analystProDashboard: makeDash([action]) });
     renderHook(() => useActionRuntime());
 
-    // Publish 3 events rapidly. Token should be 3; first two cascades stale.
     publish({ sourceSheetId: 'A', trigger: 'select', markData: { Week: 'W1' }, timestamp: 1 });
     publish({ sourceSheetId: 'A', trigger: 'select', markData: { Week: 'W2' }, timestamp: 2 });
     publish({ sourceSheetId: 'A', trigger: 'select', markData: { Week: 'W3' }, timestamp: 3 });
-    expect(useStore.getState().analystProActionCascadeToken).toBe(3);
 
-    // Each publish resets activeCascadeTargets, then sets pending for B — latest should win
-    await Promise.resolve();
-    await Promise.resolve();
-    // Only the latest (token 3) cascade's done write was accepted
-    expect(useStore.getState().analystProActiveCascadeTargets.B).toBe('done');
+    const state = useStore.getState();
+    expect(state.analystProActionCascadeToken).toBe(3);
+    expect(state.analystProSheetFilters.B).toEqual([
+      { field: 'Week', op: 'eq', value: 'W3' },
+    ]);
+    expect(state.analystProActiveCascadeTargets.B).toBe('pending');
   });
 
   it('mismatched trigger does not fire cascade', () => {
@@ -97,12 +94,76 @@ describe('ActionRuntime integration — end-to-end cascade flow', () => {
 
     publish({ sourceSheetId: 'A', trigger: 'select', markData: {}, timestamp: 1 });
 
-    // useActionRuntime calls fireActionCascadeAnalystPro() whenever actions.length > 0
-    // (before executeCascade/matchActions filters by trigger). So token IS bumped.
-    // matchActions returns empty (trigger mismatch) → no applyTargetOp calls → targets remain {}.
-    // Key property proven: no target statuses written for an event that matches no actions.
     const state = useStore.getState();
     expect(state.analystProActionCascadeToken).toBe(1);
     expect(state.analystProActiveCascadeTargets).toEqual({});
+    expect(state.analystProSheetFilters).toEqual({});
+  });
+
+  // ─── Plan 4a T7 additions ───────────────────────────────────────
+
+  it('filter TargetOp with empty mark clears the slice (show-all)', () => {
+    useStore.setState({
+      analystProSheetFilters: {
+        B: [{ field: 'Week', op: 'eq', value: 'W1' }],
+      },
+      analystProDashboard: makeDash([
+        {
+          id: 'f1', name: 'X', kind: 'filter',
+          sourceSheets: ['A'], targetSheets: ['B'],
+          fieldMapping: [{ source: 'Week', target: 'Week' }],
+          clearBehavior: 'show-all', trigger: 'select', enabled: true,
+        },
+      ]),
+    });
+    renderHook(() => useActionRuntime());
+
+    // markData has no 'Week' → resolved filters empty → slice cleared
+    publish({ sourceSheetId: 'A', trigger: 'select', markData: {}, timestamp: 1 });
+
+    expect(useStore.getState().analystProSheetFilters.B).toBeUndefined();
+  });
+
+  it('highlight TargetOp writes analystProSheetHighlights entry', () => {
+    useStore.setState({
+      analystProDashboard: makeDash([
+        {
+          id: 'h1', name: 'H', kind: 'highlight',
+          sourceSheets: ['A'], targetSheets: ['B'],
+          fieldMapping: [{ source: 'Region', target: 'Region' }],
+          trigger: 'hover', enabled: true,
+        },
+      ]),
+    });
+    renderHook(() => useActionRuntime());
+
+    publish({
+      sourceSheetId: 'A',
+      trigger: 'hover',
+      markData: { Region: 'East' },
+      timestamp: 1,
+    });
+
+    expect(useStore.getState().analystProSheetHighlights.B).toEqual({ Region: 'East' });
+    expect(useStore.getState().analystProActiveCascadeTargets.B).toBe('done');
+  });
+
+  it('highlight TargetOp with empty mark clears highlight slice', () => {
+    useStore.setState({
+      analystProSheetHighlights: { B: { Region: 'East' } },
+      analystProDashboard: makeDash([
+        {
+          id: 'h1', name: 'H', kind: 'highlight',
+          sourceSheets: ['A'], targetSheets: ['B'],
+          fieldMapping: [{ source: 'Region', target: 'Region' }],
+          trigger: 'hover', enabled: true,
+        },
+      ]),
+    });
+    renderHook(() => useActionRuntime());
+
+    publish({ sourceSheetId: 'A', trigger: 'hover', markData: {}, timestamp: 1 });
+
+    expect(useStore.getState().analystProSheetHighlights.B).toBeUndefined();
   });
 });
