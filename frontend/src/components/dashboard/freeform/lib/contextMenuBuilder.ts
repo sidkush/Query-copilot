@@ -126,8 +126,52 @@ export function buildContextMenu(
   const items: MenuItem[] = [];
   appendCommonHead(items, zone, dashboard);
   // Tasks 4 + 5 inject worksheet-specific / container-specific items here.
+  appendWorksheetExtras(items, zone);
   appendCommonTail(items, zone, dashboard, selection);
   return items;
+}
+
+function appendWorksheetExtras(items: MenuItem[], zone: Zone): void {
+  if (zone.type !== 'worksheet') return;
+
+  // Inserted after the common head's Show Title checkbox, before Deselect.
+  // Show Caption lives next to Show Title for visual grouping.
+  items.push({
+    kind: 'checkbox',
+    id: 'toggleShowCaption',
+    label: 'Show Caption',
+    checked: (zone as { showCaption?: boolean }).showCaption === true,
+  });
+
+  items.push(SEP);
+
+  items.push({
+    kind: 'command',
+    id: 'swapSheets',
+    label: 'Swap Sheets…',
+    todo: { plan: '5d', reason: 'Swap-sheets dialog lands with Plan 5d property-panel rewrite.' },
+  });
+
+  items.push({
+    kind: 'submenu',
+    id: 'filter',
+    label: 'Filter',
+    items: [
+      // Plan 7a will enumerate marks-card fields here (Build_Tableau.md Part VII).
+      {
+        kind: 'command',
+        id: 'openFilters',
+        label: '(no filters configured — open Filters panel…)',
+        todo: { plan: '7a', reason: 'Per-sheet marks-card filter enumeration ships with VizQL Plan 7a.' },
+      },
+    ],
+  });
+
+  items.push({
+    kind: 'command',
+    id: 'openActionsDialog',
+    label: 'Actions…',
+  });
 }
 
 function appendCommonHead(items: MenuItem[], zone: Zone, _dashboard: Dashboard): void {

@@ -152,3 +152,45 @@ describe('buildContextMenu — common items (any zone)', () => {
     expect(last).toMatchObject({ kind: 'command', id: 'remove' });
   });
 });
+
+describe('buildContextMenu — worksheet-specific', () => {
+  it('includes Swap Sheets, Filter submenu, Actions…, Show Caption on worksheet zones', () => {
+    const ws: LeafZone = { id: 'W1', type: 'worksheet', w: 100000, h: 100000 };
+    const dash = makeDashboard({
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [ws],
+    });
+    const items = buildContextMenu(ws, dash, new Set());
+    const ids = items.map((i) => (i as { id?: string }).id).filter(Boolean);
+    expect(ids).toContain('swapSheets');
+    expect(ids).toContain('filter'); // submenu
+    expect(ids).toContain('openActionsDialog');
+    expect(ids).toContain('toggleShowCaption');
+  });
+
+  it('omits worksheet-only items on a blank zone', () => {
+    const blank: LeafZone = { id: 'B1', type: 'blank', w: 100000, h: 100000 };
+    const dash = makeDashboard({
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [blank],
+    });
+    const items = buildContextMenu(blank, dash, new Set());
+    const ids = items.map((i) => (i as { id?: string }).id).filter(Boolean);
+    expect(ids).not.toContain('swapSheets');
+    expect(ids).not.toContain('filter');
+    expect(ids).not.toContain('openActionsDialog');
+    expect(ids).not.toContain('toggleShowCaption');
+  });
+
+  it('Filter submenu is a shell carrying a single openFilters placeholder until Plan 7a', () => {
+    const ws: LeafZone = { id: 'W1', type: 'worksheet', w: 100000, h: 100000 };
+    const dash = makeDashboard({
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [ws],
+    });
+    const items = buildContextMenu(ws, dash, new Set());
+    const submenu = items.find((i) => i.kind === 'submenu' && i.id === 'filter');
+    expect(submenu).toBeDefined();
+    if (submenu && submenu.kind === 'submenu') {
+      expect(submenu.items.some((it) => it.kind === 'command' && it.id === 'openFilters')).toBe(true);
+      expect(submenu.items[0].kind).toBe('command');
+    }
+  });
+});
