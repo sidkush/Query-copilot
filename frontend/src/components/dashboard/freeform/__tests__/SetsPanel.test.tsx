@@ -124,4 +124,35 @@ describe('SetsPanel', () => {
     expect(spy).toHaveBeenCalledWith('s1', 'Bottom Regions');
     spy.mockRestore();
   });
+
+  it('Escape discards rename draft and does not call renameSetAnalystPro', () => {
+    seed([demoSet]);
+    const spy = vi.spyOn(useStore.getState(), 'renameSetAnalystPro');
+    render(<SetsPanel />);
+    fireEvent.doubleClick(screen.getByText('Top Regions'));
+    const input = screen.getByDisplayValue('Top Regions');
+    fireEvent.change(input, { target: { value: 'Bottom Regions' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(spy).not.toHaveBeenCalled();
+    // Original name still rendered (input is gone)
+    expect(screen.getByText('Top Regions')).toBeTruthy();
+    spy.mockRestore();
+  });
+
+  it('Rename to a duplicate name shows an inline error and does not commit', () => {
+    seed([
+      demoSet,
+      { ...demoSet, id: 's2', name: 'Other' },
+    ]);
+    const spy = vi.spyOn(useStore.getState(), 'renameSetAnalystPro');
+    render(<SetsPanel />);
+    const otherRow = screen.getByTestId('set-row-s2');
+    fireEvent.doubleClick(within(otherRow).getByText('Other'));
+    const input = screen.getByDisplayValue('Other');
+    fireEvent.change(input, { target: { value: 'Top Regions' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(spy).not.toHaveBeenCalled();
+    expect(screen.getByTestId('rename-error-s2')).toBeTruthy();
+    spy.mockRestore();
+  });
 });

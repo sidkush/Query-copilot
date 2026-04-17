@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useStore } from '../../../../store';
 import SetMemberDialog from './SetMemberDialog';
 import { validateDimension, validateSetName } from '../lib/setOps';
@@ -22,6 +22,8 @@ export default function SetsPanel() {
 
   const [renamingId, setRenamingId] = useState(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const [renameError, setRenameError] = useState('');
+  const committedRef = useRef(false);
 
   const [editMembersId, setEditMembersId] = useState(null);
 
@@ -53,15 +55,32 @@ export default function SetsPanel() {
   };
 
   const commitRename = (setId) => {
+    if (committedRef.current) return;
     const trimmed = renameDraft.trim();
-    if (trimmed.length > 0) {
-      const check = validateSetName(trimmed, sets, setId);
-      if (check.ok) {
-        renameSet(setId, trimmed);
-      }
+    if (trimmed.length === 0) {
+      // Empty → discard silently, match existing behavior.
+      committedRef.current = true;
+      setRenamingId(null);
+      setRenameDraft('');
+      setRenameError('');
+      return;
     }
+    const check = validateSetName(trimmed, sets, setId);
+    if (!check.ok) {
+      // Invalid / duplicate — keep the input open with an error message
+      // so the user can fix it. Do NOT call renameSet. Do NOT mark committed.
+      setRenameError(
+        check.reason === 'empty'
+          ? 'Name is required'
+          : 'A set with that name already exists',
+      );
+      return;
+    }
+    renameSet(setId, trimmed);
+    committedRef.current = true;
     setRenamingId(null);
     setRenameDraft('');
+    setRenameError('');
   };
 
   const handleDelete = (setId) => {
@@ -151,26 +170,40 @@ export default function SetsPanel() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               {renamingId === s.id ? (
-                <input
-                  autoFocus
-                  value={renameDraft}
-                  onChange={(e) => setRenameDraft(e.target.value)}
-                  onBlur={() => commitRename(s.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitRename(s.id);
-                    else if (e.key === 'Escape') {
-                      setRenamingId(null);
-                      setRenameDraft('');
-                    }
-                  }}
-                  aria-label={`Rename ${s.name}`}
-                  style={{ flex: 1, fontSize: 12, padding: 2, background: 'var(--bg-input, #0b0b10)', color: 'inherit', border: '1px solid var(--border-default, #333)' }}
-                />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <input
+                    autoFocus
+                    value={renameDraft}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onBlur={() => commitRename(s.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename(s.id);
+                      else if (e.key === 'Escape') {
+                        committedRef.current = true;
+                        setRenamingId(null);
+                        setRenameDraft('');
+                        setRenameError('');
+                      }
+                    }}
+                    aria-label={`Rename ${s.name}`}
+                    style={{ width: '100%', fontSize: 12, padding: 2, background: 'var(--bg-input, #0b0b10)', color: 'inherit', border: '1px solid var(--border-default, #333)' }}
+                  />
+                  {renameError && (
+                    <div
+                      data-testid={`rename-error-${s.id}`}
+                      style={{ color: 'var(--danger, #f87171)', fontSize: 10, marginLeft: 4 }}
+                    >
+                      {renameError}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <span
                   onDoubleClick={() => {
+                    committedRef.current = false;
                     setRenamingId(s.id);
                     setRenameDraft(s.name);
+                    setRenameError('');
                   }}
                   title="Double-click to rename"
                   style={{ flex: 1, cursor: 'text' }}
