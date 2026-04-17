@@ -166,6 +166,7 @@ class _AdditionalFilter(BaseModel):
     field: str
     op: str = "eq"
     value: Optional[object] = None
+    values: Optional[list[object]] = None
 
 
 class ExecuteRequest(BaseModel):
