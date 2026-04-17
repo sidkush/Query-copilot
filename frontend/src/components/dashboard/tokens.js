@@ -28,12 +28,49 @@ export const TOKENS = {
   warning: 'var(--status-warning)',
   danger: 'var(--status-danger)',
   info: '#06b6d4',
-  radius: { sm: '6px', md: '10px', lg: '14px', xl: '18px', pill: '9999px' },
+  radius: { sm: '6px', md: '10px', lg: '14px', xl: '18px', xxl: '28px', pill: '9999px' },
   transition: '200ms cubic-bezier(0.16,1,0.3,1)',
-  // Fonts
-  fontDisplay: "'Outfit', system-ui, sans-serif",
-  fontBody: "'Plus Jakarta Sans', 'Outfit', system-ui, sans-serif",
+  // Easing curves — exponential ease-out family, no bounce
+  easing: {
+    out: 'cubic-bezier(0.16, 1, 0.3, 1)',       // expo-out, default
+    outSoft: 'cubic-bezier(0.22, 1, 0.36, 1)',  // softer expo-out
+    inOut: 'cubic-bezier(0.65, 0, 0.35, 1)',    // smooth in-out
+    quick: 'cubic-bezier(0.4, 0, 0.2, 1)',      // material
+  },
+  // Motion presets — use for Framer Motion `transition` prop
+  motion: {
+    // Spring families (no overshoot — damping high for premium feel)
+    springSnappy: { type: 'spring', stiffness: 420, damping: 38, mass: 0.8 },
+    springFluid:  { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 },
+    springSoft:   { type: 'spring', stiffness: 180, damping: 28, mass: 1 },
+    // Duration-based (for non-layout opacity/transform)
+    tweenQuick: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+    tweenEase:  { duration: 0.28, ease: [0.16, 1, 0.3, 1] },
+    tweenSlow:  { duration: 0.48, ease: [0.16, 1, 0.3, 1] },
+    // Stagger timings
+    stagger: { childDelay: 0.035, totalMax: 0.6 },
+  },
+  // Premium shadow scale — diffusion family, tinted to brand hue
+  shadow: {
+    // Ambient depth — used on cards at rest
+    card: '0 1px 0 var(--glass-highlight) inset, 0 18px 38px -24px var(--shadow-deep), 0 4px 10px -6px var(--shadow-soft)',
+    cardHover: '0 1px 0 var(--glass-highlight) inset, 0 28px 56px -22px var(--shadow-deep), 0 10px 22px -10px var(--shadow-mid)',
+    // Diffusion — wide, low, premium (Vercel-core). Theme-adaptive via CSS var.
+    diffusion: 'var(--shadow-warm-diffusion)',
+    diffusionLight: '0 20px 40px -15px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.04)',
+    // Inner refraction — liquid glass edge highlight
+    innerGlass: 'inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 color-mix(in oklab, var(--glass-highlight) 25%, transparent)',
+    // Accent glow (subtle, use sparingly on active state)
+    accentGlow: '0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent), 0 8px 30px -12px color-mix(in oklab, var(--accent) 55%, transparent)',
+    // Status glow helper — used on live dots
+    statusGlow: (color) => `0 0 0 1px ${color}33, 0 0 14px -2px ${color}`,
+  },
+  // Fonts — premium stack with Satoshi display
+  // Satoshi (Fontshare) loaded in index.html; falls back to Cabinet Grotesk then Outfit
+  fontDisplay: "'Satoshi', 'Cabinet Grotesk', 'Outfit', system-ui, sans-serif",
+  fontBody: "'Plus Jakarta Sans', 'Satoshi', 'Outfit', system-ui, sans-serif",
   fontMono: "'JetBrains Mono', ui-monospace, monospace",
+  fontSerif: "'Source Serif 4', 'Source Serif Pro', Georgia, serif",
   // Premium tile defaults — theme-aware via CSS vars
   tile: {
     // Background: glass card that adapts to theme
@@ -131,44 +168,60 @@ export const TOKENS = {
     // Text fade for truncated labels (ScorecardTable long names)
     truncateFade: 'linear-gradient(90deg, transparent 0%, var(--bg-elevated) 92%)',
   },
-  // ── Status bar tokens (SP-1) ──
+  // ── Status bar tokens (theme-adaptive via CSS vars) ──
   statusBar: {
     height: 32,
-    bg: '#18181b',
-    border: '#27272a',
+    bg: 'var(--chrome-bar-bg)',
+    border: 'var(--chrome-bar-border)',
     font: "'JetBrains Mono', ui-monospace, monospace",
     fontSize: 11,
     dotSize: 6,
-    // Connection status dot colors
-    connected: '#22c55e',
-    disconnected: '#ef4444',
-    reconnecting: '#eab308',
+    // Connection status dot colors — intrinsic semantic (same both themes)
+    connected: 'var(--status-success)',
+    disconnected: 'var(--status-danger)',
+    reconnecting: 'var(--status-warning)',
     // Divider between sections
-    divider: 'rgba(63,63,70,0.6)',
-    // Muted label color
-    label: '#71717a',
-    value: '#a1a1aa',
+    divider: 'var(--chrome-bar-divider)',
+    // Text colors
+    label: 'var(--text-muted)',
+    value: 'var(--text-secondary)',
   },
-  // ── Context bar tokens (SP-1) ──
+  // ── Context bar tokens (theme-adaptive) ──
   contextBar: {
     height: 28,
     fontSize: 12,
-    color: '#71717a',
-    bg: 'rgba(20,20,23,0.95)',
-    border: 'rgba(63,63,70,0.3)',
+    color: 'var(--text-muted)',
+    bg: 'var(--chrome-bar-bg-subtle)',
+    border: 'var(--chrome-bar-border-subtle)',
   },
-  // ── Top bar tokens (SP-1) ──
+  // ── Top bar tokens (theme-adaptive) ──
   topBar: {
     height: 52,
-    bg: 'rgba(24,24,27,0.95)',
-    border: 'rgba(63,63,70,0.5)',
-    breadcrumbMuted: '#71717a',
-    breadcrumbActive: '#e4e4e7',
-    // Edit mode badge colors
+    bg: 'var(--chrome-bar-bg)',
+    border: 'var(--chrome-bar-border)',
+    breadcrumbMuted: 'var(--text-muted)',
+    breadcrumbActive: 'var(--text-primary)',
+    // Edit mode badge colors — accent tints that adapt via color-mix.
+    // Each badge: bg = tinted surface, border = tinted edge, label = readable accent.
     editMode: {
-      default: { dot: '#3b82f6', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', label: '#60a5fa' },
-      pro: { dot: '#a855f7', bg: 'rgba(168,85,247,0.1)', border: 'rgba(168,85,247,0.2)', label: '#c084fc' },
-      stage: { dot: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.2)', label: '#4ade80' },
+      default: {
+        dot: 'var(--accent)',
+        bg: 'color-mix(in oklab, var(--accent) 12%, transparent)',
+        border: 'color-mix(in oklab, var(--accent) 25%, transparent)',
+        label: 'var(--accent)',
+      },
+      pro: {
+        dot: '#a855f7',
+        bg: 'color-mix(in oklab, #a855f7 14%, transparent)',
+        border: 'color-mix(in oklab, #a855f7 28%, transparent)',
+        label: 'color-mix(in oklab, #a855f7 85%, var(--text-primary))',
+      },
+      stage: {
+        dot: 'var(--status-success)',
+        bg: 'color-mix(in oklab, var(--status-success) 14%, transparent)',
+        border: 'color-mix(in oklab, var(--status-success) 28%, transparent)',
+        label: 'var(--status-success)',
+      },
     },
   },
 };
@@ -356,10 +409,10 @@ export const ARCHETYPE_THEMES = {
     id: 'workbench',
     name: 'Analyst Workbench',
     description: 'Tableau-class density. Compact spacing, small text, high information density.',
-    colorScheme: 'dark',
+    colorScheme: 'auto', // follows global theme
     background: {
-      dashboard: '#08080d',
-      tile: 'rgba(17,17,22,0.85)',
+      dashboard: 'var(--archetype-workbench-bg)',
+      tile: 'var(--archetype-workbench-tile)',
       section: 'transparent',
     },
     spacing: {
@@ -398,11 +451,11 @@ export const ARCHETYPE_THEMES = {
   ops: {
     id: 'ops',
     name: 'Live Operations',
-    description: 'NOC-class operations center. Dark, traffic-light accents, monospace data.',
-    colorScheme: 'dark', // forced dark
+    description: 'NOC-class operations center. Traffic-light accents, monospace data.',
+    colorScheme: 'auto', // follows global theme
     background: {
-      dashboard: '#050508',
-      tile: 'rgba(12,12,16,0.92)',
+      dashboard: 'var(--archetype-ops-bg)',
+      tile: 'var(--archetype-ops-tile)',
       section: 'transparent',
     },
     spacing: {
@@ -447,11 +500,11 @@ export const ARCHETYPE_THEMES = {
   story: {
     id: 'story',
     name: 'Story Mode',
-    description: 'Editorial scrollytelling. Cream/paper tones, serif headings, editorial spacing.',
-    colorScheme: 'light', // story prefers light
+    description: 'Editorial scrollytelling. Paper tones, serif headings, editorial spacing.',
+    colorScheme: 'auto', // follows global theme (cream in light, rich-dark in dark)
     background: {
-      dashboard: '#FDFBF7', // warm cream
-      tile: '#FFFFFF',
+      dashboard: 'var(--archetype-story-bg)',
+      tile: 'var(--archetype-story-tile)',
       section: 'transparent',
     },
     spacing: {
@@ -495,11 +548,11 @@ export const ARCHETYPE_THEMES = {
   pitch: {
     id: 'pitch',
     name: 'Pitch Mode',
-    description: 'Cinematic dark presentation. Oversized headings, minimal chrome.',
-    colorScheme: 'dark',
+    description: 'Cinematic presentation. Oversized headings, minimal chrome.',
+    colorScheme: 'auto', // follows global theme
     background: {
-      dashboard: '#000000',
-      tile: 'rgba(15,15,20,0.9)',
+      dashboard: 'var(--archetype-pitch-bg)',
+      tile: 'var(--archetype-pitch-tile)',
       section: 'transparent',
     },
     spacing: {
@@ -538,11 +591,11 @@ export const ARCHETYPE_THEMES = {
   tableau: {
     id: 'tableau',
     name: 'Tableau Classic',
-    description: 'Traditional BI aesthetic. Light background, Tableau 10 palette, dense grid.',
-    colorScheme: 'light',
+    description: 'Traditional BI aesthetic. Tableau 10 palette, dense grid.',
+    colorScheme: 'auto', // follows global theme
     background: {
-      dashboard: '#F0F0F4',
-      tile: '#FFFFFF',
+      dashboard: 'var(--archetype-tableau-bg)',
+      tile: 'var(--archetype-tableau-tile)',
       section: 'transparent',
     },
     spacing: {
@@ -575,11 +628,53 @@ export const ARCHETYPE_THEMES = {
     },
     accent: '#4E79A7', // Tableau blue
     filterBar: {
-      bg: '#FFFFFF',
-      border: 'rgba(0,0,0,0.08)',
-      chipBg: '#EEF2FF',
-      chipText: '#1E3A8A',
+      bg: 'var(--bg-elevated)',
+      border: 'var(--border-default)',
+      chipBg: 'color-mix(in oklab, #4E79A7 14%, transparent)',
+      chipText: 'var(--accent, #4E79A7)',
     },
+  },
+
+  // ── 7. Analyst Pro (Tableau-parity freeform) ──
+  'analyst-pro': {
+    id: 'analyst-pro',
+    name: 'Analyst Pro',
+    description: 'Tableau-native freeform authoring. Invisible tile boundaries, floating objects, full layout freedom.',
+    colorScheme: 'auto',
+    background: {
+      dashboard: 'var(--archetype-analyst-pro-bg)',
+      tile: 'var(--archetype-analyst-pro-tile)',
+      section: 'transparent',
+    },
+    spacing: {
+      tileGap: 0,
+      tileRadius: 0,
+      tilePadding: 0,
+      sectionGap: 0,
+      density: 'dense',
+    },
+    typography: {
+      headingFont: "'Satoshi', 'Outfit', system-ui, sans-serif",
+      bodyFont: "'Plus Jakarta Sans', system-ui, sans-serif",
+      dataFont: "'JetBrains Mono', ui-monospace, monospace",
+      headingSize: 14,
+      headingWeight: 700,
+      bodySize: 12,
+      dataSize: 11,
+    },
+    palette: 'tableau10',
+    tile: {
+      borderWidth: 0,
+      shadow: false,
+      glass: false,
+      hoverLift: 0,
+    },
+    kpi: {
+      valueFontSize: 32,
+      valueFontWeight: 750,
+      labelFontSize: 9,
+    },
+    accent: 'var(--accent)',
   },
 };
 

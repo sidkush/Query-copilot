@@ -113,30 +113,70 @@
   --shadow-deep: rgba(0, 0, 0, 0.55);
   --shadow-mid: rgba(0, 0, 0, 0.32);
   --shadow-soft: rgba(0, 0, 0, 0.22);
+  --shadow-warm-diffusion: 0 24px 60px -28px rgba(0, 0, 0, 0.55), 0 4px 10px -4px rgba(0, 0, 0, 0.25);
   --surface-glass-soft: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.010));
   --surface-glass-subtle: rgba(255, 255, 255, 0.035);
   --surface-glass-strong: rgba(255, 255, 255, 0.08);
   --surface-input: rgba(255, 255, 255, 0.03);
   --divider-subtle: rgba(148, 163, 184, 0.08);
+
+  /* ── Archetype surfaces (dark theme defaults) ──
+     Every archetype resolves its dashboard + tile bg through these vars so
+     switching global theme cascades through all 6 modes automatically. */
+  --archetype-briefing-bg: var(--bg-page);
+  --archetype-briefing-tile: var(--glass-bg-card);
+  --archetype-workbench-bg: #08080d;
+  --archetype-workbench-tile: rgba(17,17,22,0.85);
+  --archetype-ops-bg: #050508;
+  --archetype-ops-tile: rgba(12,12,16,0.92);
+  --archetype-story-bg: #11110d;              /* rich paper feel — kept dark in dark mode */
+  --archetype-story-tile: rgba(22,22,18,0.92);
+  --archetype-pitch-bg: #000000;
+  --archetype-pitch-tile: rgba(15,15,20,0.9);
+  --archetype-tableau-bg: #0c0c11;
+  --archetype-tableau-tile: rgba(18,18,24,0.95);
+  --archetype-analyst-pro-bg: #0a0a0c;
+  --archetype-analyst-pro-tile: var(--glass-bg-card);
+
+  /* ── Chrome bars (TopBar / ContextBar / StatusBar) ──
+     Adapt to global theme. Used by tokens.topBar/contextBar/statusBar. */
+  --chrome-bar-bg: rgba(24, 24, 27, 0.95);
+  --chrome-bar-bg-subtle: rgba(20, 20, 23, 0.95);
+  --chrome-bar-border: rgba(63, 63, 70, 0.5);
+  --chrome-bar-border-subtle: rgba(63, 63, 70, 0.3);
+  --chrome-bar-divider: rgba(63, 63, 70, 0.6);
+
+  /* ── Editor elevation aliases (theme-aware).
+     Editor components were authored with --bg-elev-{1,2,3} + --bg-canvas
+     fallback patterns; when the var was undefined, their dark-rgba fallback
+     shipped to light theme too. Aliasing them here makes editor surfaces
+     track the global theme. */
+  --bg-canvas: var(--bg-page);
+  --bg-elev-1: var(--overlay-faint);
+  --bg-elev-2: var(--overlay-light);
+  --bg-elev-3: var(--bg-elevated);
 }
 
 /* ── Light theme overrides ── */
 :root.light {
-  --bg-page: #F8F9FB;
-  --bg-base: #F1F3F6;
+  /* Warm off-white palette — Apple/Linear-tier: amber-tinted neutrals, not cool slate */
+  --bg-page: #FAFAF7;
+  --bg-base: #F4F3EE;
   --bg-elevated: #FFFFFF;
-  --bg-surface: #F0F2F4;
-  --bg-hover: #E5E7EB;
+  --bg-surface: #F0EFEA;
+  --bg-hover: #EAE9E3;
 
-  --text-primary: #111827;
-  --text-secondary: #5B6170;
-  --text-muted: #9099A4;
+  --text-primary: #1A1A1F;
+  --text-secondary: #52525B;
+  --text-muted: #8A8A92;
   --text-inverted: #EDEDEF;
 
-  --border-default: rgba(0, 0, 0, 0.08);
-  --border-hover: rgba(0, 0, 0, 0.15);
-  --border-subtle: rgba(0, 0, 0, 0.04);
+  --border-default: rgba(24, 24, 27, 0.08);
+  --border-hover: rgba(24, 24, 27, 0.14);
+  --border-subtle: rgba(24, 24, 27, 0.04);
 
+  /* Slightly desaturated accent for light-mode hovers — cold bright-blue harsh on cream */
+  --accent-light: #4F7FE7;
   --accent-glow: rgba(37, 99, 235, 0.08);
 
   /* Warm accent — darker in light mode so it stays readable on near-white */
@@ -199,11 +239,51 @@
   --shadow-deep: rgba(15, 23, 42, 0.24);
   --shadow-mid: rgba(15, 23, 42, 0.14);
   --shadow-soft: rgba(15, 23, 42, 0.08);
+  /* Warm stone-tinted diffusion shadow — tiles get lift on cream page */
+  --shadow-warm-diffusion: 0 24px 60px -28px rgba(41, 37, 36, 0.18), 0 4px 10px -4px rgba(41, 37, 36, 0.10);
   --surface-glass-soft: linear-gradient(180deg, rgba(15, 23, 42, 0.055), rgba(15, 23, 42, 0.015));
   --surface-glass-subtle: rgba(15, 23, 42, 0.045);
   --surface-glass-strong: rgba(15, 23, 42, 0.08);
   --surface-input: rgba(255, 255, 255, 0.70);
   --divider-subtle: rgba(15, 23, 42, 0.10);
+
+  /* ── Archetype surfaces (light theme overrides) ──
+     Each archetype gets a tuned light palette preserving its personality
+     (cream for story, pale green for ops, etc.) while staying legible. */
+  --archetype-briefing-bg: var(--bg-page);
+  --archetype-briefing-tile: var(--glass-bg-card);
+  --archetype-workbench-bg: #F4F5F8;
+  --archetype-workbench-tile: #FFFFFF;
+  --archetype-ops-bg: #F0F7F1;                /* pale green wash — NOC daylight */
+  --archetype-ops-tile: #FFFFFF;
+  --archetype-story-bg: #FDFBF7;              /* cream paper — editorial flagship */
+  --archetype-story-tile: #FFFFFF;
+  --archetype-pitch-bg: #0A0A0F;              /* cinematic stays dark — projection safety */
+  --archetype-pitch-tile: rgba(22,22,28,0.92);
+  --archetype-tableau-bg: #F0F0F4;
+  --archetype-tableau-tile: #FFFFFF;
+  --archetype-analyst-pro-bg: #F7F8FA;
+  --archetype-analyst-pro-tile: #FFFFFF;
+
+  /* ── Chrome bars (light theme overrides) ── */
+  --chrome-bar-bg: rgba(255, 255, 255, 0.88);
+  --chrome-bar-bg-subtle: rgba(248, 250, 252, 0.92);
+  --chrome-bar-border: rgba(15, 23, 42, 0.1);
+  --chrome-bar-border-subtle: rgba(15, 23, 42, 0.06);
+  --chrome-bar-divider: rgba(15, 23, 42, 0.12);
+}
+
+/* ── Premium ambient mesh — warms the light-theme page without shouting.
+   Radial blobs sit behind everything; dark theme keeps its own treatment. */
+:root.light body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(900px 600px at 15% 10%, rgba(37, 99, 235, 0.04), transparent 60%),
+    radial-gradient(700px 500px at 85% 90%, rgba(180, 83, 9, 0.03), transparent 55%);
 }
 
 /* ── Tailwind theme integration ── */
@@ -3924,4 +4004,219 @@ html.theme-transitioning *::after {
 [data-edit-mode="stage"] [data-testid="dashboard-top-bar"] {
   border-bottom-color: rgba(168, 85, 247, 0.15) !important;
   box-shadow: 0 1px 20px rgba(168, 85, 247, 0.08) !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   PREMIUM MOTION LAYER — perpetual micro-interactions
+   Perpetual motion primitives for dashboard + editor.
+   All GPU-accelerated (transform / opacity only).
+   Respects prefers-reduced-motion.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes premium-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.92); }
+}
+
+@keyframes premium-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes premium-sheen {
+  0%   { transform: translateX(-120%) skewX(-15deg); }
+  60%, 100% { transform: translateX(220%) skewX(-15deg); }
+}
+
+@keyframes premium-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+@keyframes premium-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 0.9; }
+  50%      { box-shadow: 0 0 0 6px transparent; opacity: 1; }
+}
+
+@keyframes premium-orbit {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Reusable utility classes */
+.premium-breathe { animation: premium-breathe 2.8s ease-in-out infinite; }
+.premium-float   { animation: premium-float 5s ease-in-out infinite; }
+
+/* Shimmer overlay (apply as ::after on skeleton / loading tiles) */
+.premium-shimmer-surface {
+  position: relative;
+  overflow: hidden;
+}
+.premium-shimmer-surface::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 40%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: premium-shimmer 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+:root.light .premium-shimmer-surface::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(15, 23, 42, 0.03) 40%,
+    rgba(15, 23, 42, 0.07) 50%,
+    rgba(15, 23, 42, 0.03) 60%,
+    transparent 100%
+  );
+}
+
+/* Spotlight border card — cursor-tracked glow.
+   Consumer sets --spot-x / --spot-y in % from mouse handler. */
+.premium-spotlight {
+  position: relative;
+  isolation: isolate;
+}
+.premium-spotlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: radial-gradient(
+    180px 180px at var(--spot-x, 50%) var(--spot-y, 50%),
+    color-mix(in oklab, var(--accent) 55%, transparent) 0%,
+    transparent 70%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 2;
+}
+.premium-spotlight:hover::before,
+.premium-spotlight:focus-within::before {
+  opacity: 1;
+}
+:root.light .premium-spotlight:hover::before,
+:root.light .premium-spotlight:focus-within::before {
+  /* Softer ring in light — accent otherwise reads as harsh */
+  opacity: 0.7;
+}
+
+/* Liquid glass panel — inner refraction border + diffusion shadow */
+.premium-liquid-glass {
+  background: var(--glass-bg-card);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02),
+    0 18px 40px -22px rgba(0, 0, 0, 0.55),
+    0 4px 10px -4px rgba(0, 0, 0, 0.25);
+}
+:root.light .premium-liquid-glass {
+  /* Warm stone-tinted diffusion — separates tiles from cream page */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 252, 247, 0.92),
+    inset 0 -1px 0 rgba(41, 37, 36, 0.04),
+    0 24px 60px -28px rgba(41, 37, 36, 0.18),
+    0 4px 10px -4px rgba(41, 37, 36, 0.10);
+}
+
+/* Mount stagger — applied via style="--mount-index: N" on children */
+.premium-mount-stagger > * {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  animation: premium-mount-in 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--mount-index, 0) * 60ms);
+}
+@keyframes premium-mount-in {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Subtle grid pattern for editor canvas (Stage mode feel) */
+.premium-grid-canvas {
+  background-image:
+    linear-gradient(to right,  rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center;
+}
+:root.light .premium-grid-canvas {
+  background-image:
+    linear-gradient(to right,  rgba(15,23,42,0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15,23,42,0.045) 1px, transparent 1px);
+}
+
+/* Kinetic marquee — used for live data strips (LiveOps event stream) */
+@keyframes premium-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.premium-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: premium-marquee 45s linear infinite;
+}
+.premium-marquee-track:hover { animation-play-state: paused; }
+
+/* Premium button — tactile press + magnetic hover hook */
+.premium-btn {
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+              background 160ms ease;
+  will-change: transform;
+}
+.premium-btn:active { transform: translateY(1px) scale(0.985); }
+
+/* Sheen sweep — run once on mount or hover (NOT perpetual) */
+.premium-sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.premium-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 48%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.08) 52%,
+    transparent 100%
+  );
+  transform: translateX(-120%) skewX(-15deg);
+  pointer-events: none;
+}
+.premium-sheen:hover::after {
+  animation: premium-sheen 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Reduced motion — nuke all perpetual animations */
+@media (prefers-reduced-motion: reduce) {
+  .premium-breathe,
+  .premium-float,
+  .premium-shimmer-surface::after,
+  .premium-marquee-track,
+  .premium-mount-stagger > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .premium-spotlight::before { display: none; }
 }
