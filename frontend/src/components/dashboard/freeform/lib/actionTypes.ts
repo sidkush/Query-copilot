@@ -2,6 +2,10 @@ export type ActionTrigger = 'hover' | 'select' | 'menu';
 export type ActionClearBehavior = 'leave-filter' | 'show-all' | 'exclude-all';
 export type UrlTarget = 'new-tab' | 'iframe' | 'current-tab';
 
+export type FieldMappingEntry =
+  | { source: string; target: string }
+  | { setRef: string; target: string };
+
 export type BaseAction = {
   id: string;
   name: string;
@@ -13,14 +17,14 @@ export type BaseAction = {
 export type FilterAction = BaseAction & {
   kind: 'filter';
   targetSheets: string[];
-  fieldMapping: { source: string; target: string }[];
+  fieldMapping: FieldMappingEntry[];
   clearBehavior: ActionClearBehavior;
 };
 
 export type HighlightAction = BaseAction & {
   kind: 'highlight';
   targetSheets: string[];
-  fieldMapping: { source: string; target: string }[];
+  fieldMapping: FieldMappingEntry[];
 };
 
 export type UrlAction = BaseAction & {
@@ -37,14 +41,14 @@ export type GoToSheetAction = BaseAction & {
 export type ChangeParameterAction = BaseAction & {
   kind: 'change-parameter';
   targetParameterId: string;
-  fieldMapping: { source: string; target: string }[];  // single-entry: source mark field → parameter value
+  fieldMapping: FieldMappingEntry[];  // single-entry: source mark field → parameter value
   aggregation?: 'first' | 'sum' | 'avg';  // if multi-mark selection
 };
 
 export type ChangeSetAction = BaseAction & {
   kind: 'change-set';
   targetSetId: string;
-  fieldMapping: { source: string; target: string }[];
+  fieldMapping: FieldMappingEntry[];
   operation: 'replace' | 'add' | 'remove' | 'toggle';
 };
 
@@ -67,7 +71,12 @@ export type MarkEvent = {
 
 /** A single target operation emitted by the executor. */
 export type TargetOp =
-  | { kind: 'filter'; sheetId: string; filters: Record<string, unknown>; clearBehavior: ActionClearBehavior }
+  | {
+      kind: 'filter';
+      sheetId: string;
+      filters: Record<string, unknown | { __setRef: string }>;
+      clearBehavior: ActionClearBehavior;
+    }
   | { kind: 'highlight'; sheetId: string; fieldValues: Record<string, unknown> }
   | { kind: 'url'; url: string; urlTarget: UrlTarget }
   | { kind: 'goto-sheet'; sheetId: string }

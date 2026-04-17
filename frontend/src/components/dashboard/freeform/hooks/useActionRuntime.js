@@ -8,7 +8,8 @@ function applyTargetOp(op, token) {
   const store = useStore.getState();
   switch (op.kind) {
     case 'filter': {
-      const filters = buildAdditionalFilters(op);
+      const snapshot = store.analystProDashboard?.sets || [];
+      const filters = buildAdditionalFilters(op, snapshot);
       if (filters.length === 0) {
         store.clearSheetFilterAnalystPro(op.sheetId);
       } else {

@@ -1,29 +1,39 @@
 import type { TargetOp } from './actionTypes';
+import type { DashboardSet, SetMember } from './setTypes';
 
-/**
- * A single filter predicate in the shape the backend `/queries/execute`
- * endpoint understands via the `additional_filters` body field.
- */
-export type Filter = {
-  field: string;
-  op: 'eq';
-  value: string | number | boolean | null;
-};
+export type Filter =
+  | { field: string; op: 'eq'; value: string | number | boolean | null }
+  | { field: string; op: 'in'; values: SetMember[] };
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+function isSetRefMarker(v: unknown): v is { __setRef: string } {
+  return typeof v === 'object' && v !== null && '__setRef' in v
+    && typeof (v as { __setRef: unknown }).__setRef === 'string';
+}
+
 /**
- * Convert a filter TargetOp emitted by the action cascade into an array of
- * normalized Filter records. Pure. Returns [] for non-filter TargetOps.
- * `undefined` values are dropped; `null` is preserved (backend translates
- * to `IS NULL`). Field names that are not plain SQL identifiers are
- * silently dropped to keep injection safe downstream.
+ * Convert a filter TargetOp into a Filter[] payload for /queries/execute.
+ *
+ * Pass the current dashboard sets so that {__setRef: id} markers expand into
+ * {op: 'in', values: set.members}. Missing sets are silently dropped.
  */
-export function buildAdditionalFilters(op: TargetOp): Filter[] {
+export function buildAdditionalFilters(
+  op: TargetOp,
+  setsSnapshot: readonly DashboardSet[] = [],
+): Filter[] {
   if (!op || op.kind !== 'filter') return [];
   const out: Filter[] = [];
   for (const [field, value] of Object.entries(op.filters)) {
     if (!IDENT_RE.test(field)) continue;
+
+    if (isSetRefMarker(value)) {
+      const found = setsSnapshot.find((s) => s.id === value.__setRef);
+      if (!found) continue;
+      out.push({ field, op: 'in', values: [...found.members] });
+      continue;
+    }
+
     if (value === undefined) continue;
     if (
       value === null ||
