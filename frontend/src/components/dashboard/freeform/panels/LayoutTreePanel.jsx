@@ -337,6 +337,10 @@ export default function LayoutTreePanel() {
 
   if (!dashboard) return null;
 
+  const isEmpty =
+    (!dashboard.tiledRoot?.children || dashboard.tiledRoot.children.length === 0) &&
+    dashboard.floatingLayer.length === 0;
+
   const handleClick = (id, e) => {
     const isMulti = e.metaKey || e.ctrlKey;
     if (isMulti) {
@@ -381,65 +385,77 @@ export default function LayoutTreePanel() {
         Layout
       </div>
 
-      {/* Tiled section */}
-      <section>
-        <header
-          style={{
-            padding: '4px 12px',
-            opacity: 0.6,
-            fontSize: '11px',
-          }}
+      {isEmpty ? (
+        <div
+          data-testid="layout-tree-empty"
+          style={{ padding: '16px 12px', opacity: 0.65, fontSize: '12px' }}
         >
-          ▼ Tiled
-        </header>
-        <div role="list">
-          {tiledRows.map(({ zone, depth }) => (
-            <TreeRow
-              key={zone.id}
-              zone={zone}
-              depth={depth}
-              selected={selection.has(zone.id)}
-              onClick={handleClick}
-              onRename={handleRename}
-              ctx={ctx}
-              dropIndicator={dropIndicator}
-              setDropIndicator={setDropIndicator}
-              onReorder={handleReorder}
-            />
-          ))}
+          <strong style={{ display: 'block', marginBottom: 4 }}>No zones yet.</strong>
+          Drag from Object Library above.
         </div>
-      </section>
+      ) : (
+        <>
+          {/* Tiled section */}
+          <section>
+            <header
+              style={{
+                padding: '4px 12px',
+                opacity: 0.6,
+                fontSize: '11px',
+              }}
+            >
+              ▼ Tiled
+            </header>
+            <div role="list">
+              {tiledRows.map(({ zone, depth }) => (
+                <TreeRow
+                  key={zone.id}
+                  zone={zone}
+                  depth={depth}
+                  selected={selection.has(zone.id)}
+                  onClick={handleClick}
+                  onRename={handleRename}
+                  ctx={ctx}
+                  dropIndicator={dropIndicator}
+                  setDropIndicator={setDropIndicator}
+                  onReorder={handleReorder}
+                />
+              ))}
+            </div>
+          </section>
 
-      {/* Floating section */}
-      <section>
-        <header
-          style={{
-            padding: '4px 12px',
-            opacity: 0.6,
-            fontSize: '11px',
-          }}
-        >
-          ▼ Floating
-        </header>
-        <div role="list">
-          {floatingRows.map(({ zone, depth }) => (
-            <TreeRow
-              key={zone.id}
-              zone={zone}
-              depth={depth}
-              selected={selection.has(zone.id)}
-              onClick={handleClick}
-              onRename={handleRename}
-              ctx={ctx}
-              dropIndicator={dropIndicator}
-              setDropIndicator={setDropIndicator}
-              onReorder={handleReorder}
-              draggable={false}
-              acceptsDrop={false}
-            />
-          ))}
-        </div>
-      </section>
+          {/* Floating section */}
+          <section>
+            <header
+              style={{
+                padding: '4px 12px',
+                opacity: 0.6,
+                fontSize: '11px',
+              }}
+            >
+              ▼ Floating
+            </header>
+            <div role="list">
+              {floatingRows.map(({ zone, depth }) => (
+                <TreeRow
+                  key={zone.id}
+                  zone={zone}
+                  depth={depth}
+                  selected={selection.has(zone.id)}
+                  onClick={handleClick}
+                  onRename={handleRename}
+                  ctx={ctx}
+                  dropIndicator={dropIndicator}
+                  setDropIndicator={setDropIndicator}
+                  onReorder={handleReorder}
+                  draggable={false}
+                  acceptsDrop={false}
+                />
+              ))}
+            </div>
+          </section>
+        </>
+      )}
     </aside>
   );
 }
