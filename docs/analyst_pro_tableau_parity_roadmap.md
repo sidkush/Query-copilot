@@ -453,7 +453,7 @@
 
 ---
 
-### Plan 6d — Mark Selection + Highlight Overlay on Charts
+### Plan 6d — Mark Selection + Highlight Overlay on Charts — ✅ Shipped 2026-04-17
 
 **Problem.** `analystProSheetHighlights` slice exists (Plan 4a) but no chart reads it. Clicking a chart bar should select the mark, emit a `MarkEvent` to bus (already wired for actions), AND dim non-matching marks in the target sheet.
 

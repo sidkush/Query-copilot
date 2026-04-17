@@ -127,7 +127,6 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
       if (warnedKeysRef.current.has(key)) continue;
       if (!colsLower.has(field.toLowerCase())) {
         warnedKeysRef.current.add(key);
-        // eslint-disable-next-line no-console
         console.warn(
           `[Plan 6d] highlight field "${field}" not in tile columns for sheet "${sheetId}" — ` +
           `re-query path not yet implemented (deferred to Plan 6e/7a). Mask shows nothing.`,
