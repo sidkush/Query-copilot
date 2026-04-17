@@ -127,6 +127,7 @@ export function buildContextMenu(
   appendCommonHead(items, zone, dashboard);
   // Tasks 4 + 5 inject worksheet-specific / container-specific items here.
   appendWorksheetExtras(items, zone);
+  appendContainerExtras(items, zone, dashboard);
   appendCommonTail(items, zone, dashboard, selection);
   return items;
 }
@@ -171,6 +172,32 @@ function appendWorksheetExtras(items: MenuItem[], zone: Zone): void {
     kind: 'command',
     id: 'openActionsDialog',
     label: 'Actions…',
+  });
+}
+
+function appendContainerExtras(items: MenuItem[], zone: Zone, dashboard: Dashboard): void {
+  if (!isContainer(zone)) return;
+  items.push(SEP);
+  items.push({
+    kind: 'command',
+    id: 'distributeEvenly',
+    label: 'Distribute Evenly',
+    disabled: zone.children.length < 2,
+    todo: { plan: '5e', reason: 'distributeEvenlyAnalystPro lands in Plan 5e.' },
+  });
+  items.push({
+    kind: 'command',
+    id: 'fitContainerToContent',
+    label: 'Fit Container to Content',
+    todo: { plan: '5e', reason: 'fitContainerToContentAnalystPro lands in Plan 5e.' },
+  });
+  const isRoot = dashboard.tiledRoot.id === zone.id;
+  items.push({
+    kind: 'command',
+    id: 'removeContainerUnwrap',
+    label: 'Remove Container',
+    disabled: isRoot,
+    // Dispatcher wires this to existing ungroupAnalystPro(containerId) (store.js:1017).
   });
 }
 

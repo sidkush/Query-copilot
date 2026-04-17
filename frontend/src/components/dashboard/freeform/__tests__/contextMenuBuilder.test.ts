@@ -194,3 +194,41 @@ describe('buildContextMenu — worksheet-specific', () => {
     }
   });
 });
+
+describe('buildContextMenu — container-specific', () => {
+  it('adds Distribute Evenly, Fit Container to Content, Remove Container on containers', () => {
+    const leafA: LeafZone = { id: 'A', type: 'blank', w: 50000, h: 100000 };
+    const leafB: LeafZone = { id: 'B', type: 'blank', w: 50000, h: 100000 };
+    const container: ContainerZone = {
+      id: 'C', type: 'container-horz', w: 100000, h: 100000, children: [leafA, leafB],
+    };
+    const root: ContainerZone = {
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [container],
+    };
+    const items = buildContextMenu(container, makeDashboard(root), new Set());
+    const ids = items.map((i) => (i as { id?: string }).id).filter(Boolean);
+    expect(ids).toContain('distributeEvenly');
+    expect(ids).toContain('fitContainerToContent');
+    expect(ids).toContain('removeContainerUnwrap');
+  });
+
+  it('Remove Container on the root is disabled (cannot unwrap root)', () => {
+    const root: ContainerZone = {
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [],
+    };
+    const items = buildContextMenu(root, makeDashboard(root), new Set());
+    const rc = items.find((i) => i.kind === 'command' && i.id === 'removeContainerUnwrap');
+    expect(rc).toBeDefined();
+    expect((rc as { disabled?: boolean }).disabled).toBe(true);
+  });
+
+  it('container-type zones do NOT include worksheet-only items', () => {
+    const root: ContainerZone = {
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [],
+    };
+    const items = buildContextMenu(root, makeDashboard(root), new Set());
+    const ids = items.map((i) => (i as { id?: string }).id).filter(Boolean);
+    expect(ids).not.toContain('swapSheets');
+    expect(ids).not.toContain('toggleShowCaption');
+  });
+});
