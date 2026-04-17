@@ -5,6 +5,7 @@ import ZoneRenderer from './ZoneRenderer';
 import FloatingLayer from './FloatingLayer';
 import SelectionOverlay from './SelectionOverlay';
 import MarqueeOverlay from './MarqueeOverlay';
+import DropIndicatorOverlay from './DropIndicatorOverlay';
 import { useSelection } from './hooks/useSelection';
 import { useDragResize } from './hooks/useDragResize';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -87,6 +88,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     canvasRef: containerRef,
     resolvedMap,
     siblingsFloating: resolved.filter((r) => r.depth === -1),
+    resolvedList: resolved,
   });
 
   const selectedResolved = resolved.filter((r) => selection.has(r.zone.id));
@@ -238,6 +240,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
           }}
         />
         <MarqueeOverlay rect={marquee} />
+        <DropIndicatorOverlay resolvedList={resolved} />
       </div>
     </div>
   );
