@@ -1,5 +1,5 @@
 // frontend/src/components/dashboard/freeform/lib/zoneTreeOps.ts
-import type { Zone, ContainerZone, FloatingZone } from './types';
+import type { Zone, ContainerZone, ContainerType, FloatingZone } from './types';
 import { isContainer, normalizeContainer, generateZoneId } from './zoneTree';
 
 /**
@@ -390,4 +390,115 @@ export function reorderZone(
   if (targetIdx === -1) return root;
   const insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
   return insertChild(withoutSource, parentInWithout.id, source, insertIdx);
+}
+
+/**
+ * Cross-container move — drop a zone INTO a specific container at a specific index.
+ * Differs from reorderZone (sibling-relative). Re-uses removeChild + insertChild
+ * so both source and target parents are proportionally renormalized per
+ * Appendix E.11 (proportional redistribution by existing weights).
+ *
+ * Returns identity (same reference) when:
+ *   - source or target missing
+ *   - target is not a container
+ *   - target descends from source (cycle)
+ *   - sourceId === targetContainerId
+ */
+export function moveZoneAcrossContainers(
+  root: Zone,
+  sourceId: string,
+  targetContainerId: string,
+  targetIndex: number,
+): Zone {
+  if (sourceId === targetContainerId) return root;
+
+  const source = findZoneInTree(root, sourceId);
+  if (!source) return root;
+
+  const target = findZoneInTree(root, targetContainerId);
+  if (!target || !isContainer(target)) return root;
+
+  if (isDescendant(source, targetContainerId)) return root;
+
+  const withoutSource = removeChild(root, sourceId);
+  const targetAfterRemoval = findZoneInTree(withoutSource, targetContainerId);
+  if (!targetAfterRemoval || !isContainer(targetAfterRemoval)) return root;
+
+  const clampedIndex = Math.max(0, Math.min(targetIndex, targetAfterRemoval.children.length));
+  return insertChild(withoutSource, targetContainerId, source, clampedIndex);
+}
+
+export type InsertSide = 'top' | 'bottom' | 'left' | 'right';
+
+/**
+ * Drop-on-edge wrap — replace targetId in its parent with a new split container
+ * whose children are `[source, target]` or `[target, source]` depending on side.
+ *
+ *   top    → container-vert, [source, target]
+ *   bottom → container-vert, [target, source]
+ *   left   → container-horz, [source, target]
+ *   right  → container-horz, [target, source]
+ *
+ * Wrapper inherits target's parent-axis proportion so grandparent sum is
+ * preserved without renormalization. Inner children seed at 50/50 on wrapper
+ * axis; normalizeContainer rescales to exact integer sums.
+ *
+ * Returns identity when target is root, missing, or source missing.
+ */
+export function wrapInContainer(
+  root: Zone,
+  targetId: string,
+  sourceZone: Zone,
+  side: InsertSide,
+): Zone {
+  if (root.id === targetId) return root;
+
+  const target = findZoneInTree(root, targetId);
+  if (!target) return root;
+
+  const parent = findParentInTree(root, targetId);
+  if (!parent) return root;
+
+  const isVertical = side === 'top' || side === 'bottom';
+  const newType: ContainerType = isVertical ? 'container-vert' : 'container-horz';
+  const sourceFirst = side === 'top' || side === 'left';
+
+  const parentAxis: 'w' | 'h' = parent.type === 'container-horz' ? 'w' : 'h';
+  const perpAxis: 'w' | 'h' = parentAxis === 'w' ? 'h' : 'w';
+
+  const wrapperAxis: 'w' | 'h' = newType === 'container-horz' ? 'w' : 'h';
+  const wrapperPerp: 'w' | 'h' = wrapperAxis === 'w' ? 'h' : 'w';
+  const seedChild = (z: Zone): Zone => ({
+    ...z,
+    [wrapperAxis]: 50000,
+    [wrapperPerp]: 100000,
+  } as Zone);
+
+  const innerChildren: Zone[] = sourceFirst
+    ? [seedChild(sourceZone), seedChild(target)]
+    : [seedChild(target), seedChild(sourceZone)];
+
+  const wrapperNormalized: ContainerZone = normalizeContainer({
+    id: generateZoneId(),
+    type: newType,
+    w: 100000,
+    h: 100000,
+    children: innerChildren,
+  });
+
+  const targetAxisValue = (target as { w: number; h: number })[parentAxis];
+  const wrapperSized: Zone = {
+    ...wrapperNormalized,
+    [parentAxis]: targetAxisValue,
+    [perpAxis]: 100000,
+  } as Zone;
+
+  const nextParent: ContainerZone = {
+    ...parent,
+    children: parent.children.map((c) => (c.id === targetId ? wrapperSized : c)),
+  };
+
+  return parent.id === root.id
+    ? nextParent
+    : mapTree(root, (zone) => (zone.id === parent.id ? nextParent : zone));
 }

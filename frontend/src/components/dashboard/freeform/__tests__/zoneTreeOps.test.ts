@@ -1,6 +1,6 @@
 // frontend/src/components/dashboard/freeform/__tests__/zoneTreeOps.test.ts
 import { describe, it, expect } from 'vitest';
-import { insertChild, removeChild } from '../lib/zoneTreeOps';
+import { insertChild, removeChild, moveZoneAcrossContainers, wrapInContainer } from '../lib/zoneTreeOps';
 import type { ContainerZone, LeafZone } from '../lib/types';
 
 const base = (): ContainerZone => ({
@@ -520,5 +520,125 @@ describe('reorderZone', () => {
     const before = JSON.stringify(root);
     reorderZone(root, 'a', 'c', 'after');
     expect(JSON.stringify(root)).toBe(before);
+  });
+});
+
+describe('moveZoneAcrossContainers', () => {
+  const leaf = (id: string, w = 50000, h = 100000): LeafZone => ({
+    id, type: 'worksheet', w, h, worksheetRef: id,
+  });
+  const build = (): ContainerZone => ({
+    id: 'root', type: 'container-horz', w: 100000, h: 100000,
+    children: [
+      { id: 'A', type: 'container-vert', w: 50000, h: 100000,
+        children: [leaf('A1', 100000, 50000), leaf('A2', 100000, 50000)] },
+      { id: 'B', type: 'container-vert', w: 50000, h: 100000,
+        children: [leaf('B1', 100000, 100000)] },
+    ],
+  });
+
+  it('moves a leaf from container A into container B at index 1', () => {
+    const root = build();
+    const next = moveZoneAcrossContainers(root, 'A1', 'B', 1) as ContainerZone;
+    const B = next.children.find((c) => c.id === 'B') as ContainerZone;
+    expect(B.children.map((c) => c.id)).toEqual(['B1', 'A1']);
+    const A = next.children.find((c) => c.id === 'A') as ContainerZone;
+    expect(A.children.map((c) => c.id)).toEqual(['A2']);
+  });
+
+  it('re-normalizes both source and target containers after the move', () => {
+    const root = build();
+    const next = moveZoneAcrossContainers(root, 'A1', 'B', 0) as ContainerZone;
+    const A = next.children.find((c) => c.id === 'A') as ContainerZone;
+    const B = next.children.find((c) => c.id === 'B') as ContainerZone;
+    const sumAxis = (c: ContainerZone, axis: 'w' | 'h') =>
+      c.children.reduce((s, k) => s + (k as { w: number; h: number })[axis], 0);
+    expect(sumAxis(A, 'h')).toBe(100000);
+    expect(sumAxis(B, 'h')).toBe(100000);
+  });
+
+  it('rejects cycles — cannot move a container into its own descendant', () => {
+    const root = build();
+    // Moving A into A1 (a descendant of A) should be rejected.
+    const next = moveZoneAcrossContainers(root, 'A', 'A1', 0);
+    expect(next).toBe(root);
+  });
+
+  it('clamps negative or overflowing targetIndex', () => {
+    const root = build();
+    const nLo = moveZoneAcrossContainers(root, 'A1', 'B', -5) as ContainerZone;
+    const nHi = moveZoneAcrossContainers(root, 'A1', 'B', 999) as ContainerZone;
+    const BLo = nLo.children.find((c) => c.id === 'B') as ContainerZone;
+    const BHi = nHi.children.find((c) => c.id === 'B') as ContainerZone;
+    expect(BLo.children[0].id).toBe('A1');
+    expect(BHi.children[BHi.children.length - 1].id).toBe('A1');
+  });
+
+  it('returns identity when source or target not found', () => {
+    const root = build();
+    expect(moveZoneAcrossContainers(root, 'missing', 'B', 0)).toBe(root);
+    expect(moveZoneAcrossContainers(root, 'A1', 'missing', 0)).toBe(root);
+  });
+
+  it('returns identity when targetContainerId is a leaf (not a container)', () => {
+    const root = build();
+    expect(moveZoneAcrossContainers(root, 'A1', 'B1', 0)).toBe(root);
+  });
+});
+
+describe('wrapInContainer', () => {
+  const leaf = (id: string, w = 50000, h = 100000): LeafZone => ({
+    id, type: 'worksheet', w, h, worksheetRef: id,
+  });
+  const build = (): ContainerZone => ({
+    id: 'root', type: 'container-horz', w: 100000, h: 100000,
+    children: [leaf('A', 50000, 100000), leaf('B', 50000, 100000)],
+  });
+
+  it('dropping on top edge of B creates a container-vert wrapping [source, B]', () => {
+    const root = build();
+    const next = wrapInContainer(root, 'B', leaf('C', 100000, 100000), 'top') as ContainerZone;
+    const wrapper = next.children.find((c) => c.id !== 'A') as ContainerZone;
+    expect(wrapper.type).toBe('container-vert');
+    expect(wrapper.children.map((c) => c.id)).toEqual(['C', 'B']);
+  });
+
+  it('dropping on bottom edge of B creates container-vert wrapping [B, source]', () => {
+    const root = build();
+    const next = wrapInContainer(root, 'B', leaf('C'), 'bottom') as ContainerZone;
+    const wrapper = next.children.find((c) => c.id !== 'A') as ContainerZone;
+    expect(wrapper.type).toBe('container-vert');
+    expect(wrapper.children.map((c) => c.id)).toEqual(['B', 'C']);
+  });
+
+  it('dropping on left edge creates container-horz wrapping [source, B]', () => {
+    const root = build();
+    const next = wrapInContainer(root, 'B', leaf('C'), 'left') as ContainerZone;
+    const wrapper = next.children.find((c) => c.id !== 'A') as ContainerZone;
+    expect(wrapper.type).toBe('container-horz');
+    expect(wrapper.children.map((c) => c.id)).toEqual(['C', 'B']);
+  });
+
+  it('dropping on right edge creates container-horz wrapping [B, source]', () => {
+    const root = build();
+    const next = wrapInContainer(root, 'B', leaf('C'), 'right') as ContainerZone;
+    const wrapper = next.children.find((c) => c.id !== 'A') as ContainerZone;
+    expect(wrapper.type).toBe('container-horz');
+    expect(wrapper.children.map((c) => c.id)).toEqual(['B', 'C']);
+  });
+
+  it('preserves target B original axis proportion in the parent', () => {
+    const root = build();
+    const next = wrapInContainer(root, 'B', leaf('C'), 'right') as ContainerZone;
+    const wrapper = next.children.find((c) => c.id !== 'A') as ContainerZone;
+    expect(wrapper.w).toBe(50000);
+    const sum = next.children.reduce((s, c) => s + (c as { w: number }).w, 0);
+    expect(sum).toBe(100000);
+  });
+
+  it('returns identity when targetId missing or is the root', () => {
+    const root = build();
+    expect(wrapInContainer(root, 'missing', leaf('C'), 'top')).toBe(root);
+    expect(wrapInContainer(root, 'root', leaf('C'), 'top')).toBe(root);
   });
 });
