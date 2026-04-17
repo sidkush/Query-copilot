@@ -17,7 +17,7 @@
  * Plan 2b — Task T8.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useStore } from '../../../../store';
 import { evaluateRule, buildEvaluationContext } from '../lib/visibilityRules';
 
@@ -45,6 +45,20 @@ function zoneFallbackName(zone) {
   return `${cap} #${short}`;
 }
 
+const TREE_MIME = 'application/askdb-analyst-pro-tree-node+json';
+
+function computeDropPosition(rect, clientY, isContainer, isRoot) {
+  const y = clientY - rect.top;
+  const h = rect.height;
+  if (isContainer) {
+    if (isRoot) return 'inside';
+    if (y < h / 3) return 'before';
+    if (y > (h * 2) / 3) return 'after';
+    return 'inside';
+  }
+  return y < h / 2 ? 'before' : 'after';
+}
+
 /** Depth-first pre-order walk of a tiled zone tree. */
 function walkTiled(zone, depth = 0, out = []) {
   out.push({ zone, depth });
@@ -58,13 +72,30 @@ function walkTiled(zone, depth = 0, out = []) {
 // TreeRow
 // ---------------------------------------------------------------------------
 
-function TreeRow({ zone, depth, selected, onClick, onRename, ctx }) {
+function TreeRow({
+  zone,
+  depth,
+  selected,
+  onClick,
+  onRename,
+  ctx,
+  dropIndicator,
+  setDropIndicator,
+  onReorder,
+  draggable = true,
+  acceptsDrop = true,
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const rowRef = useRef(null);
 
   const name = zone.displayName || zoneFallbackName(zone);
   const hasRule = !!zone.visibilityRule && zone.visibilityRule.kind !== 'always';
   const visible = !hasRule || evaluateRule(zone.visibilityRule, ctx);
+  const isContainerZone = zone.type === 'container-horz' || zone.type === 'container-vert';
+  const isRoot = zone.id === 'root';
+  const indicator =
+    dropIndicator && dropIndicator.zoneId === zone.id ? dropIndicator.position : null;
 
   const commitRename = () => {
     const trimmed = draft.trim();
@@ -110,75 +141,168 @@ function TreeRow({ zone, depth, selected, onClick, onRename, ctx }) {
   // ---- Normal state: render a clickable/double-clickable row ----
   return (
     <div
-      role="button"
-      tabIndex={0}
-      data-visibility-hidden={hasRule ? String(!visible) : 'false'}
-      className={`tree-row${selected ? ' selected' : ''}`}
-      style={{
-        paddingLeft: depth * 12 + 8,
-        paddingRight: 6,
-        paddingTop: 3,
-        paddingBottom: 3,
-        background: selected
-          ? 'var(--bg-selected, var(--bg-hover, rgba(108,99,255,0.18)))'
-          : 'transparent',
-        opacity: visible ? 1 : 0.45,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        fontSize: '12px',
-      }}
-      onClick={(e) => onClick(zone.id, e)}
-      onDoubleClick={() => {
-        setDraft(name);
-        setEditing(true);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick(zone.id, e);
-        }
-      }}
+      ref={rowRef}
+      style={{ position: 'relative' }}
+      draggable={draggable}
+      onDragStart={
+        draggable
+          ? (e) => {
+              e.dataTransfer.setData(TREE_MIME, JSON.stringify({ zoneId: zone.id }));
+              e.dataTransfer.effectAllowed = 'move';
+            }
+          : undefined
+      }
+      onDragOver={
+        acceptsDrop
+          ? (e) => {
+              const types = e.dataTransfer?.types;
+              if (!types || !Array.from(types).includes(TREE_MIME)) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              const rect = rowRef.current?.getBoundingClientRect();
+              if (!rect) return;
+              const position = computeDropPosition(rect, e.clientY, isContainerZone, isRoot);
+              setDropIndicator({ zoneId: zone.id, position });
+            }
+          : undefined
+      }
+      onDragLeave={
+        acceptsDrop
+          ? (e) => {
+              if (!rowRef.current?.contains(e.relatedTarget)) {
+                setDropIndicator(null);
+              }
+            }
+          : undefined
+      }
+      onDrop={
+        acceptsDrop
+          ? (e) => {
+              e.preventDefault();
+              const raw = e.dataTransfer.getData(TREE_MIME);
+              setDropIndicator(null);
+              if (!raw) return;
+              let payload;
+              try {
+                payload = JSON.parse(raw);
+              } catch {
+                return;
+              }
+              if (!payload?.zoneId || payload.zoneId === zone.id) return;
+              const rect = rowRef.current?.getBoundingClientRect();
+              if (!rect) return;
+              const position = computeDropPosition(rect, e.clientY, isContainerZone, isRoot);
+              onReorder(payload.zoneId, zone.id, position);
+            }
+          : undefined
+      }
     >
-      {/* Zone-type icon */}
-      <span aria-hidden="true" style={{ opacity: 0.6, flexShrink: 0 }}>
-        {zone.type === 'container-horz'
-          ? '▭'
-          : zone.type === 'container-vert'
-          ? '▯'
-          : '•'}
-      </span>
-
-      {/* Zone name — truncated when long */}
-      <span
+      <div
+        role="button"
+        tabIndex={0}
+        data-visibility-hidden={hasRule ? String(!visible) : 'false'}
+        data-drop-indicator={indicator || undefined}
+        className={`tree-row${selected ? ' selected' : ''}`}
         style={{
-          flex: 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          paddingLeft: depth * 12 + 8,
+          paddingRight: 6,
+          paddingTop: 3,
+          paddingBottom: 3,
+          background:
+            indicator === 'inside'
+              ? 'color-mix(in oklab, var(--accent) 18%, transparent)'
+              : selected
+              ? 'var(--bg-selected, var(--bg-hover, rgba(108,99,255,0.18)))'
+              : 'transparent',
+          opacity: visible ? 1 : 0.45,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          fontSize: '12px',
+        }}
+        onClick={(e) => onClick(zone.id, e)}
+        onDoubleClick={() => {
+          setDraft(name);
+          setEditing(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick(zone.id, e);
+          }
         }}
       >
-        {name}
-      </span>
-
-      {/* Lock badge */}
-      {zone.locked ? (
-        <span aria-label="Locked" style={{ flexShrink: 0 }}>
-          🔒
+        {/* Zone-type icon */}
+        <span aria-hidden="true" style={{ opacity: 0.6, flexShrink: 0 }}>
+          {zone.type === 'container-horz'
+            ? '▭'
+            : zone.type === 'container-vert'
+            ? '▯'
+            : '•'}
         </span>
-      ) : null}
 
-      {/* Visibility-rule glyph (Plan 4d) */}
-      {hasRule ? (
+        {/* Zone name — truncated when long */}
         <span
-          data-testid={`visibility-glyph-${zone.id}`}
-          aria-label={visible ? 'Visibility rule active' : 'Hidden by visibility rule'}
-          title={ruleSummary(zone.visibilityRule)}
-          style={{ flexShrink: 0, opacity: 0.8 }}
+          style={{
+            flex: 1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
         >
-          ◉
+          {name}
         </span>
+
+        {/* Lock badge */}
+        {zone.locked ? (
+          <span aria-label="Locked" style={{ flexShrink: 0 }}>
+            🔒
+          </span>
+        ) : null}
+
+        {/* Visibility-rule glyph (Plan 4d) */}
+        {hasRule ? (
+          <span
+            data-testid={`visibility-glyph-${zone.id}`}
+            aria-label={visible ? 'Visibility rule active' : 'Hidden by visibility rule'}
+            title={ruleSummary(zone.visibilityRule)}
+            style={{ flexShrink: 0, opacity: 0.8 }}
+          >
+            ◉
+          </span>
+        ) : null}
+      </div>
+
+      {indicator === 'before' ? (
+        <div
+          aria-hidden="true"
+          data-testid={`drop-indicator-before-${zone.id}`}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: 'var(--accent)',
+            pointerEvents: 'none',
+          }}
+        />
+      ) : null}
+      {indicator === 'after' ? (
+        <div
+          aria-hidden="true"
+          data-testid={`drop-indicator-after-${zone.id}`}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: 'var(--accent)',
+            pointerEvents: 'none',
+          }}
+        />
       ) : null}
     </div>
   );
@@ -202,6 +326,12 @@ export default function LayoutTreePanel() {
     () => buildEvaluationContext({ sets, parameters, sheetFilters }),
     [sets, parameters, sheetFilters],
   );
+
+  const [dropIndicator, setDropIndicator] = useState(null);
+  const reorderZoneAnalystPro = useStore((s) => s.reorderZoneAnalystPro);
+  const handleReorder = (sourceId, targetId, position) => {
+    reorderZoneAnalystPro(sourceId, targetId, position);
+  };
 
   if (!dashboard) return null;
 
@@ -270,6 +400,9 @@ export default function LayoutTreePanel() {
               onClick={handleClick}
               onRename={handleRename}
               ctx={ctx}
+              dropIndicator={dropIndicator}
+              setDropIndicator={setDropIndicator}
+              onReorder={handleReorder}
             />
           ))}
         </div>
@@ -296,6 +429,11 @@ export default function LayoutTreePanel() {
               onClick={handleClick}
               onRename={handleRename}
               ctx={ctx}
+              dropIndicator={dropIndicator}
+              setDropIndicator={setDropIndicator}
+              onReorder={handleReorder}
+              draggable={false}
+              acceptsDrop={false}
             />
           ))}
         </div>
