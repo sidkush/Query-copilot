@@ -4449,3 +4449,85 @@ html.theme-transitioning *::after {
   .analyst-pro-drop-indicator-center,
   .analyst-pro-smart-guide { transition: none; }
 }
+
+/* Plan 5c — Right-click context menu.
+   Rendered via createPortal onto document.body. Keyboard + pointer driven.
+   No CSS animation — pure transition on opacity to mirror Tableau's snap-in feel. */
+.analyst-pro-context-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 200px;
+  max-width: 320px;
+  padding: 4px 0;
+  background: var(--chrome-bar-bg, #1f2026);
+  color: var(--fg, #e5e7eb);
+  border: 1px solid var(--chrome-bar-border, rgba(255,255,255,0.12));
+  border-radius: 6px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.40), 0 2px 6px rgba(0,0,0,0.24);
+  font-size: 12px;
+  line-height: 1.2;
+  user-select: none;
+  outline: none;
+}
+.analyst-pro-context-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 12px;
+  cursor: default;
+  white-space: nowrap;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+}
+.analyst-pro-context-menu__item:focus,
+.analyst-pro-context-menu__item[data-focused='true'] {
+  background: var(--accent-muted, rgba(59,130,246,0.15));
+  outline: none;
+}
+.analyst-pro-context-menu__item[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+}
+.analyst-pro-context-menu__item-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.analyst-pro-context-menu__item-shortcut {
+  flex: 0 0 auto;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.analyst-pro-context-menu__check {
+  flex: 0 0 12px;
+  width: 12px;
+  text-align: center;
+  opacity: 1;
+}
+.analyst-pro-context-menu__check[data-checked='false'] {
+  opacity: 0;
+}
+.analyst-pro-context-menu__submenu-arrow {
+  flex: 0 0 12px;
+  text-align: center;
+  opacity: 0.7;
+}
+.analyst-pro-context-menu__separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--chrome-bar-border, rgba(255,255,255,0.08));
+}
+.analyst-pro-context-menu__flyout {
+  position: fixed;
+  z-index: 10001;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analyst-pro-context-menu { transition: none; }
+}
