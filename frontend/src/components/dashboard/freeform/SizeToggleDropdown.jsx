@@ -23,6 +23,10 @@ export default function SizeToggleDropdown({ currentSize, onChange }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="premium-btn"
+        aria-label={`Canvas size: ${activeLabel}. Click to change.`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title="Canvas size"
         style={{
           padding: '6px 14px',
           background: 'var(--bg-elevated)',

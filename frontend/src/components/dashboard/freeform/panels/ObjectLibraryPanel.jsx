@@ -5,12 +5,14 @@
  * canvas. Uses HTML5 drag-and-drop with the custom MIME type
  * `application/askdb-analyst-pro-object+json`.
  *
- * T7 (next task) wires the drop handler on FreeformCanvas. This component is
- * presentation-only — no store imports, no Framer Motion.
+ * Keyboard a11y (Plan 4e T10): each item is a `role="button"` with `tabIndex=0`
+ * and an `onKeyDown` handler that inserts the object at a default offset when
+ * Enter or Space is pressed — matching the drop behavior for keyboard users.
  *
  * Styling: CSS variables from index.css (same chrome-bar tokens used by
  * DashboardStatusBar / DashboardContextBar). Hover highlight via CSS class.
  */
+import { useStore } from '../../../../store';
 
 const OBJECTS = [
   { type: 'text',           label: 'Text',             icon: 'T'  },
@@ -24,6 +26,15 @@ const OBJECTS = [
 const MIME = 'application/askdb-analyst-pro-object+json';
 
 export default function ObjectLibraryPanel() {
+  const insertObject = useStore((s) => s.insertObjectAnalystPro);
+
+  const handleKeyInsert = (type) => (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      insertObject({ type, x: 40, y: 40 });
+    }
+  };
+
   return (
     <aside
       className="analyst-pro-object-library"
@@ -66,6 +77,9 @@ export default function ObjectLibraryPanel() {
           <li
             key={o.type}
             draggable
+            role="button"
+            tabIndex={0}
+            onKeyDown={handleKeyInsert(o.type)}
             className="analyst-pro-object-library__item"
             onDragStart={(e) => {
               e.dataTransfer.setData(MIME, JSON.stringify({ type: o.type }));

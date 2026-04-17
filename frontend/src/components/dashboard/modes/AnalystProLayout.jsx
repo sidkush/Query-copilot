@@ -121,6 +121,8 @@ export default function AnalystProLayout({
             cursor: 'pointer',
             fontFamily: "'JetBrains Mono', monospace",
           }}
+          aria-label={`Snap to 8px grid and edges (currently ${snapEnabled ? 'on' : 'off'})`}
+          aria-pressed={snapEnabled}
           title={`Snap ${snapEnabled ? 'on' : 'off'} (8px grid + edges)`}
         >
           SNAP {snapEnabled ? 'ON' : 'OFF'}
