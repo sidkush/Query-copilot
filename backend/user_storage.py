@@ -621,7 +621,15 @@ def update_dashboard(email: str, dashboard_id: str, updates: dict) -> Optional[d
                 # Snapshot before structural changes (tabs/tiles)
                 if "tabs" in updates:
                     _auto_version_snapshot(email, dashboard_id, d)
-                for key in ("name", "description", "tabs", "annotations", "sharing", "customMetrics", "globalFilters", "themeConfig", "bookmarks", "settings"):
+                for key in (
+                    "name", "description", "tabs", "annotations", "sharing",
+                    "customMetrics", "globalFilters", "themeConfig", "bookmarks", "settings",
+                    # Analyst Pro freeform schema fields (Plan 3 T9)
+                    "schemaVersion", "archetype", "size",
+                    "tiledRoot", "floatingLayer", "worksheets",
+                    "parameters", "sets", "actions", "globalStyle",
+                    "layout",
+                ):
                     if key in updates:
                         d[key] = updates[key]
                 d["updated_at"] = datetime.now(timezone.utc).isoformat()

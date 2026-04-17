@@ -1,3 +1,7 @@
+"""Tests for dashboard_migration.legacy_to_freeform_schema.
+
+Includes Plan 3 T9 additions: actions persistence round-trip tests.
+"""
 from dashboard_migration import legacy_to_freeform_schema
 
 
@@ -61,3 +65,62 @@ def test_sections_tree_flattens_to_vert_of_horz():
     assert len(root["children"][0]["children"]) == 2
     assert root["children"][1]["type"] == "container-horz"
     assert len(root["children"][1]["children"]) == 1
+
+
+# ── Plan 3 T9: actions persistence round-trip ───────────────────────────────
+
+
+def test_actions_preserved_in_migration():
+    """legacy_to_freeform_schema must carry over an existing actions list verbatim."""
+    action = {
+        "id": "a1",
+        "name": "Keep Me",
+        "kind": "filter",
+        "enabled": True,
+        "sourceSheets": ["s1"],
+        "targetSheets": ["s2"],
+        "fieldMapping": [{"source": "week", "target": "week"}],
+        "clearBehavior": "show-all",
+        "trigger": "select",
+    }
+    legacy = {
+        "id": "d1",
+        "name": "T",
+        "tiles": [{"id": "t1"}],
+        "actions": [action],
+    }
+    result = legacy_to_freeform_schema(legacy)
+    assert len(result["actions"]) == 1, "actions list should have 1 entry"
+    assert result["actions"][0]["id"] == "a1"
+    assert result["actions"][0]["name"] == "Keep Me"
+
+
+def test_actions_default_empty_list_in_migration():
+    """When legacy dict has no 'actions' key, output actions must be []."""
+    legacy = {"id": "d1", "name": "T", "tiles": [{"id": "t1"}]}
+    result = legacy_to_freeform_schema(legacy)
+    assert result["actions"] == [], f"Expected [], got {result['actions']}"
+
+
+def test_actions_non_list_value_coerced_to_empty():
+    """If legacy 'actions' is not a list (e.g. None or a string), coerce to []."""
+    legacy = {"id": "d1", "name": "T", "tiles": [], "actions": None}
+    result = legacy_to_freeform_schema(legacy)
+    assert result["actions"] == []
+
+    legacy2 = {"id": "d2", "name": "T", "tiles": [], "actions": "bad"}
+    result2 = legacy_to_freeform_schema(legacy2)
+    assert result2["actions"] == []
+
+
+def test_multiple_actions_all_preserved():
+    """All actions in the input list survive migration, order preserved."""
+    actions = [
+        {"id": "act-1", "kind": "filter", "name": "First"},
+        {"id": "act-2", "kind": "url", "name": "Second"},
+    ]
+    legacy = {"id": "d1", "name": "T", "tiles": [], "actions": actions}
+    result = legacy_to_freeform_schema(legacy)
+    assert len(result["actions"]) == 2
+    assert result["actions"][0]["id"] == "act-1"
+    assert result["actions"][1]["id"] == "act-2"

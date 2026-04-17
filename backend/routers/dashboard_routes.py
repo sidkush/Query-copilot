@@ -132,6 +132,18 @@ class UpdateDashboardBody(BaseModel):
     customMetrics: Optional[list] = None
     themeConfig: Optional[dict] = None
     settings: Optional[dict] = None  # includes refresh_interval_minutes
+    # ── Analyst Pro freeform schema fields (Plan 3 T9) ──────────────
+    schemaVersion: Optional[str] = None
+    archetype: Optional[str] = None
+    size: Optional[dict] = None
+    tiledRoot: Optional[dict] = None
+    floatingLayer: Optional[list] = None
+    worksheets: Optional[list] = None
+    parameters: Optional[list] = None
+    sets: Optional[list] = None
+    actions: Optional[list] = None
+    globalStyle: Optional[dict] = None
+    layout: Optional[list] = None  # workbench layout array
 
 class AddTab(BaseModel):
     name: str
