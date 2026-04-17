@@ -89,6 +89,22 @@ describe('AnalystProWorksheetTile highlight integration', () => {
     });
   });
 
+  it('logs a one-shot dev warning when highlight field absent from tile columns', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    useStore.getState().setSheetHighlightAnalystPro('sheet-a', { unknown_col: 'X' });
+    render(
+      <AnalystProWorksheetTile
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tile={{ ...baseTile, chart_spec: { type: 'cartesian', encoding: { x: { field: 'region' } }, columns: ['region', 'sales'] } } as any}
+        sheetId="sheet-a"
+      />,
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[Plan 6d] highlight field "unknown_col" not in tile columns for sheet "sheet-a"'),
+    );
+    warnSpy.mockRestore();
+  });
+
   it('empty-area click clears own slice + publishes empty-fields MarkEvent', () => {
     useStore.getState().setSheetHighlightAnalystPro('sheet-a', { region: 'East' });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

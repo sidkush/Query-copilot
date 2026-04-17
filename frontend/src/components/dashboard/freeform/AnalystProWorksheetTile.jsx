@@ -110,6 +110,32 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
     return next;
   }, [tile, autosize, highlight]);
 
+  const warnedKeysRef = useRef(new Set());
+  useEffect(() => {
+    if (!highlight || typeof highlight !== 'object') return;
+    const isProd = !!(import.meta.env && import.meta.env.PROD);
+    if (isProd) return;
+    const cols =
+      (override?.columns && override.columns.length > 0 && override.columns) ||
+      tile?.chart_spec?.columns ||
+      tile?.columns ||
+      [];
+    if (!Array.isArray(cols) || cols.length === 0) return;
+    const colsLower = new Set(cols.map((c) => String(c).toLowerCase()));
+    for (const field of Object.keys(highlight)) {
+      const key = `${sheetId}::${field}`;
+      if (warnedKeysRef.current.has(key)) continue;
+      if (!colsLower.has(field.toLowerCase())) {
+        warnedKeysRef.current.add(key);
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[Plan 6d] highlight field "${field}" not in tile columns for sheet "${sheetId}" — ` +
+          `re-query path not yet implemented (deferred to Plan 6e/7a). Mask shows nothing.`,
+        );
+      }
+    }
+  }, [highlight, override, tile, sheetId]);
+
   const handleMarkSelect = useCallback((selSheetId, fields, opts) => {
     if (!selSheetId) return;
     if (fields === null) {
