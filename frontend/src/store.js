@@ -733,7 +733,7 @@ export const useStore = create((set, get) => ({
 
   // Plan 2b: layout overlay toggle
   analystProLayoutOverlay: false,
-  toggleAnalystProLayoutOverlay: () =>
+  toggleLayoutOverlayAnalystPro: () =>
     set((s) => ({ analystProLayoutOverlay: !s.analystProLayoutOverlay })),
 
   // Plan 2b: alignment + distribute

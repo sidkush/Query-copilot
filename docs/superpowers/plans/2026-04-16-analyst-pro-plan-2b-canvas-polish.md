@@ -38,7 +38,7 @@ Non-goals: actions runtime (→ Plan 3), sets/DZV/migration polish (→ Plan 4),
 ## Architecture Notes
 
 **State lives in Zustand** `analystPro` slice (already present). New additions:
-- `layoutOverlayEnabled: boolean` (default `false`)
+- `analystProLayoutOverlay: boolean` (default `false`)
 - History-friendly: every mutating action pushes a new snapshot via `pushAnalystProHistory`.
 
 **Pure lib split** (unit-testable without React):
@@ -258,7 +258,7 @@ export function toggleLockFloating(
 
 **New state fields** in `analystPro` slice:
 ```js
-layoutOverlayEnabled: false,
+analystProLayoutOverlay: false,
 ```
 
 **New actions** (keep the existing ones intact):
@@ -436,7 +436,7 @@ const OBJECTS = [
 
 **Toggle behavior**:
 - Button in AlignmentToolbar row (or top toolbar of AnalystProLayout — your choice, keep stable).
-- Keyboard shortcut `Cmd/Ctrl+;` triggers `toggleLayoutOverlayAnalystPro()`.
+- Keyboard shortcut `Cmd/Ctrl+;` triggers `toggleLayoutOverlayAnalystPro()` (action name matches T4 spec).
 
 **CSS** (append to `index.css`):
 ```css
