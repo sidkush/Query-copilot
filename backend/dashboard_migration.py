@@ -339,6 +339,11 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
     if not isinstance(existing_sets, list):
         existing_sets = []
 
+    # Preserve existing parameters if present; default to empty list.
+    existing_parameters = legacy.get("parameters")
+    if not isinstance(existing_parameters, list):
+        existing_parameters = []
+
     return {
         "schemaVersion": "askdb/dashboard/v1",
         "id": str(dashboard_id),
@@ -348,7 +353,7 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
         "tiledRoot": tiled_root,
         "floatingLayer": [],
         "worksheets": worksheets,
-        "parameters": [],
+        "parameters": existing_parameters,
         "sets": existing_sets,
         "actions": existing_actions,
         "globalStyle": {},
