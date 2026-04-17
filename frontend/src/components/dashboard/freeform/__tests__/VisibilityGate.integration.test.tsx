@@ -228,3 +228,94 @@ describe('FreeformCanvas — parameterEquals end-to-end (Plan 4d T8)', () => {
   });
 });
 
+describe('FreeformCanvas — hasActiveFilter + setMembership end-to-end (Plan 4d T9)', () => {
+  it('hasActiveFilter unmounts then mounts when filter slice flips', () => {
+    const dashboard = {
+      schemaVersion: 'askdb/dashboard/v1',
+      id: 'd1',
+      name: 'Test',
+      archetype: 'analyst-pro',
+      size: { mode: 'fixed', preset: 'desktop' },
+      tiledRoot: {
+        id: 'root',
+        type: 'container-vert',
+        w: 100000,
+        h: 100000,
+        children: [
+          {
+            id: 'gated',
+            type: 'blank',
+            w: 100000,
+            h: 100000,
+            visibilityRule: { kind: 'hasActiveFilter', sheetId: 'sheet-1' },
+          },
+        ],
+      },
+      floatingLayer: [],
+      worksheets: [],
+      parameters: [],
+      sets: [],
+      actions: [],
+    };
+    useStore.setState({ analystProDashboard: dashboard, analystProSheetFilters: {} });
+    render(
+      <FreeformCanvas
+        dashboard={dashboard as any}
+        renderLeaf={(z: any) => <div data-testid={`leaf-${z.id}`}>{z.id}</div>}
+      />,
+    );
+    expect(screen.queryByTestId('leaf-gated')).not.toBeInTheDocument();
+    act(() => {
+      useStore.getState().setSheetFilterAnalystPro('sheet-1', [
+        { field: 'region', op: '=', value: 'East' },
+      ]);
+    });
+    expect(screen.getByTestId('leaf-gated')).toBeInTheDocument();
+    act(() => {
+      useStore.getState().clearSheetFilterAnalystPro('sheet-1');
+    });
+    expect(screen.queryByTestId('leaf-gated')).not.toBeInTheDocument();
+  });
+
+  it('setMembership(isEmpty) hides when set gains a member', () => {
+    const dashboard = {
+      schemaVersion: 'askdb/dashboard/v1',
+      id: 'd1',
+      name: 'Test',
+      archetype: 'analyst-pro',
+      size: { mode: 'fixed', preset: 'desktop' },
+      tiledRoot: {
+        id: 'root',
+        type: 'container-vert',
+        w: 100000,
+        h: 100000,
+        children: [
+          {
+            id: 'gated',
+            type: 'blank',
+            w: 100000,
+            h: 100000,
+            visibilityRule: { kind: 'setMembership', setId: 's1', mode: 'isEmpty' },
+          },
+        ],
+      },
+      floatingLayer: [],
+      worksheets: [],
+      parameters: [],
+      sets: [{ id: 's1', name: 'Top', dimension: 'region', members: [], createdAt: '' }],
+      actions: [],
+    };
+    useStore.setState({ analystProDashboard: dashboard, analystProSheetFilters: {} });
+    render(
+      <FreeformCanvas
+        dashboard={dashboard as any}
+        renderLeaf={(z: any) => <div data-testid={`leaf-${z.id}`}>{z.id}</div>}
+      />,
+    );
+    expect(screen.getByTestId('leaf-gated')).toBeInTheDocument();
+    act(() => {
+      useStore.getState().applySetChangeAnalystPro('s1', 'add', ['East']);
+    });
+    expect(screen.queryByTestId('leaf-gated')).not.toBeInTheDocument();
+  });
+});
