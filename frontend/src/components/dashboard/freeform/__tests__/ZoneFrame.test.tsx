@@ -331,3 +331,82 @@ describe('ZoneFrame — quick-action buttons', () => {
     expect(screen.queryByTestId('zone-frame-z1-name-input')).toBeNull();
   });
 });
+
+describe('ZoneFrame — keyboard affordances', () => {
+  beforeEach(() => {
+    useStore.setState({
+      analystProDashboard: {
+        schemaVersion: 'askdb/dashboard/v1',
+        id: 'd1',
+        name: 'd',
+        archetype: 'analyst-pro',
+        size: { mode: 'automatic' },
+        tiledRoot: { id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [baseZone] },
+        floatingLayer: [],
+        worksheets: [],
+        parameters: [],
+        sets: [],
+        actions: [],
+      },
+      analystProHoveredZoneId: null,
+    });
+  });
+
+  it('frame is tabbable (tabIndex=0)', () => {
+    render(
+      <ZoneFrame zone={baseZone} resolved={{ x: 0, y: 0, width: 400, height: 300 }}>
+        <div />
+      </ZoneFrame>,
+    );
+    expect(screen.getByTestId('zone-frame-z1')).toHaveAttribute('tabindex', '0');
+  });
+
+  it('F2 opens the inline rename editor', () => {
+    render(
+      <ZoneFrame zone={baseZone} resolved={{ x: 0, y: 0, width: 400, height: 300 }}>
+        <div />
+      </ZoneFrame>,
+    );
+    const frame = screen.getByTestId('zone-frame-z1');
+    frame.focus();
+    fireEvent.keyDown(frame, { key: 'F2' });
+    expect(screen.getByTestId('zone-frame-z1-name-input')).toBeInTheDocument();
+  });
+
+  it('Enter (when not editing) fires onContextMenu', () => {
+    const onContextMenu = vi.fn();
+    render(
+      <ZoneFrame
+        zone={baseZone}
+        resolved={{ x: 0, y: 0, width: 400, height: 300 }}
+        onContextMenu={onContextMenu}
+      >
+        <div />
+      </ZoneFrame>,
+    );
+    const frame = screen.getByTestId('zone-frame-z1');
+    frame.focus();
+    fireEvent.keyDown(frame, { key: 'Enter' });
+    expect(onContextMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('Enter inside the rename input commits (does not bubble to frame)', () => {
+    const onContextMenu = vi.fn();
+    render(
+      <ZoneFrame
+        zone={baseZone}
+        resolved={{ x: 0, y: 0, width: 400, height: 300 }}
+        onContextMenu={onContextMenu}
+      >
+        <div />
+      </ZoneFrame>,
+    );
+    fireEvent.doubleClick(screen.getByTestId('zone-frame-z1-name'));
+    const input = screen.getByTestId('zone-frame-z1-name-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Named via F2' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onContextMenu).not.toHaveBeenCalled();
+    const tree = useStore.getState().analystProDashboard!.tiledRoot as { children: Array<{ id: string; displayName?: string }> };
+    expect(tree.children[0].displayName).toBe('Named via F2');
+  });
+});

@@ -90,10 +90,18 @@ function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
 
   const handleFrameKeyDown = useCallback(
     (e) => {
-      // T6 populates F2 / Enter handlers. T4 leaves this as a no-op pass-through.
-      void e;
+      if (editing) return; // input owns its own keys
+      if (e.key === 'F2') {
+        e.preventDefault();
+        startEdit();
+      } else if (e.key === 'Enter') {
+        if (typeof onContextMenu === 'function') {
+          e.preventDefault();
+          onContextMenu(e, zone);
+        }
+      }
     },
-    [],
+    [editing, startEdit, onContextMenu, zone],
   );
 
   const handleMouseEnter = useCallback(() => setHovered(zone.id), [setHovered, zone.id]);
