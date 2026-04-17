@@ -65,7 +65,6 @@ export default function AnalystProLayout({
     // context-menu mount; Plan 5d wires 'fit' and 'close' to zone ops.
     void event;
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.debug('[AnalystPro] quick-action', action, zone?.id);
     }
   }, []);
@@ -75,7 +74,6 @@ export default function AnalystProLayout({
     // consumes this event.
     void event;
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.debug('[AnalystPro] context-menu', zone?.id);
     }
   }, []);
