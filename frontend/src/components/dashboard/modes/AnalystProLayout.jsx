@@ -11,6 +11,7 @@ import ActionsMenuButton from '../freeform/panels/ActionsMenuButton';
 import ActionsDialog from '../freeform/panels/ActionsDialog';
 import SetsPanel from '../freeform/panels/SetsPanel';
 import ParametersPanel from '../freeform/panels/ParametersPanel';
+import ZonePropertiesPanel from '../freeform/panels/ZonePropertiesPanel';
 import AnalystProWorksheetTile from '../freeform/AnalystProWorksheetTile';
 import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
 import { useStore } from '../../../store';
@@ -159,6 +160,20 @@ export default function AnalystProLayout({
         {/* Main canvas */}
         <div style={{ flex: '1 1 auto', minWidth: 0, overflow: 'auto', position: 'relative' }}>
           <FreeformCanvas dashboard={dashboard} renderLeaf={renderLeaf} />
+        </div>
+
+        {/* Right rail */}
+        <div
+          data-testid="analyst-pro-right-rail"
+          style={{
+            width: 240,
+            display: 'flex',
+            flexDirection: 'column',
+            borderLeft: '1px solid var(--chrome-bar-border, var(--border-default))',
+            overflow: 'auto',
+          }}
+        >
+          <ZonePropertiesPanel />
         </div>
       </div>
 
