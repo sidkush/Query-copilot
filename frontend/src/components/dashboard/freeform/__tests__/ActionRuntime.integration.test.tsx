@@ -166,4 +166,89 @@ describe('ActionRuntime integration — end-to-end cascade flow', () => {
 
     expect(useStore.getState().analystProSheetHighlights.B).toBeUndefined();
   });
+
+  // ─── Plan 4b T7 additions ───────────────────────────────────────
+
+  it('change-set add mode calls applySetChangeAnalystPro and updates the set', () => {
+    useStore.setState({
+      analystProDashboard: {
+        id: 'd1',
+        archetype: 'analyst-pro',
+        size: { mode: 'automatic' },
+        tiledRoot: { id: 'r', type: 'container-horz', w: 100000, h: 100000, children: [] },
+        floatingLayer: [],
+        worksheets: [],
+        parameters: [],
+        sets: [{
+          id: 's1',
+          name: 'Regions',
+          dimension: 'Region',
+          members: ['East'],
+          createdAt: '2026-04-16T00:00:00Z',
+        }],
+        actions: [{
+          id: 'a1',
+          kind: 'change-set',
+          name: 'AddRegion',
+          enabled: true,
+          sourceSheets: ['src'],
+          trigger: 'select',
+          targetSetId: 's1',
+          fieldMapping: [{ source: 'Region', target: 'Region' }],
+          operation: 'add',
+        }],
+      },
+    });
+
+    renderHook(() => useActionRuntime());
+    publish({
+      sourceSheetId: 'src',
+      trigger: 'select',
+      markData: { Region: 'West' },
+      timestamp: Date.now(),
+    });
+
+    const sets = useStore.getState().analystProDashboard.sets;
+    expect(sets[0].members).toEqual(['East', 'West']);
+  });
+
+  it('change-set toggle mode adds when missing, removes when present', () => {
+    // Missing member -> add
+    useStore.setState({
+      analystProDashboard: {
+        id: 'd1',
+        archetype: 'analyst-pro',
+        size: { mode: 'automatic' },
+        tiledRoot: { id: 'r', type: 'container-horz', w: 100000, h: 100000, children: [] },
+        floatingLayer: [],
+        worksheets: [],
+        parameters: [],
+        sets: [{
+          id: 's1', name: 'Regions', dimension: 'Region',
+          members: ['East'], createdAt: '2026-04-16T00:00:00Z',
+        }],
+        actions: [{
+          id: 'a1', kind: 'change-set', name: 'Toggle',
+          enabled: true, sourceSheets: ['src'], trigger: 'select',
+          targetSetId: 's1',
+          fieldMapping: [{ source: 'Region', target: 'Region' }],
+          operation: 'toggle',
+        }],
+      },
+    });
+
+    renderHook(() => useActionRuntime());
+    publish({
+      sourceSheetId: 'src', trigger: 'select',
+      markData: { Region: 'West' }, timestamp: Date.now(),
+    });
+    expect(useStore.getState().analystProDashboard.sets[0].members).toEqual(['East', 'West']);
+
+    // Present member -> remove
+    publish({
+      sourceSheetId: 'src', trigger: 'select',
+      markData: { Region: 'East' }, timestamp: Date.now(),
+    });
+    expect(useStore.getState().analystProDashboard.sets[0].members).toEqual(['West']);
+  });
 });
