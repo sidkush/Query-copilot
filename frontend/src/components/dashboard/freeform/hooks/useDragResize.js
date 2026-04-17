@@ -1,7 +1,7 @@
 // frontend/src/components/dashboard/freeform/hooks/useDragResize.js
 import { useCallback, useRef } from 'react';
 import { useStore } from '../../../../store';
-import { resizeZone } from '../lib/zoneTreeOps';
+import { moveZone, resizeZone } from '../lib/zoneTreeOps';
 import { snapToGrid, snapToEdges } from '../lib/snapMath';
 
 const GRID_SIZE = 8;
@@ -62,6 +62,29 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating }) {
 
     const onUp = () => {
       if (!startRef.current) return;
+      const drag = useStore.getState().analystProDragState;
+      // Commit tiled reorder: compute target index from final dx/dy, then moveZone.
+      if (drag && startRef.current.mode === 'move' && !startRef.current.isFloating) {
+        const dashAtEnd = useStore.getState().analystProDashboard;
+        if (dashAtEnd?.tiledRoot) {
+          const parent = findParentContainer(dashAtEnd.tiledRoot, drag.zoneId);
+          if (parent) {
+            // Minimal heuristic for Plan 2: if dx/dy past threshold in the
+            // parent's primary axis, shift index by one in that direction.
+            const currentIdx = parent.children.findIndex((c) => c.id === drag.zoneId);
+            let targetIdx = currentIdx;
+            const axis = parent.type === 'container-horz' ? drag.dx : drag.dy;
+            if (axis > 40) targetIdx = Math.min(parent.children.length - 1, currentIdx + 1);
+            else if (axis < -40) targetIdx = Math.max(0, currentIdx - 1);
+            if (targetIdx !== currentIdx) {
+              const next = moveZone(dashAtEnd.tiledRoot, drag.zoneId, parent.id, targetIdx);
+              setDashboard({ ...dashAtEnd, tiledRoot: next });
+            }
+          }
+        }
+      }
+      useStore.getState().setAnalystProDragState(null);
+
       canvas.releasePointerCapture?.(startRef.current.pointerId);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
@@ -137,6 +160,36 @@ function applyDragDelta(start, dx, dy, snapEnabled, siblings, dashboard, setDash
       setDashboard({ ...dashboard, tiledRoot: nextTree });
     }
   }
+
+  // Tiled move: determine target parent + index from current pointer position.
+  // For Plan 2 Task 11 we only support same-parent reorder. We record the
+  // drag intent in store; the final target index is computed on pointerup.
+  if (!start.isFloating && start.mode === 'move' && dashboard.tiledRoot) {
+    const parent = findParentContainer(dashboard.tiledRoot, start.zoneId);
+    if (!parent) return;
+    useStore.getState().setAnalystProDragState({
+      zoneId: start.zoneId,
+      parentId: parent.id,
+      targetIndex: null, // computed on pointerup for simplicity
+      dx,
+      dy,
+    });
+  }
+}
+
+function findParentContainer(root, childId) {
+  if (root.children) {
+    for (const c of root.children) {
+      if (c.id === childId) return root;
+    }
+    for (const c of root.children) {
+      if (c.children) {
+        const f = findParentContainer(c, childId);
+        if (f) return f;
+      }
+    }
+  }
+  return null;
 }
 
 function findById(zone, id) {
