@@ -781,6 +781,7 @@ class WaterfallRouter:
         question: str,
         schema_profile: SchemaProfile,
         conn_id: str,
+        additional_filters: Optional[List[dict]] = None,
     ) -> TierResult:
         """
         Route *question* through the tier waterfall.
@@ -894,6 +895,7 @@ class WaterfallRouter:
             result.metadata["time_ms"] = int(elapsed_ms)
             result.metadata["schema_hash"] = current_hash
             result.metadata["tier_timings"] = tier_timings
+            result.metadata["additional_filters"] = additional_filters or []
 
             logger.info(
                 "WaterfallRouter: hit on tier '%s' in %d ms (tiers_checked=%s).",
@@ -931,7 +933,8 @@ class WaterfallRouter:
         return TierResult(
             hit=False, tier_name="none", data=None,
             metadata={"tiers_checked": tiers_checked, "time_ms": int(elapsed_ms),
-                       "schema_hash": current_hash, "tier_timings": tier_timings},
+                       "schema_hash": current_hash, "tier_timings": tier_timings,
+                       "additional_filters": additional_filters or []},
         )
 
 
@@ -944,23 +947,34 @@ class WaterfallRouter:
         question: str,
         schema_profile: SchemaProfile,
         conn_id: str,
+        additional_filters: Optional[List[dict]] = None,
     ) -> TierResult:
         """Synchronous wrapper for route() — safe to call from sync code without event loop conflicts."""
         import asyncio
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # Already inside an event loop (FastAPI) — run tiers synchronously
             # by calling the sync-safe internals directly
-            return self._route_sync_impl(question, schema_profile, conn_id)
+            return self._route_sync_impl(
+                question, schema_profile, conn_id, additional_filters,
+            )
         except RuntimeError:
             # No running loop — safe to create one
             loop = asyncio.new_event_loop()
             try:
-                return loop.run_until_complete(self.route(question, schema_profile, conn_id))
+                return loop.run_until_complete(
+                    self.route(question, schema_profile, conn_id, additional_filters),
+                )
             finally:
                 loop.close()
 
-    def _route_sync_impl(self, question: str, schema_profile: SchemaProfile, conn_id: str) -> TierResult:
+    def _route_sync_impl(
+        self,
+        question: str,
+        schema_profile: SchemaProfile,
+        conn_id: str,
+        additional_filters: Optional[List[dict]] = None,
+    ) -> TierResult:
         """Synchronous tier routing — no async, no event loop needed.
 
         P0 fix: replaced asyncio.run() (which crashes inside FastAPI's running
@@ -1067,6 +1081,7 @@ class WaterfallRouter:
             result.metadata["time_ms"] = int(elapsed_ms)
             result.metadata["schema_hash"] = current_hash
             result.metadata["tier_timings"] = tier_timings  # G2/G4 instrumentation
+            result.metadata["additional_filters"] = additional_filters or []
             try:
                 log_tier_decision(conn_id=conn_id, email_hash="",
                     question_hash=hashlib.sha256(question.encode()).hexdigest()[:12],
@@ -1087,7 +1102,8 @@ class WaterfallRouter:
             pass
         return TierResult(hit=False, tier_name="none", data=None,
             metadata={"tiers_checked": tiers_checked, "time_ms": int(elapsed_ms),
-                       "schema_hash": current_hash, "tier_timings": tier_timings})
+                       "schema_hash": current_hash, "tier_timings": tier_timings,
+                       "additional_filters": additional_filters or []})
 
     # ── Progressive Dual-Response ─────────────────────────────────
 
