@@ -83,7 +83,7 @@ export function useKeyboardShortcuts({ canvasRef } = {}) {
           e.preventDefault();
           const next = { ...dashboard, floatingLayer: floats };
           setDashboard(next);
-          pushHistory(next);
+          pushHistory(next, 'Nudge zone');
         }
       }
 
@@ -120,7 +120,7 @@ export function useKeyboardShortcuts({ canvasRef } = {}) {
 
         const nextDash = { ...dashboard, floatingLayer: nextFloating, tiledRoot: nextRoot };
         setDashboard(nextDash);
-        pushHistory(nextDash);
+        pushHistory(nextDash, 'Delete zone');
         // Clear deleted ids from selection; keep locked ones still selected.
         const nextSel = [...selection].filter((id) => !deleteSet.has(id));
         setSelection(nextSel);
@@ -146,7 +146,7 @@ export function useKeyboardShortcuts({ canvasRef } = {}) {
         });
         const next = { ...dashboard, floatingLayer: changed };
         setDashboard(next);
-        pushHistory(next);
+        pushHistory(next, 'Change z-order');
       }
     };
     window.addEventListener('keydown', handler);

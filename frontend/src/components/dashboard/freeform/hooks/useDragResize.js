@@ -123,7 +123,8 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating, resolv
       // push history snapshot
       const finalDash = useStore.getState().analystProDashboard;
       if (finalDash && startRef.current.dashboardAtStart !== finalDash) {
-        pushHistory(finalDash);
+        const op = startRef.current.mode === 'resize' ? 'Resize zone' : 'Move zone';
+        pushHistory(finalDash, op);
       }
       startRef.current = null;
     };

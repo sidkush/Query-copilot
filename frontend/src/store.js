@@ -812,7 +812,7 @@ export const useStore = create((set, get) => ({
     if (!dash) return;
     const nextDash = { ...dash, actions: [...(dash.actions || []), action] };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Add action');
   },
 
   updateActionAnalystPro: (actionId, patch) => {
@@ -821,7 +821,7 @@ export const useStore = create((set, get) => ({
     const next = (dash.actions || []).map((a) => (a.id === actionId ? { ...a, ...patch } : a));
     const nextDash = { ...dash, actions: next };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Update action');
   },
 
   deleteActionAnalystPro: (actionId) => {
@@ -830,7 +830,7 @@ export const useStore = create((set, get) => ({
     const next = (dash.actions || []).filter((a) => a.id !== actionId);
     const nextDash = { ...dash, actions: next };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Delete action');
   },
 
   fireActionCascadeAnalystPro: () => {
@@ -913,7 +913,7 @@ export const useStore = create((set, get) => ({
     const existing = dash.sets || [];
     const nextDash = { ...dash, sets: [...existing, newSet] };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Add set');
   },
 
   updateSetAnalystPro: (setId, patch) => {
@@ -923,7 +923,7 @@ export const useStore = create((set, get) => ({
     const next = existing.map((s) => (s.id === setId ? { ...s, ...patch } : s));
     const nextDash = { ...dash, sets: next };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Update set');
   },
 
   renameSetAnalystPro: (setId, name) => {
@@ -937,7 +937,7 @@ export const useStore = create((set, get) => ({
     const next = existing.filter((s) => s.id !== setId);
     const nextDash = { ...dash, sets: next };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Delete set');
   },
 
   applySetChangeAnalystPro: (setId, mode, members) => {
@@ -950,7 +950,7 @@ export const useStore = create((set, get) => ({
     const next = existing.map((s) => (s.id === setId ? nextSet : s));
     const nextDash = { ...dash, sets: next };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Change set members');
   },
 
   // Plan 4c: Parameters subsystem. Parameters live inside
@@ -965,7 +965,7 @@ export const useStore = create((set, get) => ({
     if (!check.ok) return;
     const nextDash = { ...dash, parameters: [...existing, param] };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Add parameter');
   },
 
   updateParameterAnalystPro: (paramId, patch) => {
@@ -982,7 +982,7 @@ export const useStore = create((set, get) => ({
     const next = existing.map((p) => (p.id === paramId ? nextParam : p));
     const nextDash = { ...dash, parameters: next };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Update parameter');
   },
 
   deleteParameterAnalystPro: (paramId) => {
@@ -992,7 +992,7 @@ export const useStore = create((set, get) => ({
     const next = existing.filter((p) => p.id !== paramId);
     const nextDash = { ...dash, parameters: next };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Delete parameter');
   },
 
   setParameterValueAnalystPro: (paramId, rawValue) => {
@@ -1013,7 +1013,7 @@ export const useStore = create((set, get) => ({
     const next = existing.map((p) => (p.id === paramId ? nextParam : p));
     const nextDash = { ...dash, parameters: next };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Change parameter value');
   },
 
   // Plan 6b: history buffer — entries of { snapshot, operation, timestamp }.
@@ -1085,7 +1085,7 @@ export const useStore = create((set, get) => ({
     const nextFloating = dash.floatingLayer.map((z) => alignedMap.get(z.id) || z);
     const nextDash = { ...dash, floatingLayer: nextFloating };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Align zones');
   },
 
   distributeSelectionAnalystPro: (axis) => {
@@ -1098,7 +1098,7 @@ export const useStore = create((set, get) => ({
     const nextFloating = dash.floatingLayer.map((z) => distMap.get(z.id) || z);
     const nextDash = { ...dash, floatingLayer: nextFloating };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Distribute zones');
   },
 
   // Plan 2b: group / ungroup
@@ -1112,7 +1112,7 @@ export const useStore = create((set, get) => ({
       analystProDashboard: nextDash,
       analystProSelection: new Set([result.newContainerId]),
     });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Group zones');
   },
 
   ungroupAnalystPro: (containerId) => {
@@ -1122,7 +1122,7 @@ export const useStore = create((set, get) => ({
     if (nextRoot === dash.tiledRoot) return;
     const nextDash = { ...dash, tiledRoot: nextRoot };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Ungroup container');
   },
 
   // Plan 2b: lock toggle
@@ -1135,13 +1135,13 @@ export const useStore = create((set, get) => ({
       if (nextFloating === dash.floatingLayer) return;
       const nextDash = { ...dash, floatingLayer: nextFloating };
       set({ analystProDashboard: nextDash });
-      get().pushAnalystProHistory(nextDash);
+      get().pushAnalystProHistory(nextDash, 'Toggle zone lock');
     } else {
       const nextRoot = toggleLock(dash.tiledRoot, zoneId);
       if (nextRoot === dash.tiledRoot) return;
       const nextDash = { ...dash, tiledRoot: nextRoot };
       set({ analystProDashboard: nextDash });
-      get().pushAnalystProHistory(nextDash);
+      get().pushAnalystProHistory(nextDash, 'Toggle zone lock');
     }
   },
 
@@ -1193,7 +1193,7 @@ export const useStore = create((set, get) => ({
       analystProDashboard: nextDash,
       analystProSelection: new Set([id]),
     });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Insert object');
   },
 
   // Plan 2b: update zone displayName (or other patches)
@@ -1224,7 +1224,7 @@ export const useStore = create((set, get) => ({
       nextDash = { ...dash, tiledRoot: nextRoot };
     }
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Update zone');
   },
 
   // Plan 5d: patch arbitrary zone fields (innerPadding, outerPadding, background,
@@ -1277,7 +1277,7 @@ export const useStore = create((set, get) => ({
       nextDash = { ...dash, tiledRoot: nextRoot };
     }
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Change zone property');
   },
 
   // Plan 4e: tree drag-to-reorder
@@ -1288,7 +1288,7 @@ export const useStore = create((set, get) => ({
     if (nextRoot === dash.tiledRoot) return;
     const nextDash = { ...dash, tiledRoot: nextRoot };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Reorder zone');
   },
 
   // Plan 5b: drop-into-container-at-index (canvas cross-container drag).
@@ -1299,7 +1299,7 @@ export const useStore = create((set, get) => ({
     if (nextRoot === dash.tiledRoot) return;
     const nextDash = { ...dash, tiledRoot: nextRoot };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Move zone across containers');
   },
 
   // Plan 5b: drop-on-edge wrap. Removes source from its current location, then
@@ -1314,6 +1314,6 @@ export const useStore = create((set, get) => ({
     if (nextRoot === dash.tiledRoot) return;
     const nextDash = { ...dash, tiledRoot: nextRoot };
     set({ analystProDashboard: nextDash });
-    get().pushAnalystProHistory(nextDash);
+    get().pushAnalystProHistory(nextDash, 'Wrap in container');
   },
 }));
