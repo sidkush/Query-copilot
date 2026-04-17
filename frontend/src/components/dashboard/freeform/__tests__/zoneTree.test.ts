@@ -50,3 +50,68 @@ describe('isContainer', () => {
     expect(isContainer(sample.children[1])).toBe(false);
   });
 });
+
+import { normalizeContainer } from '../lib/zoneTree';
+
+describe('normalizeContainer', () => {
+  it('normalizes horz children w values to sum 100000', () => {
+    const c: ContainerZone = {
+      id: 'c',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 30000, h: 100000 },
+        { id: 'b', type: 'blank', w: 30000, h: 100000 },
+        { id: 'c', type: 'blank', w: 40000, h: 100000 },
+      ],
+    };
+    const result = normalizeContainer(c);
+    const sum = result.children.reduce((s, ch) => s + ch.w, 0);
+    expect(sum).toBe(100000);
+  });
+
+  it('normalizes off-balance values proportionally', () => {
+    const c: ContainerZone = {
+      id: 'c',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 20000, h: 100000 },
+        { id: 'b', type: 'blank', w: 30000, h: 100000 },
+      ],
+    };
+    const result = normalizeContainer(c);
+    // 20000 : 30000 ratio preserved, scaled to sum 100000 → 40000 : 60000
+    expect(result.children[0].w).toBe(40000);
+    expect(result.children[1].w).toBe(60000);
+  });
+
+  it('vert container normalizes h, leaves w untouched', () => {
+    const c: ContainerZone = {
+      id: 'c',
+      type: 'container-vert',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 100000, h: 25000 },
+        { id: 'b', type: 'blank', w: 100000, h: 25000 },
+      ],
+    };
+    const result = normalizeContainer(c);
+    const sumH = result.children.reduce((s, ch) => s + ch.h, 0);
+    expect(sumH).toBe(100000);
+  });
+
+  it('returns zero-sum container unchanged (edge case)', () => {
+    const c: ContainerZone = {
+      id: 'c',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [],
+    };
+    expect(normalizeContainer(c)).toEqual(c);
+  });
+});
