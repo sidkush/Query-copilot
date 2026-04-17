@@ -4,6 +4,7 @@ import { resolveLayout } from './lib/layoutResolver';
 import ZoneRenderer from './ZoneRenderer';
 import FloatingLayer from './FloatingLayer';
 import SelectionOverlay from './SelectionOverlay';
+import MarqueeOverlay from './MarqueeOverlay';
 import { useSelection } from './hooks/useSelection';
 import { useDragResize } from './hooks/useDragResize';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -64,6 +65,9 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
   const { selection, toggleSelection, clearSelection, select } = useSelection();
   const initHistory = useStore((s) => s.initAnalystProHistory);
   const setDashboardInStore = useStore((s) => s.setAnalystProDashboard);
+  const marquee = useStore((s) => s.analystProMarquee);
+  const setMarquee = useStore((s) => s.setAnalystProMarquee);
+  const marqueeStartRef = useRef(null);
 
   // Install history on dashboard mount
   useEffect(() => {
@@ -92,6 +96,42 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     }
   };
 
+  const handleSheetPointerDown = (e) => {
+    if (e.target !== e.currentTarget) return;
+    clearSelection();
+    const rect = e.currentTarget.getBoundingClientRect();
+    marqueeStartRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    setMarquee({ x: marqueeStartRef.current.x, y: marqueeStartRef.current.y, width: 0, height: 0 });
+
+    const onMove = (ev) => {
+      if (!marqueeStartRef.current) return;
+      const mx = ev.clientX - rect.left - marqueeStartRef.current.x;
+      const my = ev.clientY - rect.top - marqueeStartRef.current.y;
+      setMarquee({ x: marqueeStartRef.current.x, y: marqueeStartRef.current.y, width: mx, height: my });
+    };
+    const onUp = () => {
+      if (!marqueeStartRef.current) return;
+      const current = useStore.getState().analystProMarquee;
+      if (current && (Math.abs(current.width) > 4 || Math.abs(current.height) > 4)) {
+        const left = Math.min(current.x, current.x + current.width);
+        const right = Math.max(current.x, current.x + current.width);
+        const top = Math.min(current.y, current.y + current.height);
+        const bottom = Math.max(current.y, current.y + current.height);
+        const hits = resolved.filter((r) => {
+          const rLeft = r.x, rTop = r.y, rRight = r.x + r.width, rBottom = r.y + r.height;
+          return rLeft < right && rRight > left && rTop < bottom && rBottom > top;
+        }).map((r) => r.zone.id);
+        useStore.getState().setAnalystProSelection(hits);
+      }
+      setMarquee(null);
+      marqueeStartRef.current = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
   return (
     <div
       ref={containerRef}
@@ -108,9 +148,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     >
       <div
         data-testid="freeform-sheet"
-        onPointerDown={(e) => {
-          if (e.target === e.currentTarget) clearSelection();
-        }}
+        onPointerDown={handleSheetPointerDown}
         style={{
           position: 'relative',
           width: canvasSize.width,
@@ -163,6 +201,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
             onZonePointerDown(zoneId, e, resolvedZone, 'move');
           }}
         />
+        <MarqueeOverlay rect={marquee} />
       </div>
     </div>
   );
