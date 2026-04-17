@@ -722,6 +722,27 @@ export const useStore = create((set, get) => ({
   analystProSnapEnabled: true,
   setAnalystProSnapEnabled: (enabled) => set({ analystProSnapEnabled: !!enabled }),
 
+  // Plan 6a — canvas view-state (ephemeral, NOT pushed to history)
+  analystProCanvasZoom: 1.0,
+  analystProCanvasPan: { x: 0, y: 0 },
+  analystProRulersVisible: false,
+  analystProActiveDevice: 'desktop',
+  setCanvasZoomAnalystPro: (zoom, anchor) => set(() => {
+    const clamped = Math.max(0.1, Math.min(4.0, Number(zoom) || 1));
+    if (!anchor) return { analystProCanvasZoom: clamped };
+    const nextPan = {
+      x: anchor.screenX - anchor.sheetX * clamped,
+      y: anchor.screenY - anchor.sheetY * clamped,
+    };
+    return { analystProCanvasZoom: clamped, analystProCanvasPan: nextPan };
+  }),
+  setCanvasPanAnalystPro: (x, y) => set({ analystProCanvasPan: { x: Number(x) || 0, y: Number(y) || 0 } }),
+  toggleRulersAnalystPro: () => set((state) => ({ analystProRulersVisible: !state.analystProRulersVisible })),
+  setActiveDeviceAnalystPro: (device) => set(() => {
+    if (device !== 'desktop' && device !== 'tablet' && device !== 'phone') return {};
+    return { analystProActiveDevice: device };
+  }),
+
   // Plan 2: marquee selection rectangle during drag
   analystProMarquee: null,
   setAnalystProMarquee: (rect) => set({ analystProMarquee: rect }),
