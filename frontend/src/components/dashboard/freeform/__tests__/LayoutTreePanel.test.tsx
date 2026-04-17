@@ -93,6 +93,19 @@ describe('LayoutTreePanel', () => {
     expect((zone as { displayName?: string }).displayName).toBe('My Title');
   });
 
+  it('Escape cancels rename without writing displayName', () => {
+    seedStore(makeDashboard());
+    render(<LayoutTreePanel />);
+    const row = screen.getAllByRole('button').find((el) => el.textContent?.includes('Text'));
+    fireEvent.doubleClick(row!);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'Should Not Save' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    const dash = useStore.getState().analystProDashboard as ReturnType<typeof makeDashboard>;
+    const zone = dash.tiledRoot.children.find((c) => c.id === 'a');
+    expect((zone as { displayName?: string }).displayName).toBeUndefined();
+  });
+
   it('locked zone shows the lock icon', () => {
     seedStore(makeDashboard());
     render(<LayoutTreePanel />);
