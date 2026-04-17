@@ -63,6 +63,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
   }, [resolved]);
 
   const { selection, toggleSelection, clearSelection, select } = useSelection();
+  const overlayEnabled = useStore((s) => s.analystProLayoutOverlay);
   const initHistory = useStore((s) => s.initAnalystProHistory);
   const setDashboardInStore = useStore((s) => s.setAnalystProDashboard);
   const marquee = useStore((s) => s.analystProMarquee);
@@ -180,6 +181,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
       <div
         ref={sheetRef}
         data-testid="freeform-sheet"
+        className={`freeform-sheet${overlayEnabled ? ' analyst-pro-layout-overlay' : ''}`}
         onPointerDown={handleSheetPointerDown}
         onDragOver={handleDragOver}
         onDrop={handleDrop}

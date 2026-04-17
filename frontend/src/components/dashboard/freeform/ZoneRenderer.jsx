@@ -14,10 +14,10 @@ import { isContainer } from './lib/zoneTree';
  * a TextTile, etc.
  */
 function ZoneRenderer({ root, resolvedMap, renderLeaf }) {
-  return renderNode(root, resolvedMap, renderLeaf);
+  return renderNode(root, resolvedMap, renderLeaf, 0);
 }
 
-function renderNode(zone, resolvedMap, renderLeaf) {
+function renderNode(zone, resolvedMap, renderLeaf, depth) {
   const resolved = resolvedMap.get(zone.id);
   if (!resolved) return null;
 
@@ -26,7 +26,9 @@ function renderNode(zone, resolvedMap, renderLeaf) {
       <div
         key={zone.id}
         data-testid={`tiled-container-${zone.id}`}
+        data-zone={zone.id}
         data-zone-type={zone.type}
+        data-container-depth={depth}
         style={{
           position: 'absolute',
           left: resolved.x,
@@ -35,7 +37,7 @@ function renderNode(zone, resolvedMap, renderLeaf) {
           height: resolved.height,
         }}
       >
-        {zone.children.map((child) => renderNode(child, resolvedMap, renderLeaf))}
+        {zone.children.map((child) => renderNode(child, resolvedMap, renderLeaf, depth + 1))}
       </div>
     );
   }
@@ -44,6 +46,7 @@ function renderNode(zone, resolvedMap, renderLeaf) {
     <div
       key={zone.id}
       data-testid={`tiled-leaf-${zone.id}`}
+      data-zone={zone.id}
       data-zone-type={zone.type}
       style={{
         position: 'absolute',

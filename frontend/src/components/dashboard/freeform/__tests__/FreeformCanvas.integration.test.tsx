@@ -197,6 +197,43 @@ describe('FreeformCanvas — Plan 2b T7: drop-on-canvas wiring', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// T10: Layout overlay toggle
+// ---------------------------------------------------------------------------
+
+describe('FreeformCanvas — Plan 2b T10: layout overlay', () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('overlay off by default — sheet does not have overlay class', () => {
+    useStore.setState({ analystProLayoutOverlay: false, analystProDashboard: makeBaseDashboard([]) });
+    render(<FreeformCanvas dashboard={makeBaseDashboard([])} renderLeaf={renderLeaf} />);
+    const sheet = screen.getByTestId('freeform-sheet');
+    expect(sheet.className).not.toContain('analyst-pro-layout-overlay');
+  });
+
+  it('overlay on — sheet has overlay class', () => {
+    useStore.setState({ analystProLayoutOverlay: true, analystProDashboard: makeBaseDashboard([]) });
+    render(<FreeformCanvas dashboard={makeBaseDashboard([])} renderLeaf={renderLeaf} />);
+    const sheet = screen.getByTestId('freeform-sheet');
+    expect(sheet.className).toContain('analyst-pro-layout-overlay');
+  });
+
+  it('Cmd+; toggles the overlay flag', () => {
+    useStore.setState({ analystProLayoutOverlay: false, analystProDashboard: makeBaseDashboard([]) });
+    render(<FreeformCanvas dashboard={makeBaseDashboard([])} renderLeaf={renderLeaf} />);
+    fireEvent.keyDown(window, { key: ';', metaKey: true });
+    expect(useStore.getState().analystProLayoutOverlay).toBe(true);
+    fireEvent.keyDown(window, { key: ';', metaKey: true });
+    expect(useStore.getState().analystProLayoutOverlay).toBe(false);
+  });
+});
+
 describe('FreeformCanvas — Plan 2b T5: locked zone enforcement', () => {
   beforeEach(() => {
     resetStore();

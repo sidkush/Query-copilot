@@ -102,6 +102,14 @@ export function useKeyboardShortcuts({ canvasRef } = {}) {
         return;
       }
 
+      // Cmd/Ctrl+; — toggle layout overlay
+      if (mod && e.key === ';') {
+        e.preventDefault();
+        const toggle = useStore.getState().toggleLayoutOverlayAnalystPro;
+        if (toggle) toggle();
+        return;
+      }
+
       if ((e.key === ']' || e.key === '[') && dashboard) {
         const forward = e.key === ']';
         const big = e.shiftKey;

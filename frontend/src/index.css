@@ -4225,3 +4225,21 @@ html.theme-transitioning *::after {
   }
   .premium-spotlight::before { display: none; }
 }
+
+/* Analyst Pro — Layout overlay mode */
+.analyst-pro-layout-overlay [data-zone] {
+  outline: 1px dashed color-mix(in oklab, var(--accent, #3b82f6) 60%, transparent);
+  outline-offset: -1px;
+}
+.analyst-pro-layout-overlay [data-container-depth="0"] {
+  background: color-mix(in oklab, var(--accent, #3b82f6) 4%, transparent);
+}
+.analyst-pro-layout-overlay [data-container-depth="1"] {
+  background: color-mix(in oklab, var(--accent, #3b82f6) 8%, transparent);
+}
+.analyst-pro-layout-overlay [data-container-depth="2"] {
+  background: color-mix(in oklab, var(--accent, #3b82f6) 12%, transparent);
+}
+.analyst-pro-layout-overlay [data-container-depth="3"] {
+  background: color-mix(in oklab, var(--accent, #3b82f6) 16%, transparent);
+}
