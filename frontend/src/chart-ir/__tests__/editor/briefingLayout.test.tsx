@@ -89,7 +89,7 @@ describe('ExecBriefingLayout', () => {
     expect(insightTile.getAttribute('data-kind')).toBe('insight');
     expect(insightTile.getAttribute('data-col-span')).toBe('12');
     const card = screen.getByTestId('briefing-insight-ins1');
-    expect(card.textContent).toMatch(/AI Insight/);
+    expect(card.textContent).toMatch(/Narrative/);
     expect(card.textContent).toMatch(/West region SaaS tier upgrades/);
   });
 });

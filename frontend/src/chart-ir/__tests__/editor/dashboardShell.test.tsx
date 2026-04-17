@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
 
 const SAMPLE_TILES = [
@@ -24,23 +24,26 @@ describe('DashboardShell', () => {
     expect(screen.getByTestId('dashboard-mode-tableau')).toBeDefined();
   });
 
-  it('swaps the layout when a mode button is clicked', () => {
+  it('swaps the layout when a mode button is clicked', async () => {
+    // DashboardShell wraps layouts in AnimatePresence mode="wait" so swaps
+    // are async — use waitFor for each transition.
     render(<DashboardShell tiles={SAMPLE_TILES} />);
+
     fireEvent.click(screen.getByTestId('dashboard-mode-workbench'));
-    expect(screen.getByTestId('layout-workbench')).toBeDefined();
+    await waitFor(() => expect(screen.getByTestId('layout-workbench')).toBeDefined());
     expect(screen.queryByTestId('layout-briefing')).toBeNull();
 
     fireEvent.click(screen.getByTestId('dashboard-mode-ops'));
-    expect(screen.getByTestId('layout-ops')).toBeDefined();
+    await waitFor(() => expect(screen.getByTestId('layout-ops')).toBeDefined());
 
     fireEvent.click(screen.getByTestId('dashboard-mode-story'));
-    expect(screen.getByTestId('layout-story')).toBeDefined();
+    await waitFor(() => expect(screen.getByTestId('layout-story')).toBeDefined());
 
     fireEvent.click(screen.getByTestId('dashboard-mode-pitch'));
-    expect(screen.getByTestId('layout-pitch')).toBeDefined();
+    await waitFor(() => expect(screen.getByTestId('layout-pitch')).toBeDefined());
 
     fireEvent.click(screen.getByTestId('dashboard-mode-tableau'));
-    expect(screen.getByTestId('layout-workbook')).toBeDefined();
+    await waitFor(() => expect(screen.getByTestId('layout-tableau')).toBeDefined());
   });
 
   it('fires onModeChange on mode switch', () => {
@@ -56,10 +59,11 @@ describe('DashboardShell', () => {
     expect(screen.getByTestId('layout-pitch')).toBeDefined();
   });
 
-  it('workbook layout groups tiles into tabs', () => {
+  it('tableau layout renders one positioned tile per input tile', () => {
     render(<DashboardShell tiles={SAMPLE_TILES} initialMode="tableau" />);
-    expect(screen.getByTestId('workbook-tab-Tab 1')).toBeDefined();
-    expect(screen.getByTestId('workbook-tab-Users')).toBeDefined();
+    expect(screen.getByTestId('layout-tableau')).toBeDefined();
+    expect(screen.getByTestId('layout-tableau-tile-t1')).toBeDefined();
+    expect(screen.getByTestId('layout-tableau-tile-t2')).toBeDefined();
   });
 
   it('renders empty state when no tiles provided', () => {

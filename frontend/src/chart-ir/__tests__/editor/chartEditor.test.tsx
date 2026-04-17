@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import ChartEditor from '../../../components/editor/ChartEditor';
 import { SIMPLE_BAR } from '../fixtures/canonical-charts';
 import { REGION_DIM, REVENUE_MEASURE } from '../fixtures/column-profiles';
+
+// ChartEditor mounts SemanticFieldRail which calls useNavigate() — wrap in Router.
+const render = (ui: React.ReactElement) =>
+  rtlRender(ui, { wrapper: MemoryRouter });
 
 const resultSet = {
   columns: ['region', 'revenue'],

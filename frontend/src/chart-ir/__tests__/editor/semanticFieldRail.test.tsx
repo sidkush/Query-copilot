@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import SemanticFieldRail from '../../../components/editor/SemanticFieldRail';
 import { useStore } from '../../../store';
+
+// Wrap with Router because SemanticFieldRail uses useNavigate().
+const render = (ui: React.ReactElement) =>
+  rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 vi.mock('../../../api', () => ({
   api: {

@@ -13,10 +13,11 @@ describe('archetypeStyling (SP-6)', () => {
       const ops = getArchetypeStyles('ops');
       const story = getArchetypeStyles('story');
       expect(briefing.background).toBeDefined();
-      expect(ops.background).toBe('#050508');
-      expect(story.background).toBe('#FDFBF7');
-      // Story is light, uses dark text
-      expect(story.color).toBe('#0f172a');
+      // SP-6 refactor: archetype backgrounds now resolve via CSS variables.
+      expect(ops.background).toBe('var(--archetype-ops-bg)');
+      expect(story.background).toBe('var(--archetype-story-bg)');
+      // SP-6: story now uses 'auto' colorScheme — text follows theme var.
+      expect(story.color).toMatch(/var\(--text-primary/);
       // Dark archetypes use theme CSS var
       expect(ops.color).toMatch(/var\(--text-primary/);
     });
