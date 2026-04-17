@@ -85,7 +85,8 @@ describe('removeChild', () => {
   });
 });
 
-import { moveZone, resizeZone, updateZone } from '../lib/zoneTreeOps';
+import { moveZone, resizeZone, updateZone, groupSelection, ungroupContainer, toggleLock, toggleLockFloating } from '../lib/zoneTreeOps';
+import type { FloatingZone } from '../lib/types';
 
 describe('moveZone', () => {
   it('reorders within the same parent container', () => {
@@ -158,5 +159,244 @@ describe('updateZone', () => {
     const a = next.children[0] as { type: string; worksheetRef?: string };
     expect(a.type).toBe('worksheet');
     expect(a.worksheetRef).toBe('ws1');
+  });
+});
+
+// ─── T3: groupSelection ───────────────────────────────────────────────────────
+
+/**
+ * Helper: horz container with three children whose w proportions are [50000, 30000, 20000].
+ */
+const threeChildRoot = (): ContainerZone => ({
+  id: 'root',
+  type: 'container-horz',
+  w: 100000,
+  h: 100000,
+  children: [
+    { id: 'a', type: 'blank', w: 50000, h: 100000 },
+    { id: 'b', type: 'blank', w: 30000, h: 100000 },
+    { id: 'c', type: 'blank', w: 20000, h: 100000 },
+  ],
+});
+
+describe('groupSelection', () => {
+  it('groups 2 siblings in a horz container, resulting parent has 2 children', () => {
+    const root = threeChildRoot();
+    const { root: next, newContainerId } = groupSelection(root, ['a', 'b']);
+    expect(newContainerId).not.toBeNull();
+    const parent = next as ContainerZone;
+    // Parent now has: [newContainer, c]
+    expect(parent.children).toHaveLength(2);
+    // First child is the new container
+    expect(parent.children[0].id).toBe(newContainerId);
+    // Last child is the unchanged 'c'
+    expect(parent.children[1].id).toBe('c');
+  });
+
+  it('new container w proportion ≈ 80000 (sum of grouped zone proportions)', () => {
+    const root = threeChildRoot();
+    const { root: next, newContainerId } = groupSelection(root, ['a', 'b']);
+    const parent = next as ContainerZone;
+    const newContainer = parent.children.find((ch) => ch.id === newContainerId) as ContainerZone;
+    // The grouped zones had w=50000 + w=30000 = 80000 out of 100000
+    // After renormalization parent sums to 100000: newContainer.w = 80000, c.w = 20000
+    expect(newContainer.w).toBe(80000);
+  });
+
+  it('inner children of new container have w proportions that sum to 100000', () => {
+    const root = threeChildRoot();
+    const { root: next, newContainerId } = groupSelection(root, ['a', 'b']);
+    const parent = next as ContainerZone;
+    const newContainer = parent.children.find((ch) => ch.id === newContainerId) as ContainerZone;
+    const innerSum = newContainer.children.reduce((s, ch) => s + ch.w, 0);
+    expect(innerSum).toBe(100000);
+  });
+
+  it('returns identity + null when selected zones are from different parents', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-vert',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'inner1', type: 'container-horz', w: 100000, h: 50000, children: [
+          { id: 'a', type: 'blank', w: 100000, h: 100000 },
+        ]},
+        { id: 'inner2', type: 'container-horz', w: 100000, h: 50000, children: [
+          { id: 'b', type: 'blank', w: 100000, h: 100000 },
+        ]},
+      ],
+    };
+    const { root: next, newContainerId } = groupSelection(root, ['a', 'b']);
+    expect(newContainerId).toBeNull();
+    expect(next).toBe(root);
+  });
+
+  it('returns identity + null for single-zone selection', () => {
+    const root = base();
+    const { root: next, newContainerId } = groupSelection(root, ['a']);
+    expect(newContainerId).toBeNull();
+    expect(next).toBe(root);
+  });
+
+  it('returns identity + null for empty selection', () => {
+    const root = base();
+    const { root: next, newContainerId } = groupSelection(root, []);
+    expect(newContainerId).toBeNull();
+    expect(next).toBe(root);
+  });
+
+  it('returns identity + null when all selected ids are floating (not in tiled root)', () => {
+    const root = base(); // only contains 'a' and 'b'
+    // IDs that don't exist in the tiled root (simulate floating-only ids)
+    const { root: next, newContainerId } = groupSelection(root, ['float-1', 'float-2']);
+    expect(newContainerId).toBeNull();
+    expect(next).toBe(root);
+  });
+
+  it('new container proportions sum to 100000 on parent axis (smoke test)', () => {
+    const root = threeChildRoot();
+    const { root: next } = groupSelection(root, ['a', 'b']);
+    const parent = next as ContainerZone;
+    const parentSum = parent.children.reduce((s, ch) => s + ch.w, 0);
+    expect(parentSum).toBe(100000);
+  });
+});
+
+// ─── T3: ungroupContainer ────────────────────────────────────────────────────
+
+describe('ungroupContainer', () => {
+  const ungroupRoot = (): ContainerZone => ({
+    id: 'root',
+    type: 'container-horz',
+    w: 100000,
+    h: 100000,
+    children: [
+      {
+        id: 'inner',
+        type: 'container-horz',
+        w: 60000,
+        h: 100000,
+        children: [
+          { id: 'x', type: 'blank', w: 50000, h: 100000 },
+          { id: 'y', type: 'blank', w: 50000, h: 100000 },
+        ],
+      },
+      { id: 'z', type: 'blank', w: 40000, h: 100000 },
+    ],
+  });
+
+  it('replaces container with its children inline in grandparent (count increases by child count - 1)', () => {
+    const root = ungroupRoot();
+    const next = ungroupContainer(root, 'inner') as ContainerZone;
+    // Before: [inner, z] — after: [x, y, z]
+    expect(next.children).toHaveLength(3);
+    expect(next.children.map((c) => c.id)).toEqual(['x', 'y', 'z']);
+  });
+
+  it('returns identity when containerId is root', () => {
+    const root = ungroupRoot();
+    const next = ungroupContainer(root, 'root');
+    expect(next).toBe(root);
+  });
+
+  it('returns identity when id not found', () => {
+    const root = ungroupRoot();
+    const next = ungroupContainer(root, 'does-not-exist');
+    expect(next).toBe(root);
+  });
+
+  it('returns identity when id refers to a leaf (not a container)', () => {
+    const root = ungroupRoot();
+    const next = ungroupContainer(root, 'z');
+    expect(next).toBe(root);
+  });
+
+  it('after ungroup parent children w proportions sum to 100000 (±1 for rounding)', () => {
+    const root = ungroupRoot();
+    const next = ungroupContainer(root, 'inner') as ContainerZone;
+    const sum = next.children.reduce((s, c) => s + c.w, 0);
+    expect(Math.abs(sum - 100000)).toBeLessThanOrEqual(1);
+  });
+});
+
+// ─── T3: toggleLock ──────────────────────────────────────────────────────────
+
+describe('toggleLock', () => {
+  it('sets locked=true on a tiled zone whose locked field is undefined', () => {
+    const root = base(); // zone 'a' has no locked field
+    const next = toggleLock(root, 'a') as ContainerZone;
+    expect(next.children[0].locked).toBe(true);
+  });
+
+  it('removes the locked key when zone is already locked=true', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 50000, h: 100000, locked: true },
+        { id: 'b', type: 'blank', w: 50000, h: 100000 },
+      ],
+    };
+    const next = toggleLock(root, 'a') as ContainerZone;
+    expect(next.children[0].locked).toBeUndefined();
+  });
+
+  it('returns the same root reference when id not found', () => {
+    const root = base();
+    const next = toggleLock(root, 'nonexistent');
+    expect(next).toBe(root);
+  });
+});
+
+// ─── T3: toggleLockFloating ──────────────────────────────────────────────────
+
+describe('toggleLockFloating', () => {
+  const makeFloating = (): FloatingZone[] => [
+    {
+      id: 'f1',
+      type: 'blank',
+      floating: true,
+      x: 10,
+      y: 20,
+      pxW: 200,
+      pxH: 150,
+      zIndex: 5,
+      w: 0,
+      h: 0,
+    },
+    {
+      id: 'f2',
+      type: 'blank',
+      floating: true,
+      x: 50,
+      y: 60,
+      pxW: 100,
+      pxH: 80,
+      zIndex: 3,
+      w: 0,
+      h: 0,
+    },
+  ];
+
+  it('sets locked=true on a floating zone whose locked field is undefined; preserves other fields', () => {
+    const layer = makeFloating();
+    const next = toggleLockFloating(layer, 'f1');
+    const f1 = next.find((z) => z.id === 'f1')!;
+    expect(f1.locked).toBe(true);
+    // Preserve positional fields
+    expect(f1.x).toBe(10);
+    expect(f1.y).toBe(20);
+    expect(f1.pxW).toBe(200);
+    expect(f1.pxH).toBe(150);
+    expect(f1.zIndex).toBe(5);
+  });
+
+  it('returns the same array reference when id not found', () => {
+    const layer = makeFloating();
+    const next = toggleLockFloating(layer, 'nonexistent');
+    expect(next).toBe(layer);
   });
 });

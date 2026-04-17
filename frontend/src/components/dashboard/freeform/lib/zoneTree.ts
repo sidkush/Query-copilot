@@ -1,5 +1,13 @@
 import type { Zone, ContainerZone, LeafZone } from './types';
 
+/** Generate a unique zone id (crypto-random, prefixed for readability). */
+export function generateZoneId(): string {
+  const rand = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+    : Math.random().toString(36).slice(2, 14).padEnd(12, '0');
+  return `zone-${rand}`;
+}
+
 export function isContainer(zone: Zone): zone is ContainerZone {
   return zone.type === 'container-horz' || zone.type === 'container-vert';
 }
