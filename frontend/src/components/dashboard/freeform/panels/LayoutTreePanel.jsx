@@ -388,6 +388,8 @@ export default function LayoutTreePanel() {
       {isEmpty ? (
         <div
           data-testid="layout-tree-empty"
+          role="status"
+          aria-live="polite"
           style={{ padding: '16px 12px', opacity: 0.65, fontSize: '12px' }}
         >
           <strong style={{ display: 'block', marginBottom: 4 }}>No zones yet.</strong>
