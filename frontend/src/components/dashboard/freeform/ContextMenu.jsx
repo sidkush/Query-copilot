@@ -146,6 +146,15 @@ function Flyout({ parentRect, items, onClose, onSelect }) {
 export default function ContextMenu() {
   const menu = useStore((s) => s.analystProContextMenu);
   const close = useStore((s) => s.closeContextMenuAnalystPro);
+  const dashboard = useStore((s) => s.analystProDashboard);
+  const updateZone = useStore((s) => s.updateZoneAnalystPro);
+  const clearSelection = useStore((s) => s.clearSelection);
+  const setSelection = useStore((s) => s.setAnalystProSelection);
+  const ungroup = useStore((s) => s.ungroupAnalystPro);
+  const setActionsDialogOpen = useStore((s) => s.setActionsDialogOpen);
+  const copyZoneToClipboard = useStore((s) => s.copyZoneToClipboardAnalystPro);
+  const clipboard = useStore((s) => s.analystProZoneClipboard);
+  const insertObject = useStore((s) => s.insertObjectAnalystPro);
   const rootRef = useRef(null);
   const [measured, setMeasured] = useState(null);
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -203,9 +212,92 @@ export default function ContextMenu() {
   }, [menu, close]);
 
   const selectItem = useCallback((item) => {
-    // T10 plugs real dispatch here. For T9 we just close on command / checkbox.
-    if (item.kind === 'command' || item.kind === 'checkbox') close();
-  }, [close]);
+    if (item.kind !== 'command' && item.kind !== 'checkbox') return;
+    if (item.disabled) return;
+
+    const zoneId = menu?.zoneId ?? null;
+    const zone = (() => {
+      if (!dashboard || !zoneId) return null;
+      const stack = [dashboard.tiledRoot, ...(dashboard.floatingLayer || [])];
+      while (stack.length) {
+        const n = stack.pop();
+        if (!n) continue;
+        if (n.id === zoneId) return n;
+        if (n.children) stack.push(...n.children);
+      }
+      return null;
+    })();
+
+    if (item.todo) {
+      console.debug(`[analyst-pro context-menu] TODO Plan ${item.todo.plan}`, { id: item.id, reason: item.todo.reason });
+      close();
+      return;
+    }
+
+    switch (item.id) {
+      case 'deselect':
+        if (clearSelection) clearSelection();
+        break;
+      case 'selectParent': {
+        if (!dashboard || !zoneId) break;
+        const findParent = (container, target) => {
+          for (const child of container.children) {
+            if (child.id === target) return container.id;
+            if (child.children) {
+              const hit = findParent(child, target);
+              if (hit) return hit;
+            }
+          }
+          return null;
+        };
+        const parentId = findParent(dashboard.tiledRoot, zoneId);
+        if (parentId && setSelection) setSelection([parentId]);
+        break;
+      }
+      case 'toggleShowTitle': {
+        if (!zone || !updateZone) break;
+        const cur = 'showTitleBar' in zone ? zone.showTitleBar : undefined;
+        updateZone(zoneId, { showTitleBar: !(cur ?? true) });
+        break;
+      }
+      case 'toggleShowCaption': {
+        if (!zone || !updateZone) break;
+        updateZone(zoneId, { showCaption: !(zone.showCaption === true) });
+        break;
+      }
+      case 'openActionsDialog':
+        if (setActionsDialogOpen) setActionsDialogOpen(true);
+        break;
+      case 'removeContainerUnwrap':
+        if (zoneId && ungroup) ungroup(zoneId);
+        break;
+      case 'copy':
+        if (zone && copyZoneToClipboard) copyZoneToClipboard(zone);
+        break;
+      case 'paste':
+      case 'canvas.paste': {
+        if (clipboard && clipboard.type && clipboard.type !== 'container-horz' && clipboard.type !== 'container-vert') {
+          if (insertObject) insertObject({ type: clipboard.type, x: menu?.x ?? 40, y: menu?.y ?? 40 });
+        } else {
+          console.debug('[analyst-pro context-menu] paste no-op', { clipboard });
+        }
+        break;
+      }
+      case 'canvas.addText':
+        if (insertObject) insertObject({ type: 'text', x: menu?.x ?? 40, y: menu?.y ?? 40 });
+        break;
+      case 'canvas.addImage':
+        if (insertObject) insertObject({ type: 'image', x: menu?.x ?? 40, y: menu?.y ?? 40 });
+        break;
+      case 'canvas.addBlank':
+        if (insertObject) insertObject({ type: 'blank', x: menu?.x ?? 40, y: menu?.y ?? 40 });
+        break;
+      default:
+        console.debug('[analyst-pro context-menu] unhandled id', { id: item.id });
+        break;
+    }
+    close();
+  }, [menu, dashboard, clipboard, clearSelection, setSelection, updateZone, ungroup, setActionsDialogOpen, copyZoneToClipboard, insertObject, close]);
 
   const onRootKeyDown = (e) => {
     if (!menu) return;

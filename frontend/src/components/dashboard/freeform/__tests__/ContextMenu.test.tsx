@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { useStore } from '../../../../store';
 import ContextMenu from '../ContextMenu';
@@ -142,5 +142,58 @@ describe('<ContextMenu /> keyboard navigation', () => {
     expect(menus.length).toBe(2);
     fireEvent.keyDown(menus[1], { key: 'ArrowLeft' });
     expect(screen.getAllByRole('menu').length).toBe(1);
+  });
+});
+
+describe('<ContextMenu /> command dispatch', () => {
+  it('invokes clearSelection when Deselect is clicked', () => {
+    const spy = vi.fn();
+    useStore.setState({ clearSelection: spy });
+    render(<ContextMenu />);
+    act(() => {
+      useStore.setState({
+        analystProContextMenu: {
+          x: 10, y: 10, zoneId: 'L1',
+          items: [{ kind: 'command', id: 'deselect', label: 'Deselect' }],
+        },
+      });
+    });
+    fireEvent.click(screen.getByText('Deselect'));
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('invokes setActionsDialogOpen(true) on Actions…', () => {
+    const spy = vi.fn();
+    useStore.setState({ setActionsDialogOpen: spy });
+    render(<ContextMenu />);
+    act(() => {
+      useStore.setState({
+        analystProContextMenu: {
+          x: 10, y: 10, zoneId: 'W1',
+          items: [{ kind: 'command', id: 'openActionsDialog', label: 'Actions…' }],
+        },
+      });
+    });
+    fireEvent.click(screen.getByText('Actions…'));
+    expect(spy).toHaveBeenCalledWith(true);
+  });
+
+  it('logs a console.debug when a TODO command (setFitMode.fit) is invoked', () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    render(<ContextMenu />);
+    act(() => {
+      useStore.setState({
+        analystProContextMenu: {
+          x: 10, y: 10, zoneId: 'L1',
+          items: [{ kind: 'command', id: 'setFitMode.fit', label: 'Fit', todo: { plan: '5d', reason: 'test' } }],
+        },
+      });
+    });
+    fireEvent.click(screen.getByText('Fit'));
+    expect(debugSpy).toHaveBeenCalledWith(
+      '[analyst-pro context-menu] TODO Plan 5d',
+      expect.objectContaining({ id: 'setFitMode.fit' }),
+    );
+    debugSpy.mockRestore();
   });
 });
