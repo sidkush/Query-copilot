@@ -3,6 +3,7 @@ import { render, screen, act } from '@testing-library/react';
 import { useStore } from '../../../../store';
 import ZoneRenderer from '../ZoneRenderer';
 import FloatingLayer from '../FloatingLayer';
+import FreeformCanvas from '../FreeformCanvas';
 import type { Zone, FloatingZone, ResolvedZone } from '../lib/types';
 
 function resolvedMapOf(zones: Zone[]): Map<string, ResolvedZone> {
@@ -175,3 +176,55 @@ describe('FloatingLayer visibility gate', () => {
     expect(screen.getByTestId('leaf-f1')).toBeInTheDocument();
   });
 });
+
+describe('FreeformCanvas — parameterEquals end-to-end (Plan 4d T8)', () => {
+  it('toggles a leaf when the parameter value changes via the store', () => {
+    const dashboard = {
+      schemaVersion: 'askdb/dashboard/v1',
+      id: 'd1',
+      name: 'Test',
+      archetype: 'analyst-pro',
+      size: { mode: 'fixed', preset: 'desktop' },
+      tiledRoot: {
+        id: 'root',
+        type: 'container-vert',
+        w: 100000,
+        h: 100000,
+        children: [
+          {
+            id: 'gated',
+            type: 'blank',
+            w: 100000,
+            h: 100000,
+            visibilityRule: { kind: 'parameterEquals', parameterId: 'p1', value: 'priority' },
+          },
+        ],
+      },
+      floatingLayer: [],
+      worksheets: [],
+      parameters: [],
+      sets: [],
+      actions: [],
+    };
+    useStore.setState({
+      analystProDashboard: {
+        ...dashboard,
+        parameters: [
+          { id: 'p1', name: 'view', type: 'string', value: 'normal', domain: { kind: 'free' }, createdAt: '' },
+        ],
+      },
+    });
+    render(
+      <FreeformCanvas
+        dashboard={useStore.getState().analystProDashboard as any}
+        renderLeaf={(z: any) => <div data-testid={`leaf-${z.id}`}>{z.id}</div>}
+      />,
+    );
+    expect(screen.queryByTestId('leaf-gated')).not.toBeInTheDocument();
+    act(() => {
+      useStore.getState().setParameterValueAnalystPro('p1', 'priority');
+    });
+    expect(screen.getByTestId('leaf-gated')).toBeInTheDocument();
+  });
+});
+
