@@ -17,12 +17,24 @@
  * Plan 2b — Task T8.
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useStore } from '../../../../store';
+import { evaluateRule, buildEvaluationContext } from '../lib/visibilityRules';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function ruleSummary(rule) {
+  if (!rule) return '';
+  switch (rule.kind) {
+    case 'setMembership': return `set ${rule.setId} ${rule.mode}`;
+    case 'parameterEquals': return `param ${rule.parameterId} = ${String(rule.value)}`;
+    case 'hasActiveFilter': return `sheet ${rule.sheetId} has filter`;
+    case 'always':
+    default: return '';
+  }
+}
 
 function zoneFallbackName(zone) {
   // First 4 chars of the id give a readable short code, e.g. '#3ab2'
@@ -46,11 +58,13 @@ function walkTiled(zone, depth = 0, out = []) {
 // TreeRow
 // ---------------------------------------------------------------------------
 
-function TreeRow({ zone, depth, selected, onClick, onRename }) {
+function TreeRow({ zone, depth, selected, onClick, onRename, ctx }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
 
   const name = zone.displayName || zoneFallbackName(zone);
+  const hasRule = !!zone.visibilityRule && zone.visibilityRule.kind !== 'always';
+  const visible = !hasRule || evaluateRule(zone.visibilityRule, ctx);
 
   const commitRename = () => {
     const trimmed = draft.trim();
@@ -98,6 +112,7 @@ function TreeRow({ zone, depth, selected, onClick, onRename }) {
     <div
       role="button"
       tabIndex={0}
+      data-visibility-hidden={hasRule ? String(!visible) : 'false'}
       className={`tree-row${selected ? ' selected' : ''}`}
       style={{
         paddingLeft: depth * 12 + 8,
@@ -107,6 +122,7 @@ function TreeRow({ zone, depth, selected, onClick, onRename }) {
         background: selected
           ? 'var(--bg-selected, var(--bg-hover, rgba(108,99,255,0.18)))'
           : 'transparent',
+        opacity: visible ? 1 : 0.45,
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -152,6 +168,18 @@ function TreeRow({ zone, depth, selected, onClick, onRename }) {
           🔒
         </span>
       ) : null}
+
+      {/* Visibility-rule glyph (Plan 4d) */}
+      {hasRule ? (
+        <span
+          data-testid={`visibility-glyph-${zone.id}`}
+          aria-label={visible ? 'Visibility rule active' : 'Hidden by visibility rule'}
+          title={ruleSummary(zone.visibilityRule)}
+          style={{ flexShrink: 0, opacity: 0.8 }}
+        >
+          ◉
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -167,6 +195,13 @@ export default function LayoutTreePanel() {
   const addToSelection = useStore((s) => s.addToSelection);
   const removeFromSelection = useStore((s) => s.removeFromSelection);
   const updateZone = useStore((s) => s.updateZoneAnalystPro);
+  const sets = useStore((s) => s.analystProDashboard?.sets || []);
+  const parameters = useStore((s) => s.analystProDashboard?.parameters || []);
+  const sheetFilters = useStore((s) => s.analystProSheetFilters);
+  const ctx = useMemo(
+    () => buildEvaluationContext({ sets, parameters, sheetFilters }),
+    [sets, parameters, sheetFilters],
+  );
 
   if (!dashboard) return null;
 
@@ -234,6 +269,7 @@ export default function LayoutTreePanel() {
               selected={selection.has(zone.id)}
               onClick={handleClick}
               onRename={handleRename}
+              ctx={ctx}
             />
           ))}
         </div>
@@ -259,6 +295,7 @@ export default function LayoutTreePanel() {
               selected={selection.has(zone.id)}
               onClick={handleClick}
               onRename={handleRename}
+              ctx={ctx}
             />
           ))}
         </div>
