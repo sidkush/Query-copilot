@@ -293,3 +293,133 @@ def migrate_user_dashboards(user_email: str, dashboard_id: str | None = None) ->
         "errors": totals.errors,
         "backup_path": str(backup_path) if backup_path else None,
     }
+
+
+def legacy_to_freeform_schema(legacy: dict) -> dict:
+    """
+    Convert a legacy dashboard (flat tile list OR sections/tiles tree) to the
+    Analyst Pro freeform schema (schemaVersion='askdb/dashboard/v1').
+
+    Rules:
+      - Flat tile list  -> container-vert root with one worksheet per child.
+        Each child gets h = 100000 / tile_count (last child absorbs drift).
+      - Sections tree   -> container-vert root; each section becomes a
+        container-horz with its tiles split evenly horizontally.
+      - Empty dashboard -> empty container-vert root.
+
+    Output schema matches Analyst Pro spec section 10.1.
+    """
+    dashboard_id = legacy.get("id", "unknown")
+    name = legacy.get("name", "Untitled")
+
+    if "sections" in legacy and isinstance(legacy["sections"], list):
+        tiled_root = _sections_to_vert_root(legacy["sections"])
+        all_tiles = [t for s in legacy["sections"] for t in s.get("tiles", [])]
+    else:
+        tiles = legacy.get("tiles", []) or []
+        tiled_root = _flat_tiles_to_vert_root(tiles)
+        all_tiles = tiles
+
+    worksheets = [
+        {
+            "id": str(t.get("id", f"t{i}")),
+            "chartSpec": t.get("chart_spec") or t.get("chartSpec"),
+            "sql": t.get("sql"),
+        }
+        for i, t in enumerate(all_tiles)
+    ]
+
+    return {
+        "schemaVersion": "askdb/dashboard/v1",
+        "id": str(dashboard_id),
+        "name": name,
+        "archetype": "analyst-pro",
+        "size": {"mode": "automatic"},
+        "tiledRoot": tiled_root,
+        "floatingLayer": [],
+        "worksheets": worksheets,
+        "parameters": [],
+        "sets": [],
+        "actions": [],
+        "globalStyle": {},
+    }
+
+
+def _flat_tiles_to_vert_root(tiles: list) -> dict:
+    children = []
+    if tiles:
+        count = len(tiles)
+        base_h = 100000 // count
+        drift = 100000 - (base_h * count)
+        for i, t in enumerate(tiles):
+            h = base_h + (drift if i == count - 1 else 0)
+            children.append({
+                "id": str(t.get("id", f"t{i}")),
+                "type": "worksheet",
+                "w": 100000,
+                "h": h,
+                "worksheetRef": str(t.get("id", f"t{i}")),
+            })
+    return {
+        "id": "root",
+        "type": "container-vert",
+        "w": 100000,
+        "h": 100000,
+        "children": children,
+    }
+
+
+def _sections_to_vert_root(sections: list) -> dict:
+    vert_children = []
+    section_count = len([s for s in sections if s.get("tiles")])
+    if section_count == 0:
+        return {
+            "id": "root",
+            "type": "container-vert",
+            "w": 100000,
+            "h": 100000,
+            "children": [],
+        }
+    base_h = 100000 // section_count
+    drift = 100000 - (base_h * section_count)
+    section_idx = 0
+    for s in sections:
+        tiles = s.get("tiles", []) or []
+        if not tiles:
+            continue
+        h = base_h + (drift if section_idx == section_count - 1 else 0)
+        horz_children = _flat_tiles_to_horz_children(tiles)
+        vert_children.append({
+            "id": str(s.get("id", f"s{section_idx}")),
+            "type": "container-horz",
+            "w": 100000,
+            "h": h,
+            "children": horz_children,
+        })
+        section_idx += 1
+    return {
+        "id": "root",
+        "type": "container-vert",
+        "w": 100000,
+        "h": 100000,
+        "children": vert_children,
+    }
+
+
+def _flat_tiles_to_horz_children(tiles: list) -> list:
+    count = len(tiles)
+    if count == 0:
+        return []
+    base_w = 100000 // count
+    drift = 100000 - (base_w * count)
+    children = []
+    for i, t in enumerate(tiles):
+        w = base_w + (drift if i == count - 1 else 0)
+        children.append({
+            "id": str(t.get("id", f"t{i}")),
+            "type": "worksheet",
+            "w": w,
+            "h": 100000,
+            "worksheetRef": str(t.get("id", f"t{i}")),
+        })
+    return children
