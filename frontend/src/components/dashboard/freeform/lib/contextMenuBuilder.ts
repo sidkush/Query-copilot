@@ -7,6 +7,7 @@
 // instead of crashing.
 
 import type { ContainerZone, Dashboard, Zone } from './types';
+import { isContainer } from './zoneTree';
 
 export type MenuCommandId =
   // ---------------- Plan 5c wired commands (existing store actions) ----------------
@@ -87,8 +88,8 @@ export function findParentZoneId(root: ContainerZone, zoneId: string): string | 
   const walk = (container: ContainerZone): string | null => {
     for (const child of container.children) {
       if (child.id === zoneId) return container.id;
-      if ((child as ContainerZone).children) {
-        const hit = walk(child as ContainerZone);
+      if (isContainer(child)) {
+        const hit = walk(child);
         if (hit) return hit;
       }
     }

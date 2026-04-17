@@ -49,6 +49,17 @@ describe('findParentZoneId', () => {
     };
     expect(findParentZoneId(root, 'L1')).toBe('root');
   });
+
+  it('returns the nested container id for a grand-child leaf', () => {
+    const leaf: LeafZone = { id: 'L1', type: 'blank', w: 100000, h: 100000 };
+    const inner: ContainerZone = {
+      id: 'inner', type: 'container-horz', w: 100000, h: 100000, children: [leaf],
+    };
+    const root: ContainerZone = {
+      id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [inner],
+    };
+    expect(findParentZoneId(root, 'L1')).toBe('inner');
+  });
 });
 
 describe('clampToViewport', () => {
