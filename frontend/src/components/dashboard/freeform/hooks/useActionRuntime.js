@@ -42,8 +42,7 @@ function applyTargetOp(op, token) {
       // Plan 4b: integrate with parameter system.
       break;
     case 'change-set': {
-      const s = useStore.getState();
-      const existing = s.analystProDashboard?.sets || [];
+      const existing = store.analystProDashboard?.sets || [];
       const target = existing.find((x) => x.id === op.setId);
       if (!target) break;
       let mode = op.operation;
@@ -51,7 +50,7 @@ function applyTargetOp(op, token) {
         const first = op.members[0];
         mode = first !== undefined && target.members.includes(first) ? 'remove' : 'add';
       }
-      s.applySetChangeAnalystPro(op.setId, mode, op.members);
+      store.applySetChangeAnalystPro(op.setId, mode, op.members);
       break;
     }
   }
