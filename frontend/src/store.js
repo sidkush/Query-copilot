@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import { detectCorrections } from "./chart-ir";
+import { alignZones, distributeZones } from "./components/dashboard/freeform/lib/alignmentOps";
+import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating } from "./components/dashboard/freeform/lib/zoneTreeOps";
+import { generateZoneId } from "./components/dashboard/freeform/lib/zoneTree";
 
 let _themeTimer = null;
 
@@ -726,5 +729,163 @@ export const useStore = create((set, get) => ({
       analystProHistory: { ...h, past: [h.present, ...h.past], present: next, future: restFuture },
       analystProDashboard: next,
     });
+  },
+
+  // Plan 2b: layout overlay toggle
+  analystProLayoutOverlay: false,
+  toggleAnalystProLayoutOverlay: () =>
+    set((s) => ({ analystProLayoutOverlay: !s.analystProLayoutOverlay })),
+
+  // Plan 2b: alignment + distribute
+  alignSelectionAnalystPro: (op) => {
+    const { analystProDashboard: dash, analystProSelection: sel } = get();
+    if (!dash || sel.size < 2) return;
+    const selected = dash.floatingLayer.filter((z) => sel.has(z.id));
+    if (selected.length < 2) return;
+    const aligned = alignZones(selected, op);
+    const alignedMap = new Map(aligned.map((z) => [z.id, z]));
+    const nextFloating = dash.floatingLayer.map((z) => alignedMap.get(z.id) || z);
+    const nextDash = { ...dash, floatingLayer: nextFloating };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  distributeSelectionAnalystPro: (axis) => {
+    const { analystProDashboard: dash, analystProSelection: sel } = get();
+    if (!dash || sel.size < 3) return;
+    const selected = dash.floatingLayer.filter((z) => sel.has(z.id));
+    if (selected.length < 3) return;
+    const distributed = distributeZones(selected, axis);
+    const distMap = new Map(distributed.map((z) => [z.id, z]));
+    const nextFloating = dash.floatingLayer.map((z) => distMap.get(z.id) || z);
+    const nextDash = { ...dash, floatingLayer: nextFloating };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  // Plan 2b: group / ungroup
+  groupSelectionAnalystPro: () => {
+    const { analystProDashboard: dash, analystProSelection: sel } = get();
+    if (!dash || sel.size < 2) return;
+    const result = groupSelection(dash.tiledRoot, [...sel]);
+    if (!result.newContainerId) return;
+    const nextDash = { ...dash, tiledRoot: result.root };
+    set({
+      analystProDashboard: nextDash,
+      analystProSelection: new Set([result.newContainerId]),
+    });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  ungroupAnalystPro: (containerId) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash) return;
+    const nextRoot = ungroupContainer(dash.tiledRoot, containerId);
+    if (nextRoot === dash.tiledRoot) return;
+    const nextDash = { ...dash, tiledRoot: nextRoot };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  // Plan 2b: lock toggle
+  toggleLockAnalystPro: (zoneId) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash) return;
+    const inFloating = dash.floatingLayer.some((z) => z.id === zoneId);
+    if (inFloating) {
+      const nextFloating = toggleLockFloating(dash.floatingLayer, zoneId);
+      if (nextFloating === dash.floatingLayer) return;
+      const nextDash = { ...dash, floatingLayer: nextFloating };
+      set({ analystProDashboard: nextDash });
+      get().pushAnalystProHistory(nextDash);
+    } else {
+      const nextRoot = toggleLock(dash.tiledRoot, zoneId);
+      if (nextRoot === dash.tiledRoot) return;
+      const nextDash = { ...dash, tiledRoot: nextRoot };
+      set({ analystProDashboard: nextDash });
+      get().pushAnalystProHistory(nextDash);
+    }
+  },
+
+  // Plan 2b: insert a new floating zone from the object library
+  insertObjectAnalystPro: ({ type, x, y }) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash) return;
+    const isContainer = type === 'container-horz' || type === 'container-vert';
+    const defaultSize =
+      type === 'webpage' || isContainer ? { pxW: 480, pxH: 320 } : { pxW: 320, pxH: 200 };
+    const maxZ = dash.floatingLayer.reduce((m, z) => Math.max(m, z.zIndex || 0), 0);
+    const id = generateZoneId();
+    let newZone;
+    if (isContainer) {
+      newZone = {
+        id,
+        type,
+        w: 0,
+        h: 0,
+        floating: true,
+        x,
+        y,
+        pxW: defaultSize.pxW,
+        pxH: defaultSize.pxH,
+        zIndex: maxZ + 1,
+        children: [
+          { id: generateZoneId(), type: 'blank', w: 100000, h: 100000 },
+        ],
+      };
+    } else {
+      newZone = {
+        id,
+        type,
+        w: 0,
+        h: 0,
+        floating: true,
+        x,
+        y,
+        pxW: defaultSize.pxW,
+        pxH: defaultSize.pxH,
+        zIndex: maxZ + 1,
+      };
+    }
+    const nextDash = {
+      ...dash,
+      floatingLayer: [...dash.floatingLayer, newZone],
+    };
+    set({
+      analystProDashboard: nextDash,
+      analystProSelection: new Set([id]),
+    });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  // Plan 2b: update zone displayName (or other patches)
+  updateZoneAnalystPro: (zoneId, patch) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash) return;
+    // Try floating first
+    const floatingIdx = dash.floatingLayer.findIndex((z) => z.id === zoneId);
+    let nextDash = dash;
+    if (floatingIdx >= 0) {
+      const next = [...dash.floatingLayer];
+      next[floatingIdx] = { ...next[floatingIdx], ...patch };
+      nextDash = { ...dash, floatingLayer: next };
+    } else {
+      // Walk tiled tree and patch the zone if found.
+      const patchInTree = (zone) => {
+        if (zone.id === zoneId) return { ...zone, ...patch };
+        if (zone.children) {
+          const nextChildren = zone.children.map(patchInTree);
+          if (nextChildren.some((c, i) => c !== zone.children[i])) {
+            return { ...zone, children: nextChildren };
+          }
+        }
+        return zone;
+      };
+      const nextRoot = patchInTree(dash.tiledRoot);
+      if (nextRoot === dash.tiledRoot) return;
+      nextDash = { ...dash, tiledRoot: nextRoot };
+    }
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
   },
 }));
