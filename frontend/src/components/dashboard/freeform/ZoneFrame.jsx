@@ -5,9 +5,43 @@ import { getZoneDisplayLabel } from './lib/zoneLabel';
 import { TITLE_BAR_DEFAULT_VISIBLE } from './lib/zoneDefaults';
 
 function shouldShowTitleBar(zone) {
+  // Plan 5d: `showTitle` is the authoritative field. Legacy fixtures may
+  // still carry `showTitleBar` — honour it when `showTitle` is absent.
+  if (zone.showTitle === false) return false;
+  if (zone.showTitle === true) return true;
   if (zone.showTitleBar === false) return false;
   if (zone.showTitleBar === true) return true;
   return TITLE_BAR_DEFAULT_VISIBLE.has(zone.type);
+}
+
+function buildFrameStyle(zone) {
+  const style = {};
+  // Plan 5d: Worksheet/Zone-level formatting applies below per-field Mark/Field
+  // formats. Full precedence chain (Mark > Field > Worksheet > DS > Workbook)
+  // lands in Phase 10 (Build_Tableau.md §XIV.1).
+  const bg = zone.background;
+  if (bg && typeof bg.color === 'string') {
+    const opacity = typeof bg.opacity === 'number' ? bg.opacity : 1;
+    style.background = bg.color;
+    style.opacity = opacity;
+  }
+  const border = zone.border;
+  if (border && Array.isArray(border.weight)) {
+    const [l, r, t, b] = border.weight;
+    style.borderLeftWidth = `${l || 0}px`;
+    style.borderRightWidth = `${r || 0}px`;
+    style.borderTopWidth = `${t || 0}px`;
+    style.borderBottomWidth = `${b || 0}px`;
+    style.borderStyle = border.style === 'dashed' ? 'dashed' : 'solid';
+    style.borderColor = border.color || 'currentColor';
+  }
+  if (typeof zone.innerPadding === 'number') {
+    style.padding = `${zone.innerPadding}px`;
+  }
+  if (typeof zone.outerPadding === 'number') {
+    style.margin = `${zone.outerPadding}px`;
+  }
+  return style;
 }
 
 function EdgeHotzones() {
@@ -115,6 +149,7 @@ function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
       data-resolved-w={resolved?.width ?? 0}
       data-resolved-h={resolved?.height ?? 0}
       className={`analyst-pro-zone-frame${withTitle ? ' analyst-pro-zone-frame--with-title' : ''}`}
+      style={buildFrameStyle(zone)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onContextMenu={handleContextMenu}

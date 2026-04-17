@@ -409,4 +409,57 @@ describe('ZoneFrame — keyboard affordances', () => {
     const tree = useStore.getState().analystProDashboard!.tiledRoot as { children: Array<{ id: string; displayName?: string }> };
     expect(tree.children[0].displayName).toBe('Named via F2');
   });
+
+  it('applies inline background, border, and padding from the zone fields (Plan 5d T6)', () => {
+    const zone = {
+      id: 'z1',
+      type: 'worksheet' as const,
+      worksheetRef: 'z1',
+      w: 100000,
+      h: 100000,
+      background: { color: '#112233', opacity: 0.5 },
+      border: { weight: [1, 0, 2, 0], color: '#abcdef', style: 'solid' as const },
+      innerPadding: 8,
+      outerPadding: 4,
+    };
+    render(
+      <ZoneFrame
+        zone={zone}
+        resolved={{ x: 0, y: 0, width: 400, height: 300 }}
+        onContextMenu={() => {}}
+        onQuickAction={() => {}}
+      >
+        <div data-testid="body">body</div>
+      </ZoneFrame>,
+    );
+    const frame = screen.getByTestId('zone-frame-z1') as HTMLElement;
+    const style = frame.getAttribute('style') ?? '';
+    expect(style).toMatch(/background/);
+    expect(style).toMatch(/border-left-width:\s*1px/);
+    expect(style).toMatch(/border-top-width:\s*2px/);
+    expect(style).toMatch(/padding:\s*8px/);
+    expect(style).toMatch(/margin:\s*4px/);
+  });
+
+  it('hides title bar when showTitle === false even for a worksheet (Plan 5d T6)', () => {
+    const zone = {
+      id: 'z2',
+      type: 'worksheet' as const,
+      worksheetRef: 'z2',
+      w: 100000,
+      h: 100000,
+      showTitle: false,
+    };
+    render(
+      <ZoneFrame
+        zone={zone}
+        resolved={{ x: 0, y: 0, width: 400, height: 300 }}
+        onContextMenu={() => {}}
+        onQuickAction={() => {}}
+      >
+        <div data-testid="body">body</div>
+      </ZoneFrame>,
+    );
+    expect(screen.queryByTestId('zone-frame-z2-title')).toBeNull();
+  });
 });
