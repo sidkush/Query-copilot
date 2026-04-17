@@ -1,5 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../../store";
+import { SPRINGS } from "./motion";
+import { ARCHETYPE_THEMES } from "./tokens";
 import DashboardTopBar, { ARCHETYPE_EDIT_MAP } from "./DashboardTopBar";
 import DashboardContextBar from "./DashboardContextBar";
 import DashboardStatusBar from "./DashboardStatusBar";
@@ -12,6 +15,7 @@ import StoryLayout from "./modes/StoryLayout";
 import PitchLayout from "./modes/PitchLayout";
 import WorkbookLayout from "./modes/WorkbookLayout";
 import TableauClassicLayout from "./modes/TableauClassicLayout";
+import AnalystProLayout from "./modes/AnalystProLayout";
 import MobileLayout from "./modes/MobileLayout";
 import useTileLinking from "./lib/useTileLinking";
 import useVoicePipeline from "./hooks/useVoicePipeline";
@@ -24,21 +28,38 @@ import VoiceTranscriptOverlay from "./VoiceTranscriptOverlay";
  * Layout (top to bottom):
  *   TopBar (52px)     — logo, breadcrumb, archetype pill, edit-mode badge, share/save
  *   ContextBar (28px) — business summary, refresh timestamp
+ *                       Collapse rule: hides when there are zero tiles (existing), when
+ *                       viewport < 768px (chrome trims to TopBar + StatusBar on mobile),
+ *                       or when the bar has no filters + no meta to display. Prevents a
+ *                       3-layer top chrome (~112px) eating viewport on narrow screens.
  *   FilterBar          — existing GlobalFilterBar (mounted externally or passed as children)
  *   Content Area       — flex:1, overflow auto, active archetype layout
  *   StatusBar (32px)  — connection, rows, tier, voice placeholder
  *
  * Auto-map: archetype change sets edit mode per ARCHETYPE_EDIT_MAP.
  * Manual override persists until next archetype change.
+ *
+ * ─── Z-INDEX SCALE ─────────────────────────────────────────────────────
+ *   modals   = 100   (TileTypePicker, ThemeEditor, dropdown menus above chrome)
+ *   overlays = 50    (CommandPalette, VoiceTranscriptOverlay, ThemeEditor backdrop)
+ *   floating = 40    (AgentFAB, docked/floating panels)
+ *   default  = 0
+ * All new floating UI MUST use one of these bands — no ad-hoc 9999 values.
+ * ────────────────────────────────────────────────────────────────────────
  */
 
+// Viewport breakpoint below which the ContextBar collapses into the TopBar
+// (the breadcrumb already conveys context on mobile; saves ~28px of chrome).
+const CONTEXT_BAR_COLLAPSE_BREAKPOINT = 768;
+
 const ARCHETYPES = [
-  { id: "briefing",  label: "Briefing",  Layout: ExecBriefingLayout },
-  { id: "workbench", label: "Workbench", Layout: AnalystWorkbenchLayout },
-  { id: "ops",       label: "LiveOps",   Layout: LiveOpsLayout },
-  { id: "story",     label: "Story",     Layout: StoryLayout },
-  { id: "pitch",     label: "Pitch",     Layout: PitchLayout },
-  { id: "tableau",   label: "Tableau",   Layout: TableauClassicLayout },
+  { id: "briefing",     label: "Briefing",     Layout: ExecBriefingLayout },
+  { id: "workbench",    label: "Workbench",    Layout: AnalystWorkbenchLayout },
+  { id: "ops",          label: "LiveOps",      Layout: LiveOpsLayout },
+  { id: "story",        label: "Story",        Layout: StoryLayout },
+  { id: "pitch",        label: "Pitch",        Layout: PitchLayout },
+  { id: "tableau",      label: "Tableau",      Layout: TableauClassicLayout },
+  { id: "analyst-pro",  label: "Analyst Pro",  Layout: AnalystProLayout },
 ];
 
 // Keep mobile as responsive fallback (not shown in pills)
@@ -76,6 +97,7 @@ export default function DashboardShell({
   const [editModeOverride, setEditModeOverride] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
 
   // Brush-to-detail cross-tile filtering
   const { linkConfig, addLink, removeLink, onBrush, getFiltersForTile, allActiveFilters } = useTileLinking();
@@ -112,12 +134,24 @@ export default function DashboardShell({
   const agentTierInfo = useStore((s) => s.agentTierInfo);
   const turboStatus = useStore((s) => s.turboStatus);
   const connections = useStore((s) => s.connections);
+  // Analyst Pro canvas size — reactive so SizeToggleDropdown updates re-render the canvas.
+  const analystProSize = useStore((s) => s.analystProSize);
+  const setAnalystProSize = useStore((s) => s.setAnalystProSize);
 
   // Detect mobile viewport
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
     setIsMobile(mq.matches);
     const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Detect narrow viewport — triggers ContextBar collapse into TopBar breadcrumb
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${CONTEXT_BAR_COLLAPSE_BREAKPOINT}px)`);
+    setIsNarrowViewport(mq.matches);
+    const handler = (e) => setIsNarrowViewport(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, []);
@@ -134,6 +168,11 @@ export default function DashboardShell({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Archetypes adapt to the global website theme (user-controlled).
+  // Each archetype resolves its dashboard + tile bg through CSS vars that
+  // flip automatically when `<html>.light` class toggles.
+  // See `--archetype-*-bg` / `--archetype-*-tile` in index.css.
+
   // Auto-map edit mode when archetype changes
   const handleArchetypeChange = (nextMode) => {
     setMode(nextMode);
@@ -146,6 +185,7 @@ export default function DashboardShell({
     if (nextMode === 'pitch') {
       setVoiceMode('wakeword');
     }
+    // Theme follows global user preference — no scheme forcing per archetype.
   };
 
   // Manual edit mode override
@@ -228,10 +268,13 @@ export default function DashboardShell({
   const archetypeModes = ARCHETYPES.map((m) => ({ id: m.id, label: m.label }));
 
   return (
-    <div
+    <motion.div
       data-testid="dashboard-shell"
       data-active-mode={mode}
       data-edit-mode={editMode}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={SPRINGS.fluid}
       style={{
         height: "100%",
         width: "100%",
@@ -258,30 +301,46 @@ export default function DashboardShell({
         saving={saving}
       />
 
-      {/* ═══ ContextBar ═══ */}
-      <DashboardContextBar
-        tiles={tiles}
-        lastRefreshed={lastRefreshed}
-      />
+      {/* ═══ ContextBar ═══
+          Collapses on narrow viewports (<768px) to reclaim vertical space;
+          the TopBar breadcrumb already conveys dashboard/workspace context. */}
+      {!isNarrowViewport && (
+        <DashboardContextBar
+          tiles={tiles}
+          lastRefreshed={lastRefreshed}
+        />
+      )}
 
       {/* ═══ FilterBar slot (passed as children from parent) ═══ */}
       {children}
 
       {/* ═══ Content Area ═══ */}
-      <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        <Layout
-          tiles={tiles}
-          dashboardId={dashboardId}
-          dashboardName={dashboardName}
-          onTileClick={onTileClick}
-          onLayoutChange={onLayoutChange}
-          onBrush={onBrush}
-          getFiltersForTile={getFiltersForTile}
-          linkConfig={linkConfig}
-          addLink={addLink}
-          removeLink={removeLink}
-          activeFilters={allActiveFilters}
-        />
+      <div style={{ flex: 1, minHeight: 0, overflow: "auto", position: "relative" }}>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={isMobile ? "__mobile" : mode}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } }}
+            exit={{ opacity: 0, y: -4, transition: { duration: 0.12, ease: [0.22, 1, 0.36, 1] } }}
+            style={{ minHeight: "100%" }}
+          >
+            <Layout
+              tiles={tiles}
+              dashboardId={dashboardId}
+              dashboardName={dashboardName}
+              onTileClick={onTileClick}
+              onLayoutChange={onLayoutChange}
+              onBrush={onBrush}
+              getFiltersForTile={getFiltersForTile}
+              linkConfig={linkConfig}
+              addLink={addLink}
+              removeLink={removeLink}
+              activeFilters={allActiveFilters}
+              size={analystProSize}
+              onSizeChange={setAnalystProSize}
+            />
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* ═══ StatusBar ═══ */}
@@ -304,12 +363,14 @@ export default function DashboardShell({
         }}
       />
 
-      {/* Command palette — floats above all */}
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        commands={allCommands}
-      />
+      {/* Command palette — overlay band (zIndex 50 per scale) */}
+      <div style={{ position: 'relative', zIndex: 50 }}>
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          commands={allCommands}
+        />
+      </div>
 
       {/* SP-5d: Transcription overlay — floats above status bar */}
       <VoiceTranscriptOverlay archetype={mode} />
@@ -324,7 +385,7 @@ export default function DashboardShell({
 
       {/* SP-2: Agent toggle FAB — bottom-right, glass style */}
       <AgentFAB />
-    </div>
+    </motion.div>
   );
 }
 
