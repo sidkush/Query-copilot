@@ -18,6 +18,8 @@ export default defineConfig({
       'src/chart-ir/__tests__/**/**/*.test.tsx',
       'src/lib/__tests__/**/*.test.js',
       'src/lib/__tests__/**/*.test.ts',
+      'src/components/dashboard/freeform/__tests__/**/*.test.ts',
+      'src/components/dashboard/freeform/__tests__/**/*.test.tsx',
     ],
     coverage: {
       provider: 'v8',
