@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { detectCorrections } from "./chart-ir";
 import { alignZones, distributeZones } from "./components/dashboard/freeform/lib/alignmentOps";
-import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating, reorderZone } from "./components/dashboard/freeform/lib/zoneTreeOps";
+import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating, reorderZone, moveZoneAcrossContainers, wrapInContainer, removeChild } from "./components/dashboard/freeform/lib/zoneTreeOps";
 import { generateZoneId } from "./components/dashboard/freeform/lib/zoneTree";
 import { applySetChange } from './components/dashboard/freeform/lib/setOps';
 import {
@@ -691,7 +691,17 @@ export const useStore = create((set, get) => ({
   },
   clearSelection: () => set({ analystProSelection: new Set() }),
 
-  // Plan 2: drag state
+  // Plan 2 + 5b: drag state
+  //   {
+  //     zoneId: string,
+  //     parentId: string,
+  //     dx: number,
+  //     dy: number,
+  //     targetContainerId?: string | null,
+  //     targetIndex?: number | null,
+  //     dropEdge?: 'top' | 'bottom' | 'left' | 'right' | 'center' | null,
+  //     activeGuides?: Array<{ axis: 'x'|'y'; position: number; start: number; end: number }>,
+  //   }
   analystProDragState: null,
   setAnalystProDragState: (state) => set({ analystProDragState: state }),
 
@@ -1121,6 +1131,32 @@ export const useStore = create((set, get) => ({
     const { analystProDashboard: dash } = get();
     if (!dash) return;
     const nextRoot = reorderZone(dash.tiledRoot, sourceId, targetId, position);
+    if (nextRoot === dash.tiledRoot) return;
+    const nextDash = { ...dash, tiledRoot: nextRoot };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  // Plan 5b: drop-into-container-at-index (canvas cross-container drag).
+  moveZoneAcrossContainersAnalystPro: (sourceId, targetContainerId, targetIndex) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash?.tiledRoot) return;
+    const nextRoot = moveZoneAcrossContainers(dash.tiledRoot, sourceId, targetContainerId, targetIndex);
+    if (nextRoot === dash.tiledRoot) return;
+    const nextDash = { ...dash, tiledRoot: nextRoot };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  // Plan 5b: drop-on-edge wrap. Removes source from its current location, then
+  // wraps target + source in a new split container sized to inherit target's
+  // parent-axis proportion.
+  wrapInContainerAnalystPro: (targetZoneId, sourceZone, side) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash?.tiledRoot) return;
+    if (!sourceZone?.id) return;
+    const afterRemove = removeChild(dash.tiledRoot, sourceZone.id);
+    const nextRoot = wrapInContainer(afterRemove, targetZoneId, sourceZone, side);
     if (nextRoot === dash.tiledRoot) return;
     const nextDash = { ...dash, tiledRoot: nextRoot };
     set({ analystProDashboard: nextDash });
