@@ -234,11 +234,11 @@ function appendCommonHead(items: MenuItem[], zone: Zone, _dashboard: Dashboard):
     id: 'fit',
     label: 'Fit',
     items: [
-      { kind: 'command', id: 'setFitMode.fit',        label: 'Fit',            todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
-      { kind: 'command', id: 'setFitMode.fitWidth',   label: 'Fit Width',      todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
-      { kind: 'command', id: 'setFitMode.fitHeight',  label: 'Fit Height',     todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
-      { kind: 'command', id: 'setFitMode.entireView', label: 'Entire View',    todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
-      { kind: 'command', id: 'setFitMode.fixed',      label: 'Fixed Pixels…',  todo: { plan: '5d', reason: 'fitMode field + renderer wiring lands in Plan 5d.' } },
+      { kind: 'command', id: 'setFitMode.fit',        label: 'Fit' },
+      { kind: 'command', id: 'setFitMode.fitWidth',   label: 'Fit Width' },
+      { kind: 'command', id: 'setFitMode.fitHeight',  label: 'Fit Height' },
+      { kind: 'command', id: 'setFitMode.entireView', label: 'Entire View' },
+      { kind: 'command', id: 'setFitMode.fixed',      label: 'Fixed Pixels…' },
     ],
   });
 
@@ -248,29 +248,29 @@ function appendCommonHead(items: MenuItem[], zone: Zone, _dashboard: Dashboard):
     kind: 'command',
     id: 'openProperties.style.background',
     label: 'Background…',
-    todo: { plan: '5d', reason: 'Style tab lands in Plan 5d Properties Panel rewrite.' },
   });
   items.push({
     kind: 'command',
     id: 'openProperties.style.border',
     label: 'Border…',
-    todo: { plan: '5d', reason: 'Style tab lands in Plan 5d Properties Panel rewrite.' },
   });
   items.push({
     kind: 'submenu',
     id: 'padding',
     label: 'Padding',
     items: [
-      { kind: 'command', id: 'openProperties.layout.innerPadding', label: 'Inner Padding…', todo: { plan: '5d', reason: 'Layout tab lands in Plan 5d Properties Panel rewrite.' } },
-      { kind: 'command', id: 'openProperties.layout.outerPadding', label: 'Outer Padding…', todo: { plan: '5d', reason: 'Layout tab lands in Plan 5d Properties Panel rewrite.' } },
+      { kind: 'command', id: 'openProperties.layout.innerPadding', label: 'Inner Padding…' },
+      { kind: 'command', id: 'openProperties.layout.outerPadding', label: 'Outer Padding…' },
     ],
   });
 
   items.push(SEP);
 
   const showTitleDefault = defaultShowTitle(zone);
-  // TODO(plan-5d): drop cast once showTitleBar lands on the Zone union.
-  const showTitleChecked = (zone as { showTitleBar?: boolean }).showTitleBar ?? showTitleDefault;
+  // Plan 5d: `showTitle` is the authoritative field; legacy fixtures may
+  // still carry `showTitleBar` — honour either.
+  const legacyShow = (zone as { showTitleBar?: boolean }).showTitleBar;
+  const showTitleChecked = zone.showTitle ?? legacyShow ?? showTitleDefault;
   items.push({
     kind: 'checkbox',
     id: 'toggleShowTitle',

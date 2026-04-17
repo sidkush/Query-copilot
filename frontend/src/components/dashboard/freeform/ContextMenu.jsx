@@ -155,6 +155,9 @@ export default function ContextMenu() {
   const copyZoneToClipboard = useStore((s) => s.copyZoneToClipboardAnalystPro);
   const clipboard = useStore((s) => s.analystProZoneClipboard);
   const insertObject = useStore((s) => s.insertObjectAnalystPro);
+  // Plan 5d — real dispatches for properties-panel + fitMode + show-title toggle.
+  const openPropertiesTab = useStore((s) => s.openPropertiesTabAnalystPro);
+  const setZoneProperty = useStore((s) => s.setZonePropertyAnalystPro);
   const rootRef = useRef(null);
   const [measured, setMeasured] = useState(null);
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -256,11 +259,38 @@ export default function ContextMenu() {
         break;
       }
       case 'toggleShowTitle': {
-        if (!zone || !updateZone) break;
-        const cur = 'showTitleBar' in zone ? zone.showTitleBar : undefined;
-        updateZone(zoneId, { showTitleBar: !(cur ?? true) });
+        if (!zone || !setZoneProperty) break;
+        // Plan 5d — write to `showTitle` (authoritative). Read current value
+        // honouring either new or legacy field; default true.
+        const cur = zone.showTitle ?? zone.showTitleBar ?? true;
+        setZoneProperty(zoneId, { showTitle: !cur });
         break;
       }
+      // Plan 5d — properties panel tab activation (Background/Border/Padding menu items).
+      case 'openProperties.style.background':
+      case 'openProperties.style.border':
+        if (openPropertiesTab) openPropertiesTab('style');
+        break;
+      case 'openProperties.layout.innerPadding':
+      case 'openProperties.layout.outerPadding':
+        if (openPropertiesTab) openPropertiesTab('layout');
+        break;
+      // Plan 5d — fitMode commands.
+      case 'setFitMode.fit':
+        if (zoneId && setZoneProperty) setZoneProperty(zoneId, { fitMode: 'fit' });
+        break;
+      case 'setFitMode.fitWidth':
+        if (zoneId && setZoneProperty) setZoneProperty(zoneId, { fitMode: 'fit-width' });
+        break;
+      case 'setFitMode.fitHeight':
+        if (zoneId && setZoneProperty) setZoneProperty(zoneId, { fitMode: 'fit-height' });
+        break;
+      case 'setFitMode.entireView':
+        if (zoneId && setZoneProperty) setZoneProperty(zoneId, { fitMode: 'entire' });
+        break;
+      case 'setFitMode.fixed':
+        if (zoneId && setZoneProperty) setZoneProperty(zoneId, { fitMode: 'fixed' });
+        break;
       case 'toggleShowCaption': {
         if (!zone || !updateZone) break;
         updateZone(zoneId, { showCaption: !(zone.showCaption === true) });
