@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { detectCorrections } from "./chart-ir";
 import { alignZones, distributeZones } from "./components/dashboard/freeform/lib/alignmentOps";
-import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating } from "./components/dashboard/freeform/lib/zoneTreeOps";
+import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating, reorderZone } from "./components/dashboard/freeform/lib/zoneTreeOps";
 import { generateZoneId } from "./components/dashboard/freeform/lib/zoneTree";
 import { applySetChange } from './components/dashboard/freeform/lib/setOps';
 import {
@@ -1107,6 +1107,17 @@ export const useStore = create((set, get) => ({
       if (nextRoot === dash.tiledRoot) return;
       nextDash = { ...dash, tiledRoot: nextRoot };
     }
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
+  // Plan 4e: tree drag-to-reorder
+  reorderZoneAnalystPro: (sourceId, targetId, position) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash) return;
+    const nextRoot = reorderZone(dash.tiledRoot, sourceId, targetId, position);
+    if (nextRoot === dash.tiledRoot) return;
+    const nextDash = { ...dash, tiledRoot: nextRoot };
     set({ analystProDashboard: nextDash });
     get().pushAnalystProHistory(nextDash);
   },
