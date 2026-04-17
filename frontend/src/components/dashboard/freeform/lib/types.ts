@@ -7,8 +7,19 @@ import type { DashboardParameter, ParamValue } from './parameterTypes';
 export type Proportion = number;
 
 export type Padding = { top: number; right: number; bottom: number; left: number };
-export type BorderStyle = { width: number; color: string; style: 'solid' | 'dashed' | 'dotted' };
-export type BackgroundStyle = { color?: string; image?: string; fit?: 'cover' | 'contain' | 'fill' };
+
+/** Plan 5d — flat background shape per roadmap. color is a CSS colour
+ *  (hex / rgb / named); opacity is 0–1. The legacy BackgroundStyle
+ *  (image / fit) is dropped — image zones carry imageSrc directly. */
+export type BackgroundAP = { color: string; opacity: number };
+
+/** Plan 5d — per-edge border weight. Order follows Tableau's StyledBox
+ *  convention (Build_Tableau.md §XIV.5): [left, right, top, bottom]. */
+export type BorderAP = {
+  weight: [number, number, number, number];
+  color: string;
+  style: 'solid' | 'dashed';
+};
 
 export type LeafType =
   | 'worksheet'
@@ -46,14 +57,30 @@ export type BaseZone = {
   id: string;
   w: Proportion;
   h: Proportion;
+  /** @deprecated Plan 5d — replaced by scalar innerPadding/outerPadding.
+   *  Kept declared so legacy persisted dashboards don't trip TS. ZoneFrame
+   *  no longer reads this field after Plan 5d T6. */
   padding?: { outer: Padding; inner: Padding };
-  border?: BorderStyle;
-  background?: BackgroundStyle;
+  /** Plan 5d — per-edge border. */
+  border?: BorderAP;
+  /** Plan 5d — solid colour + opacity. */
+  background?: BackgroundAP;
   visibilityRule?: VisibilityRule;
   /** Optional user-given display name. If absent, UI derives from type + id. */
   displayName?: string;
   /** If true, drag/resize/delete are blocked. Selection still allowed. */
   locked?: boolean;
+  // Plan 5d properties.
+  /** Inner padding inside the zone body, in pixels. Default 4. */
+  innerPadding?: number;
+  /** Outer padding around the zone frame, in pixels. Default 0. */
+  outerPadding?: number;
+  /** Title bar show/hide. Default comes from TITLE_SHOWN_BY_DEFAULT. */
+  showTitle?: boolean;
+  /** Caption show/hide (worksheet only). Default comes from CAPTION_SHOWN_BY_DEFAULT. */
+  showCaption?: boolean;
+  /** Vega-Lite autosize mode for chart contents. Default 'fit'. */
+  fitMode?: 'fit' | 'fit-width' | 'fit-height' | 'entire' | 'fixed';
 };
 
 export type LeafZone = BaseZone & {
