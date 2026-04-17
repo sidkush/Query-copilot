@@ -12,6 +12,7 @@ import { fireEvent } from '@testing-library/react';
 import FreeformCanvas from '../FreeformCanvas';
 import type { Dashboard, FloatingZone } from '../lib/types';
 import { useStore } from '../../../../store';
+import AnalystProLayout from '../../modes/AnalystProLayout';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -88,6 +89,7 @@ function resetStore() {
     analystProHistory: null,
     analystProDragState: null,
     analystProSnapEnabled: false, // disable snap for deterministic deltas
+    analystProHoveredZoneId: null,
   });
 }
 
@@ -335,5 +337,69 @@ describe('FreeformCanvas — Plan 2b T5: locked zone enforcement', () => {
     const lockedZone = afterDash?.floatingLayer.find((f) => f.id === 'locked-float');
     expect(lockedZone).toBeDefined();
     expect(lockedZone!.x).toBe(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plan 5a T8: ZoneFrame render + edge hotzones + hover store
+// ---------------------------------------------------------------------------
+
+describe('FreeformCanvas integration — ZoneFrame (Plan 5a)', () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('renders a ZoneFrame wrapper around every leaf zone', () => {
+    const tiles = [
+      { id: 'w1', chart_spec: { mark: 'bar' }, question: 'q', sql: 'SELECT 1' },
+      { id: 'w2', chart_spec: { mark: 'line' }, question: 'q', sql: 'SELECT 1' },
+    ];
+    render(
+      <AnalystProLayout
+        tiles={tiles}
+        dashboardId="d1"
+        dashboardName="d"
+        size={{ mode: 'fixed', preset: 'desktop' }}
+      />,
+    );
+    expect(document.querySelectorAll('.analyst-pro-zone-frame').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('each ZoneFrame exposes 8 edge hotzones', () => {
+    const tiles = [{ id: 'w1', chart_spec: { mark: 'bar' }, question: 'q', sql: 'SELECT 1' }];
+    render(
+      <AnalystProLayout
+        tiles={tiles}
+        dashboardId="d1"
+        dashboardName="d"
+        size={{ mode: 'fixed', preset: 'desktop' }}
+      />,
+    );
+    const frame = document.querySelector('.analyst-pro-zone-frame');
+    expect(frame).not.toBeNull();
+    expect(frame!.querySelectorAll('.analyst-pro-zone-frame__edge').length).toBe(8);
+  });
+
+  it('hovering a zone sets analystProHoveredZoneId in the store', () => {
+    const tiles = [{ id: 'w1', chart_spec: { mark: 'bar' }, question: 'q', sql: 'SELECT 1' }];
+    render(
+      <AnalystProLayout
+        tiles={tiles}
+        dashboardId="d1"
+        dashboardName="d"
+        size={{ mode: 'fixed', preset: 'desktop' }}
+      />,
+    );
+    const frame = document.querySelector('.analyst-pro-zone-frame') as HTMLElement;
+    expect(frame).not.toBeNull();
+    fireEvent.mouseEnter(frame);
+    const zoneId = frame.getAttribute('data-zone-id');
+    expect(useStore.getState().analystProHoveredZoneId).toBe(zoneId);
+    fireEvent.mouseLeave(frame);
+    expect(useStore.getState().analystProHoveredZoneId).toBeNull();
   });
 });
