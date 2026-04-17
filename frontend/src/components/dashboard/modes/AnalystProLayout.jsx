@@ -2,7 +2,6 @@
 import { useMemo } from 'react';
 import FreeformCanvas from '../freeform/FreeformCanvas';
 import SizeToggleDropdown from '../freeform/SizeToggleDropdown';
-import DashboardTileCanvas from '../lib/DashboardTileCanvas';
 import ObjectLibraryPanel from '../freeform/panels/ObjectLibraryPanel';
 import LayoutTreePanel from '../freeform/panels/LayoutTreePanel';
 import AlignmentToolbar from '../freeform/panels/AlignmentToolbar';
@@ -10,6 +9,7 @@ import StructureToolbar from '../freeform/panels/StructureToolbar';
 import LayoutOverlayToggle from '../freeform/panels/LayoutOverlayToggle';
 import ActionsMenuButton from '../freeform/panels/ActionsMenuButton';
 import ActionsDialog from '../freeform/panels/ActionsDialog';
+import AnalystProWorksheetTile from '../freeform/AnalystProWorksheetTile';
 import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
 import { useStore } from '../../../store';
 
@@ -61,7 +61,14 @@ export default function AnalystProLayout({
       if (zone.type === 'worksheet' && zone.worksheetRef) {
         const tile = tiles.find((t) => String(t.id) === zone.worksheetRef);
         if (!tile) return null;
-        return <DashboardTileCanvas tile={tile} onTileClick={onTileClick} />;
+        // Plan 4a: route through the filter-aware wrapper.
+        return (
+          <AnalystProWorksheetTile
+            tile={tile}
+            sheetId={zone.worksheetRef}
+            onTileClick={onTileClick}
+          />
+        );
       }
       // Plan 2: text / filter / legend / parameter / image / webpage / blank renderers.
       if (zone.type === 'blank') {
