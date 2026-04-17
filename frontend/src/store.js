@@ -1187,6 +1187,59 @@ export const useStore = create((set, get) => ({
     get().pushAnalystProHistory(nextDash);
   },
 
+  // Plan 5d: patch arbitrary zone fields (innerPadding, outerPadding, background,
+  // border, showTitle, showCaption, fitMode, ...). Deep-equal short-circuit
+  // prevents slider-drag sprays from flooding the 500-entry history stack.
+  setZonePropertyAnalystPro: (zoneId, patch) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash || !zoneId || !patch || typeof patch !== 'object') return;
+
+    const isSameValue = (a, b) => {
+      if (a === b) return true;
+      if (a == null || b == null) return false;
+      if (typeof a !== 'object' || typeof b !== 'object') return false;
+      try {
+        return JSON.stringify(a) === JSON.stringify(b);
+      } catch {
+        return false;
+      }
+    };
+    const patchMatches = (zone) =>
+      Object.keys(patch).every((k) => isSameValue(zone[k], patch[k]));
+
+    const floatingIdx = dash.floatingLayer.findIndex((z) => z.id === zoneId);
+    let nextDash = dash;
+    if (floatingIdx >= 0) {
+      const current = dash.floatingLayer[floatingIdx];
+      if (patchMatches(current)) return;
+      const nextFloating = [...dash.floatingLayer];
+      nextFloating[floatingIdx] = { ...current, ...patch };
+      nextDash = { ...dash, floatingLayer: nextFloating };
+    } else {
+      let found = false;
+      const patchInTree = (zone) => {
+        if (found) return zone;
+        if (zone.id === zoneId) {
+          found = true;
+          if (patchMatches(zone)) return zone;
+          return { ...zone, ...patch };
+        }
+        if (zone.children) {
+          const nextChildren = zone.children.map(patchInTree);
+          if (nextChildren.some((c, i) => c !== zone.children[i])) {
+            return { ...zone, children: nextChildren };
+          }
+        }
+        return zone;
+      };
+      const nextRoot = patchInTree(dash.tiledRoot);
+      if (nextRoot === dash.tiledRoot) return;
+      nextDash = { ...dash, tiledRoot: nextRoot };
+    }
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash);
+  },
+
   // Plan 4e: tree drag-to-reorder
   reorderZoneAnalystPro: (sourceId, targetId, position) => {
     const { analystProDashboard: dash } = get();
