@@ -4316,7 +4316,6 @@ html.theme-transitioning *::after {
   background: var(--bg-elevated, rgba(255, 255, 255, 0.04));
   border-bottom: 1px solid var(--border-default, rgba(255, 255, 255, 0.08));
   font-size: 11px;
-  font-family: 'Inter', system-ui, sans-serif;
   color: var(--text-primary, #e5e7eb);
   user-select: none;
   gap: 4px;
@@ -4328,7 +4327,7 @@ html.theme-transitioning *::after {
   align-items: center;
   justify-content: center;
   cursor: move;
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted, #5c5f66);
   font-size: 12px;
   line-height: 1;
   flex-shrink: 0;
@@ -4376,7 +4375,7 @@ html.theme-transitioning *::after {
   justify-content: center;
   border: none;
   background: transparent;
-  color: var(--text-muted, #9ca3af);
+  color: var(--text-muted, #5c5f66);
   border-radius: 3px;
   cursor: pointer;
   font-size: 12px;
@@ -4390,4 +4389,13 @@ html.theme-transitioning *::after {
 .analyst-pro-zone-frame__action:focus-visible {
   outline: 2px solid var(--accent, #3b82f6);
   outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .analyst-pro-zone-frame,
+  .analyst-pro-zone-frame__actions {
+    transition: none;
+  }
+  .analyst-pro-zone-frame__actions {
+    opacity: 1;
+  }
 }
