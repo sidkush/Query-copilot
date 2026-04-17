@@ -162,11 +162,19 @@ class AskRequest(BaseModel):
     conn_id: Optional[str] = None
 
 
+class _AdditionalFilter(BaseModel):
+    field: str
+    op: str = "eq"
+    value: Optional[object] = None
+
+
 class ExecuteRequest(BaseModel):
     sql: str
     question: str = ""
     conn_id: Optional[str] = None
     original_sql: Optional[str] = None  # AI-generated SQL before user edits
+    # Plan 4a: optional filter predicates injected by Analyst Pro action cascade.
+    additional_filters: Optional[list[_AdditionalFilter]] = None
 
 
 class FeedbackRequest(BaseModel):
@@ -247,6 +255,35 @@ def execute_sql(req: ExecuteRequest, user: dict = Depends(get_current_user)):
     """Step 2: Execute user-approved SQL against the database."""
     from main import app
     email = user["email"]
+
+    # Plan 4a: wrap SQL with additional_filters before validation/execution.
+    if req.additional_filters:
+        from sql_filter_injector import (
+            inject_additional_filters,
+            FilterInjectionError,
+        )
+        try:
+            filters_payload = [f.model_dump() for f in req.additional_filters]
+            req.sql = inject_additional_filters(req.sql, filters_payload)
+        except FilterInjectionError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid filter injection: {exc}",
+            )
+        try:
+            from audit_trail import _append_entry as _audit_append
+            from datetime import datetime, timezone
+            _audit_append({
+                "event": "filter_applied",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "conn_id": req.conn_id or "",
+                "user": email,
+                "filter_count": len(filters_payload),
+                "filter_fields": [f["field"] for f in filters_payload],
+            })
+        except Exception:
+            # Audit must never break a query.
+            pass
 
     # Check daily limit before executing
     usage = get_daily_usage(email)
