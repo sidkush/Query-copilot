@@ -629,6 +629,8 @@ def update_dashboard(email: str, dashboard_id: str, updates: dict) -> Optional[d
                     "tiledRoot", "floatingLayer", "worksheets",
                     "parameters", "sets", "actions", "globalStyle",
                     "layout",
+                    # Plan 6a — device-layout overrides (Build_Tableau §IX.5)
+                    "deviceLayouts",
                 ):
                     if key in updates:
                         d[key] = updates[key]

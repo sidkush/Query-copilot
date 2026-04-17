@@ -427,8 +427,10 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
     existing_actions = legacy.get("actions") if isinstance(legacy.get("actions"), list) else []
     existing_sets = legacy.get("sets") if isinstance(legacy.get("sets"), list) else []
     existing_parameters = legacy.get("parameters") if isinstance(legacy.get("parameters"), list) else []
+    # Plan 6a — carry device-layout overrides through migration (Build_Tableau §IX.5).
+    existing_device_layouts = legacy.get("deviceLayouts") if isinstance(legacy.get("deviceLayouts"), dict) else None
 
-    return {
+    result: dict = {
         "schemaVersion": "askdb/dashboard/v1",
         "id": str(dashboard_id),
         "name": name,
@@ -442,6 +444,9 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
         "actions": existing_actions,
         "globalStyle": {},
     }
+    if existing_device_layouts is not None:
+        result["deviceLayouts"] = existing_device_layouts
+    return result
 
 
 def _flat_tiles_to_vert_root(tiles: list) -> dict:
