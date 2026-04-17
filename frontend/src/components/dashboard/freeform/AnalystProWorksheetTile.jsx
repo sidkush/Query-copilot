@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import DashboardTileCanvas from '../lib/DashboardTileCanvas';
 import { api } from '../../../api';
 import { useStore } from '../../../store';
+import { applyHighlightToSpec, mergeMarkIntoHighlight } from './lib/highlightFilter';
+import { publish as publishMarkEvent } from './lib/markEventBus';
 
 const TOKEN_RE = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 
@@ -40,6 +42,9 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
   const cascadeToken = useStore((s) => s.analystProActionCascadeToken);
   const markStatus = useStore((s) => s.markCascadeTargetStatus);
   const connId = useStore((s) => s.activeConnId);
+  const highlight = useStore((s) => s.analystProSheetHighlights[sheetId] || null);
+  const setSheetHighlight = useStore((s) => s.setSheetHighlightAnalystPro);
+  const clearSheetHighlight = useStore((s) => s.clearSheetHighlightAnalystPro);
 
   const [override, setOverride] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -91,22 +96,51 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
   }, [filters, parameters, tileHasTokens, sheetId, tile?.sql, tile?.question, connId]);
 
   const autosize = fitModeToAutosize(fitMode);
-  const tileWithAutosize = useMemo(() => {
-    if (!autosize || !tile) return tile;
-    const spec = tile.chart_spec || tile.chartSpec;
-    if (!spec) return tile;
+  const decoratedTile = useMemo(() => {
+    if (!tile) return tile;
+    const baseSpec = tile.chart_spec || tile.chartSpec;
+    if (!baseSpec) return tile;
+    let nextSpec = baseSpec;
+    if (autosize) nextSpec = { ...nextSpec, autosize };
+    nextSpec = applyHighlightToSpec(nextSpec, highlight);
+    if (nextSpec === baseSpec) return tile;
     const next = { ...tile };
-    if (tile.chart_spec) next.chart_spec = { ...spec, autosize };
-    if (tile.chartSpec && !tile.chart_spec) next.chartSpec = { ...spec, autosize };
+    if (tile.chart_spec) next.chart_spec = nextSpec;
+    if (tile.chartSpec && !tile.chart_spec) next.chartSpec = nextSpec;
     return next;
-  }, [tile, autosize]);
+  }, [tile, autosize, highlight]);
+
+  const handleMarkSelect = useCallback((selSheetId, fields, opts) => {
+    if (!selSheetId) return;
+    if (fields === null) {
+      clearSheetHighlight(selSheetId);
+      publishMarkEvent({
+        sourceSheetId: selSheetId,
+        trigger: 'select',
+        markData: {},
+        timestamp: Date.now(),
+      });
+      return;
+    }
+    const next = mergeMarkIntoHighlight(highlight, fields, !!opts?.shiftKey);
+    if (next === null) clearSheetHighlight(selSheetId);
+    else setSheetHighlight(selSheetId, next);
+    publishMarkEvent({
+      sourceSheetId: selSheetId,
+      trigger: 'select',
+      markData: fields,
+      timestamp: Date.now(),
+    });
+  }, [highlight, setSheetHighlight, clearSheetHighlight]);
 
   return (
     <>
       <DashboardTileCanvas
-        tile={tileWithAutosize}
+        tile={decoratedTile}
         onTileClick={onTileClick}
         resultSetOverride={override}
+        sheetId={sheetId}
+        onMarkSelect={handleMarkSelect}
       />
       {errorMsg ? (
         <div
