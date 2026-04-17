@@ -1,5 +1,5 @@
 // frontend/src/components/dashboard/modes/AnalystProLayout.jsx
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import FreeformCanvas from '../freeform/FreeformCanvas';
 import SizeToggleDropdown from '../freeform/SizeToggleDropdown';
 import ObjectLibraryPanel from '../freeform/panels/ObjectLibraryPanel';
@@ -13,6 +13,7 @@ import SetsPanel from '../freeform/panels/SetsPanel';
 import ParametersPanel from '../freeform/panels/ParametersPanel';
 import ZonePropertiesPanel from '../freeform/panels/ZonePropertiesPanel';
 import AnalystProWorksheetTile from '../freeform/AnalystProWorksheetTile';
+import ZoneFrame from '../freeform/ZoneFrame';
 import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
 import { useStore } from '../../../store';
 
@@ -59,27 +60,56 @@ export default function AnalystProLayout({
     size,
   ]);
 
+  const handleQuickAction = useCallback((action, zone, event) => {
+    // Plan 5a: quick-action dispatch stub. Plan 5c replaces this with a real
+    // context-menu mount; Plan 5d wires 'fit' and 'close' to zone ops.
+    void event;
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug('[AnalystPro] quick-action', action, zone?.id);
+    }
+  }, []);
+
+  const handleZoneContextMenu = useCallback((event, zone) => {
+    // Plan 5a: placeholder. Plan 5c mounts the real context menu here and
+    // consumes this event.
+    void event;
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug('[AnalystPro] context-menu', zone?.id);
+    }
+  }, []);
+
   const renderLeaf = useMemo(() => {
-    return (zone) => {
+    return (zone, resolved) => {
+      let content = null;
       if (zone.type === 'worksheet' && zone.worksheetRef) {
         const tile = tiles.find((t) => String(t.id) === zone.worksheetRef);
-        if (!tile) return null;
-        // Plan 4a: route through the filter-aware wrapper.
-        return (
-          <AnalystProWorksheetTile
-            tile={tile}
-            sheetId={zone.worksheetRef}
-            onTileClick={onTileClick}
-          />
-        );
+        if (tile) {
+          content = (
+            <AnalystProWorksheetTile
+              tile={tile}
+              sheetId={zone.worksheetRef}
+              onTileClick={onTileClick}
+            />
+          );
+        }
+      } else if (zone.type === 'blank') {
+        content = <div data-testid={`blank-${zone.id}`} style={{ width: '100%', height: '100%' }} />;
       }
-      // Plan 2: text / filter / legend / parameter / image / webpage / blank renderers.
-      if (zone.type === 'blank') {
-        return <div data-testid={`blank-${zone.id}`} style={{ width: '100%', height: '100%' }} />;
-      }
-      return null;
+
+      return (
+        <ZoneFrame
+          zone={zone}
+          resolved={resolved}
+          onQuickAction={handleQuickAction}
+          onContextMenu={handleZoneContextMenu}
+        >
+          {content}
+        </ZoneFrame>
+      );
     };
-  }, [tiles, onTileClick]);
+  }, [tiles, onTileClick, handleQuickAction, handleZoneContextMenu]);
 
   return (
     <div
