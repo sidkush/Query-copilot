@@ -8,6 +8,9 @@ import LayoutTreePanel from '../freeform/panels/LayoutTreePanel';
 import AlignmentToolbar from '../freeform/panels/AlignmentToolbar';
 import StructureToolbar from '../freeform/panels/StructureToolbar';
 import LayoutOverlayToggle from '../freeform/panels/LayoutOverlayToggle';
+import ActionsMenuButton from '../freeform/panels/ActionsMenuButton';
+import ActionsDialog from '../freeform/panels/ActionsDialog';
+import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
 import { useStore } from '../../../store';
 
 /** Thin vertical divider for the top toolbar. */
@@ -39,6 +42,8 @@ export default function AnalystProLayout({
   onSizeChange,
   size,
 }) {
+  useActionRuntime();
+
   const snapEnabled = useStore((s) => s.analystProSnapEnabled);
   const setSnapEnabled = useStore((s) => s.setAnalystProSnapEnabled);
 
@@ -117,6 +122,8 @@ export default function AnalystProLayout({
         <StructureToolbar />
         <Separator />
         <LayoutOverlayToggle />
+        <Separator />
+        <ActionsMenuButton />
       </div>
 
       {/* Body row: left rail + canvas */}
@@ -143,6 +150,9 @@ export default function AnalystProLayout({
           <FreeformCanvas dashboard={dashboard} renderLeaf={renderLeaf} />
         </div>
       </div>
+
+      {/* Actions modal overlay */}
+      <ActionsDialog />
     </div>
   );
 }
