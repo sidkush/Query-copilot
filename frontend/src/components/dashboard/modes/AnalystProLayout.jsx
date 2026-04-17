@@ -10,6 +10,7 @@ import StructureToolbar from '../freeform/panels/StructureToolbar';
 import LayoutOverlayToggle from '../freeform/panels/LayoutOverlayToggle';
 import ActionsMenuButton from '../freeform/panels/ActionsMenuButton';
 import UndoRedoToolbar from '../freeform/panels/UndoRedoToolbar';
+import HistoryInspectorPanel from '../freeform/panels/HistoryInspectorPanel';
 import ActionsDialog from '../freeform/panels/ActionsDialog';
 import SetsPanel from '../freeform/panels/SetsPanel';
 import ParametersPanel from '../freeform/panels/ParametersPanel';
@@ -232,6 +233,7 @@ export default function AnalystProLayout({
             overflow: 'auto',
           }}
         >
+          <HistoryInspectorPanel />
           <ZonePropertiesPanel />
         </div>
       </div>

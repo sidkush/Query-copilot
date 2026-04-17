@@ -135,6 +135,14 @@ export function useKeyboardShortcuts({ canvasRef } = {}) {
         return;
       }
 
+      // Plan 6b — Cmd/Ctrl+H toggles history inspector
+      if (mod && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        const toggle = useStore.getState().toggleHistoryPanelAnalystPro;
+        if (toggle) toggle();
+        return;
+      }
+
       if ((e.key === ']' || e.key === '[') && dashboard) {
         const forward = e.key === ']';
         const big = e.shiftKey;
