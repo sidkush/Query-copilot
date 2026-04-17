@@ -82,6 +82,17 @@ export interface VegaRendererProps {
    * type 'interval'. Used by useTileLinking for brush-to-detail filtering.
    */
   onBrush?: (field: string, range: [number, number] | null) => void;
+  /** Stable identifier for the worksheet/zone the renderer lives in.
+   *  Only Analyst Pro tiles set this — when present, click events on data
+   *  marks invoke `onMarkSelect`. */
+  sheetId?: string;
+  /** Fired on click of a data mark (with datum fields stripped of Vega's
+   *  internal `_*` / `__*` keys) or on empty-area click (with `null`). */
+  onMarkSelect?: (
+    sheetId: string,
+    fields: Record<string, unknown> | null,
+    opts: { shiftKey: boolean },
+  ) => void;
 }
 
 type Row = Record<string, unknown>;
@@ -113,6 +124,8 @@ export default function VegaRenderer({
   colorMap,
   onDrillthrough,
   onBrush,
+  sheetId,
+  onMarkSelect,
 }: VegaRendererProps) {
   // One-time deprecation warning in dev — rollback path preserved.
   useEffect(() => {
@@ -275,6 +288,18 @@ export default function VegaRenderer({
         }
       }
     }
+    // Plan 6d: mark-select click handler. Only wired for Analyst Pro tiles
+    // (sheetId set). Empty-area click clears; mark click selects with shift
+    // modifier forwarded so the parent can decide additive vs replace.
+    if (sheetId && onMarkSelect) {
+      view.addEventListener('click', (event: MouseEvent, item: { datum?: Record<string, unknown> } | null) => {
+        if (item?.datum) {
+          onMarkSelect(sheetId, datumToFields(item.datum), { shiftKey: !!event.shiftKey });
+        } else {
+          onMarkSelect(sheetId, null, { shiftKey: !!event.shiftKey });
+        }
+      });
+    }
     // Viz-in-Tooltip: show a mini sparkline tooltip on data point hover.
     view.addEventListener('mouseover', (event: MouseEvent, item: { datum?: Record<string, unknown> } | null) => {
       if (item?.datum) {
@@ -284,7 +309,7 @@ export default function VegaRenderer({
     view.addEventListener('mouseout', () => {
       setTooltipState(prev => ({ ...prev, visible: false }));
     });
-  }, [handleNewView, spec, onDrillthrough, onBrush]);
+  }, [handleNewView, spec, onDrillthrough, onBrush, sheetId, onMarkSelect]);
 
   useEffect(() => {
     if (!isStreaming || !resultSet?.columns) return;
@@ -501,6 +526,17 @@ export default function VegaRenderer({
       )}
     </div>
   );
+}
+
+/** Strip Vega-internal keys (`_*`, `__*`) from a datum so callers see only
+ *  the encoded field values. */
+function datumToFields(datum: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(datum)) {
+    if (k.startsWith('_') || k.startsWith('__')) continue;
+    out[k] = v;
+  }
+  return out;
 }
 
 /** Convert array-of-arrays rows to array-of-objects keyed by column name. */
