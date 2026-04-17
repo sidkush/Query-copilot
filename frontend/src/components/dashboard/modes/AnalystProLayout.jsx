@@ -10,6 +10,7 @@ import LayoutOverlayToggle from '../freeform/panels/LayoutOverlayToggle';
 import ActionsMenuButton from '../freeform/panels/ActionsMenuButton';
 import ActionsDialog from '../freeform/panels/ActionsDialog';
 import SetsPanel from '../freeform/panels/SetsPanel';
+import ParametersPanel from '../freeform/panels/ParametersPanel';
 import AnalystProWorksheetTile from '../freeform/AnalystProWorksheetTile';
 import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
 import { useStore } from '../../../store';
@@ -152,6 +153,7 @@ export default function AnalystProLayout({
             <LayoutTreePanel />
           </div>
           <SetsPanel />
+          <ParametersPanel />
         </div>
 
         {/* Main canvas */}
