@@ -1,0 +1,70 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { useStore } from '../../../../store';
+import ContextMenu from '../ContextMenu';
+
+function resetStore() {
+  useStore.setState({
+    analystProContextMenu: null,
+    analystProDashboard: {
+      schemaVersion: 'askdb/dashboard/v1', id: 'd', name: 't', archetype: 'analyst-pro',
+      size: { mode: 'automatic' },
+      tiledRoot: { id: 'root', type: 'container-vert', w: 100000, h: 100000, children: [] },
+      floatingLayer: [], worksheets: [], parameters: [], sets: [], actions: [],
+    },
+  });
+}
+
+beforeEach(resetStore);
+
+describe('<ContextMenu /> portal shell', () => {
+  it('renders nothing while analystProContextMenu is null', () => {
+    render(<ContextMenu />);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('renders the menu when the slice is populated', () => {
+    render(<ContextMenu />);
+    act(() => {
+      useStore.setState({
+        analystProContextMenu: {
+          x: 100, y: 100, zoneId: null,
+          items: [
+            { kind: 'command', id: 'canvas.paste', label: 'Paste' },
+          ],
+        },
+      });
+    });
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByText('Paste')).toBeInTheDocument();
+  });
+
+  it('closes on Escape', () => {
+    render(<ContextMenu />);
+    act(() => {
+      useStore.setState({
+        analystProContextMenu: {
+          x: 100, y: 100, zoneId: null,
+          items: [{ kind: 'command', id: 'canvas.paste', label: 'Paste' }],
+        },
+      });
+    });
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('closes on click-away (pointerdown outside the menu)', () => {
+    render(<ContextMenu />);
+    act(() => {
+      useStore.setState({
+        analystProContextMenu: {
+          x: 100, y: 100, zoneId: null,
+          items: [{ kind: 'command', id: 'canvas.paste', label: 'Paste' }],
+        },
+      });
+    });
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+});
