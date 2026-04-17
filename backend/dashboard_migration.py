@@ -110,6 +110,14 @@ def _normalize_child_proportion(value, fallback: int) -> int:
     return max(_MIN_PROPORTION, n)
 
 
+def _safe_int(value, default: int) -> int:
+    """Coerce value to int, returning `default` on None / non-numeric input."""
+    try:
+        return int(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
 @dataclass
 class MigrationStats:
     tiles_total: int = 0
@@ -436,7 +444,10 @@ def _flat_tiles_to_vert_root(tiles: list) -> dict:
         # Re-normalize after clamping to MIN_PROPORTION.
         sum_h = sum(c["h"] for c in children)
         if sum_h != 100000 and children:
-            children[-1]["h"] += 100000 - sum_h
+            drift = 100000 - sum_h
+            if children[-1]["h"] + drift >= _MIN_PROPORTION:
+                children[-1]["h"] += drift
+            # else: accept drift — renderer rescales proportionally.
     return {
         "id": "root",
         "type": "container-vert",
@@ -453,19 +464,19 @@ def _tiles_to_floating_layer(tiles: list) -> list:
         tid = str(t.get("id", f"f{i}"))
         ztype = _resolve_tile_type(t)
         display = t.get("displayName") or t.get("title")
-        w_px = max(100, int(t.get("w") or 320))
-        h_px = max(100, int(t.get("h") or 200))
+        w_px = max(100, _safe_int(t.get("w"), 320))
+        h_px = max(100, _safe_int(t.get("h"), 200))
         zone: dict = {
             "id": tid,
             "type": ztype,
             "w": 0,
             "h": 0,
             "floating": True,
-            "x": int(t.get("x") or 0),
-            "y": int(t.get("y") or 0),
+            "x": _safe_int(t.get("x"), 0),
+            "y": _safe_int(t.get("y"), 0),
             "pxW": w_px,
             "pxH": h_px,
-            "zIndex": int(t.get("zIndex") or i + 1),
+            "zIndex": _safe_int(t.get("zIndex"), i + 1),
         }
         if ztype == "worksheet":
             zone["worksheetRef"] = tid
