@@ -1,46 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store';
-import DashboardModeToggle from './DashboardModeToggle';
 import { BreathingDot, SPRINGS } from './motion';
 import { TOKENS } from './tokens';
-
-/**
- * Auto-map table: archetype → default edit mode.
- * Override persists per-dashboard until archetype changes.
- */
-const ARCHETYPE_EDIT_MAP = {
-  briefing:  'default',
-  workbench: 'pro',
-  ops:       'default',
-  story:     'default',
-  pitch:     'stage',
-  tableau:   'pro',
-};
-
-const EDIT_MODES = [
-  { id: 'default', label: 'Default' },
-  { id: 'pro',     label: 'Pro' },
-  { id: 'stage',   label: 'Stage' },
-];
 
 const T = TOKENS.topBar;
 
 /**
  * DashboardTopBar — SP-1 shell chrome.
  *
- * Layout: [Logo + Breadcrumb] ... [Archetype Pill] [Edit Badge] ... [Share] [Save]
+ * Layout: [Logo + Breadcrumb] ... [Share] [Save]
  * Height: 52px. Glass morphism background.
+ *
+ * Wave 2-A (2026-04-18 preset infrastructure plan) removed the archetype
+ * pill + edit-mode badge. Wave 3 reintroduces a preset switcher in the
+ * center slot driven by the preset registry.
  */
 export default function DashboardTopBar({
   dashboardName,
   orgName,
   workspaceName,
-  archetypeMode,
-  archetypeModes,
-  onArchetypeChange,
-  editMode,
-  onEditModeChange,
   onNameChange,
   onShare,
   onSave,
@@ -48,30 +27,16 @@ export default function DashboardTopBar({
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(dashboardName || '');
-  const [badgeOpen, setBadgeOpen] = useState(false);
   const inputRef = useRef(null);
-  const badgeRef = useRef(null);
   const agentLoading = useStore((s) => s.agentLoading);
 
   useEffect(() => { setName(dashboardName || ''); }, [dashboardName]);
   useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
 
-  // Close badge dropdown on outside click
-  useEffect(() => {
-    if (!badgeOpen) return;
-    const handle = (e) => {
-      if (badgeRef.current && !badgeRef.current.contains(e.target)) setBadgeOpen(false);
-    };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, [badgeOpen]);
-
   const saveName = () => {
     setEditing(false);
     if (name.trim() && name.trim() !== dashboardName) onNameChange?.(name.trim());
   };
-
-  const modeColors = T.editMode[editMode] || T.editMode.default;
 
   return (
     <div
@@ -248,115 +213,7 @@ export default function DashboardTopBar({
         </div>
       </div>
 
-      {/* ═══ CENTER-RIGHT: Archetype Pill + Edit Mode Badge ═══ */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <DashboardModeToggle
-          modes={archetypeModes}
-          activeMode={archetypeMode}
-          onChange={onArchetypeChange}
-        />
-
-        {/* Edit mode badge */}
-        <div ref={badgeRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setBadgeOpen((v) => !v)}
-            className="premium-btn"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              borderRadius: 6,
-              background: modeColors.bg,
-              border: `1px solid ${modeColors.border}`,
-              cursor: 'pointer',
-              transition: 'all 150ms ease',
-            }}
-            aria-label={`Edit mode: ${editMode}. Click to change.`}
-            title="Click to override edit mode"
-          >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: modeColors.dot,
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ fontSize: 11, fontWeight: 600, color: modeColors.label, letterSpacing: '0.02em' }}>
-              {editMode === 'default' ? 'Default' : editMode === 'pro' ? 'Pro' : 'Stage'}
-            </span>
-          </button>
-
-          {/* Override dropdown */}
-          <AnimatePresence>
-            {badgeOpen && (
-              <>
-                <div onClick={() => setBadgeOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.12 }}
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 6px)',
-                    right: 0,
-                    minWidth: 140,
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 8,
-                    boxShadow: '0 12px 32px -8px var(--shadow-deep)',
-                    zIndex: 100,
-                    padding: 4,
-                  }}
-                >
-                  <div style={{ padding: '4px 8px 2px', fontSize: 9, fontWeight: 600, color: TOKENS.text.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Edit Mode
-                  </div>
-                  {EDIT_MODES.map((m) => {
-                    const c = T.editMode[m.id];
-                    const active = m.id === editMode;
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => { onEditModeChange?.(m.id); setBadgeOpen(false); }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          width: '100%',
-                          padding: '6px 8px',
-                          borderRadius: 5,
-                          background: active ? c.bg : 'transparent',
-                          border: 'none',
-                          color: active ? c.label : TOKENS.text.secondary,
-                          fontSize: 11.5,
-                          fontWeight: active ? 600 : 400,
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          transition: 'background 100ms ease',
-                        }}
-                        onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--bg-hover)'; }}
-                        onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
-                      >
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot, flexShrink: 0 }} />
-                        {m.label}
-                        {active && (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', opacity: 0.7 }}>
-                            <path d="M20 6L9 17l-5-5" />
-                          </svg>
-                        )}
-                      </button>
-                    );
-                  })}
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+      {/* ═══ CENTER-RIGHT slot — reserved for DashboardPresetSwitcher (Wave 3) ═══ */}
 
       {/* ═══ RIGHT: Share + Save ═══ */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -415,4 +272,3 @@ export default function DashboardTopBar({
   );
 }
 
-export { ARCHETYPE_EDIT_MAP };
