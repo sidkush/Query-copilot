@@ -95,13 +95,29 @@ export default function FreeformCanvas({ dashboard: dashboardProp, renderLeaf })
   const sheetRef = useRef(null);
   const spaceHeldRef = useRef(false);
 
+  // Plan 7 T11 — reseed the store when the server-authored tree identity
+  // changes, even when the dashboard id is unchanged. Covers the case of
+  // the parent re-hydrating from a fresh GET (authored layout) mid-session.
+  // Guards against wipe-cycles: the last-seeded serialized tree is cached
+  // in a ref, so an identical prop object produces no store write.
+  const lastSeededSerializedRef = useRef(null);
+  const lastSeededIdRef = useRef(null);
   useEffect(() => {
-    if (dashboardProp) {
+    if (!dashboardProp) return;
+    const serialized = JSON.stringify({
+      tr: dashboardProp.tiledRoot ?? null,
+      fl: dashboardProp.floatingLayer ?? null,
+      sz: dashboardProp.size ?? null,
+    });
+    const idChanged = lastSeededIdRef.current !== dashboardProp.id;
+    const treeChanged = lastSeededSerializedRef.current !== serialized;
+    if (idChanged || treeChanged) {
       initHistory(dashboardProp);
       setDashboardInStore(dashboardProp);
+      lastSeededIdRef.current = dashboardProp.id;
+      lastSeededSerializedRef.current = serialized;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dashboardProp?.id, initHistory, setDashboardInStore]);
+  }, [dashboardProp, initHistory, setDashboardInStore]);
 
   // Plan 6a — Space-hold tracking for pan gesture
   useEffect(() => {
