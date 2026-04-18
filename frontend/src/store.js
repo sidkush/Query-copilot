@@ -897,6 +897,38 @@ export const useStore = create((set, get) => ({
   clearAllSheetFiltersAnalystPro: () =>
     set({ analystProSheetFilters: {} }),
 
+  viewDataDrawer: {
+    open: false,
+    sheetId: null,
+    connId: null,
+    sql: null,
+    markSelection: {},
+  },
+
+  openViewDataDrawer: ({ sheetId, connId, sql, markSelection } = {}) => {
+    if (!sheetId || !sql) return;
+    set({
+      viewDataDrawer: {
+        open: true,
+        sheetId,
+        connId: connId ?? null,
+        sql,
+        markSelection: markSelection && typeof markSelection === 'object' ? markSelection : {},
+      },
+    });
+  },
+
+  closeViewDataDrawer: () =>
+    set({
+      viewDataDrawer: {
+        open: false,
+        sheetId: null,
+        connId: null,
+        sql: null,
+        markSelection: {},
+      },
+    }),
+
   setSheetHighlightAnalystPro: (sheetId, fieldValues) => {
     if (!sheetId) return;
     set((s) => ({
