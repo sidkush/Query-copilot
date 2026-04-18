@@ -502,3 +502,90 @@ export function wrapInContainer(
     ? nextParent
     : mapTree(root, (zone) => (zone.id === parent.id ? nextParent : zone));
 }
+
+/**
+ * Distribute Evenly (Tableau §IX.3) — override per-child weights, set every
+ * child's split-axis proportion to 100000 / n. Perpendicular axis untouched.
+ * Drift from integer division is absorbed into the last child so the sum is
+ * exactly 100000.
+ *
+ * Returns identity when:
+ *   - containerId not found
+ *   - target is not a container
+ *   - container has fewer than 2 children
+ */
+export function distributeEvenly(root: Zone, containerId: string): Zone {
+  const target = findZoneInTree(root, containerId);
+  if (!target || !isContainer(target)) return root;
+  if (target.children.length < 2) return root;
+
+  return mapTree(root, (zone) => {
+    if (zone.id !== containerId || !isContainer(zone)) return zone;
+    const axis: 'w' | 'h' = zone.type === 'container-horz' ? 'w' : 'h';
+    const n = zone.children.length;
+    const share = Math.floor(100000 / n);
+    const nextChildren = zone.children.map((c) => ({ ...c, [axis]: share })) as Zone[];
+    const drift = 100000 - share * n;
+    if (drift !== 0) {
+      const last = nextChildren[n - 1] as Zone & { w: number; h: number };
+      nextChildren[n - 1] = { ...last, [axis]: last[axis] + drift } as Zone;
+    }
+    return { ...zone, children: nextChildren };
+  });
+}
+
+/**
+ * Fit Container to Content (Tableau §IX.3) — compute the container's natural
+ * pixel size from measured child sizes and write it to `sizeOverride`.
+ *   - Split axis: sum of children pixel sizes along that axis.
+ *   - Perpendicular axis: max of children pixel sizes across that axis.
+ *
+ * Missing child measurements are treated as 0 px. Children are not mutated.
+ * Returns identity when containerId is not a container.
+ */
+export function fitContainerToContent(
+  root: Zone,
+  containerId: string,
+  measuredChildSizes: Record<string, { width: number; height: number }>,
+): Zone {
+  const target = findZoneInTree(root, containerId);
+  if (!target || !isContainer(target)) return root;
+
+  return mapTree(root, (zone) => {
+    if (zone.id !== containerId || !isContainer(zone)) return zone;
+    const isHorz = zone.type === 'container-horz';
+    let sumAxis = 0;
+    let maxPerp = 0;
+    for (const child of zone.children) {
+      const m = measuredChildSizes[child.id] || { width: 0, height: 0 };
+      if (isHorz) {
+        sumAxis += m.width;
+        if (m.height > maxPerp) maxPerp = m.height;
+      } else {
+        sumAxis += m.height;
+        if (m.width > maxPerp) maxPerp = m.width;
+      }
+    }
+    const sizeOverride = isHorz
+      ? { pxW: sumAxis, pxH: maxPerp }
+      : { pxW: maxPerp, pxH: sumAxis };
+    return { ...zone, sizeOverride };
+  });
+}
+
+/**
+ * Remove Container (Tableau §IX.3) — unwrap: replace the container with its
+ * children inline inside the grandparent, then renormalize. Rejects:
+ *   - removing the root (root has no grandparent)
+ *   - id not found
+ *   - target is not a container
+ *
+ * Implementation delegates to ungroupContainer, which already handles
+ * proportional redistribution per Appendix E.11.
+ */
+export function removeContainer(root: Zone, containerId: string): Zone {
+  if (root.id === containerId) return root;
+  const target = findZoneInTree(root, containerId);
+  if (!target || !isContainer(target)) return root;
+  return ungroupContainer(root, containerId);
+}

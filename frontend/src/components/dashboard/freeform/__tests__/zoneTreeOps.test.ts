@@ -1,6 +1,14 @@
 // frontend/src/components/dashboard/freeform/__tests__/zoneTreeOps.test.ts
 import { describe, it, expect } from 'vitest';
-import { insertChild, removeChild, moveZoneAcrossContainers, wrapInContainer } from '../lib/zoneTreeOps';
+import {
+  insertChild,
+  removeChild,
+  moveZoneAcrossContainers,
+  wrapInContainer,
+  distributeEvenly,
+  fitContainerToContent,
+  removeContainer,
+} from '../lib/zoneTreeOps';
 import type { ContainerZone, LeafZone } from '../lib/types';
 
 const base = (): ContainerZone => ({
@@ -640,5 +648,244 @@ describe('wrapInContainer', () => {
     const root = build();
     expect(wrapInContainer(root, 'missing', leaf('C'), 'top')).toBe(root);
     expect(wrapInContainer(root, 'root', leaf('C'), 'top')).toBe(root);
+  });
+});
+
+describe('distributeEvenly', () => {
+  it('sets every child to 100000 / n on the split axis (horz container)', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 20000, h: 100000 },
+        { id: 'b', type: 'blank', w: 30000, h: 100000 },
+        { id: 'c', type: 'blank', w: 50000, h: 100000 },
+      ],
+    };
+    const next = distributeEvenly(root, 'root') as ContainerZone;
+    expect(next.children.map((c) => c.w)).toEqual([33333, 33333, 33334]);
+    expect(next.children.reduce((s, c) => s + c.w, 0)).toBe(100000);
+  });
+
+  it('sets every child to 100000 / n on the split axis (vert container)', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-vert',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 100000, h: 20000 },
+        { id: 'b', type: 'blank', w: 100000, h: 80000 },
+      ],
+    };
+    const next = distributeEvenly(root, 'root') as ContainerZone;
+    expect(next.children.map((c) => c.h)).toEqual([50000, 50000]);
+  });
+
+  it('returns identity when container has < 2 children', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [{ id: 'a', type: 'blank', w: 100000, h: 100000 }],
+    };
+    expect(distributeEvenly(root, 'root')).toBe(root);
+  });
+
+  it('returns identity when id is not a container', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 50000, h: 100000 },
+        { id: 'b', type: 'blank', w: 50000, h: 100000 },
+      ],
+    };
+    expect(distributeEvenly(root, 'a')).toBe(root);
+  });
+
+  it('does not mutate input tree', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 20000, h: 100000 },
+        { id: 'b', type: 'blank', w: 80000, h: 100000 },
+      ],
+    };
+    const before = JSON.stringify(root);
+    distributeEvenly(root, 'root');
+    expect(JSON.stringify(root)).toBe(before);
+  });
+});
+
+describe('fitContainerToContent', () => {
+  it('sums children pixel widths along horz split axis, max height on perp', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 50000, h: 100000 },
+        { id: 'b', type: 'blank', w: 50000, h: 100000 },
+      ],
+    };
+    const next = fitContainerToContent(root, 'root', {
+      a: { width: 200, height: 120 },
+      b: { width: 180, height: 150 },
+    }) as ContainerZone;
+    expect(next.sizeOverride).toEqual({ pxW: 380, pxH: 150 });
+    expect(next.children).toEqual(root.children);
+  });
+
+  it('sums heights along vert split axis, max width on perp', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-vert',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 100000, h: 50000 },
+        { id: 'b', type: 'blank', w: 100000, h: 50000 },
+      ],
+    };
+    const next = fitContainerToContent(root, 'root', {
+      a: { width: 320, height: 100 },
+      b: { width: 240, height: 180 },
+    }) as ContainerZone;
+    expect(next.sizeOverride).toEqual({ pxW: 320, pxH: 280 });
+  });
+
+  it('treats missing child measurements as 0 pixels', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 50000, h: 100000 },
+        { id: 'b', type: 'blank', w: 50000, h: 100000 },
+      ],
+    };
+    const next = fitContainerToContent(root, 'root', { a: { width: 200, height: 120 } }) as ContainerZone;
+    expect(next.sizeOverride).toEqual({ pxW: 200, pxH: 120 });
+  });
+
+  it('returns identity when id is not a container', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [{ id: 'a', type: 'blank', w: 100000, h: 100000 }],
+    };
+    expect(fitContainerToContent(root, 'a', {})).toBe(root);
+  });
+
+  it('does not mutate input tree', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [
+        { id: 'a', type: 'blank', w: 50000, h: 100000 },
+        { id: 'b', type: 'blank', w: 50000, h: 100000 },
+      ],
+    };
+    const before = JSON.stringify(root);
+    fitContainerToContent(root, 'root', { a: { width: 100, height: 50 }, b: { width: 100, height: 50 } });
+    expect(JSON.stringify(root)).toBe(before);
+  });
+});
+
+describe('removeContainer', () => {
+  it('unwraps a nested container into grandparent preserving order', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-vert',
+      w: 100000,
+      h: 100000,
+      children: [
+        {
+          id: 'inner',
+          type: 'container-horz',
+          w: 100000,
+          h: 50000,
+          children: [
+            { id: 'x', type: 'blank', w: 60000, h: 100000 },
+            { id: 'y', type: 'blank', w: 40000, h: 100000 },
+          ],
+        },
+        { id: 'z', type: 'blank', w: 100000, h: 50000 },
+      ],
+    };
+    const next = removeContainer(root, 'inner') as ContainerZone;
+    expect(next.children.map((c) => c.id)).toEqual(['x', 'y', 'z']);
+  });
+
+  it('renormalizes grandparent split-axis sum to 100000', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-vert',
+      w: 100000,
+      h: 100000,
+      children: [
+        {
+          id: 'inner',
+          type: 'container-vert',
+          w: 100000,
+          h: 60000,
+          children: [
+            { id: 'x', type: 'blank', w: 100000, h: 50000 },
+            { id: 'y', type: 'blank', w: 100000, h: 50000 },
+          ],
+        },
+        { id: 'z', type: 'blank', w: 100000, h: 40000 },
+      ],
+    };
+    const next = removeContainer(root, 'inner') as ContainerZone;
+    expect(next.children.reduce((s, c) => s + c.h, 0)).toBe(100000);
+  });
+
+  it('rejects removing the root (returns identity)', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [{ id: 'a', type: 'blank', w: 100000, h: 100000 }],
+    };
+    expect(removeContainer(root, 'root')).toBe(root);
+  });
+
+  it('returns identity when id is not found', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [{ id: 'a', type: 'blank', w: 100000, h: 100000 }],
+    };
+    expect(removeContainer(root, 'nope')).toBe(root);
+  });
+
+  it('returns identity when target is not a container', () => {
+    const root: ContainerZone = {
+      id: 'root',
+      type: 'container-horz',
+      w: 100000,
+      h: 100000,
+      children: [{ id: 'a', type: 'blank', w: 100000, h: 100000 }],
+    };
+    expect(removeContainer(root, 'a')).toBe(root);
   });
 });

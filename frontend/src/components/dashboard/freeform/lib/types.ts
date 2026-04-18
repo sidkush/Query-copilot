@@ -81,6 +81,10 @@ export type BaseZone = {
   showCaption?: boolean;
   /** Vega-Lite autosize mode for chart contents. Default 'fit'. */
   fitMode?: 'fit' | 'fit-width' | 'fit-height' | 'entire' | 'fixed';
+  /** Plan 5e — advisory pixel override written by "Fit to Content". The
+   *  layout resolver honours this on floating containers today (via pxW/pxH
+   *  on the floating layer); tiled-container honour lands in Plan 7a. */
+  sizeOverride?: { pxW: number; pxH: number };
 };
 
 export type LeafZone = BaseZone & {
