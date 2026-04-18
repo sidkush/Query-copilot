@@ -143,6 +143,15 @@ export function useKeyboardShortcuts({ canvasRef } = {}) {
         return;
       }
 
+      // Plan 5e: Cmd/Ctrl+Shift+F — toggle tiled <-> floating on every selected zone.
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        const toggleFloat = useStore.getState().toggleZoneFloatAnalystPro;
+        if (!toggleFloat || selection.size === 0) return;
+        selection.forEach((id) => toggleFloat(id));
+        return;
+      }
+
       if ((e.key === ']' || e.key === '[') && dashboard) {
         const forward = e.key === ']';
         const big = e.shiftKey;
