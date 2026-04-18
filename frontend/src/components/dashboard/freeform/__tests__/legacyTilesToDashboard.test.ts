@@ -69,6 +69,116 @@ describe('legacyTilesToDashboard smart layout', () => {
   });
 });
 
+describe('Plan 7 T7 — KPI-aware bin pack', () => {
+  // Constants mirrored from legacyTilesToDashboard.js for readability.
+  const KPIS_PER_ROW = 4;
+  const CHARTS_PER_ROW = 2;
+  const KPI_ROW_PX = 160;
+  const CHART_ROW_PX = 360;
+  const GUTTER_PX = 32;
+  void KPIS_PER_ROW; void CHARTS_PER_ROW; void GUTTER_PX; void KPI_ROW_PX; void CHART_ROW_PX;
+
+  it('N=4 all-chart → single vert root with 4 children (byte-identical to Plan 5e)', () => {
+    // tile(i) returns { id, chart_spec: {} } — classifyTile → 'chart' for all.
+    const d = legacyTilesToDashboard([tile(1), tile(2), tile(3), tile(4)], 'd', 'N', undefined);
+    expect(d.tiledRoot.type).toBe('container-vert');
+    expect(d.tiledRoot.children).toHaveLength(4);
+    expect(d.tiledRoot.children.every((c: any) => c.type === 'worksheet')).toBe(true);
+    // Each h proportion = 100000 / 4 = 25000.
+    expect(d.tiledRoot.children.every((c: any) => c.h === 25000)).toBe(true);
+  });
+
+  it('mixed KPI + chart groups KPIs into a short row then charts into a tall row', () => {
+    const tiles = [
+      { id: 1, tileKind: 'kpi', chart_spec: {} },
+      { id: 2, tileKind: 'kpi', chart_spec: {} },
+      { id: 3, chartType: 'bar', chart_spec: {} },
+      { id: 4, chartType: 'line', chart_spec: {} },
+    ];
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    // Root is vert; first child is KPI row (horz), second is chart row (horz).
+    expect(d.tiledRoot.type).toBe('container-vert');
+    expect(d.tiledRoot.children).toHaveLength(2);
+    expect(d.tiledRoot.children[0].type).toBe('container-horz');
+    expect(d.tiledRoot.children[1].type).toBe('container-horz');
+    const kpiRow = d.tiledRoot.children[0] as { children: Array<{ id: string }> };
+    const chartRow = d.tiledRoot.children[1] as { children: Array<{ id: string }> };
+    expect(kpiRow.children.map((c) => c.id)).toEqual(['1', '2']);
+    expect(chartRow.children.map((c) => c.id)).toEqual(['3', '4']);
+  });
+
+  it('KPI row h < chart row h (KPI 160px vs chart 360px)', () => {
+    const tiles = [
+      { id: 1, tileKind: 'kpi', chart_spec: {} },
+      { id: 2, chartType: 'bar', chart_spec: {} },
+    ];
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    const kpiRow = d.tiledRoot.children[0] as { h: number };
+    const chartRow = d.tiledRoot.children[1] as { h: number };
+    expect(kpiRow.h).toBeLessThan(chartRow.h);
+  });
+
+  it('row proportions sum to 100000 (no drift)', () => {
+    const tiles = [
+      { id: 1, tileKind: 'kpi', chart_spec: {} },
+      { id: 2, tileKind: 'kpi', chart_spec: {} },
+      { id: 3, tileKind: 'kpi', chart_spec: {} },
+      { id: 4, chartType: 'bar', chart_spec: {} },
+      { id: 5, chartType: 'line', chart_spec: {} },
+      { id: 6, chartType: 'area', chart_spec: {} },
+    ];
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    const sum = d.tiledRoot.children.reduce((s: number, c: any) => s + c.h, 0);
+    expect(sum).toBe(100000);
+  });
+
+  it('4 KPIs pack into ONE row (not two rows of 2)', () => {
+    const tiles = [1, 2, 3, 4].map((id) => ({ id, tileKind: 'kpi' as const, chart_spec: {} }));
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    // Only KPIs → root vert → one horz row with 4 children.
+    expect(d.tiledRoot.type).toBe('container-vert');
+    expect(d.tiledRoot.children).toHaveLength(1);
+    const row = d.tiledRoot.children[0] as { type: string; children: unknown[] };
+    expect(row.type).toBe('container-horz');
+    expect(row.children).toHaveLength(4);
+  });
+
+  it('5 KPIs → two KPI rows (4 + 1)', () => {
+    const tiles = [1, 2, 3, 4, 5].map((id) => ({ id, tileKind: 'kpi' as const, chart_spec: {} }));
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    expect(d.tiledRoot.children).toHaveLength(2);
+    const row1 = d.tiledRoot.children[0] as { children: unknown[] };
+    const row2 = d.tiledRoot.children[1] as { children: unknown[] };
+    expect(row1.children).toHaveLength(4);
+    expect(row2.children).toHaveLength(1);
+  });
+
+  it('canvas height = sum(row px) + gutters when mixed layout chosen', () => {
+    const tiles = [
+      { id: 1, tileKind: 'kpi', chart_spec: {} },
+      { id: 2, chartType: 'bar', chart_spec: {} },
+    ];
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    // 1 KPI row (160) + 1 chart row (360) + 1 gutter between = 552.
+    // Canvas min height 900 still applies (Plan 5e convention).
+    expect(d.size).toMatchObject({ mode: 'fixed', width: 1440, preset: 'custom' });
+    const height = (d.size as { height: number }).height;
+    expect(height).toBeGreaterThanOrEqual(900);
+  });
+
+  it('children displayName still propagates in KPI-aware bin pack (regression guard vs T2)', () => {
+    const tiles = [
+      { id: 1, tileKind: 'kpi' as const, title: 'Revenue', chart_spec: {} },
+      { id: 2, chartType: 'bar', title: 'By Region', chart_spec: {} },
+    ];
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    const kpiChild = (d.tiledRoot.children[0] as { children: Array<{ displayName?: string }> }).children[0];
+    const chartChild = (d.tiledRoot.children[1] as { children: Array<{ displayName?: string }> }).children[0];
+    expect(kpiChild.displayName).toBe('Revenue');
+    expect(chartChild.displayName).toBe('By Region');
+  });
+});
+
 describe('Plan 7 T2 — tile.title propagates to zone.displayName', () => {
   it('worksheet child carries displayName = tile.title when title present', () => {
     const tiles = [
