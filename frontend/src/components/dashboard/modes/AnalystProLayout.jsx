@@ -3,8 +3,7 @@ import { useCallback, useMemo } from 'react';
 import FreeformCanvas from '../freeform/FreeformCanvas';
 import SizeToggleDropdown from '../freeform/SizeToggleDropdown';
 import DevicePreviewToggle from '../freeform/DevicePreviewToggle';
-import ObjectLibraryPanel from '../freeform/panels/ObjectLibraryPanel';
-import LayoutTreePanel from '../freeform/panels/LayoutTreePanel';
+import AnalystProSidebar from '../freeform/panels/AnalystProSidebar';
 import AlignmentToolbar from '../freeform/panels/AlignmentToolbar';
 import StructureToolbar from '../freeform/panels/StructureToolbar';
 import LayoutOverlayToggle from '../freeform/panels/LayoutOverlayToggle';
@@ -12,8 +11,6 @@ import ActionsMenuButton from '../freeform/panels/ActionsMenuButton';
 import UndoRedoToolbar from '../freeform/panels/UndoRedoToolbar';
 import HistoryInspectorPanel from '../freeform/panels/HistoryInspectorPanel';
 import ActionsDialog from '../freeform/panels/ActionsDialog';
-import SetsPanel from '../freeform/panels/SetsPanel';
-import ParametersPanel from '../freeform/panels/ParametersPanel';
 import ZonePropertiesPanel from '../freeform/panels/ZonePropertiesPanel';
 import AnalystProWorksheetTile from '../freeform/AnalystProWorksheetTile';
 import ZoneFrame from '../freeform/ZoneFrame';
@@ -227,12 +224,7 @@ export default function AnalystProLayout({
             overflow: 'hidden',
           }}
         >
-          <ObjectLibraryPanel />
-          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <LayoutTreePanel />
-          </div>
-          <SetsPanel />
-          <ParametersPanel />
+          <AnalystProSidebar />
         </div>
 
         {/* Main canvas */}
