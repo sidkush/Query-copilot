@@ -134,23 +134,9 @@
   --surface-input: rgba(255, 255, 255, 0.03);
   --divider-subtle: rgba(148, 163, 184, 0.08);
 
-  /* ── Archetype surfaces (dark theme defaults) ──
-     Every archetype resolves its dashboard + tile bg through these vars so
-     switching global theme cascades through all 6 modes automatically. */
-  --archetype-briefing-bg: var(--bg-page);
-  --archetype-briefing-tile: var(--glass-bg-card);
-  --archetype-workbench-bg: #08080d;
-  --archetype-workbench-tile: rgba(17,17,22,0.85);
-  --archetype-ops-bg: #050508;
-  --archetype-ops-tile: rgba(12,12,16,0.92);
-  --archetype-story-bg: #11110d;              /* rich paper feel — kept dark in dark mode */
-  --archetype-story-tile: rgba(22,22,18,0.92);
-  --archetype-pitch-bg: #000000;
-  --archetype-pitch-tile: rgba(15,15,20,0.9);
-  --archetype-tableau-bg: #0c0c11;
-  --archetype-tableau-tile: rgba(18,18,24,0.95);
-  --archetype-analyst-pro-bg: #0a0a0c;
-  --archetype-analyst-pro-tile: var(--glass-bg-card);
+  /* Archetype-specific surface vars removed in Wave 2-A of the preset
+     infrastructure plan (2026-04-18). Preset tokens take over in Wave 3
+     via the usePresetTheme hook writing --preset-* vars on <html>. */
 
   /* ── Chrome bars (TopBar / ContextBar / StatusBar) ──
      Adapt to global theme. Used by tokens.topBar/contextBar/statusBar. */
@@ -283,23 +269,9 @@
   --surface-input: rgba(255, 255, 255, 0.70);
   --divider-subtle: rgba(15, 23, 42, 0.10);
 
-  /* ── Archetype surfaces (light theme overrides) ──
-     Each archetype gets a tuned light palette preserving its personality
-     (cream for story, pale green for ops, etc.) while staying legible. */
-  --archetype-briefing-bg: var(--bg-page);
-  --archetype-briefing-tile: var(--glass-bg-card);
-  --archetype-workbench-bg: #F4F5F8;
-  --archetype-workbench-tile: #FFFFFF;
-  --archetype-ops-bg: #F0F7F1;                /* pale green wash — NOC daylight */
-  --archetype-ops-tile: #FFFFFF;
-  --archetype-story-bg: #FDFBF7;              /* cream paper — editorial flagship */
-  --archetype-story-tile: #FFFFFF;
-  --archetype-pitch-bg: #0A0A0F;              /* cinematic stays dark — projection safety */
-  --archetype-pitch-tile: rgba(22,22,28,0.92);
-  --archetype-tableau-bg: #F0F0F4;
-  --archetype-tableau-tile: #FFFFFF;
-  --archetype-analyst-pro-bg: #F7F8FA;
-  --archetype-analyst-pro-tile: #FFFFFF;
+  /* Archetype-specific surface vars removed in Wave 2-A of the preset
+     infrastructure plan (2026-04-18). Preset light-scheme overrides are
+     authored per-preset through the Wave 3 usePresetTheme hook. */
 
   /* ── Chrome bars (light theme overrides) ── */
   --chrome-bar-bg: rgba(255, 255, 255, 0.88);

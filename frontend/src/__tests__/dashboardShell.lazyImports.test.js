@@ -8,24 +8,13 @@ describe('DashboardShell lazy-loading guards', () => {
     'utf-8',
   );
 
-  const modeLayouts = [
-    'ExecBriefingLayout',
-    'AnalystWorkbenchLayout',
-    'LiveOpsLayout',
-    'StoryLayout',
-    'PitchLayout',
-    'WorkbookLayout',
-    'TableauClassicLayout',
-    'AnalystProLayout',
-    'MobileLayout',
-  ];
-
-  for (const name of modeLayouts) {
-    it(`uses lazy() for ${name}`, () => {
-      expect(src).not.toMatch(new RegExp(`^import\\s+${name}\\s+from`, 'm'));
-      expect(src).toMatch(new RegExp(`lazy\\(\\s*\\(\\)\\s*=>\\s*import\\([^)]*${name}`));
-    });
-  }
+  // After Wave 2-A of the preset infrastructure plan (2026-04-18) the shell
+  // renders a single Analyst Pro layout. Sibling archetype layouts were
+  // deleted along with their lazy wrappers.
+  it('uses lazy() for AnalystProLayout', () => {
+    expect(src).not.toMatch(/^import\s+AnalystProLayout\s+from/m);
+    expect(src).toMatch(/lazy\(\s*\(\)\s*=>\s*import\([^)]*AnalystProLayout/);
+  });
 
   it('uses lazy() for VoiceModeSelector', () => {
     expect(src).not.toMatch(/^import\s+VoiceModeSelector\s+from/m);
@@ -35,5 +24,20 @@ describe('DashboardShell lazy-loading guards', () => {
   it('uses lazy() for VoiceTranscriptOverlay', () => {
     expect(src).not.toMatch(/^import\s+VoiceTranscriptOverlay\s+from/m);
     expect(src).toMatch(/lazy\(\s*\(\)\s*=>\s*import\([^)]*VoiceTranscriptOverlay/);
+  });
+
+  it('does not import deleted archetype layouts', () => {
+    for (const removed of [
+      'ExecBriefingLayout',
+      'AnalystWorkbenchLayout',
+      'LiveOpsLayout',
+      'StoryLayout',
+      'PitchLayout',
+      'WorkbookLayout',
+      'TableauClassicLayout',
+      'MobileLayout',
+    ]) {
+      expect(src).not.toContain(removed);
+    }
   });
 });

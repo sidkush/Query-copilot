@@ -217,7 +217,7 @@ export default function AnalystProLayout({
         height: '100%',
         width: '100%',
         minHeight: 0,
-        background: 'var(--archetype-analyst-pro-bg)',
+        background: 'var(--bg-page)',
       }}
     >
       {/* Top toolbar */}
