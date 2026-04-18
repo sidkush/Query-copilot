@@ -23,7 +23,7 @@ import { computeLayout } from '../../../vizql/layout';
 import { drawMarks } from '../../../vizql/marks';
 import { drawGridLines, drawAxes } from '../../../vizql/axes';
 import { drawLegend } from '../../../vizql/legend';
-import { CHART_BG, setChartChromeScheme } from '../../../vizql/palettes';
+import { CHART_BG, setChartChromeScheme, setChartChromeFromPreset } from '../../../vizql/palettes';
 import { pickRenderStrategy } from '../../../vizql/webgl/rsr';
 import { prepareInstanceBuffers, renderBuffersToCanvas } from '../../../vizql/webgl/buffers';
 import { renderLayer, renderHConcat, renderVConcat, renderFacet } from '../../../vizql/composition';
@@ -184,8 +184,16 @@ export default function VizQLRenderer({
   // Theme-reactive repaint: chart chrome colors (axis/label/grid/legend) are
   // live-binding exports in vizql/palettes; when the user flips themes the
   // module values update but canvas is raster — force a re-paint by including
-  // the resolved scheme in the render effect deps.
+  // the resolved scheme in the render effect deps. Retained as a fallback for
+  // code paths (e.g. legacy dashboard archetypes) that still set theme via
+  // the resolvedTheme store slice rather than a preset id.
   const resolvedTheme = useStore((s) => s.resolvedTheme);
+  // Wave 2-C: chart chrome now reads the active dashboard preset (Plan A).
+  // `analystProDashboard.activePresetId` is added by Wave 2-B (persistence);
+  // at this commit it may be missing, so we fall back to `'analyst-pro'`.
+  const presetId = useStore(
+    (s) => s.analystProDashboard?.activePresetId ?? 'analyst-pro',
+  );
 
   // -- One-time regl init -------------------------------------------------
   useEffect(() => { ensureReglInit(); }, []);
@@ -257,10 +265,20 @@ export default function VizQLRenderer({
     const t0 = performance.now();
 
     const paint = () => {
-    // Sync chart-chrome palette to current theme *before* painting. The
+    // Sync chart-chrome palette to the active preset *before* painting. The
     // MutationObserver in palettes.ts is async — relying on it alone can
-    // paint the canvas with stale colors right after a theme flip.
-    setChartChromeScheme(resolvedTheme === 'light' ? 'light' : 'dark');
+    // paint the canvas with stale colors right after a theme flip. The
+    // preset's `scheme` field is authoritative and overrides the global theme
+    // toggle; `resolvedTheme` remains a dep to cover legacy code paths that
+    // still drive chrome via the theme store.
+    setChartChromeFromPreset(presetId);
+    // Reference `resolvedTheme` so the fallback code path and the dep array
+    // stay in sync — keeps the chrome aligned with the global toggle when no
+    // preset is active (e.g. KPI-only views outside the Analyst Pro shell).
+    void resolvedTheme;
+    if (!presetId) {
+      setChartChromeScheme(resolvedTheme === 'light' ? 'light' : 'dark');
+    }
     // Scale context for HiDPI + CSS zoom
     ctx.setTransform(effectiveScale, 0, 0, effectiveScale, 0, 0);
 
@@ -388,7 +406,7 @@ export default function VizQLRenderer({
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [vizqlSpec, data, canvasSize, strategy, cssZoom, resolvedTheme]);
+  }, [vizqlSpec, data, canvasSize, strategy, cssZoom, resolvedTheme, presetId]);
 
   // -- Tooltip (mousemove) -----------------------------------------------
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
