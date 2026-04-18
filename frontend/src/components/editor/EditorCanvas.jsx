@@ -1,8 +1,8 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { routeSpecWithStrategy } from "../../chart-ir";
 import { getGPUTier } from "../../lib/gpuDetect";
 import VizQLRenderer from "./renderers/VizQLRenderer";
-import VegaRenderer from "./renderers/VegaRenderer";
+const VegaRenderer = lazy(() => import("./renderers/VegaRenderer"));
 import MapLibreRenderer from "./renderers/MapLibreRenderer";
 import DeckRenderer from "./renderers/DeckRenderer";
 import CreativeRenderer from "./renderers/CreativeRenderer";
@@ -175,20 +175,29 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthr
         />
       )}
       {rendererId === "vega-lite" && (
-        <OnObjectOverlay view={vegaView} spec={spec} onSpecChange={onSpecChange}>
-          <VegaRenderer
-            spec={spec}
-            resultSet={resultSet}
-            rendererBackend={strategy.rendererBackend}
-            strategy={strategy}
-            onViewReady={handleViewReady}
-            colorMap={colorMap}
-            onDrillthrough={onDrillthrough}
-            sheetId={sheetId}
-            onMarkSelect={onMarkSelect}
-            onMarkHover={onMarkHover}
-          />
-        </OnObjectOverlay>
+        <Suspense fallback={
+          <div style={{
+            height: '100%', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', color: 'var(--text-muted)', fontSize: 12,
+          }}>
+            Loading Vega renderer…
+          </div>
+        }>
+          <OnObjectOverlay view={vegaView} spec={spec} onSpecChange={onSpecChange}>
+            <VegaRenderer
+              spec={spec}
+              resultSet={resultSet}
+              rendererBackend={strategy.rendererBackend}
+              strategy={strategy}
+              onViewReady={handleViewReady}
+              colorMap={colorMap}
+              onDrillthrough={onDrillthrough}
+              sheetId={sheetId}
+              onMarkSelect={onMarkSelect}
+              onMarkHover={onMarkHover}
+            />
+          </OnObjectOverlay>
+        </Suspense>
       )}
       {rendererId === "maplibre" && <MapLibreRenderer spec={spec} />}
       {rendererId === "deckgl" && <DeckRenderer spec={spec} />}
