@@ -131,6 +131,8 @@ describe('buildContextMenu — common items (any zone)', () => {
   });
 
   it('Show Title is a checkbox that reflects zone.showTitleBar with sensible default', () => {
+    // Plan 7 T1: worksheet defaults to showTitle=false (Vega chart owns its
+    // title). Checkbox reads `false` by default; users opt in explicitly.
     const worksheetZone: LeafZone = { id: 'W1', type: 'worksheet', w: 100000, h: 100000 };
     const dash2 = makeDashboard({
       id: 'root', type: 'container-vert', w: 100000, h: 100000,
@@ -139,7 +141,7 @@ describe('buildContextMenu — common items (any zone)', () => {
     const items = buildContextMenu(worksheetZone, dash2, new Set());
     const cb = items.find((i) => i.kind === 'checkbox' && i.id === 'toggleShowTitle');
     expect(cb).toBeDefined();
-    expect((cb as { checked: boolean }).checked).toBe(true); // default for worksheet
+    expect((cb as { checked: boolean }).checked).toBe(false);
   });
 
   it('Select Parent Container is disabled on the root zone', () => {

@@ -44,10 +44,12 @@ describe('StyleTab (Plan 5d)', () => {
   });
 
   it('toggles Show Title', () => {
+    // Plan 7 T1: worksheet now defaults to showTitle=false, so clicking the
+    // checkbox flips it to true (first click = enable).
     const onPatch = vi.fn();
     render(<StyleTab zone={zone()} onPatch={onPatch} />);
     fireEvent.click(screen.getByLabelText(/show title/i));
-    expect(onPatch).toHaveBeenCalledWith({ showTitle: false });
+    expect(onPatch).toHaveBeenCalledWith({ showTitle: true });
   });
 
   it('toggles Show Caption (worksheet only)', () => {

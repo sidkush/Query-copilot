@@ -3,12 +3,16 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import ZoneFrame from '../ZoneFrame';
 import { useStore } from '../../../../store';
 
+// Plan 7 T1 — worksheet tiles no longer show a frame title bar by default
+// (Vega chart owns its title). These tests exercise the title-shown path,
+// so pass `showTitle: true` explicitly to force the old behaviour.
 const baseZone = {
   id: 'z1',
   type: 'worksheet' as const,
   w: 100000,
   h: 100000,
   worksheetRef: 'ws1',
+  showTitle: true,
 };
 
 describe('ZoneFrame — base chrome', () => {
@@ -60,9 +64,13 @@ describe('ZoneFrame — base chrome', () => {
 
   it('hides the title bar for blank / image by default', () => {
     for (const type of ['blank', 'image'] as const) {
+      // baseZone carries `showTitle: true` for Plan 7 T1 coverage; strip it here
+      // so the default-hidden branch is exercised.
+      const { showTitle: _showTitle, ...noTitleBase } = baseZone;
+      void _showTitle;
       const { unmount } = render(
         <ZoneFrame
-          zone={{ ...baseZone, type }}
+          zone={{ ...noTitleBase, type }}
           resolved={{ x: 0, y: 0, width: 400, height: 300 }}
         >
           <div />
@@ -71,6 +79,21 @@ describe('ZoneFrame — base chrome', () => {
       expect(screen.queryByTestId('zone-frame-z1-title')).toBeNull();
       unmount();
     }
+  });
+
+  it('hides the title bar for worksheet by default (Plan 7 T1)', () => {
+    // baseZone has explicit showTitle:true; strip it so this test sees the default.
+    const { showTitle: _showTitle, ...noTitleBase } = baseZone;
+    void _showTitle;
+    render(
+      <ZoneFrame
+        zone={noTitleBase}
+        resolved={{ x: 0, y: 0, width: 400, height: 300 }}
+      >
+        <div />
+      </ZoneFrame>,
+    );
+    expect(screen.queryByTestId('zone-frame-z1-title')).toBeNull();
   });
 
   it('writes hovered zone id into store on mouseenter / clears on mouseleave', () => {

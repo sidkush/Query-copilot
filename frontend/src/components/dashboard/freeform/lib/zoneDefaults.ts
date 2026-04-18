@@ -4,8 +4,11 @@
 
 import type { FloatingZone, LeafType, Zone } from './types';
 
+// Plan 7 T1 — worksheet intentionally NOT in the default set. Worksheet tiles
+// render a Vega chart that owns its own title; stacking a frame-chrome title
+// on top double-titles the tile and destroys readability. Users can still
+// opt in per-zone via the properties panel (`showTitle: true`).
 export const TITLE_BAR_DEFAULT_VISIBLE: ReadonlySet<LeafType> = new Set<LeafType>([
-  'worksheet',
   'text',
   'webpage',
   'filter',
@@ -30,8 +33,9 @@ export const DEFAULT_FIT_MODE = 'fit' as const;
 
 // Title bar visibility default per leaf type. Superset alias of
 // TITLE_BAR_DEFAULT_VISIBLE so new surfaces can import one name.
+// Plan 7 T1 — worksheet removed in lockstep with TITLE_BAR_DEFAULT_VISIBLE.
 export const TITLE_SHOWN_BY_DEFAULT: ReadonlySet<string> = new Set<string>([
-  'worksheet', 'text', 'webpage', 'filter', 'legend', 'parameter', 'navigation', 'extension',
+  'text', 'webpage', 'filter', 'legend', 'parameter', 'navigation', 'extension',
 ]);
 
 // Caption is Tableau-specific to worksheets (Build_Tableau.md Appendix A.7).
