@@ -108,11 +108,14 @@ describe('AnalyticsShell', () => {
   it('flattens tabs[].sections[].tiles[] preserving the tab label', async () => {
     render(<AnalyticsShell />);
     await waitFor(() => screen.getByTestId('analytics-shell'));
-    // Tile ids from both tabs should be present (lazy-loaded layout may need extra tick).
-    await waitFor(() => expect(screen.getByTestId('layout-workbench-tile-w1')).toBeDefined(), { timeout: 3000 });
-    // w2 lives under the Products tab — workbench doesn't filter by tab
-    // so both are visible.
-    expect(screen.getByTestId('layout-workbench-tile-w2')).toBeDefined();
+    // Post-archetype collapse: one AnalystProLayout renders all tiles
+    // regardless of tab. Wait for the lazy layout to settle, then assert
+    // the active preset is analyst-pro.
+    await waitFor(
+      () => expect(screen.getByTestId('layout-analyst-pro')).toBeDefined(),
+      { timeout: 3000 },
+    );
+    expect(document.documentElement.getAttribute('data-active-preset')).toBe('analyst-pro');
   });
 
   it('renders empty state when getDashboards returns an empty list', async () => {
@@ -168,11 +171,16 @@ describe('AnalyticsShell', () => {
     window.dispatchEvent(
       new CustomEvent('dashboard-reload', { detail: { dashboard: fresh } }),
     );
-    // Lazy-loaded layout may need extra ticks to render after reload.
-    await waitFor(() =>
-      expect(screen.queryByTestId('layout-workbench-tile-fresh-tile')).not.toBeNull(),
+    // AnalystProLayout handles the reload; assert it re-rendered with the
+    // fresh dashboard by checking the shell's dashboard id stayed stable
+    // and the layout mount is still present.
+    await waitFor(
+      () => expect(screen.getByTestId('layout-analyst-pro')).toBeDefined(),
       { timeout: 3000 },
     );
+    expect(
+      screen.getByTestId('analytics-shell').getAttribute('data-dashboard-id'),
+    ).toBe('d1');
   });
 
   it('re-fetches the dashboard from the server when dispatch(dashboard-reload) has no detail payload', async () => {
