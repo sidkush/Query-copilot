@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { legacyTilesToDashboard } from '../../modes/AnalystProLayout';
+import { legacyTilesToDashboard } from '../../modes/legacyTilesToDashboard';
 
 const tile = (id: number) => ({ id, chart_spec: {} });
 
