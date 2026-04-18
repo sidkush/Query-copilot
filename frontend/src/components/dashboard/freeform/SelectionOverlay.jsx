@@ -24,7 +24,7 @@ const HANDLE_POSITIONS = [
 function getHandleStyle(handle, width, height) {
   const HS = 8; // handle size
   const HALF = HS / 2;
-  const base = { position: 'absolute', width: HS, height: HS, background: 'var(--accent, #2563eb)', border: '1.5px solid var(--bg-elevated, #fff)', borderRadius: 2, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' };
+  const base = { position: 'absolute', width: HS, height: HS, background: 'var(--accent, #2563eb)', border: '1.5px solid var(--bg-elevated, #fff)', borderRadius: 2, boxShadow: '0 1px 2px rgba(0,0,0,0.2)', pointerEvents: 'auto' };
   switch (handle.id) {
     case 'nw': return { ...base, left: -HALF, top: -HALF, cursor: handle.cursor };
     case 'n':  return { ...base, left: width / 2 - HALF, top: -HALF, cursor: handle.cursor };
@@ -54,12 +54,10 @@ function SelectionOverlay({ selectedResolved, onResizeHandlePointerDown, onSelec
             height: r.height,
             border: '1.5px solid var(--accent, #2563eb)',
             borderRadius: 4,
-            pointerEvents: 'auto',
-            cursor: 'move',
+            pointerEvents: 'none',
             boxShadow: '0 0 0 4px color-mix(in oklab, var(--accent) 15%, transparent)',
             zIndex: 1000,
           }}
-          onPointerDown={(e) => onSelectionPointerDown?.(r.zone.id, e)}
         >
           {HANDLE_POSITIONS.map((h) => (
             <div

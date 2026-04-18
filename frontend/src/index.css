@@ -4459,9 +4459,9 @@ html.theme-transitioning *::after {
   min-width: 200px;
   max-width: 320px;
   padding: 4px 0;
-  background: var(--chrome-bar-bg, #1f2026);
-  color: var(--fg, #e5e7eb);
-  border: 1px solid var(--chrome-bar-border, rgba(255,255,255,0.12));
+  background: var(--bg-elevated, #1f2026);
+  color: var(--text-primary, #e5e7eb);
+  border: 1px solid var(--border-default, rgba(255,255,255,0.12));
   border-radius: 6px;
   box-shadow: 0 10px 24px rgba(0,0,0,0.40), 0 2px 6px rgba(0,0,0,0.24);
   font-size: 12px;
