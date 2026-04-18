@@ -4,6 +4,7 @@ import { api } from '../../../api';
 import { useStore } from '../../../store';
 import { applyHighlightToSpec, mergeMarkIntoHighlight } from './lib/highlightFilter';
 import { publish as publishMarkEvent } from './lib/markEventBus';
+import ChartTooltipCard from './ChartTooltipCard';
 
 const TOKEN_RE = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 
@@ -45,7 +46,10 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
   const highlight = useStore((s) => s.analystProSheetHighlights[sheetId] || null);
   const setSheetHighlight = useStore((s) => s.setSheetHighlightAnalystPro);
   const clearSheetHighlight = useStore((s) => s.clearSheetHighlightAnalystPro);
+  const setSheetFilter = useStore((s) => s.setSheetFilterAnalystPro);
+  const openViewDataDrawer = useStore((s) => s.openViewDataDrawer);
 
+  const [hover, setHover] = useState(null); // { datum, x, y } | null
   const [override, setOverride] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const requestSeqRef = useRef(0);
@@ -158,6 +162,44 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
     });
   }, [highlight, setSheetHighlight, clearSheetHighlight]);
 
+  const handleMarkHover = useCallback((selSheetId, datum, x, y) => {
+    if (!selSheetId || !datum) return;
+    setHover({ datum, x, y });
+  }, []);
+
+  const closeTooltip = useCallback(() => setHover(null), []);
+
+  const appendFilter = useCallback(
+    (op, datum) => {
+      if (!datum) return;
+      const current = Array.isArray(filters) ? filters : [];
+      const next = [...current];
+      for (const [field, value] of Object.entries(datum)) {
+        if (value == null) continue;
+        next.push({ field, op, values: [value] });
+      }
+      setSheetFilter(sheetId, next);
+      setHover(null);
+    },
+    [filters, sheetId, setSheetFilter],
+  );
+
+  const handleKeepOnly = useCallback((datum) => appendFilter('in', datum), [appendFilter]);
+  const handleExclude = useCallback((datum) => appendFilter('notIn', datum), [appendFilter]);
+
+  const handleViewData = useCallback(
+    (datum) => {
+      openViewDataDrawer({
+        sheetId,
+        connId,
+        sql: tile?.sql,
+        markSelection: datum,
+      });
+      setHover(null);
+    },
+    [sheetId, connId, tile?.sql, openViewDataDrawer],
+  );
+
   return (
     <>
       <DashboardTileCanvas
@@ -166,6 +208,17 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
         resultSetOverride={override}
         sheetId={sheetId}
         onMarkSelect={handleMarkSelect}
+        onMarkHover={handleMarkHover}
+      />
+      <ChartTooltipCard
+        open={!!hover}
+        x={hover?.x ?? 0}
+        y={hover?.y ?? 0}
+        datum={hover?.datum ?? null}
+        onKeepOnly={handleKeepOnly}
+        onExclude={handleExclude}
+        onViewData={handleViewData}
+        onClose={closeTooltip}
       />
       {errorMsg ? (
         <div
