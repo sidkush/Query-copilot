@@ -218,6 +218,11 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
         sheetId={sheetId}
         onMarkSelect={handleMarkSelect}
         onMarkHover={handleMarkHover}
+        /* Plan 7 T20 — Analyst Pro dashboards can be 6–10k px tall. Briefing
+         * / Workbench / Pitch default to unmount-on-scroll-out for the
+         * 500-tile perf path; here the user expects every tile to stay
+         * readable while they scroll, so mount once and keep. */
+        mountOnce={true}
       />
       <ChartTooltipCard
         open={!!hover}

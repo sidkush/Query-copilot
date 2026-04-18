@@ -67,6 +67,12 @@ export default function DashboardTileCanvas({
   sheetId,
   onMarkSelect,
   onMarkHover,
+  // Plan 7 T20 — when true, the viewport-mount hook uses `once: true` so
+  // tiles that have been in view once stay mounted even after scrolling
+  // out. Callers in tall single-canvas layouts (Analyst Pro) should set
+  // this; Briefing / Workbench / Pitch default to false (unmount on
+  // scroll-out keeps 500-tile dashboards responsive).
+  mountOnce = false,
 }) {
   const spec = tile?.chart_spec || tile?.chartSpec || null;
 
@@ -99,7 +105,7 @@ export default function DashboardTileCanvas({
     return { columns, rows, columnProfile };
   }, [tile?.columns, tile?.rows, tile?.columnProfile, resultSetOverride]);
 
-  const { ref: viewportRef, mounted: inViewport } = useViewportMount({ rootMargin: '300px' });
+  const { ref: viewportRef, mounted: inViewport } = useViewportMount({ rootMargin: '300px', once: mountOnce });
 
   // Toast state — shown when a drillthrough fires and no external handler
   // is provided. A ref holds the timeout so the cleanup path is stable.
