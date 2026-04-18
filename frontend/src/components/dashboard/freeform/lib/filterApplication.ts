@@ -3,7 +3,8 @@ import type { DashboardSet, SetMember } from './setTypes';
 
 export type Filter =
   | { field: string; op: 'eq'; value: string | number | boolean | null }
-  | { field: string; op: 'in'; values: SetMember[] };
+  | { field: string; op: 'in'; values: SetMember[] }
+  | { field: string; op: 'notIn'; values: SetMember[] };
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
