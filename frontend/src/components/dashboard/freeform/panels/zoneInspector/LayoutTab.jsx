@@ -39,12 +39,12 @@ export default function LayoutTab({ zone, onPatch }) {
   // we resize the ROW's h in the vert grandparent; resizing the leaf's h
   // is a no-op because horz-parent axis === 'w'. Symmetric for w.
   const resizeZoneAnalystPro = useStore((s) => s.resizeZoneAnalystPro);
+  const detachTileToFloat = useStore((s) => s.detachTileToFloatAnalystPro);
   const tiledRoot = useStore((s) => s.analystProDashboard?.tiledRoot);
+  const dashSize = useStore((s) => s.analystProDashboard?.size);
 
   // Plan 7 T19 — find the actual zone that holds the proportional value
-  // for each axis, and report its current percentage in the input. For a
-  // leaf inside a horz row, Width edits the leaf's w but Height edits the
-  // row's h (the leaf's h is always 100000 = fill).
+  // for each axis, and report its current percentage in the input.
   const wTargetId = !isFloating && tiledRoot ? (findResizeTarget(tiledRoot, zone.id, 'w') ?? zone.id) : null;
   const hTargetId = !isFloating && tiledRoot ? (findResizeTarget(tiledRoot, zone.id, 'h') ?? zone.id) : null;
   const findInTree = (t, id) => {
@@ -59,13 +59,51 @@ export default function LayoutTab({ zone, onPatch }) {
   const wZone = findInTree(tiledRoot, wTargetId) || zone;
   const hZone = findInTree(tiledRoot, hTargetId) || zone;
 
+  // Plan 8 T25 — detect whether a per-axis edit would inevitably resize
+  // siblings. If the resize target is an ancestor (not the leaf itself)
+  // AND that ancestor's parent splits along the OTHER axis (so the
+  // ancestor's siblings share this axis), the edit grows every sibling
+  // — the "whole row shifts" bug. In that case, move the tile to the
+  // floating layer where each tile has independent pxW/pxH.
+  const findParent = (t, id, parent = null) => {
+    if (!t || !id) return null;
+    if (t.id === id) return parent;
+    for (const c of t.children ?? []) {
+      const f = findParent(c, id, t);
+      if (f !== null) return f;
+    }
+    return null;
+  };
+  const leafParent = findParent(tiledRoot, zone.id);
+  const wEditAffectsSiblings = !isFloating && wTargetId && wTargetId !== zone.id && leafParent?.type === 'container-vert' && (leafParent.children?.length ?? 0) > 1;
+  const hEditAffectsSiblings = !isFloating && hTargetId && hTargetId !== zone.id && leafParent?.type === 'container-horz' && (leafParent.children?.length ?? 0) > 1;
+
+  // Resolve canvas px for detach fallback (derive current tile px from
+  // its leaf proportion + canvas size).
+  const canvasWPx = dashSize?.mode === 'fixed' ? dashSize.width : 1440;
+  const canvasHPx = dashSize?.mode === 'fixed' ? dashSize.height : 900;
+
   const patchTiledWidth = (v) => {
     const pct = clamp(Number(v), 1, 99);
+    if (wEditAffectsSiblings) {
+      // Detach so each tile gets independent pxW.
+      const pxW = Math.round((pct / 100) * canvasWPx);
+      const pxH = Math.round(((zone.h || 100000) / 100000) * canvasHPx);
+      detachTileToFloat(zone.id, { pxW, pxH });
+      return;
+    }
     if (!wTargetId) return;
     resizeZoneAnalystPro(wTargetId, { w: pct * 1000 });
   };
   const patchTiledHeight = (v) => {
     const pct = clamp(Number(v), 1, 99);
+    if (hEditAffectsSiblings) {
+      // Detach so each tile gets independent pxH.
+      const pxW = Math.round(((zone.w || 100000) / 100000) * canvasWPx);
+      const pxH = Math.round((pct / 100) * canvasHPx);
+      detachTileToFloat(zone.id, { pxW, pxH });
+      return;
+    }
     if (!hTargetId) return;
     resizeZoneAnalystPro(hTargetId, { h: pct * 1000 });
   };

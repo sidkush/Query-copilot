@@ -1509,6 +1509,57 @@ export const useStore = create((set, get) => ({
     get().pushAnalystProHistory(nextDash, 'Move zone across containers');
   },
 
+  // Plan 8 T25 — detach a tiled tile into the floating layer so it gains
+  // independent pxW/pxH. Used when the user edits a single tile's height
+  // (or width) but the tile lives in a shared-axis container — e.g. a
+  // horz row, whose children must all share height. Structural fix: move
+  // the tile out of the row entirely so its size is no longer constrained.
+  detachTileToFloatAnalystPro: (leafId, pxRect) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash?.tiledRoot || !leafId) return;
+    const findByIdRec = (zone) => {
+      if (!zone) return null;
+      if (zone.id === leafId) return zone;
+      for (const c of zone.children || []) {
+        const f = findByIdRec(c);
+        if (f) return f;
+      }
+      return null;
+    };
+    const leaf = findByIdRec(dash.tiledRoot);
+    if (!leaf) return;
+
+    const MIN_PX = 40;
+    const pxW = Math.max(MIN_PX, Number(pxRect?.pxW) || 0);
+    const pxH = Math.max(MIN_PX, Number(pxRect?.pxH) || 0);
+    const x = Number.isFinite(pxRect?.x) ? pxRect.x : 40;
+    const y = Number.isFinite(pxRect?.y) ? pxRect.y : 40;
+    const maxZ = (dash.floatingLayer || []).reduce(
+      (m, z) => Math.max(m, Number(z.zIndex) || 0),
+      0,
+    );
+
+    // Strip tiled-only fields (w/h proportions) and add floating-only fields.
+    const { w: _w, h: _h, ...rest } = leaf;
+    void _w; void _h;
+    const floatingZone = {
+      ...rest,
+      floating: true,
+      x,
+      y,
+      pxW,
+      pxH,
+      zIndex: maxZ + 1,
+    };
+
+    const nextRoot = removeChild(dash.tiledRoot, leafId);
+    const nextFloating = [...(dash.floatingLayer || []), floatingZone];
+    const nextDash = { ...dash, tiledRoot: nextRoot, floatingLayer: nextFloating };
+    set({ analystProDashboard: nextDash });
+    get().setAnalystProSelection([leafId]);
+    get().pushAnalystProHistory(nextDash, 'Detach tile');
+  },
+
   // Plan 7 T15 — resize a tiled zone by setting proportional w/h values.
   // Renormalizes the parent's siblings via the resizeZone pure helper so
   // the sum stays at 100000 (invariant). Floating zones get a direct
