@@ -5,6 +5,7 @@ import {
   DEFAULT_FIT_MODE,
 } from '../../lib/zoneDefaults';
 import { useStore } from '../../../../../store';
+import { findResizeTarget } from '../../lib/findResizeTarget';
 
 const FIT_MODES = [
   { value: 'fit',        label: 'Fit' },
@@ -32,14 +33,41 @@ export default function LayoutTab({ zone, onPatch }) {
   // sibling proportions renormalize to sum === 100000 (the invariant).
   // setZonePropertyAnalystPro (onPatch) would break that by patching only
   // the one child's w/h and leaving siblings unchanged.
+  //
+  // Plan 7 T19 — target the ancestor whose parent splits along the axis
+  // being resized. A leaf inside a horz row can only change its own h if
+  // we resize the ROW's h in the vert grandparent; resizing the leaf's h
+  // is a no-op because horz-parent axis === 'w'. Symmetric for w.
   const resizeZoneAnalystPro = useStore((s) => s.resizeZoneAnalystPro);
+  const tiledRoot = useStore((s) => s.analystProDashboard?.tiledRoot);
+
+  // Plan 7 T19 — find the actual zone that holds the proportional value
+  // for each axis, and report its current percentage in the input. For a
+  // leaf inside a horz row, Width edits the leaf's w but Height edits the
+  // row's h (the leaf's h is always 100000 = fill).
+  const wTargetId = !isFloating && tiledRoot ? (findResizeTarget(tiledRoot, zone.id, 'w') ?? zone.id) : null;
+  const hTargetId = !isFloating && tiledRoot ? (findResizeTarget(tiledRoot, zone.id, 'h') ?? zone.id) : null;
+  const findInTree = (t, id) => {
+    if (!t || !id) return null;
+    if (t.id === id) return t;
+    for (const c of t.children ?? []) {
+      const f = findInTree(c, id);
+      if (f) return f;
+    }
+    return null;
+  };
+  const wZone = findInTree(tiledRoot, wTargetId) || zone;
+  const hZone = findInTree(tiledRoot, hTargetId) || zone;
+
   const patchTiledWidth = (v) => {
     const pct = clamp(Number(v), 1, 99);
-    resizeZoneAnalystPro(zone.id, { w: pct * 1000 });
+    if (!wTargetId) return;
+    resizeZoneAnalystPro(wTargetId, { w: pct * 1000 });
   };
   const patchTiledHeight = (v) => {
     const pct = clamp(Number(v), 1, 99);
-    resizeZoneAnalystPro(zone.id, { h: pct * 1000 });
+    if (!hTargetId) return;
+    resizeZoneAnalystPro(hTargetId, { h: pct * 1000 });
   };
 
   return (
@@ -101,7 +129,7 @@ export default function LayoutTab({ zone, onPatch }) {
               type="number"
               min={1}
               max={99}
-              value={Math.round((zone.w || 0) / 1000)}
+              value={Math.round((wZone.w || 0) / 1000)}
               onChange={(e) => patchTiledWidth(e.target.value)}
               style={inputStyle}
             />
@@ -113,7 +141,7 @@ export default function LayoutTab({ zone, onPatch }) {
               type="number"
               min={1}
               max={99}
-              value={Math.round((zone.h || 0) / 1000)}
+              value={Math.round((hZone.h || 0) / 1000)}
               onChange={(e) => patchTiledHeight(e.target.value)}
               style={inputStyle}
             />

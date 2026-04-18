@@ -4,6 +4,7 @@ import { useStore } from '../../../../store';
 import { reorderZone, resizeZone } from '../lib/zoneTreeOps';
 import { snapToGrid, snapToEdges, snapAndReport } from '../lib/snapMath';
 import { hitTestContainer, classifyDropEdge } from '../lib/hitTest';
+import { findResizeTarget } from '../lib/findResizeTarget';
 
 const GRID_SIZE = 8;
 const SNAP_THRESHOLD = 6;
@@ -214,19 +215,35 @@ function applyDragDelta(start, dx, dy, snapEnabled, siblings, dashboard, setDash
     const axisDy = start.handle?.includes('s') ? dy : start.handle?.includes('n') ? -dy : 0;
     const initialPxW = initial.width || 1;
     const initialPxH = initial.height || 1;
-    // Look up current proportional w/h from the unchanged dashboardAtStart tree.
-    const initialZoneInTree = findById(start.dashboardAtStart.tiledRoot, zoneId);
-    if (!initialZoneInTree) return;
-    const { w: origW, h: origH } = initialZoneInTree;
-    // Proportional delta derived from pixel ratio.
-    const newW = Math.round(origW * ((initialPxW + axisDx) / initialPxW));
-    const newH = Math.round(origH * ((initialPxH + axisDy) / initialPxH));
-    const patch = {};
-    if (start.handle?.includes('e') || start.handle?.includes('w')) patch.w = newW;
-    if (start.handle?.includes('n') || start.handle?.includes('s')) patch.h = newH;
+    // Plan 7 T19 — for each axis, the zone that controls the pixel size is
+    // the leaf's nearest ancestor (possibly the leaf itself) whose parent
+    // splits along that axis. Resizing the leaf's h when the leaf lives
+    // inside a container-horz row is a no-op; we must resize the ROW's h
+    // inside the vert grandparent instead. Same logic mirrored for w.
+    const tree0 = start.dashboardAtStart.tiledRoot;
+    const wTargetId = findResizeTarget(tree0, zoneId, 'w');
+    const hTargetId = findResizeTarget(tree0, zoneId, 'h');
 
-    if (Object.keys(patch).length > 0) {
-      const nextTree = resizeZone(start.dashboardAtStart.tiledRoot, zoneId, patch);
+    let nextTree = tree0;
+
+    // Horizontal patch (e / w handles).
+    if ((start.handle?.includes('e') || start.handle?.includes('w')) && wTargetId) {
+      const wZone = findById(tree0, wTargetId);
+      if (wZone) {
+        const newW = Math.round(wZone.w * ((initialPxW + axisDx) / initialPxW));
+        nextTree = resizeZone(nextTree, wTargetId, { w: newW });
+      }
+    }
+    // Vertical patch (n / s handles).
+    if ((start.handle?.includes('n') || start.handle?.includes('s')) && hTargetId) {
+      const hZone = findById(nextTree, hTargetId);
+      if (hZone) {
+        const newH = Math.round(hZone.h * ((initialPxH + axisDy) / initialPxH));
+        nextTree = resizeZone(nextTree, hTargetId, { h: newH });
+      }
+    }
+
+    if (nextTree !== tree0) {
       setDashboard({ ...dashboard, tiledRoot: nextTree });
     }
   }
