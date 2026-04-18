@@ -15,6 +15,7 @@ import ZonePropertiesPanel from '../freeform/panels/ZonePropertiesPanel';
 import AnalystProWorksheetTile from '../freeform/AnalystProWorksheetTile';
 import ZoneFrame from '../freeform/ZoneFrame';
 import ContextMenu from '../freeform/ContextMenu';
+import ViewDataDrawer from '../freeform/ViewDataDrawer';
 import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
 import { useStore } from '../../../store';
 import { legacyTilesToDashboard } from './legacyTilesToDashboard';
@@ -253,6 +254,9 @@ export default function AnalystProLayout({
 
       {/* Plan 5c: portal-rendered right-click context menu. */}
       <ContextMenu />
+
+      {/* Plan 6e T10: View Data drawer (480px right-side, Summary/Underlying tabs). */}
+      <ViewDataDrawer />
     </div>
   );
 }
