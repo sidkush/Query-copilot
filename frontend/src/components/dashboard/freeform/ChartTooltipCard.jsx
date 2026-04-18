@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { memo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
 const TOOLTIP_OFFSET = 12;
@@ -12,7 +12,7 @@ function formatValue(v) {
   return String(v);
 }
 
-export default function ChartTooltipCard({
+function ChartTooltipCard({
   open,
   x,
   y,
@@ -145,6 +145,8 @@ export default function ChartTooltipCard({
 
   return typeof document !== 'undefined' ? createPortal(card, document.body) : card;
 }
+
+export default memo(ChartTooltipCard);
 
 const tooltipButtonStyle = {
   flex: 1,

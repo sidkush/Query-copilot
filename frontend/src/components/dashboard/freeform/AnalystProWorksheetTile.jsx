@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import DashboardTileCanvas from '../lib/DashboardTileCanvas';
 import { api } from '../../../api';
 import { useStore } from '../../../store';
@@ -41,7 +41,7 @@ function fitModeToAutosize(fitMode) {
   }
 }
 
-export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fitMode }) {
+function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fitMode }) {
   const filters = useStore((s) => s.analystProSheetFilters[sheetId] || null);
   const parameters = useStore((s) => s.analystProDashboard?.parameters || null);
   const cascadeToken = useStore((s) => s.analystProActionCascadeToken);
@@ -255,3 +255,5 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
     </>
   );
 }
+
+export default memo(AnalystProWorksheetTile);

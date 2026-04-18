@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef, useState } from "react";
+import { memo, useMemo, useCallback, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useStore } from "../../../store";
 import EditorCanvas from "../../editor/EditorCanvas";
@@ -55,7 +55,11 @@ function getRichTileType(tile) {
   return null;
 }
 
-export default function DashboardTileCanvas({
+// Plan 7 T20 `mountOnce` prop: when true, the viewport-mount hook uses
+// once=true so tiles that have been in view once stay mounted even after
+// scrolling out. Analyst Pro sets this; Briefing / Workbench / Pitch
+// keep the default (false) for the 500-tile unmount-on-scroll perf path.
+function DashboardTileCanvas({
   tile,
   height = "100%",
   showTitleBar = true,
@@ -67,11 +71,6 @@ export default function DashboardTileCanvas({
   sheetId,
   onMarkSelect,
   onMarkHover,
-  // Plan 7 T20 — when true, the viewport-mount hook uses `once: true` so
-  // tiles that have been in view once stay mounted even after scrolling
-  // out. Callers in tall single-canvas layouts (Analyst Pro) should set
-  // this; Briefing / Workbench / Pitch default to false (unmount on
-  // scroll-out keeps 500-tile dashboards responsive).
   mountOnce = false,
 }) {
   const spec = tile?.chart_spec || tile?.chartSpec || null;
@@ -386,6 +385,8 @@ export default function DashboardTileCanvas({
     </motion.div>
   );
 }
+
+export default memo(DashboardTileCanvas);
 
 function EmptyTile() {
   return (
