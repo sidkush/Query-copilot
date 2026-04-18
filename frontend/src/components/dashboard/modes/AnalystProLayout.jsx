@@ -14,6 +14,7 @@ import ActionsDialog from '../freeform/panels/ActionsDialog';
 import ZonePropertiesPanel from '../freeform/panels/ZonePropertiesPanel';
 import AnalystProWorksheetTile from '../freeform/AnalystProWorksheetTile';
 import ZoneFrame from '../freeform/ZoneFrame';
+import useAnalystProAutosave from '../freeform/hooks/useAnalystProAutosave';
 import ContextMenu from '../freeform/ContextMenu';
 import ViewDataDrawer from '../freeform/ViewDataDrawer';
 import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
@@ -50,6 +51,11 @@ export default function AnalystProLayout({
   size,
 }) {
   useActionRuntime();
+
+  // Plan 7 T9 — autosave authored Analyst Pro layout back to the backend.
+  // Debounced 1500 ms; payload = { schemaVersion, archetype, size,
+  // tiledRoot, floatingLayer }. Noop when dashboardId is falsy.
+  useAnalystProAutosave(dashboardId);
 
   const snapEnabled = useStore((s) => s.analystProSnapEnabled);
   const setSnapEnabled = useStore((s) => s.setAnalystProSnapEnabled);
