@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
 import { useStore } from "./store";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -34,33 +33,31 @@ function AnimatedRoutes() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        {/* Public */}
-        <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
-        <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
-        <Route path="/auth/callback" element={<OAuthCallback />} />
+    <Routes location={location} key={location.pathname}>
+      {/* Public */}
+      <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
+      <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
+      <Route path="/auth/callback" element={<OAuthCallback />} />
 
-        {/* Protected — no sidebar */}
-        <Route path="/tutorial" element={<ProtectedRoute><PageTransition><Tutorial /></PageTransition></ProtectedRoute>} />
+      {/* Protected — no sidebar */}
+      <Route path="/tutorial" element={<ProtectedRoute><PageTransition><Tutorial /></PageTransition></ProtectedRoute>} />
 
-        {/* Protected — with sidebar */}
-        <Route path="/dashboard" element={<AppPage><PageTransition><Dashboard /></PageTransition></AppPage>} />
-        <Route path="/schema" element={<AppPage><PageTransition><SchemaView /></PageTransition></AppPage>} />
-        <Route path="/chat" element={<AppPage><PageTransition><Chat /></PageTransition></AppPage>} />
-        <Route path="/profile" element={<AppPage><PageTransition><Profile /></PageTransition></AppPage>} />
-        <Route path="/account" element={<AppPage><PageTransition><Account /></PageTransition></AppPage>} />
-        <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
-        <Route path="/analytics" element={<AppPage><PageTransition><DashboardBuilder /></PageTransition></AppPage>} />
+      {/* Protected — with sidebar */}
+      <Route path="/dashboard" element={<AppPage><PageTransition><Dashboard /></PageTransition></AppPage>} />
+      <Route path="/schema" element={<AppPage><PageTransition><SchemaView /></PageTransition></AppPage>} />
+      <Route path="/chat" element={<AppPage><PageTransition><Chat /></PageTransition></AppPage>} />
+      <Route path="/profile" element={<AppPage><PageTransition><Profile /></PageTransition></AppPage>} />
+      <Route path="/account" element={<AppPage><PageTransition><Account /></PageTransition></AppPage>} />
+      <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
+      <Route path="/analytics" element={<AppPage><PageTransition><DashboardBuilder /></PageTransition></AppPage>} />
 
-        {/* Admin */}
-        <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
-        <Route path="/admin" element={<PageTransition><AdminDashboard /></PageTransition>} />
+      {/* Admin */}
+      <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
+      <Route path="/admin" element={<PageTransition><AdminDashboard /></PageTransition>} />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AnimatePresence>
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
