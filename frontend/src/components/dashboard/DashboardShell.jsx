@@ -8,9 +8,25 @@ import DashboardContextBar from "./DashboardContextBar";
 import DashboardStatusBar from "./DashboardStatusBar";
 import CommandPalette from "./CommandPalette";
 const AnalystProLayout = lazy(() => import("./modes/AnalystProLayout"));
+import {
+  BoardPackLayout,
+  OperatorConsoleLayout,
+  SignalLayout,
+  EditorialBriefLayout,
+} from "./modes/presets";
 import useTileLinking from "./lib/useTileLinking";
 import useVoicePipeline from "./hooks/useVoicePipeline";
 import { usePresetTheme } from "./presets/usePresetTheme";
+
+// Plan A★ preset dispatch. activePresetId picks the active layout;
+// unknown ids fall through to Analyst Pro (the freeform canvas).
+const PRESET_LAYOUTS = {
+  "analyst-pro": AnalystProLayout,
+  "board-pack": BoardPackLayout,
+  "operator-console": OperatorConsoleLayout,
+  "signal": SignalLayout,
+  "editorial-brief": EditorialBriefLayout,
+};
 const VoiceModeSelector = lazy(() => import("./VoiceModeSelector"));
 const VoiceTranscriptOverlay = lazy(() => import("./VoiceTranscriptOverlay"));
 
@@ -268,25 +284,30 @@ export default function DashboardShell({
       {/* ═══ FilterBar slot (passed as children from parent) ═══ */}
       {children}
 
-      {/* ═══ Content Area — AnalystProLayout renders unconditionally ═══ */}
+      {/* ═══ Content Area — preset-dispatched layout (Plan A★) ═══ */}
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", position: "relative" }}>
         <Suspense fallback={<div data-testid="preset-layout-loading" style={{ minHeight: '100%', background: 'var(--bg-page, #06060e)' }} />}>
-          <AnalystProLayout
-            tiles={tiles}
-            dashboardId={dashboardId}
-            dashboardName={dashboardName}
-            onTileClick={onTileClick}
-            onLayoutChange={onLayoutChange}
-            onBrush={onBrush}
-            getFiltersForTile={getFiltersForTile}
-            linkConfig={linkConfig}
-            addLink={addLink}
-            removeLink={removeLink}
-            activeFilters={allActiveFilters}
-            size={analystProSize}
-            onSizeChange={setAnalystProSize}
-            authoredLayout={authoredLayout}
-          />
+          {(() => {
+            const ActiveLayout = PRESET_LAYOUTS[activePresetId] ?? AnalystProLayout;
+            return (
+              <ActiveLayout
+                tiles={tiles}
+                dashboardId={dashboardId}
+                dashboardName={dashboardName}
+                onTileClick={onTileClick}
+                onLayoutChange={onLayoutChange}
+                onBrush={onBrush}
+                getFiltersForTile={getFiltersForTile}
+                linkConfig={linkConfig}
+                addLink={addLink}
+                removeLink={removeLink}
+                activeFilters={allActiveFilters}
+                size={analystProSize}
+                onSizeChange={setAnalystProSize}
+                authoredLayout={authoredLayout}
+              />
+            );
+          })()}
         </Suspense>
       </div>
 

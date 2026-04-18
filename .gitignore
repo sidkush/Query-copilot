@@ -52,3 +52,6 @@ yarn-debug.log*
 
 # Git worktrees for parallel feature development
 .worktrees/
+
+# ── Agent worktrees (transient, never commit) ─────────────────
+.claude/worktrees/

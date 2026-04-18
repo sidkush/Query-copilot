@@ -1,4 +1,7 @@
 import '@testing-library/jest-dom/vitest';
+// Side-effect: register every Plan B+ preset so tests see the same
+// set as the running app. Plan A★ — Phase 2.
+import './src/components/dashboard/presets';
 
 /**
  * Vitest setup — global jsdom polyfills.
