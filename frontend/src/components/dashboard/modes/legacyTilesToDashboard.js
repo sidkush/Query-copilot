@@ -3,27 +3,28 @@
  * (regular visualization). Used by the Plan 7 T7 bin-pack heuristic so KPIs
  * can take a short row and charts a tall one.
  *
- * Precedence:
+ * Plan 7 T16 — tightened to require explicit KPI markers. The earlier
+ * heuristic caught too many false-positives:
+ *   - `chartType === 'number'` matched any aggregate-count chart.
+ *   - `mark.type === 'text'` matched chart annotations + legends.
+ * Both dropped the chart's parent row to 160 px, clipping real marks.
+ * False negatives (missing a legit KPI) downgrade the KPI to a 360 px
+ * row — harmless — while false positives actively break charts.
+ *
+ * Precedence (after T16):
  *   1. explicit `tile.tileKind` override ('kpi' | 'chart')
- *   2. `tile.chartType` in the KPI set ('kpi', 'bignumber', 'number')
- *   3. `tile.chart_spec.mark.type === 'text'` (or mark string === 'text')
- *   4. default → 'chart'
+ *   2. `tile.chartType` exactly one of 'kpi' / 'bignumber' / 'big-number'
+ *   3. default → 'chart'
  *
  * Safe for null / undefined input (defaults to 'chart').
  */
-const KPI_CHART_TYPES = new Set(['kpi', 'bignumber', 'number']);
+const KPI_CHART_TYPES = new Set(['kpi', 'bignumber', 'big-number']);
 
 export function classifyTile(tile) {
   if (!tile || typeof tile !== 'object') return 'chart';
   if (tile.tileKind === 'kpi' || tile.tileKind === 'chart') return tile.tileKind;
   const chartType = typeof tile.chartType === 'string' ? tile.chartType.toLowerCase() : '';
   if (KPI_CHART_TYPES.has(chartType)) return 'kpi';
-  const spec = tile.chart_spec ?? tile.chartSpec;
-  if (spec && typeof spec === 'object') {
-    const mark = spec.mark;
-    if (typeof mark === 'string' && mark === 'text') return 'kpi';
-    if (mark && typeof mark === 'object' && mark.type === 'text') return 'kpi';
-  }
   return 'chart';
 }
 

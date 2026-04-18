@@ -19,13 +19,16 @@ describe('Plan 7 T6 — classifyTile', () => {
   it('classifies known KPI chartTypes as kpi', () => {
     expect(classifyTile({ id: 1, chartType: 'kpi' })).toBe('kpi');
     expect(classifyTile({ id: 2, chartType: 'bigNumber' })).toBe('kpi');
-    expect(classifyTile({ id: 3, chartType: 'number' })).toBe('kpi');
+    expect(classifyTile({ id: 3, chartType: 'big-number' })).toBe('kpi');
   });
 
-  it('classifies chart_spec with mark.type === "text" as kpi', () => {
-    expect(classifyTile({ id: 1, chart_spec: { mark: { type: 'text' } } })).toBe('kpi');
-    // Shorthand mark string also covered.
-    expect(classifyTile({ id: 2, chart_spec: { mark: 'text' } })).toBe('kpi');
+  it('T16 — chartType "number" is NOT a KPI signal anymore (too many false-positives on count/aggregate charts)', () => {
+    expect(classifyTile({ id: 1, chartType: 'number' })).toBe('chart');
+  });
+
+  it('T16 — chart_spec mark.type === "text" is NOT a KPI signal (used by annotations, legends, etc.)', () => {
+    expect(classifyTile({ id: 1, chart_spec: { mark: { type: 'text' } } })).toBe('chart');
+    expect(classifyTile({ id: 2, chart_spec: { mark: 'text' } })).toBe('chart');
   });
 
   it('defaults unknown tiles to "chart"', () => {
@@ -34,8 +37,8 @@ describe('Plan 7 T6 — classifyTile', () => {
     expect(classifyTile({ id: 3, chart_spec: { mark: 'bar' } })).toBe('chart');
   });
 
-  it('honors camelCase chartSpec alias (chart_spec vs chartSpec)', () => {
-    expect(classifyTile({ id: 1, chartSpec: { mark: 'text' } })).toBe('kpi');
+  it('camelCase chartSpec alias no longer contributes to KPI signal (T16)', () => {
+    expect(classifyTile({ id: 1, chartSpec: { mark: 'text' } })).toBe('chart');
   });
 
   it('is case-insensitive on chartType', () => {
