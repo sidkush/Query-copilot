@@ -108,8 +108,8 @@ describe('AnalyticsShell', () => {
   it('flattens tabs[].sections[].tiles[] preserving the tab label', async () => {
     render(<AnalyticsShell />);
     await waitFor(() => screen.getByTestId('analytics-shell'));
-    // Tile ids from both tabs should be present.
-    expect(screen.getByTestId('layout-workbench-tile-w1')).toBeDefined();
+    // Tile ids from both tabs should be present (lazy-loaded layout may need extra tick).
+    await waitFor(() => expect(screen.getByTestId('layout-workbench-tile-w1')).toBeDefined(), { timeout: 3000 });
     // w2 lives under the Products tab — workbench doesn't filter by tab
     // so both are visible.
     expect(screen.getByTestId('layout-workbench-tile-w2')).toBeDefined();
@@ -168,8 +168,10 @@ describe('AnalyticsShell', () => {
     window.dispatchEvent(
       new CustomEvent('dashboard-reload', { detail: { dashboard: fresh } }),
     );
+    // Lazy-loaded layout may need extra ticks to render after reload.
     await waitFor(() =>
       expect(screen.queryByTestId('layout-workbench-tile-fresh-tile')).not.toBeNull(),
+      { timeout: 3000 },
     );
   });
 
