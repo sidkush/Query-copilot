@@ -68,3 +68,43 @@ describe('legacyTilesToDashboard smart layout', () => {
     expect(sum).toBe(100000);
   });
 });
+
+describe('Plan 7 T2 — tile.title propagates to zone.displayName', () => {
+  it('worksheet child carries displayName = tile.title when title present', () => {
+    const tiles = [
+      { id: 1, title: 'Member Rides', chart_spec: {} },
+      { id: 2, title: 'Casual Rides', chart_spec: {} },
+    ];
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    const kids = d.tiledRoot.children as Array<{ id: string; displayName?: string }>;
+    expect(kids[0].displayName).toBe('Member Rides');
+    expect(kids[1].displayName).toBe('Casual Rides');
+  });
+
+  it('worksheet child omits displayName (undefined) when title is missing or empty', () => {
+    const tiles = [
+      { id: 1, chart_spec: {} },
+      { id: 2, title: '', chart_spec: {} },
+      { id: 3, title: '   ', chart_spec: {} },
+    ];
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    const kids = d.tiledRoot.children as Array<{ id: string; displayName?: string }>;
+    expect(kids[0].displayName).toBeUndefined();
+    expect(kids[1].displayName).toBeUndefined();
+    expect(kids[2].displayName).toBeUndefined();
+  });
+
+  it('multi-column layout (N=2) also propagates displayName through bucketed children', () => {
+    const tiles = Array.from({ length: 7 }, (_, i) => ({
+      id: i + 1,
+      title: `Tile ${i + 1}`,
+      chart_spec: {},
+    }));
+    const d = legacyTilesToDashboard(tiles, 'd', 'N', undefined);
+    expect(d.tiledRoot.type).toBe('container-horz');
+    const col0 = (d.tiledRoot.children[0] as { children: Array<{ displayName?: string }> }).children;
+    const col1 = (d.tiledRoot.children[1] as { children: Array<{ displayName?: string }> }).children;
+    expect(col0[0].displayName).toBe('Tile 1'); // round-robin: col0 = 1,3,5,7
+    expect(col1[0].displayName).toBe('Tile 2');
+  });
+});

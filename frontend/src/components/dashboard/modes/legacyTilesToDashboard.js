@@ -11,13 +11,21 @@ export function legacyTilesToDashboard(tiles, dashboardId, dashboardName, size) 
   const n = tiles.length;
   const columns = n >= 10 ? 3 : n >= 5 ? 2 : 1;
 
-  const toWorksheetChild = (t, i, axisH) => ({
-    id: String(t.id ?? `t${i}`),
-    type: 'worksheet',
-    w: 100000,
-    h: axisH,
-    worksheetRef: String(t.id ?? `t${i}`),
-  });
+  const toWorksheetChild = (t, i, axisH) => {
+    // Plan 7 T2 — carry the user-authored chart title through as displayName
+    // so opting into the frame title bar (showTitle: true) yields "Member
+    // Rides", not the zone-id fallback "Worksheet #3w8i".
+    const rawTitle = typeof t.title === 'string' ? t.title.trim() : '';
+    const displayName = rawTitle.length > 0 ? rawTitle : undefined;
+    return {
+      id: String(t.id ?? `t${i}`),
+      type: 'worksheet',
+      w: 100000,
+      h: axisH,
+      worksheetRef: String(t.id ?? `t${i}`),
+      ...(displayName !== undefined ? { displayName } : {}),
+    };
+  };
 
   let tiledRoot;
   if (columns === 1) {
