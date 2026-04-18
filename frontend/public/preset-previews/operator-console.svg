@@ -1,0 +1,74 @@
+<!-- public/preset-previews/operator-console.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180">
+  <rect width="320" height="180" fill="#0a140e"/>
+
+  <!-- top status strip -->
+  <text x="8"  y="12" font-family="monospace" font-size="5" fill="#b5d8a0" letter-spacing="0.5">
+    LAB · LIVE · SYSTEM · PROD-EU-1 · RUN · Q3-2026-042 · OPERATOR · M.CHEN
+  </text>
+  <text x="312" y="12" text-anchor="end" font-family="monospace" font-size="5" fill="#b5d8a0">
+    T+00:42:14 · 0 ANOMALY · 3 WATCH
+  </text>
+  <line x1="0" y1="16" x2="320" y2="16" stroke="#203520" stroke-width="0.5"/>
+
+  <!-- CH.1 header + four channels -->
+  <text x="8" y="26" font-family="monospace" font-size="5" fill="#b5d8a0" letter-spacing="1">▶ CH.1 — REVENUE SIGNAL</text>
+  <line x1="0" y1="30" x2="320" y2="30" stroke="#203520" stroke-width="0.4"/>
+  <g font-family="monospace" fill="#b5d8a0">
+    <text x="8"   y="46" font-size="13" font-weight="700">2.47M$</text>
+    <text x="8"   y="54" font-size="5"  fill="#547a4a" letter-spacing="1">MRR · +18.9%</text>
+
+    <text x="88"  y="46" font-size="13" font-weight="700">29.6M$</text>
+    <text x="88"  y="54" font-size="5"  fill="#547a4a" letter-spacing="1">ARR · +22.4%</text>
+
+    <text x="168" y="46" font-size="13" font-weight="700">2.31%</text>
+    <text x="168" y="54" font-size="5"  fill="#547a4a" letter-spacing="1">CHURN · +0.4pp</text>
+
+    <text x="248" y="46" font-size="13" font-weight="700">14.2mo</text>
+    <text x="248" y="54" font-size="5"  fill="#547a4a" letter-spacing="1">PAYBACK · −0.7mo</text>
+  </g>
+  <line x1="0" y1="60" x2="320" y2="60" stroke="#203520" stroke-width="0.5"/>
+
+  <!-- CH.2 REVENUE TRACE -->
+  <text x="8" y="70" font-family="monospace" font-size="5" fill="#b5d8a0" letter-spacing="1">▶ CH.2 — REVENUE TRACE</text>
+  <line x1="0" y1="74" x2="320" y2="74" stroke="#203520" stroke-width="0.4"/>
+  <polyline
+    points="6,110 18,108 30,106 42,107 54,104 66,102 78,103 90,100 102,98 114,96 126,97 138,94 150,92 162,90 174,88 186,90 198,86 210,82 216,78 222,74 228,72 234,80 246,84 258,83 270,81 282,78 294,76 306,74 314,72"
+    fill="none" stroke="#b5d8a0" stroke-width="0.8"/>
+  <!-- red anomaly rule -->
+  <line x1="222" y1="78" x2="222" y2="112" stroke="#f05a4a" stroke-width="0.8" stroke-dasharray="1 1"/>
+  <!-- event marker dot -->
+  <circle cx="222" cy="74" r="1.6" fill="#f05a4a"/>
+  <!-- callout box -->
+  <rect x="236" y="80" width="76" height="18" fill="none" stroke="#f05a4a" stroke-width="0.5"/>
+  <text x="240" y="88" font-family="monospace" font-size="4.5" fill="#f05a4a">EVT ▲ Beta-Axion</text>
+  <text x="240" y="94" font-family="monospace" font-size="4.5" fill="#f05a4a">+$120K</text>
+  <line x1="0" y1="114" x2="320" y2="114" stroke="#203520" stroke-width="0.5"/>
+
+  <!-- CH.3 CHURN RISK (left half) -->
+  <text x="8" y="124" font-family="monospace" font-size="5" fill="#b5d8a0" letter-spacing="1">▶ CH.3 — CHURN RISK</text>
+  <g>
+    <rect x="8"   y="148" width="14" height="14" fill="#b5d8a0"/>
+    <rect x="24"  y="144" width="14" height="18" fill="#c5cc7a"/>
+    <rect x="40"  y="138" width="14" height="24" fill="#d5bf66"/>
+    <rect x="56"  y="132" width="14" height="30" fill="#dfa956"/>
+    <rect x="72"  y="140" width="14" height="22" fill="#e38c4f"/>
+    <rect x="88"  y="150" width="14" height="12" fill="#ea7450"/>
+    <rect x="104" y="154" width="14" height="8"  fill="#f05a4a"/>
+  </g>
+
+  <!-- CH.4 EVENT LOG (right half) -->
+  <text x="168" y="124" font-family="monospace" font-size="5" fill="#b5d8a0" letter-spacing="1">▶ CH.4 — EVENT LOG</text>
+  <g font-family="monospace" font-size="4.5">
+    <text x="168" y="134" fill="#547a4a">00:41:58</text><text x="200" y="134" fill="#b5d8a0">OK</text>  <text x="214" y="134" fill="#b5d8a0">turbo hit · 64ms</text>
+    <text x="168" y="142" fill="#547a4a">00:41:32</text><text x="200" y="142" fill="#d9a84a">WARN</text><text x="214" y="142" fill="#b5d8a0">tool budget 18/20</text>
+    <text x="168" y="150" fill="#547a4a">00:40:52</text><text x="200" y="150" fill="#f05a4a">ERR</text> <text x="214" y="150" fill="#b5d8a0">bq 503 · retry 1</text>
+    <text x="168" y="158" fill="#547a4a">00:40:14</text><text x="200" y="158" fill="#b5d8a0">OK</text>  <text x="214" y="158" fill="#b5d8a0">pii masked · 3</text>
+  </g>
+
+  <!-- footer strip -->
+  <line x1="0" y1="166" x2="320" y2="166" stroke="#203520" stroke-width="0.5"/>
+  <text x="8"   y="174" font-family="monospace" font-size="4.5" fill="#547a4a">BIGQUERY://PROD.FINANCE_REPORTS</text>
+  <text x="160" y="174" text-anchor="middle" font-family="monospace" font-size="4.5" fill="#547a4a">SAMPLE 1/1D · BAND 30D · FILT NONE</text>
+  <text x="312" y="174" text-anchor="end" font-family="monospace" font-size="4.5" fill="#547a4a">CPU 8.4% · MEM 412M · RENDER 128MS</text>
+</svg>
