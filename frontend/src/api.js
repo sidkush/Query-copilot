@@ -1,3 +1,5 @@
+import { migrateLegacyArchetype } from "./components/dashboard/freeform/lib/migrateLegacyArchetype";
+
 const API_BASE = "/api/v1";
 
 function getHeaders() {
@@ -387,7 +389,7 @@ export const api = {
   getDashboards: () => request("/dashboards/"),
   createDashboard: (name) =>
     request("/dashboards/", { method: "POST", body: JSON.stringify({ name }) }),
-  getDashboard: (id) => request(`/dashboards/${id}`),
+  getDashboard: (id) => request(`/dashboards/${id}`).then(migrateLegacyArchetype),
   updateDashboard: (id, data) =>
     request(`/dashboards/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteDashboard: (id) =>
