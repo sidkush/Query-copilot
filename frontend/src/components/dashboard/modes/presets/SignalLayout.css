@@ -1,0 +1,521 @@
+/* src/components/dashboard/modes/presets/SignalLayout.css
+   Plan A★ Phase 5 — bespoke wireframe 3 (modern dark SaaS).
+
+   Typography: Manrope (humanist sans) via Google Fonts + system fallback.
+   JetBrains Mono for numerics inside deltas and footer meta.
+
+   Palette (4 distinct accent hues + 1 warn):
+     teal        #4ecdc4
+     orange      #e8864a
+     rose        #d67a9a
+     indigo      #7a82c2
+     warn red    #f47272
+
+   No glassmorphism. No backdrop-filter. 1px subtle borders only. */
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+.sg-layout {
+  --sg-bg: #0b0f17;
+  --sg-fg: #e7e9ef;
+  --sg-fg-muted: #8a92a3;
+  --sg-fg-meta: #576073;
+  --sg-card-bg: rgba(255, 255, 255, 0.02);
+  --sg-border: rgba(255, 255, 255, 0.06);
+  --sg-accent-teal: #4ecdc4;
+  --sg-accent-orange: #e8864a;
+  --sg-accent-rose: #d67a9a;
+  --sg-accent-indigo: #7a82c2;
+  --sg-warn: #f47272;
+
+  --sg-font-display: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sg-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  min-height: 100%;
+  width: 100%;
+  padding: 28px 32px 24px;
+  background: var(--sg-bg);
+  color: var(--sg-fg);
+  font-family: var(--sg-font-display);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  font-feature-settings: 'cv11', 'ss01';
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sg-layout *,
+.sg-layout *::before,
+.sg-layout *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- header ---------- */
+
+.sg-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0 2px;
+}
+
+.sg-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex: 0 0 auto;
+  background: conic-gradient(
+    from 180deg,
+    #4ecdc4,
+    #e8864a,
+    #d67a9a,
+    #7a82c2,
+    #4ecdc4
+  );
+}
+
+.sg-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sg-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--sg-fg);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.sg-title-dim {
+  color: var(--sg-fg-muted);
+  font-weight: 500;
+}
+
+.sg-crumb {
+  font-size: 12px;
+  color: var(--sg-fg-meta);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* ---------- KPI row ---------- */
+
+.sg-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sg-kpi-card {
+  background: var(--sg-card-bg);
+  border: 1px solid var(--sg-border);
+  border-radius: 10px;
+  padding: 16px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  min-width: 0;
+}
+
+.sg-kpi-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  color: var(--sg-fg-muted);
+  text-transform: uppercase;
+}
+
+.sg-kpi-valuerow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.sg-kpi-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--sg-fg);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.sg-kpi-value small {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--sg-fg-muted);
+  margin-left: 2px;
+  letter-spacing: -0.01em;
+}
+
+.sg-delta-pill {
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.sg-delta-pill.sg-delta-teal {
+  background: rgba(78, 205, 196, 0.14);
+  color: var(--sg-accent-teal);
+}
+.sg-delta-pill.sg-delta-orange {
+  background: rgba(232, 134, 74, 0.14);
+  color: var(--sg-accent-orange);
+}
+.sg-delta-pill.sg-delta-rose {
+  background: rgba(214, 122, 154, 0.14);
+  color: var(--sg-accent-rose);
+}
+.sg-delta-pill.sg-delta-indigo {
+  background: rgba(122, 130, 194, 0.14);
+  color: var(--sg-accent-indigo);
+}
+.sg-delta-pill.sg-delta-warn {
+  background: rgba(244, 114, 114, 0.14);
+  color: var(--sg-warn);
+}
+
+.sg-kpi-sub {
+  font-size: 12px;
+  color: var(--sg-fg-muted);
+  letter-spacing: 0.005em;
+  line-height: 1.35;
+}
+
+.sg-sparkline {
+  width: 100%;
+  height: 28px;
+  display: block;
+  margin-top: 2px;
+}
+
+/* ---------- main split ---------- */
+
+.sg-main {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sg-card {
+  background: var(--sg-card-bg);
+  border: 1px solid var(--sg-border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sg-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sg-card-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--sg-fg);
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.sg-card-sub {
+  font-size: 12px;
+  color: var(--sg-fg-muted);
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+.sg-card-meta {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  color: var(--sg-fg-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sg-card-meta .sg-live {
+  color: var(--sg-accent-teal);
+}
+
+/* stream chart */
+
+.sg-stream-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 180px;
+}
+
+.sg-stream-yaxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-family: var(--sg-font-mono);
+  font-size: 10.5px;
+  color: var(--sg-fg-meta);
+  padding: 4px 0;
+  letter-spacing: 0.01em;
+}
+
+.sg-stream-plot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+}
+
+.sg-stream-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sg-stream-xaxis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--sg-font-mono);
+  font-size: 10.5px;
+  color: var(--sg-fg-meta);
+  letter-spacing: 0.01em;
+  padding: 4px 4px 0 4px;
+  margin-top: 2px;
+}
+
+.sg-stream-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  font-size: 12px;
+  color: var(--sg-fg-muted);
+  padding-top: 6px;
+  border-top: 1px solid var(--sg-border);
+}
+
+.sg-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.sg-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.sg-legend-swatch.sg-swatch-teal   { background: var(--sg-accent-teal); }
+.sg-legend-swatch.sg-swatch-orange { background: var(--sg-accent-orange); }
+.sg-legend-swatch.sg-swatch-rose   { background: var(--sg-accent-rose); }
+.sg-legend-swatch.sg-swatch-indigo { background: var(--sg-accent-indigo); }
+
+/* ---------- right rail ---------- */
+
+.sg-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.sg-signal-card {
+  background: var(--sg-card-bg);
+  border: 1px solid var(--sg-border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sg-signal-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  color: var(--sg-fg-muted);
+  text-transform: uppercase;
+}
+
+.sg-signal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--sg-accent-teal);
+  box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.18);
+  display: inline-block;
+}
+
+.sg-signal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sg-fg);
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.sg-signal-body {
+  font-size: 13px;
+  color: var(--sg-fg-muted);
+  line-height: 1.55;
+}
+
+.sg-accent {
+  color: var(--sg-accent-teal);
+  font-weight: 500;
+}
+
+/* top accounts */
+
+.sg-accounts {
+  background: var(--sg-card-bg);
+  border: 1px solid var(--sg-border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sg-accounts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.sg-accounts-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sg-fg);
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+
+.sg-accounts-badge {
+  font-family: var(--sg-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--sg-border);
+  color: var(--sg-fg-muted);
+  letter-spacing: 0.04em;
+}
+
+.sg-account-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--sg-border);
+}
+.sg-account-row:first-of-type {
+  border-top: none;
+  padding-top: 4px;
+}
+
+.sg-account-rank {
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  color: var(--sg-fg-meta);
+  text-align: right;
+  letter-spacing: 0.02em;
+}
+
+.sg-account-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.sg-account-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sg-fg);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sg-account-sub {
+  font-size: 11px;
+  color: var(--sg-fg-meta);
+  letter-spacing: 0.005em;
+}
+
+.sg-account-value {
+  font-family: var(--sg-font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sg-fg);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+/* ---------- footer ---------- */
+
+.sg-footer {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sg-border);
+  font-family: var(--sg-font-mono);
+  font-size: 11px;
+  color: var(--sg-fg-meta);
+  letter-spacing: 0.02em;
+}
+
+.sg-footer-center {
+  text-align: center;
+}
+
+.sg-footer-right {
+  text-align: right;
+}
+
+/* preset-scoped page background override when the layout is mounted under
+   a DashboardShell that uses data-active-preset on the html element. */
+:root[data-active-preset='signal'] {
+  color-scheme: dark;
+  background: #0b0f17;
+}
