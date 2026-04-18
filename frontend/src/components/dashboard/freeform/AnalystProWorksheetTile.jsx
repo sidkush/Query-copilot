@@ -3,6 +3,7 @@ import DashboardTileCanvas from '../lib/DashboardTileCanvas';
 import { api } from '../../../api';
 import { useStore } from '../../../store';
 import { applyHighlightToSpec, mergeMarkIntoHighlight } from './lib/highlightFilter';
+import { promoteSpecMark } from './lib/specPromotion';
 import { publish as publishMarkEvent } from './lib/markEventBus';
 import ChartTooltipCard from './ChartTooltipCard';
 
@@ -108,6 +109,11 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
     const baseSpec = tile.chart_spec || tile.chartSpec;
     if (!baseSpec) return tile;
     let nextSpec = baseSpec;
+    // Plan 7 T18 — agent-generated tiles occasionally ship with `mark: "text"`
+    // + an (x, y) encoding pair, which Vega renders as invisible text glyphs
+    // inside the plot area (user cannot infer anything). Promote to "bar"
+    // before further spec decoration so downstream transforms see a sane mark.
+    nextSpec = promoteSpecMark(nextSpec);
     if (autosize) nextSpec = { ...nextSpec, autosize };
     nextSpec = applyHighlightToSpec(nextSpec, highlight);
     if (nextSpec === baseSpec) return tile;
