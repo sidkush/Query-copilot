@@ -1,0 +1,406 @@
+/* ==========================================================================
+   OperatorConsoleLayout.css — Plan A* Phase 4 (Wave 2-OC)
+   Bespoke CRT-terminal layout for the Operator Console preset.
+   All rules scoped under `.oc-layout` so this file is safe to import
+   anywhere without polluting global styles.
+
+   Palette
+     bg (near-black w/ green tint) #0a140e
+     phosphor (fg primary)         #b5d8a0
+     phosphor dim (secondary)      #547a4a
+     accent anomaly (red)          #f05a4a
+     accent warn (amber)           #d9a84a
+     hairline rule                 #203520
+   Font: JetBrains Mono (Google Fonts) — monospace everywhere.
+   Radius: 0. Density: compact.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+.oc-layout {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: #0a140e;
+  color: #b5d8a0;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  font-feature-settings: 'tnum', 'zero';
+  font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: 0;
+  overflow: hidden;
+}
+
+.oc-layout *,
+.oc-layout *::before,
+.oc-layout *::after {
+  box-sizing: border-box;
+  border-radius: 0;
+}
+
+/* ---------- 1. Mission-control top strip --------------------------------- */
+.oc-layout .oc-topstrip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  height: 36px;
+  border-bottom: 1px solid #203520;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.oc-layout .oc-topstrip__left,
+.oc-layout .oc-topstrip__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oc-layout .oc-topstrip__dim { color: #547a4a; }
+.oc-layout .oc-topstrip__bright { color: #b5d8a0; font-weight: 600; }
+.oc-layout .oc-topstrip__warn { color: #d9a84a; font-weight: 600; }
+
+.oc-layout .oc-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #b5d8a0;
+  box-shadow: 0 0 6px rgba(181, 216, 160, 0.55);
+  margin-right: 2px;
+}
+
+.oc-layout .oc-dot--warn  { background: #d9a84a; box-shadow: 0 0 6px rgba(217, 168, 74, 0.55); }
+.oc-layout .oc-dot--error { background: #f05a4a; box-shadow: 0 0 6px rgba(240, 90, 74, 0.55); }
+
+/* ---------- Section header bar — shared ---------------------------------- */
+.oc-layout .oc-ch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #b5d8a0;
+  border-bottom: 1px solid #203520;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.oc-layout .oc-ch-header__meta {
+  font-weight: 400;
+  color: #547a4a;
+  letter-spacing: 0.08em;
+}
+
+/* ---------- 2. CH.1 — REVENUE SIGNAL (4 channel tiles) ------------------- */
+.oc-layout .oc-ch1 {
+  border-bottom: 1px solid #203520;
+  flex-shrink: 0;
+}
+
+.oc-layout .oc-channels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.oc-layout .oc-channel {
+  padding: 14px 18px 12px 18px;
+  border-right: 1px solid #203520;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.oc-layout .oc-channel:last-child { border-right: none; }
+
+.oc-layout .oc-channel__label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #547a4a;
+}
+
+.oc-layout .oc-channel__value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: #b5d8a0;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.oc-layout .oc-channel__value small {
+  font-size: 13px;
+  font-weight: 500;
+  color: #547a4a;
+  letter-spacing: 0.04em;
+}
+
+.oc-layout .oc-channel__delta {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.oc-layout .oc-channel__delta--pos  { color: #b5d8a0; }
+.oc-layout .oc-channel__delta--neg  { color: #f05a4a; }
+.oc-layout .oc-channel__delta--warn { color: #d9a84a; }
+
+.oc-layout .oc-channel__footer {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #547a4a;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.oc-layout .oc-channel__footer--warn {
+  color: #d9a84a;
+}
+
+/* ---------- 3. CH.2 — REVENUE TRACE -------------------------------------- */
+.oc-layout .oc-ch2 {
+  position: relative;
+  border-bottom: 1px solid #203520;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+}
+
+.oc-layout .oc-trace-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 220px;
+  padding: 8px 16px 10px 16px;
+}
+
+.oc-layout .oc-trace {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.oc-layout .oc-trace-axis-label {
+  fill: #547a4a;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: 0.04em;
+}
+
+.oc-layout .oc-trace-line {
+  fill: none;
+  stroke: #b5d8a0;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px rgba(181, 216, 160, 0.35));
+}
+
+.oc-layout .oc-trace-anomaly-line {
+  stroke: #f05a4a;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.oc-layout .oc-trace-anomaly-dot {
+  fill: #f05a4a;
+  filter: drop-shadow(0 0 4px rgba(240, 90, 74, 0.55));
+}
+
+.oc-layout .oc-trace-anomaly-label {
+  fill: #f05a4a;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: 0.06em;
+}
+
+.oc-layout .oc-trace-anomaly-label tspan {
+  fill: #b5d8a0;
+}
+
+.oc-layout .oc-trace-live {
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #b5d8a0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.oc-layout .oc-anomaly-callout {
+  position: absolute;
+  top: 30px;
+  right: 24px;
+  border: 1px solid #f05a4a;
+  padding: 6px 10px;
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  color: #f05a4a;
+  background: rgba(240, 90, 74, 0.03);
+  max-width: 260px;
+}
+
+.oc-layout .oc-anomaly-callout__title {
+  color: #f05a4a;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.oc-layout .oc-anomaly-callout__meta {
+  color: #547a4a;
+  margin-top: 3px;
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- 4. Bottom split: CH.3 + CH.4 --------------------------------- */
+.oc-layout .oc-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1 1 auto;
+  min-height: 220px;
+}
+
+.oc-layout .oc-ch3 {
+  border-right: 1px solid #203520;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.oc-layout .oc-ch4 {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Histogram */
+.oc-layout .oc-hist-wrap {
+  padding: 12px 16px 8px 16px;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.oc-layout .oc-hist {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 4px;
+  align-items: end;
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+
+.oc-layout .oc-hist__bar {
+  background: #547a4a;
+  min-height: 2px;
+  transition: none;
+}
+
+.oc-layout .oc-hist__bar[data-bin="low"]   { background: #3a5a32; }
+.oc-layout .oc-hist__bar[data-bin="mid"]   { background: #7ab060; }
+.oc-layout .oc-hist__bar[data-bin="high"]  { background: #b5d8a0; }
+.oc-layout .oc-hist__bar[data-bin="risk"]  { background: #f05a4a; }
+
+.oc-layout .oc-hist-axis {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 4px;
+  font-size: 9.5px;
+  color: #547a4a;
+  letter-spacing: 0.04em;
+  padding-top: 2px;
+  text-align: center;
+}
+
+/* Event log */
+.oc-layout .oc-log {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0 6px 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.oc-layout .oc-log__row {
+  display: grid;
+  grid-template-columns: 72px 44px 1fr;
+  gap: 10px;
+  padding: 3px 16px;
+  font-size: 11.5px;
+  color: #b5d8a0;
+  white-space: nowrap;
+  align-items: baseline;
+}
+
+.oc-layout .oc-log__time {
+  color: #547a4a;
+  font-variant-numeric: tabular-nums;
+}
+
+.oc-layout .oc-log__tag {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.oc-layout .oc-log__row[data-status="ok"]   .oc-log__tag { color: #b5d8a0; }
+.oc-layout .oc-log__row[data-status="warn"] .oc-log__tag { color: #d9a84a; }
+.oc-layout .oc-log__row[data-status="err"]  .oc-log__tag { color: #f05a4a; }
+
+.oc-layout .oc-log__msg {
+  color: #b5d8a0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 5. Footer status strip --------------------------------------- */
+.oc-layout .oc-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  height: 28px;
+  border-top: 1px solid #203520;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.oc-layout .oc-footer__left   { color: #b5d8a0; justify-self: start; }
+.oc-layout .oc-footer__center { color: #547a4a; justify-self: center; }
+.oc-layout .oc-footer__right  { color: #547a4a; justify-self: end; }
+
+.oc-layout .oc-footer__right .oc-bright { color: #b5d8a0; font-weight: 600; }
+
+.oc-layout .oc-footer__glyph {
+  color: #b5d8a0;
+  margin-right: 4px;
+}
