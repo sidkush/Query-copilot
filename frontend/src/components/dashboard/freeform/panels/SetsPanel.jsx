@@ -4,13 +4,16 @@ import SetMemberDialog from './SetMemberDialog';
 import { validateDimension, validateSetName } from '../lib/setOps';
 import { generateZoneId } from '../lib/zoneTree';
 
+// Plan 7 T15 — stable empty-array ref prevents Zustand infinite-loop warning.
+const EMPTY_ARR = Object.freeze([]);
+
 /**
  * SetsPanel — left-rail panel listing all DashboardSets on the current
  * Analyst Pro dashboard. Supports create / rename / delete and opens
  * SetMemberDialog for member edits.
  */
 export default function SetsPanel() {
-  const sets = useStore((s) => s.analystProDashboard?.sets || []);
+  const sets = useStore((s) => s.analystProDashboard?.sets || EMPTY_ARR);
   const addSet = useStore((s) => s.addSetAnalystPro);
   const renameSet = useStore((s) => s.renameSetAnalystPro);
   const deleteSet = useStore((s) => s.deleteSetAnalystPro);

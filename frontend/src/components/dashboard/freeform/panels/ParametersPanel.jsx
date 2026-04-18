@@ -5,6 +5,9 @@ import { validateParamName, coerceValue } from '../lib/parameterOps';
 import { generateZoneId } from '../lib/zoneTree';
 
 const TYPE_OPTIONS = ['string', 'number', 'boolean', 'date'];
+// Plan 7 T15 — stable empty-array ref prevents Zustand "getSnapshot should
+// be cached" infinite loop under React 19.
+const EMPTY_ARR = Object.freeze([]);
 
 /**
  * ParametersPanel — left-rail panel for DashboardParameters. Create with
@@ -13,7 +16,7 @@ const TYPE_OPTIONS = ['string', 'number', 'boolean', 'date'];
  * domain authoring is Plan 5 — this panel creates free-domain params only.
  */
 export default function ParametersPanel() {
-  const parameters = useStore((s) => s.analystProDashboard?.parameters || []);
+  const parameters = useStore((s) => s.analystProDashboard?.parameters || EMPTY_ARR);
   const addParam = useStore((s) => s.addParameterAnalystPro);
   const deleteParam = useStore((s) => s.deleteParameterAnalystPro);
 

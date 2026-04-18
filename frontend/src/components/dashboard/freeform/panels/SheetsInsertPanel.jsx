@@ -2,6 +2,11 @@ import React from 'react';
 import { useStore } from '../../../../store';
 
 const SHEET_MIME = 'application/askdb-analyst-pro-sheet+json';
+// Plan 7 T15 — stable reference for the empty-state fallback. Using a fresh
+// `[]` inside the useStore selector produces a new array each render, which
+// Zustand / React 19 useSyncExternalStore reports as "getSnapshot should be
+// cached to avoid an infinite loop" and the component then crashes.
+const EMPTY_WORKSHEETS = Object.freeze([]);
 
 /**
  * Plan 6c — lists workbook worksheets; drag one onto the canvas to insert
@@ -9,7 +14,7 @@ const SHEET_MIME = 'application/askdb-analyst-pro-sheet+json';
  * at default offset, matching ObjectLibraryPanel convention).
  */
 export default function SheetsInsertPanel() {
-  const worksheets = useStore((s) => s.analystProDashboard?.worksheets || []);
+  const worksheets = useStore((s) => s.analystProDashboard?.worksheets || EMPTY_WORKSHEETS);
   const insertObject = useStore((s) => s.insertObjectAnalystPro);
 
   const handleKeyInsert = (sheetId) => (e) => {

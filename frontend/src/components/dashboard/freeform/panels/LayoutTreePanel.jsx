@@ -18,6 +18,10 @@
  */
 
 import React, { useMemo, useRef, useState } from 'react';
+
+// Plan 7 T15 — stable empty-array ref for Zustand selectors to prevent
+// "getSnapshot should be cached" infinite loops under React 19.
+const EMPTY_ARR = Object.freeze([]);
 import { useStore } from '../../../../store';
 import { evaluateRule, buildEvaluationContext } from '../lib/visibilityRules';
 import { getZoneFallbackLabel } from '../lib/zoneLabel';
@@ -314,8 +318,8 @@ export default function LayoutTreePanel() {
   const addToSelection = useStore((s) => s.addToSelection);
   const removeFromSelection = useStore((s) => s.removeFromSelection);
   const updateZone = useStore((s) => s.updateZoneAnalystPro);
-  const sets = useStore((s) => s.analystProDashboard?.sets || []);
-  const parameters = useStore((s) => s.analystProDashboard?.parameters || []);
+  const sets = useStore((s) => s.analystProDashboard?.sets || EMPTY_ARR);
+  const parameters = useStore((s) => s.analystProDashboard?.parameters || EMPTY_ARR);
   const sheetFilters = useStore((s) => s.analystProSheetFilters);
   const ctx = useMemo(
     () => buildEvaluationContext({ sets, parameters, sheetFilters }),
