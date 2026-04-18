@@ -1512,12 +1512,16 @@ export const useStore = create((set, get) => ({
   // Plan 5b: drop-on-edge wrap. Removes source from its current location, then
   // wraps target + source in a new split container sized to inherit target's
   // parent-axis proportion.
-  wrapInContainerAnalystPro: (targetZoneId, sourceZone, side) => {
+  //
+  // Plan 7 T4: callers may pass canvasSize { canvasWPx, canvasHPx } so the
+  // wrap-guard can reject drops that would produce <120 px children. When
+  // omitted (non-drag callers, legacy tests), the guard is skipped.
+  wrapInContainerAnalystPro: (targetZoneId, sourceZone, side, canvasSize) => {
     const { analystProDashboard: dash } = get();
     if (!dash?.tiledRoot) return;
     if (!sourceZone?.id) return;
     const afterRemove = removeChild(dash.tiledRoot, sourceZone.id);
-    const nextRoot = wrapInContainer(afterRemove, targetZoneId, sourceZone, side);
+    const nextRoot = wrapInContainer(afterRemove, targetZoneId, sourceZone, side, canvasSize);
     if (nextRoot === dash.tiledRoot) return;
     const nextDash = { ...dash, tiledRoot: nextRoot };
     set({ analystProDashboard: nextDash });

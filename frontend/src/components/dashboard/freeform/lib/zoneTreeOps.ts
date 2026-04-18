@@ -445,11 +445,18 @@ export type InsertSide = 'top' | 'bottom' | 'left' | 'right';
  *
  * Returns identity when target is root, missing, or source missing.
  */
+// Plan 7 T4 — when a drop would produce a child cell smaller than this on
+// either axis at the given canvas size, the wrap is rejected as a no-op.
+// 120 px is the minimum at which chart titles, axes, and at least one mark
+// still render legibly (Tableau §E.13 equivalent).
+const MIN_WRAP_PX = 120;
+
 export function wrapInContainer(
   root: Zone,
   targetId: string,
   sourceZone: Zone,
   side: InsertSide,
+  canvasSize?: { canvasWPx?: number; canvasHPx?: number },
 ): Zone {
   if (root.id === targetId) return root;
 
@@ -462,6 +469,26 @@ export function wrapInContainer(
   const isVertical = side === 'top' || side === 'bottom';
   const newType: ContainerType = isVertical ? 'container-vert' : 'container-horz';
   const sourceFirst = side === 'top' || side === 'left';
+
+  // Plan 7 T4 — wrap-guard. Compute the target's pixel dims from its
+  // proportional w/h relative to the canvas; if the 50/50 split on the
+  // wrapper axis would push either child below MIN_WRAP_PX, bail out.
+  // Legacy callers that omit canvasSize keep pre-T4 behaviour.
+  const canvasWPx = canvasSize?.canvasWPx ?? Infinity;
+  const canvasHPx = canvasSize?.canvasHPx ?? Infinity;
+  if (Number.isFinite(canvasWPx) && Number.isFinite(canvasHPx)) {
+    const targetPxW = ((target as { w: number }).w / 100000) * canvasWPx;
+    const targetPxH = ((target as { h: number }).h / 100000) * canvasHPx;
+    const childPxW = newType === 'container-horz' ? targetPxW * 0.5 : targetPxW;
+    const childPxH = newType === 'container-vert' ? targetPxH * 0.5 : targetPxH;
+    if (childPxW < MIN_WRAP_PX || childPxH < MIN_WRAP_PX) {
+      // eslint-disable-next-line no-console
+      console.debug(
+        `[Plan 7 T4] wrap rejected: would produce ${Math.round(childPxW)}x${Math.round(childPxH)} px cell (< ${MIN_WRAP_PX} px min)`,
+      );
+      return root;
+    }
+  }
 
   const parentAxis: 'w' | 'h' = parent.type === 'container-horz' ? 'w' : 'h';
   const perpAxis: 'w' | 'h' = parentAxis === 'w' ? 'h' : 'w';

@@ -22,7 +22,7 @@ const SNAP_THRESHOLD = 6;
  * Floating zones: mutate `dashboard.floatingLayer[idx].{x,y}` (move) or {pxW,pxH} (resize).
  * Tiled zones: wired in Tasks 10/11 (resize via resizeZone, reorder via reorderZone).
  */
-export function useDragResize({ canvasRef, resolvedMap, siblingsFloating, resolvedList }) {
+export function useDragResize({ canvasRef, resolvedMap, siblingsFloating, resolvedList, canvasSize }) {
   const rafRef = useRef(0);
   const startRef = useRef(null);
 
@@ -87,7 +87,14 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating, resolv
           if (drag.dropEdge && drag.dropEdge !== 'center'
               && drag.targetContainerId && drag.targetContainerId !== drag.zoneId) {
             const sourceZone = findById(dashAtEnd.tiledRoot, drag.zoneId);
-            if (sourceZone) wrapAction(drag.targetContainerId, sourceZone, drag.dropEdge);
+            if (sourceZone) {
+              // Plan 7 T4 — pass canvas px so wrapInContainer can reject
+              // drops that would produce <120 px cells.
+              const canvasArg = canvasSize
+                ? { canvasWPx: canvasSize.width, canvasHPx: canvasSize.height }
+                : undefined;
+              wrapAction(drag.targetContainerId, sourceZone, drag.dropEdge, canvasArg);
+            }
           }
           // Case 2 — drop into a different container at an index.
           else if (drag.targetContainerId
@@ -131,7 +138,7 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating, resolv
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-  }, [canvasRef, resolvedMap, dashboard, snapEnabled, setDashboard, pushHistory, siblingsFloating, resolvedList]);
+  }, [canvasRef, resolvedMap, dashboard, snapEnabled, setDashboard, pushHistory, siblingsFloating, resolvedList, canvasSize]);
 
   return { onZonePointerDown };
 }

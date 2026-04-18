@@ -122,6 +122,9 @@ export default function FreeformCanvas({ dashboard: dashboardProp, renderLeaf })
     resolvedMap,
     siblingsFloating: resolved.filter((r) => r.depth === -1),
     resolvedList: resolved,
+    // Plan 7 T4 + T5 — canvas pixel dims are resolved via canvasSize above
+    // (accounts for fixed-vs-automatic size modes and device overrides).
+    canvasSize,
   });
 
   const selectedResolved = resolved.filter((r) => selection.has(r.zone.id));
