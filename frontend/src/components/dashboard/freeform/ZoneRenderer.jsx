@@ -22,13 +22,25 @@ function ZoneRenderer({ root, resolvedMap, renderLeaf }) {
     () => buildEvaluationContext({ sets, parameters, sheetFilters }),
     [sets, parameters, sheetFilters],
   );
-  return renderNode(root, resolvedMap, renderLeaf, 0, ctx);
+  return renderNode(root, resolvedMap, renderLeaf, 0, ctx, null);
 }
 
-function renderNode(zone, resolvedMap, renderLeaf, depth, ctx) {
+// Plan 7 T15 follow-up — resolvedMap stores canvas-absolute (x, y) for every
+// node. When we render containers AS nesting divs (position:absolute inside
+// their parent container, which is itself position:absolute), the browser
+// compounds the offsets: a child with top:174 inside a container at top:174
+// ends up at 348 visually, producing huge gaps between rows.
+//
+// Fix: translate to parent-relative coordinates at render time. The root has
+// no parent, so it renders at its absolute (x, y). Every descendant renders
+// at (x - parentX, y - parentY), i.e. relative to its direct ancestor.
+function renderNode(zone, resolvedMap, renderLeaf, depth, ctx, parentResolved) {
   const resolved = resolvedMap.get(zone.id);
   if (!resolved) return null;
   if (!evaluateRule(zone.visibilityRule, ctx)) return null;
+
+  const relX = parentResolved ? resolved.x - parentResolved.x : resolved.x;
+  const relY = parentResolved ? resolved.y - parentResolved.y : resolved.y;
 
   if (isContainer(zone)) {
     return (
@@ -40,13 +52,13 @@ function renderNode(zone, resolvedMap, renderLeaf, depth, ctx) {
         data-container-depth={depth}
         style={{
           position: 'absolute',
-          left: resolved.x,
-          top: resolved.y,
+          left: relX,
+          top: relY,
           width: resolved.width,
           height: resolved.height,
         }}
       >
-        {zone.children.map((child) => renderNode(child, resolvedMap, renderLeaf, depth + 1, ctx))}
+        {zone.children.map((child) => renderNode(child, resolvedMap, renderLeaf, depth + 1, ctx, resolved))}
       </div>
     );
   }
@@ -59,8 +71,8 @@ function renderNode(zone, resolvedMap, renderLeaf, depth, ctx) {
       data-zone-type={zone.type}
       style={{
         position: 'absolute',
-        left: resolved.x,
-        top: resolved.y,
+        left: relX,
+        top: relY,
         width: resolved.width,
         height: resolved.height,
       }}
