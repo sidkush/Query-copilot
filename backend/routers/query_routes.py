@@ -1126,3 +1126,91 @@ Write a single sentence (max 100 chars) explaining what might cause this anomaly
         return {"explanation": explanation}
     except Exception as e:
         return {"explanation": f"{req.column} is unusually {req.direction}"}
+
+
+class UnderlyingRequest(BaseModel):
+    conn_id: Optional[str] = None
+    sql: str
+    mark_selection: dict[str, object] = {}
+    limit: Optional[int] = None
+
+
+_UNDERLYING_DEFAULT_LIMIT = 10_000
+_UNDERLYING_MAX_LIMIT = 50_000
+
+
+@router.post("/underlying")
+def underlying_rows(req: UnderlyingRequest, user: dict = Depends(get_current_user)):
+    """Plan 6e — View Data drawer source.
+
+    Returns the raw rows underneath a hovered/clicked chart mark by wrapping
+    the worksheet's already-approved SQL with the mark's field=value
+    predicates. Read-only by every layer that protects /execute.
+    """
+    from sql_filter_injector import (
+        inject_additional_filters,
+        FilterInjectionError,
+    )
+    from sql_validator import SQLValidator
+    from pii_masking import mask_dataframe
+    import pandas as pd
+
+    email = user["email"]
+    entry = get_connection(req.conn_id, email)
+
+    limit = req.limit if isinstance(req.limit, int) and req.limit > 0 else _UNDERLYING_DEFAULT_LIMIT
+    limit = min(limit, _UNDERLYING_MAX_LIMIT)
+
+    mark_filters = [
+        {"field": field, "op": "eq", "value": value}
+        for field, value in (req.mark_selection or {}).items()
+    ]
+    try:
+        wrapped_sql = inject_additional_filters(req.sql, mark_filters) if mark_filters else req.sql
+    except FilterInjectionError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid filter: {exc}")
+
+    wrapped_sql = f"SELECT * FROM ({wrapped_sql.rstrip().rstrip(';').rstrip()}) AS _askdb_underlying LIMIT {limit}"
+
+    validator = SQLValidator()
+    is_valid, clean_sql, error = validator.validate(wrapped_sql)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Validation failed: {error}")
+
+    result = entry.engine.execute_sql(clean_sql, "view_data")
+    if result.error:
+        raise HTTPException(status_code=400, detail=result.error)
+
+    payload = result.to_dict()
+    columns = payload.get("columns", [])
+    rows = payload.get("rows", [])
+
+    if rows and columns:
+        df = pd.DataFrame(rows, columns=columns)
+        masked = mask_dataframe(df)
+        rows = masked.values.tolist()
+        columns = list(masked.columns)
+
+    try:
+        from audit_trail import _append_entry as _audit_append
+        from datetime import datetime, timezone
+
+        _audit_append({
+            "event": "view_data",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "conn_id": req.conn_id or "",
+            "user": email,
+            "mark_fields": list((req.mark_selection or {}).keys()),
+            "row_count": len(rows),
+            "limit": limit,
+        })
+    except Exception:
+        pass
+
+    return {
+        "columns": columns,
+        "rows": rows,
+        "limit": limit,
+        "mark_selection": req.mark_selection or {},
+        "row_count": len(rows),
+    }
