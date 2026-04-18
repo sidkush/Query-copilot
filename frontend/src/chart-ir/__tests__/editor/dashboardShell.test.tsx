@@ -1,75 +1,68 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import DashboardShell from '../../../components/dashboard/DashboardShell';
+import { useStore } from '../../../store';
+import { emptyDashboardForPreset } from '../../../components/dashboard/freeform/lib/dashboardShape';
 
 const SAMPLE_TILES = [
   { id: 't1', title: 'Revenue by region' },
   { id: 't2', title: 'Users over time', tab: 'Users' },
 ];
 
-describe('DashboardShell', () => {
-  it('mounts with the Briefing layout by default', async () => {
-    render(<DashboardShell tiles={SAMPLE_TILES} />);
-    expect(screen.getByTestId('dashboard-shell').getAttribute('data-active-mode')).toBe('briefing');
-    await waitFor(() => expect(screen.getByTestId('layout-briefing')).toBeDefined(), { timeout: 3000 });
+describe('DashboardShell — preset-driven', () => {
+  beforeEach(() => {
+    useStore.setState({ analystProDashboard: emptyDashboardForPreset('analyst-pro') });
   });
 
-  it('renders the mode toggle with all six archetypes', () => {
-    render(<DashboardShell tiles={[]} />);
-    expect(screen.getByTestId('dashboard-mode-briefing')).toBeDefined();
-    expect(screen.getByTestId('dashboard-mode-workbench')).toBeDefined();
-    expect(screen.getByTestId('dashboard-mode-ops')).toBeDefined();
-    expect(screen.getByTestId('dashboard-mode-story')).toBeDefined();
-    expect(screen.getByTestId('dashboard-mode-pitch')).toBeDefined();
-    expect(screen.getByTestId('dashboard-mode-tableau')).toBeDefined();
+  afterEach(() => {
+    cleanup();
+    document.documentElement.removeAttribute('data-active-preset');
   });
 
-  it('swaps the layout when a mode button is clicked', async () => {
-    // DashboardShell wraps layouts in AnimatePresence mode="wait" so swaps
-    // are async — use waitFor for each transition. Lazy-loaded layouts need
-    // a generous timeout under parallel test load.
-    const opts = { timeout: 3000 };
+  it('mounts AnalystProLayout once regardless of active preset', async () => {
     render(<DashboardShell tiles={SAMPLE_TILES} />);
-
-    fireEvent.click(screen.getByTestId('dashboard-mode-workbench'));
-    await waitFor(() => expect(screen.getByTestId('layout-workbench')).toBeDefined(), opts);
+    await waitFor(
+      () => expect(screen.getByTestId('layout-analyst-pro')).toBeDefined(),
+      { timeout: 3000 },
+    );
+    // No archetype-era layouts should exist
     expect(screen.queryByTestId('layout-briefing')).toBeNull();
-
-    fireEvent.click(screen.getByTestId('dashboard-mode-ops'));
-    await waitFor(() => expect(screen.getByTestId('layout-ops')).toBeDefined(), opts);
-
-    fireEvent.click(screen.getByTestId('dashboard-mode-story'));
-    await waitFor(() => expect(screen.getByTestId('layout-story')).toBeDefined(), opts);
-
-    fireEvent.click(screen.getByTestId('dashboard-mode-pitch'));
-    await waitFor(() => expect(screen.getByTestId('layout-pitch')).toBeDefined(), opts);
-
-    fireEvent.click(screen.getByTestId('dashboard-mode-tableau'));
-    await waitFor(() => expect(screen.getByTestId('layout-tableau')).toBeDefined(), opts);
+    expect(screen.queryByTestId('layout-workbench')).toBeNull();
+    expect(screen.queryByTestId('layout-ops')).toBeNull();
+    expect(screen.queryByTestId('layout-story')).toBeNull();
+    expect(screen.queryByTestId('layout-pitch')).toBeNull();
+    expect(screen.queryByTestId('layout-tableau')).toBeNull();
   });
 
-  it('fires onModeChange on mode switch', () => {
-    const onModeChange = vi.fn();
-    render(<DashboardShell tiles={[]} onModeChange={onModeChange} />);
-    fireEvent.click(screen.getByTestId('dashboard-mode-story'));
-    expect(onModeChange).toHaveBeenCalledWith('story');
+  it('defaults initialMode to analyst-pro on the shell', () => {
+    render(<DashboardShell tiles={[]} />);
+    expect(screen.getByTestId('dashboard-shell').getAttribute('data-active-mode')).toBe('analyst-pro');
   });
 
-  it('respects initialMode prop', async () => {
-    render(<DashboardShell tiles={[]} initialMode="pitch" />);
-    expect(screen.getByTestId('dashboard-shell').getAttribute('data-active-mode')).toBe('pitch');
-    await waitFor(() => expect(screen.getByTestId('layout-pitch')).toBeDefined(), { timeout: 3000 });
+  it('still mounts AnalystProLayout when tiles is empty', async () => {
+    render(<DashboardShell tiles={[]} />);
+    await waitFor(
+      () => expect(screen.getByTestId('layout-analyst-pro')).toBeDefined(),
+      { timeout: 3000 },
+    );
   });
 
-  it('tableau layout renders one positioned tile per input tile', async () => {
-    render(<DashboardShell tiles={SAMPLE_TILES} initialMode="tableau" />);
-    await waitFor(() => expect(screen.getByTestId('layout-tableau')).toBeDefined(), { timeout: 3000 });
-    expect(screen.getByTestId('layout-tableau-tile-t1')).toBeDefined();
-    expect(screen.getByTestId('layout-tableau-tile-t2')).toBeDefined();
-  });
-
-  it('renders empty state when no tiles provided', async () => {
-    render(<DashboardShell tiles={[]} initialMode="briefing" />);
-    await waitFor(() => expect(screen.getByTestId('layout-empty')).toBeDefined(), { timeout: 3000 });
+  it('sets data-active-preset on <html> after switchPreset', async () => {
+    render(<DashboardShell tiles={SAMPLE_TILES} />);
+    await waitFor(
+      () => expect(screen.getByTestId('layout-analyst-pro')).toBeDefined(),
+      { timeout: 3000 },
+    );
+    // Ensure dashboard state carries preset fields even after the layout
+    // seeded its own authored dashboard into the store.
+    useStore.setState({ analystProDashboard: emptyDashboardForPreset('analyst-pro') });
+    useStore.getState().switchPreset('analyst-pro');
+    await waitFor(
+      () =>
+        expect(document.documentElement.getAttribute('data-active-preset')).toBe(
+          'analyst-pro',
+        ),
+      { timeout: 3000 },
+    );
   });
 });

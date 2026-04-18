@@ -10,6 +10,7 @@ import CommandPalette from "./CommandPalette";
 const AnalystProLayout = lazy(() => import("./modes/AnalystProLayout"));
 import useTileLinking from "./lib/useTileLinking";
 import useVoicePipeline from "./hooks/useVoicePipeline";
+import { usePresetTheme } from "./presets/usePresetTheme";
 const VoiceModeSelector = lazy(() => import("./VoiceModeSelector"));
 const VoiceTranscriptOverlay = lazy(() => import("./VoiceTranscriptOverlay"));
 
@@ -80,6 +81,12 @@ export default function DashboardShell({
   // that reads `data-active-mode` off the shell continues to work. After the
   // preset system lands (Wave 3) this is replaced by `activePresetId`.
   const [mode] = useState(initialMode);
+
+  // Wave 3 (Plan A T10): apply active preset's CSS vars + data-active-preset
+  // attribute to <html> so global CSS + test assertions can react.
+  const activePresetId =
+    useStore((s) => s.analystProDashboard?.activePresetId) ?? "analyst-pro";
+  usePresetTheme(activePresetId);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
 
