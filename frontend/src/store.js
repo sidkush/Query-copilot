@@ -11,6 +11,7 @@ import {
   coerceValue,
   validateAgainstDomain,
 } from './components/dashboard/freeform/lib/parameterOps';
+import { applyPreset } from './components/dashboard/presets/applyPreset';
 
 let _themeTimer = null;
 
@@ -676,6 +677,29 @@ export const useStore = create((set, get) => ({
   // ── Analyst Pro archetype (Plan 1 + 2) ──
   analystProDashboard: null,
   setAnalystProDashboard: (dashboard) => set({ analystProDashboard: dashboard }),
+
+  // ── Preset infrastructure (Plan A — Wave 3, Task 9) ──
+  // switchPreset delegates to the pure applyPreset helper which swaps
+  // activePresetId and seeds presetLayouts[id] from the preset's starter
+  // template on first entry. persistPresetLayout saves the current zone
+  // tree under the active preset key so re-entering a preset restores
+  // whatever the user last edited.
+  switchPreset: (presetId) => {
+    const d = get().analystProDashboard;
+    if (!d) return;
+    set({ analystProDashboard: applyPreset(d, presetId) });
+  },
+  persistPresetLayout: (serialized) => {
+    const d = get().analystProDashboard;
+    if (!d) return;
+    const id = d.activePresetId;
+    set({
+      analystProDashboard: {
+        ...d,
+        presetLayouts: { ...d.presetLayouts, [id]: serialized },
+      },
+    });
+  },
   analystProSize: { mode: 'automatic' },
   setAnalystProSize: (size) => {
     const dash = get().analystProDashboard;
