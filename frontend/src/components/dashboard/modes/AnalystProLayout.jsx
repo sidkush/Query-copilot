@@ -71,10 +71,30 @@ export default function AnalystProLayout({
   // Plan 7 T10 — prefer server-authored layout when present; else fall back
   // to the legacy tile-array shim (Plan 5e smart layout / KPI-aware bin pack).
   const dashboard = useMemo(() => {
-    if (authoredLayout && authoredLayout.tiledRoot) {
-      return authoredLayout;
+    const base = (authoredLayout && authoredLayout.tiledRoot)
+      ? authoredLayout
+      : legacyTilesToDashboard(tiles, dashboardId, dashboardName, size);
+    // Plan 7 T15 — heal `{mode:'automatic'}` when the tree has enough rows
+    // that viewport-fill would squish each row below ~160 px (chart cells
+    // then render as a single axis tick with no marks). Switch to a fixed
+    // canvas tall enough for the tree: KPI rows 160 px, chart rows 360 px.
+    // Users can still opt back into automatic via the SizeToggleDropdown.
+    if (!base?.tiledRoot || base.size?.mode !== 'automatic') return base;
+    const rows = base.tiledRoot.children ?? [];
+    if (rows.length <= 4) return base; // small dashboards fit viewport fine
+    const KPI_ROW_PX = 160;
+    const CHART_ROW_PX = 360;
+    const GUTTER_PX = 32;
+    let total = 0;
+    for (const row of rows) {
+      const isKpiRow = typeof row.id === 'string' && row.id.startsWith('kpi-row');
+      total += isKpiRow ? KPI_ROW_PX : CHART_ROW_PX;
     }
-    return legacyTilesToDashboard(tiles, dashboardId, dashboardName, size);
+    total += Math.max(0, rows.length - 1) * GUTTER_PX;
+    return {
+      ...base,
+      size: { mode: 'fixed', width: 1440, height: Math.max(900, total), preset: 'custom' },
+    };
   }, [authoredLayout, tiles, dashboardId, dashboardName, size]);
 
   const handleQuickAction = useCallback((action, zone, event) => {

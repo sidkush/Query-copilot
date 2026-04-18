@@ -33,7 +33,10 @@ function fitModeToAutosize(fitMode) {
     case 'fit-height': return { type: 'fit-y', contains: 'padding' };
     case 'entire':     return { type: 'fit',   contains: 'content' };
     case 'fixed':      return { type: 'pad',   contains: 'padding' };
-    default:           return undefined;
+    // Plan 7 T15 — when the zone has no explicit fitMode, default to
+    // autosize:fit so Vega reflows the chart to the cell's pixel rect
+    // instead of rendering at its natural 280 px and overflow-clipping.
+    default:           return { type: 'fit',   contains: 'padding' };
   }
 }
 
