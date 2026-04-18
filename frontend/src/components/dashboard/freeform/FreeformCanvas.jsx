@@ -303,7 +303,7 @@ export default function FreeformCanvas({ dashboard: dashboardProp, renderLeaf })
         width: '100%',
         height: '100%',
         overflow: 'auto',
-        background: 'var(--archetype-analyst-pro-bg, var(--bg-page))',
+        background: 'var(--bg-page)',
       }}
     >
       {rulersVisible && (
