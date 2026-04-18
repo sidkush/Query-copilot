@@ -251,6 +251,17 @@ export const api = {
       }),
     }),
 
+  executeUnderlying: ({ connId = null, sql, markSelection = {}, limit } = {}) =>
+    request("/queries/underlying", {
+      method: "POST",
+      body: JSON.stringify({
+        conn_id: connId,
+        sql,
+        mark_selection: markSelection || {},
+        ...(typeof limit === 'number' && limit > 0 ? { limit } : {}),
+      }),
+    }),
+
   generateDashboard: (requestText, connId = null) =>
     request("/queries/generate-dashboard", {
       method: "POST",
