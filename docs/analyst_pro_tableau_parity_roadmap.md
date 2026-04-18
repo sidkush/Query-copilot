@@ -21,7 +21,7 @@
 | Phase | Title | Plans | Goal |
 |---|---|---|---|
 | 5 | Fluidity Pass | 5a–5e | Zone chrome, context menu, property inspector, restructure, float toggle. Makes canvas feel like Tableau. |
-| 6 | Canvas Power Controls | 6a ✅ (2026-04-17) / 6b ✅ (2026-04-17) / 6c–6e | Zoom/pan/rulers, undo UI, tabbed sidebar, mark interactions, tooltip UX. |
+| 6 | Canvas Power Controls | 6a ✅ (2026-04-17) / 6b ✅ (2026-04-17) / 6c ✅ (2026-04-18) / 6d ✅ (2026-04-17) / 6e ✅ (2026-04-18) | Zoom/pan/rulers, undo UI, tabbed sidebar, mark interactions, tooltip UX. |
 | 7 | VizQL Engine | 7a–7e | Own 3-stage compilation pipeline matching Tableau's `minerva` → SQL AST → dialect emit. |
 | 8 | Calc Fields + LOD + Table Calcs | 8a–8d | Expression parser, full function catalogue, FIXED/INCLUDE/EXCLUDE, Monaco editor. |
 | 9 | Analytics Pane | 9a–9e | Reference lines, trend, forecast, cluster, box plots, totals. |
@@ -493,7 +493,9 @@
 
 ---
 
-### Plan 6e — Chart Tooltip: Keep Only / Exclude / View Data
+### Plan 6e — Chart Tooltip: Keep Only / Exclude / View Data — ✅ Shipped 2026-04-18
+
+**Status:** ✅ Shipped 2026-04-18. 11 tasks (T1 backend `notIn` op, T2 Literal tightening, T3 `/queries/underlying` endpoint + line-comment-safe wrap, T4 frontend `notIn` Filter variant, T5 `api.executeUnderlying`, T6 `viewDataDrawer` slice, T7 `ChartTooltipCard`, T8 `VegaRenderer` `onMarkHover`, T9 tile wiring, T10 `ViewDataDrawer`, T11 verification). Commits: `483047c`, `88960e3`, `a150eaf`+`aef170e`, `ce565ae`, `9b83a42`, `5ba912d`, `ac92a76`, `7b75e59`, `c709989`, `a7280d9`. Backend: `/queries/underlying` enforces 6-layer SQLValidator + read-only + audit `view_data` event, default limit 10000 / hard cap 50000. Frontend: tooltip + drawer + store contract verified.
 
 **Problem.** Vega tooltips show values but no authoring affordance. Tableau's tooltip has Keep Only / Exclude / View Data / Group Members.
 
