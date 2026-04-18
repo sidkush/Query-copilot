@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store';
 import { BreathingDot, SPRINGS } from './motion';
 import { TOKENS } from './tokens';
+import DashboardPresetSwitcher from './DashboardPresetSwitcher';
 
 const T = TOKENS.topBar;
 
@@ -213,7 +214,8 @@ export default function DashboardTopBar({
         </div>
       </div>
 
-      {/* ═══ CENTER-RIGHT slot — reserved for DashboardPresetSwitcher (Wave 3) ═══ */}
+      {/* ═══ CENTER-RIGHT slot — DashboardPresetSwitcher (Wave 3) ═══ */}
+      <DashboardPresetSwitcher />
 
       {/* ═══ RIGHT: Share + Save ═══ */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

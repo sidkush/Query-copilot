@@ -4594,3 +4594,33 @@ html.theme-transitioning *::after {
   flex-direction: column;
   gap: 6px;
 }
+
+/* preset switcher */
+.dashboard-preset-switcher {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--chrome-bar-bg);
+  border: 1px solid var(--chrome-bar-border);
+}
+.dashboard-preset-switcher__pill {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.dashboard-preset-switcher__pill[aria-selected="true"] { color: var(--text-on-accent); }
+.dashboard-preset-switcher__pill-bg {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  border-radius: 999px;
+  z-index: 0;
+}
+.dashboard-preset-switcher__pill-label { position: relative; z-index: 1; }
