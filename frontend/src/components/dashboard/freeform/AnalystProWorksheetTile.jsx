@@ -3,7 +3,7 @@ import DashboardTileCanvas from '../lib/DashboardTileCanvas';
 import { api } from '../../../api';
 import { useStore } from '../../../store';
 import { applyHighlightToSpec, mergeMarkIntoHighlight } from './lib/highlightFilter';
-import { promoteSpecMark, repairBadAggregate } from './lib/specPromotion';
+import { repairSpec } from './lib/specPromotion';
 import { publish as publishMarkEvent } from './lib/markEventBus';
 import ChartTooltipCard from './ChartTooltipCard';
 
@@ -109,16 +109,14 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
     const baseSpec = tile.chart_spec || tile.chartSpec;
     if (!baseSpec) return tile;
     let nextSpec = baseSpec;
-    // Plan 7 T18 — agent-generated tiles occasionally ship with `mark: "text"`
-    // + an (x, y) encoding pair, which Vega renders as invisible text glyphs
-    // inside the plot area (user cannot infer anything). Plan 7 T21 extends
-    // the same promotion to `mark:"arc"` with x/y (arcs ignore x/y, result
-    // is an empty plot).
-    nextSpec = promoteSpecMark(nextSpec);
-    // Plan 7 T21 — repair obviously-broken aggregates (e.g. sum of a string
-    // column whose name ends in `_type` / `_name` / `_category`, etc.).
-    // Vega silently sums → null → every bar renders at height 0.
-    nextSpec = repairBadAggregate(nextSpec);
+    // Plan 8 T22.7 — single repair-pipeline call covering every bad-spec
+    // case the agent can emit: null / unknown / typo marks, text+xy and
+    // arc+xy mark mismatches, sum/mean/max/min on nominal fields, bar or
+    // line without a y measure, nominal color on the measure field, and
+    // high-cardinality nominal color channels. See
+    // docs/superpowers/plans/2026-04-18-analyst-pro-plan-8-chart-robustness.md
+    // for the full failure-mode catalog.
+    nextSpec = repairSpec(nextSpec);
     if (autosize) nextSpec = { ...nextSpec, autosize };
     nextSpec = applyHighlightToSpec(nextSpec, highlight);
     if (nextSpec === baseSpec) return tile;
