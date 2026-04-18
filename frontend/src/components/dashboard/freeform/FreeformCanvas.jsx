@@ -15,6 +15,7 @@ import { useDragResize } from './hooks/useDragResize';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStore } from '../../../store';
 import { FIXED_PRESETS } from './lib/types';
+import { shouldBypassZoneDrag } from './lib/zoneDragBypass';
 
 /**
  * FreeformCanvas — Analyst Pro root authoring surface.
@@ -22,9 +23,15 @@ import { FIXED_PRESETS } from './lib/types';
  * transform-aware pointer math (screenToSheet). Device-preview swaps canvas
  * size + overlays zone overrides without rebuilding the zone tree.
  */
-export default function FreeformCanvas({ dashboard, renderLeaf }) {
+export default function FreeformCanvas({ dashboard: dashboardProp, renderLeaf }) {
   const containerRef = useRef(null);
   const [viewportSize, setViewportSize] = useState({ width: 1200, height: 800 });
+  // Render from store once seeded so mutations (delete, resize, add) reach the canvas.
+  // Prop is only the bootstrap source — effect below seeds store on id change.
+  const storeDashboard = useStore((s) => s.analystProDashboard);
+  const dashboard = (storeDashboard && storeDashboard.id === dashboardProp?.id)
+    ? storeDashboard
+    : dashboardProp;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -89,12 +96,12 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
   const spaceHeldRef = useRef(false);
 
   useEffect(() => {
-    if (dashboard) {
-      initHistory(dashboard);
-      setDashboardInStore(dashboard);
+    if (dashboardProp) {
+      initHistory(dashboardProp);
+      setDashboardInStore(dashboardProp);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dashboard?.id, initHistory, setDashboardInStore]);
+  }, [dashboardProp?.id, initHistory, setDashboardInStore]);
 
   // Plan 6a — Space-hold tracking for pan gesture
   useEffect(() => {
@@ -217,7 +224,10 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
   const handleDragOver = (e) => {
     if (!e.dataTransfer) return;
     const types = Array.from(e.dataTransfer.types || []);
-    if (types.includes('application/askdb-analyst-pro-object+json')) {
+    if (
+      types.includes('application/askdb-analyst-pro-object+json') ||
+      types.includes('application/askdb-analyst-pro-sheet+json')
+    ) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
     }
@@ -225,6 +235,31 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
 
   const handleDrop = (e) => {
     if (!e.dataTransfer) return;
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const rect = sheet.getBoundingClientRect();
+    const zoom = useStore.getState().analystProCanvasZoom;
+    const pan = useStore.getState().analystProCanvasPan;
+    const pt = screenToSheet({ clientX: e.clientX, clientY: e.clientY }, rect, zoom, pan);
+    const x = Math.max(0, Math.round(pt.x));
+    const y = Math.max(0, Math.round(pt.y));
+
+    // Plan 6c — Sheet drop: insert a worksheet-type zone.
+    const sheetRaw = e.dataTransfer.getData('application/askdb-analyst-pro-sheet+json');
+    if (sheetRaw) {
+      let sheetPayload;
+      try {
+        sheetPayload = JSON.parse(sheetRaw);
+      } catch {
+        return;
+      }
+      if (!sheetPayload || typeof sheetPayload.sheetId !== 'string') return;
+      e.preventDefault();
+      insertObjectAnalystPro({ type: 'worksheet', worksheetRef: sheetPayload.sheetId, x, y });
+      return;
+    }
+
+    // Plan 2b — Object library drop.
     const raw = e.dataTransfer.getData('application/askdb-analyst-pro-object+json');
     if (!raw) return;
     let payload;
@@ -235,13 +270,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
     }
     if (!payload || typeof payload.type !== 'string') return;
     e.preventDefault();
-    const sheet = sheetRef.current;
-    if (!sheet) return;
-    const rect = sheet.getBoundingClientRect();
-    const zoom = useStore.getState().analystProCanvasZoom;
-    const pan = useStore.getState().analystProCanvasPan;
-    const pt = screenToSheet({ clientX: e.clientX, clientY: e.clientY }, rect, zoom, pan);
-    insertObjectAnalystPro({ type: payload.type, x: Math.max(0, Math.round(pt.x)), y: Math.max(0, Math.round(pt.y)) });
+    insertObjectAnalystPro({ type: payload.type, x, y });
   };
 
   return (
@@ -292,6 +321,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
           renderLeaf={(zone, resolvedZone) => (
             <div
               onPointerDown={(e) => {
+                if (shouldBypassZoneDrag(e)) return;
                 e.stopPropagation();
                 handleZoneClick(zone.id, e);
                 onZonePointerDown(zone.id, e, resolvedZone, 'move');
@@ -307,6 +337,7 @@ export default function FreeformCanvas({ dashboard, renderLeaf }) {
           renderLeaf={(zone) => (
             <div
               onPointerDown={(e) => {
+                if (shouldBypassZoneDrag(e)) return;
                 e.stopPropagation();
                 const resolvedZone = resolvedMap.get(zone.id);
                 handleZoneClick(zone.id, e);

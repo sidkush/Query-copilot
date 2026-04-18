@@ -471,3 +471,83 @@ describe('Plan 6a — device preview', () => {
     expect(z2!.hidden).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Plan 6c — sheet MIME drop
+// ---------------------------------------------------------------------------
+
+const SHEET_MIME = 'application/askdb-analyst-pro-sheet+json';
+
+function fireSheetDrop(
+  el: HTMLElement,
+  sheetId: string | null,
+  clientX = 100,
+  clientY = 120,
+) {
+  const payload = sheetId !== null ? JSON.stringify({ sheetId }) : '';
+  const dataTransfer = {
+    types: sheetId !== null ? [SHEET_MIME] : ([] as string[]),
+    getData: (mime: string) => (mime === SHEET_MIME && sheetId !== null ? payload : ''),
+    dropEffect: 'copy' as DataTransfer['dropEffect'],
+  };
+  const event = new MouseEvent('drop', {
+    bubbles: true,
+    cancelable: true,
+    clientX,
+    clientY,
+  }) as unknown as DragEvent;
+  Object.defineProperty(event, 'dataTransfer', { value: dataTransfer, writable: false });
+  act(() => { el.dispatchEvent(event); });
+}
+
+describe('Plan 6c — sheet MIME drop inserts worksheet zone', () => {
+  beforeEach(() => {
+    resetStore();
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 1280, height: 800,
+      right: 1280, bottom: 800, x: 0, y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cleanup();
+  });
+
+  it('routes application/askdb-analyst-pro-sheet+json to insertObjectAnalystPro with worksheetRef', () => {
+    const dash = makeBaseDashboard([]);
+    dash.worksheets = [{ id: 'wA', chartSpec: {} }] as any;
+    render(<FreeformCanvas dashboard={dash} renderLeaf={renderLeaf} />);
+
+    const sheet = screen.getByTestId('freeform-sheet');
+    fireSheetDrop(sheet, 'wA', 150, 200);
+
+    const state = useStore.getState().analystProDashboard;
+    expect(state?.floatingLayer.length).toBe(1);
+    const inserted = state!.floatingLayer[0] as any;
+    expect(inserted.type).toBe('worksheet');
+    expect(inserted.worksheetRef).toBe('wA');
+    expect(inserted.x).toBe(150);
+    expect(inserted.y).toBe(200);
+  });
+
+  it('drop with malformed sheet payload is a no-op', () => {
+    const dash = makeBaseDashboard([]);
+    render(<FreeformCanvas dashboard={dash} renderLeaf={renderLeaf} />);
+
+    const sheet = screen.getByTestId('freeform-sheet');
+    // Inject a sheet-mime but with a payload missing sheetId.
+    const dataTransfer = {
+      types: [SHEET_MIME],
+      getData: (mime: string) => (mime === SHEET_MIME ? '{"bogus":true}' : ''),
+      dropEffect: 'copy' as DataTransfer['dropEffect'],
+    };
+    const event = new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 10, clientY: 20 }) as unknown as DragEvent;
+    Object.defineProperty(event, 'dataTransfer', { value: dataTransfer, writable: false });
+    act(() => { sheet.dispatchEvent(event); });
+
+    const state = useStore.getState().analystProDashboard;
+    expect(state?.floatingLayer.length).toBe(0);
+  });
+});
