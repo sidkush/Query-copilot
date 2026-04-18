@@ -9,12 +9,14 @@ import { renderHook, act } from '@testing-library/react';
 
 // Mock the API module before importing the hook (hoisted by vitest).
 vi.mock('../../../../api', () => ({
-  updateDashboard: vi.fn(() => Promise.resolve({})),
+  api: {
+    updateDashboard: vi.fn(() => Promise.resolve({})),
+  },
 }));
 
 import useAnalystProAutosave from '../hooks/useAnalystProAutosave';
 import { useStore } from '../../../../store';
-import * as api from '../../../../api';
+import { api } from '../../../../api';
 
 const makeDash = (overrides: Record<string, unknown> = {}) => ({
   schemaVersion: 'askdb/dashboard/v1',

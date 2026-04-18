@@ -12,7 +12,9 @@ import { useStore } from '../../../../store';
 
 // Mock api to avoid autosave network noise (Plan 7 T9 hook is mounted).
 vi.mock('../../../../api', () => ({
-  updateDashboard: vi.fn(() => Promise.resolve({})),
+  api: {
+    updateDashboard: vi.fn(() => Promise.resolve({})),
+  },
 }));
 
 function makeAuthoredDashboard() {

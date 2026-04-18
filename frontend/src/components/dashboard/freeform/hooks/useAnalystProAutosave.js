@@ -1,7 +1,7 @@
 // frontend/src/components/dashboard/freeform/hooks/useAnalystProAutosave.js
 import { useEffect, useRef } from 'react';
 import { useStore } from '../../../../store';
-import * as api from '../../../../api';
+import { api } from '../../../../api';
 
 /**
  * Plan 7 T8 — autosave the authored Analyst Pro dashboard back to the
