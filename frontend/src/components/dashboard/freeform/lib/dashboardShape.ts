@@ -29,7 +29,10 @@ export function emptyDashboardForPreset(presetId: string): Dashboard {
     name: 'Untitled',
     activePresetId: preset.id,
     presetLayouts: {
-      [preset.id]: { tiledRoot: null, floatingLayer: [] },
+      [preset.id]: {
+        tiledRoot: preset.starter.tiledRoot ?? null,
+        floatingLayer: preset.starter.floatingLayer ?? [],
+      },
     },
     size: DEFAULT_SIZE,
     tiledRoot: emptyRoot(),

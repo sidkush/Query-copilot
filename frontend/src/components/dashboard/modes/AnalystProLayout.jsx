@@ -67,10 +67,37 @@ export default function AnalystProLayout({
   const openContextMenu = useStore((s) => s.openContextMenuAnalystPro);
   const rulersVisible = useStore((s) => s.analystProRulersVisible);
   const toggleRulers = useStore((s) => s.toggleRulersAnalystPro);
+  // Themed preset (Plan B onward). When the active preset is not
+  // `analyst-pro`, its saved/starter ZoneTree drives the rendered canvas
+  // — the user's raw tile array + authored server layout are set aside.
+  // Analyst Pro preset keeps today's behaviour (authored-or-legacy).
+  const activePresetId = useStore((s) => s.analystProDashboard?.activePresetId);
+  const presetLayouts = useStore((s) => s.analystProDashboard?.presetLayouts);
+  const isThemedPreset =
+    !!activePresetId && activePresetId !== 'analyst-pro';
+  const presetLayout = isThemedPreset ? presetLayouts?.[activePresetId] : null;
 
   // Plan 7 T10 — prefer server-authored layout when present; else fall back
   // to the legacy tile-array shim (Plan 5e smart layout / KPI-aware bin pack).
+  // Plan B onward — themed preset's ZoneTree wins over both.
   const dashboard = useMemo(() => {
+    // Themed preset path: render the preset's curated tree verbatim.
+    // Skip the KPI-row heal below — preset row heights are intentional.
+    if (presetLayout?.tiledRoot) {
+      return {
+        schemaVersion: 1,
+        id: dashboardId,
+        name: dashboardName,
+        size: size || { mode: 'automatic' },
+        tiledRoot: presetLayout.tiledRoot,
+        floatingLayer: presetLayout.floatingLayer || [],
+        worksheets: [],
+        parameters: [],
+        sets: [],
+        actions: [],
+        activePresetId,
+      };
+    }
     const base = (authoredLayout && authoredLayout.tiledRoot)
       ? authoredLayout
       : legacyTilesToDashboard(tiles, dashboardId, dashboardName, size);
@@ -135,7 +162,7 @@ export default function AnalystProLayout({
       tiledRoot: { ...base.tiledRoot, children: newRows },
       size: { mode: 'fixed', width: 1440, height: canvasHeight, preset: 'custom' },
     };
-  }, [authoredLayout, tiles, dashboardId, dashboardName, size]);
+  }, [authoredLayout, tiles, dashboardId, dashboardName, size, presetLayout, activePresetId]);
 
   const handleQuickAction = useCallback((action, zone, event) => {
     void event;
@@ -211,13 +238,16 @@ export default function AnalystProLayout({
   return (
     <div
       data-testid="layout-analyst-pro"
+      data-preset={activePresetId || 'analyst-pro'}
       style={{
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
         width: '100%',
         minHeight: 0,
-        background: 'var(--bg-page)',
+        background: isThemedPreset ? 'var(--preset-bg, var(--bg-page))' : 'var(--bg-page)',
+        color: isThemedPreset ? 'var(--preset-fg, var(--text-primary))' : undefined,
+        fontFamily: isThemedPreset ? 'var(--preset-font-body, inherit)' : undefined,
       }}
     >
       {/* Top toolbar */}

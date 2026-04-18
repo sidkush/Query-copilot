@@ -12,6 +12,7 @@ import {
   validateAgainstDomain,
 } from './components/dashboard/freeform/lib/parameterOps';
 import { applyPreset } from './components/dashboard/presets/applyPreset';
+import { emptyDashboardForPreset } from './components/dashboard/freeform/lib/dashboardShape';
 
 let _themeTimer = null;
 
@@ -685,8 +686,7 @@ export const useStore = create((set, get) => ({
   // tree under the active preset key so re-entering a preset restores
   // whatever the user last edited.
   switchPreset: (presetId) => {
-    const d = get().analystProDashboard;
-    if (!d) return;
+    const d = get().analystProDashboard ?? emptyDashboardForPreset(presetId);
     set({ analystProDashboard: applyPreset(d, presetId) });
   },
   persistPresetLayout: (serialized) => {
