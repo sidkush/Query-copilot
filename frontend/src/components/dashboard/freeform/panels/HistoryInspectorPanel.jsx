@@ -83,7 +83,7 @@ export default function HistoryInspectorPanel() {
             style={{
               padding: '6px 12px',
               background: 'var(--accent)',
-              color: '#fff',
+              color: 'var(--text-on-accent)',
               fontFamily: "'JetBrains Mono', monospace",
               fontSize: 11,
             }}

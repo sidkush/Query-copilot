@@ -151,21 +151,21 @@ export default function ViewDataDrawer() {
         bottom: 0,
         width: DRAWER_WIDTH,
         zIndex: 8500,
-        background: 'var(--surface-elevated, rgba(12,12,18,0.98))',
-        borderLeft: '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
-        boxShadow: '-8px 0 24px rgba(0,0,0,0.4)',
+        background: 'var(--surface-elevated)',
+        borderLeft: '1px solid var(--border-subtle)',
+        boxShadow: '-8px 0 24px var(--shadow-deep)',
         display: 'flex',
         flexDirection: 'column',
-        color: 'var(--text-primary, #e6e6ea)',
+        color: 'var(--text-primary)',
         fontFamily: 'Inter, system-ui, sans-serif',
         fontSize: 12,
       }}
     >
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderBottom: '1px solid var(--border-subtle, rgba(255,255,255,0.08))' }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderBottom: '1px solid var(--border-subtle)' }}>
         <strong style={{ fontSize: 13 }}>View Data</strong>
         <button type="button" aria-label="Close" onClick={close} style={{ background: 'transparent', border: 0, color: 'inherit', cursor: 'pointer', fontSize: 16 }}>×</button>
       </header>
-      <div role="tablist" style={{ display: 'flex', gap: 6, padding: '8px 12px', borderBottom: '1px solid var(--border-subtle, rgba(255,255,255,0.08))' }}>
+      <div role="tablist" style={{ display: 'flex', gap: 6, padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)' }}>
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -181,7 +181,7 @@ export default function ViewDataDrawer() {
               border: 0,
               cursor: 'pointer',
               color: 'inherit',
-              background: tab === t.id ? 'rgba(255,255,255,0.12)' : 'transparent',
+              background: tab === t.id ? 'var(--bg-hover)' : 'transparent',
             }}
           >
             {t.label}
@@ -197,7 +197,7 @@ export default function ViewDataDrawer() {
             fontSize: 11,
             fontWeight: 600,
             borderRadius: 4,
-            border: '1px solid rgba(255,255,255,0.12)',
+            border: '1px solid var(--border-default)',
             background: 'transparent',
             color: 'inherit',
             cursor: columns.length ? 'pointer' : 'not-allowed',
@@ -208,13 +208,13 @@ export default function ViewDataDrawer() {
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
         {loading && <div data-testid="view-data-loading">Loading…</div>}
-        {error && <div role="alert" style={{ color: 'var(--danger, #f87171)' }}>{error}</div>}
+        {error && <div role="alert" style={{ color: 'var(--danger)' }}>{error}</div>}
         {!loading && !error && columns.length > 0 && (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr>
                 {columns.map((c) => (
-                  <th key={c} style={{ textAlign: 'left', padding: '4px 6px', borderBottom: '1px solid rgba(255,255,255,0.12)', fontWeight: 600 }}>{c}</th>
+                  <th key={c} style={{ textAlign: 'left', padding: '4px 6px', borderBottom: '1px solid var(--border-default)', fontWeight: 600 }}>{c}</th>
                 ))}
               </tr>
             </thead>
@@ -222,7 +222,7 @@ export default function ViewDataDrawer() {
               {rows.map((r, i) => (
                 <tr key={i}>
                   {r.map((v, j) => (
-                    <td key={j} style={{ padding: '4px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <td key={j} style={{ padding: '4px 6px', borderBottom: '1px solid var(--border-subtle)' }}>
                       {v == null ? '' : String(v)}
                     </td>
                   ))}

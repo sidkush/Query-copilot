@@ -243,8 +243,8 @@ function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fitMode }) {
           style={{
             position: 'absolute',
             bottom: 6, right: 6, fontSize: 10,
-            color: 'var(--danger, #f87171)',
-            background: 'rgba(0,0,0,0.5)',
+            color: 'var(--danger)',
+            background: 'color-mix(in oklab, var(--bg-elevated) 85%, transparent)',
             padding: '2px 6px', borderRadius: 4,
             pointerEvents: 'none',
           }}

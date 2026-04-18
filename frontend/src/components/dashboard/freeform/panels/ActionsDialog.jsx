@@ -58,7 +58,7 @@ export default function ActionsDialog() {
         if (e.target === e.currentTarget) close();
       }}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+        position: 'fixed', inset: 0, background: 'var(--modal-overlay, rgba(0,0,0,0.4))',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 1000,
       }}

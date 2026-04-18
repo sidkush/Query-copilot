@@ -45,7 +45,7 @@ export default function DevicePreviewToggle() {
             style={{
               padding: '4px 10px',
               background: activeBtn ? 'var(--accent)' : 'transparent',
-              color: activeBtn ? '#fff' : 'var(--text-primary)',
+              color: activeBtn ? 'var(--text-on-accent)' : 'var(--text-primary)',
               border: 'none',
               borderRadius: 6,
               cursor: 'pointer',

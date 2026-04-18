@@ -62,7 +62,7 @@ export default function SetMemberDialog({ setId, onClose }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.55)',
+        background: 'var(--modal-overlay, rgba(0,0,0,0.55))',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -164,7 +164,7 @@ export default function SetMemberDialog({ setId, onClose }) {
             style={{
               padding: '6px 14px',
               background: 'var(--accent, #4f7)',
-              color: '#000',
+              color: 'var(--text-on-accent)',
               border: 'none',
               borderRadius: 4,
               cursor: 'pointer',
@@ -196,7 +196,7 @@ export default function SetMemberDialog({ setId, onClose }) {
             style={{
               padding: '6px 14px',
               background: 'var(--accent, #4f7)',
-              color: '#000',
+              color: 'var(--text-on-accent)',
               border: 'none',
               borderRadius: 4,
               cursor: 'pointer',

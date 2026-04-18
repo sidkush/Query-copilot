@@ -210,7 +210,7 @@ const btnPrimary = {
   padding: '2px 10px',
   fontSize: 11,
   background: 'var(--accent, #4f7)',
-  color: '#000',
+  color: 'var(--text-on-accent)',
   border: 'none',
   borderRadius: 3,
   cursor: 'pointer',

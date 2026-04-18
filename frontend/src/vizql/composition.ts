@@ -19,7 +19,7 @@ import { computeLayout } from './layout';
 import { drawMarks } from './marks';
 import { drawGridLines, drawAxes } from './axes';
 import { drawLegend } from './legend';
-import { CHART_BG } from './palettes';
+import { CHART_BG, AXIS_COLOR, LABEL_COLOR, GRID_COLOR } from './palettes';
 import { pickRenderStrategy } from './webgl/rsr';
 import { prepareInstanceBuffers, renderBuffersToCanvas } from './webgl/buffers';
 import type { CompiledSpec, AggregatedData, ScaleSet, ChartLayout } from './types';
@@ -125,7 +125,7 @@ export function renderHConcat(
 
     // Separator line
     if (i > 0) {
-      ctx.strokeStyle = '#e0e0e0';
+      ctx.strokeStyle = GRID_COLOR;
       ctx.lineWidth = 0.5;
       ctx.beginPath();
       ctx.moveTo(cx - gap / 2, y);
@@ -204,7 +204,7 @@ export function renderFacet(
   const headerH = 16;
 
   ctx.font = 'bold 10px Inter, system-ui, sans-serif';
-  ctx.fillStyle = '#555';
+  ctx.fillStyle = AXIS_COLOR;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
@@ -215,7 +215,7 @@ export function renderFacet(
     const cy = y + row * (cellH + gap);
 
     // Facet header
-    ctx.fillStyle = '#555';
+    ctx.fillStyle = AXIS_COLOR;
     ctx.fillText(order[i], cx + cellW / 2, cy);
 
     // Render inner spec with partitioned data
@@ -268,7 +268,7 @@ function renderCrossProductFacet(
 
   // Column headers
   ctx.font = 'bold 9px Inter, system-ui, sans-serif';
-  ctx.fillStyle = '#666';
+  ctx.fillStyle = AXIS_COLOR;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
   for (let c = 0; c < nCols; c++) {
@@ -300,10 +300,10 @@ function renderCrossProductFacet(
         renderUnit(ctx, innerSpec, cellRows, cx, cy, cellW, cellH);
       } else {
         // Empty cell placeholder
-        ctx.strokeStyle = '#e8e8e8';
+        ctx.strokeStyle = GRID_COLOR;
         ctx.lineWidth = 0.5;
         ctx.strokeRect(cx, cy, cellW, cellH);
-        ctx.fillStyle = '#ccc';
+        ctx.fillStyle = LABEL_COLOR;
         ctx.font = '9px Inter, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

@@ -14,9 +14,9 @@ export default function LayoutOverlayToggle() {
       title="Toggle layout overlay (Cmd/Ctrl+;)"
       onClick={toggle}
       style={{
-        background: enabled ? 'var(--accent, #3b82f6)' : 'transparent',
+        background: enabled ? 'var(--accent)' : 'transparent',
         border: '1px solid var(--chrome-bar-border)',
-        color: enabled ? '#fff' : 'var(--fg)',
+        color: enabled ? 'var(--text-on-accent)' : 'var(--fg)',
         padding: '4px 8px',
         cursor: 'pointer',
         fontSize: '12px',

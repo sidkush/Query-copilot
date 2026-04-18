@@ -169,6 +169,28 @@
   --bg-elev-1: var(--overlay-faint);
   --bg-elev-2: var(--overlay-light);
   --bg-elev-3: var(--bg-elevated);
+
+  /* ── Analyst Pro aliases (theme-aware).
+     Panels (SetsPanel, ParametersPanel, ZoneInspector tabs, SetMemberDialog,
+     StyleTab, LayoutTab, VisibilityTab, LayoutTreePanel, context menu, drop
+     indicators) were authored with --bg-input / --danger / --fg / --accent-blue
+     / --accent-amber / --accent-muted / --surface-elevated fallback patterns;
+     undefined vars shipped hardcoded dark-only hex to light theme. Aliasing
+     here makes all Analyst Pro surfaces track the global theme. */
+  --bg-input: var(--bg-base);
+  --fg: var(--text-primary);
+  --danger: var(--status-danger);
+  --surface-elevated: var(--bg-elevated);
+  --accent-blue: var(--accent);
+  --accent-amber: var(--accent-warm);
+  --accent-muted: color-mix(in oklab, var(--accent) 15%, transparent);
+  --modal-overlay: rgba(0, 0, 0, 0.5);
+}
+
+/* ── Light theme — override per-mode surfaces that need different tone ── */
+:root.light {
+  /* Input fields read as white cards on cream page, not the base wash */
+  --bg-input: var(--bg-elevated);
 }
 
 /* ── Light theme overrides ── */
@@ -4432,17 +4454,17 @@ html.theme-transitioning *::after {
 /* Plan 5b — drop indicators + smart guides */
 .analyst-pro-drop-indicator-bar {
   position: absolute;
-  background: var(--accent-blue, #3b82f6);
+  background: var(--accent-blue);
   border-radius: 2px;
   pointer-events: none;
-  box-shadow: 0 0 6px rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 6px color-mix(in oklab, var(--accent) 45%, transparent);
   transition: opacity 100ms linear;
   z-index: 40;
 }
 .analyst-pro-drop-indicator-edge {
   position: absolute;
-  background: rgba(59, 130, 246, 0.35);
-  border: 1px solid var(--accent-blue, #3b82f6);
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
+  border: 1px solid var(--accent-blue);
   border-radius: 3px;
   pointer-events: none;
   transition: opacity 100ms linear;
@@ -4450,9 +4472,9 @@ html.theme-transitioning *::after {
 }
 .analyst-pro-drop-indicator-center {
   position: absolute;
-  border: 2px dashed var(--accent-blue, #3b82f6);
+  border: 2px dashed var(--accent-blue);
   border-radius: 4px;
-  background: rgba(59, 130, 246, 0.08);
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
   pointer-events: none;
   transition: opacity 100ms linear;
   z-index: 40;
@@ -4465,11 +4487,11 @@ html.theme-transitioning *::after {
 }
 .analyst-pro-smart-guide[data-axis="x"] {
   width: 0;
-  border-left: 1px dashed var(--accent-amber, #f59e0b);
+  border-left: 1px dashed var(--accent-amber);
 }
 .analyst-pro-smart-guide[data-axis="y"] {
   height: 0;
-  border-top: 1px dashed var(--accent-amber, #f59e0b);
+  border-top: 1px dashed var(--accent-amber);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4488,11 +4510,11 @@ html.theme-transitioning *::after {
   min-width: 200px;
   max-width: 320px;
   padding: 4px 0;
-  background: var(--bg-elevated, #1f2026);
-  color: var(--text-primary, #e5e7eb);
-  border: 1px solid var(--border-default, rgba(255,255,255,0.12));
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.40), 0 2px 6px rgba(0,0,0,0.24);
+  box-shadow: 0 10px 24px var(--shadow-deep), 0 2px 6px var(--shadow-mid);
   font-size: 12px;
   line-height: 1.2;
   user-select: none;

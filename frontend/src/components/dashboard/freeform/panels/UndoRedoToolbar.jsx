@@ -16,7 +16,7 @@ function btnStyle({ active = false, disabled = false }) {
   return {
     ...BTN_BASE,
     background: active ? 'var(--accent)' : 'var(--bg-elevated)',
-    color: active ? '#fff' : 'var(--text-primary)',
+    color: active ? 'var(--text-on-accent)' : 'var(--text-primary)',
     opacity: disabled ? 0.4 : 1,
     cursor: disabled ? 'not-allowed' : 'pointer',
   };

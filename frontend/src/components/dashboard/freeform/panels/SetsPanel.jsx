@@ -153,7 +153,7 @@ export default function SetsPanel() {
             <button type="button" onClick={resetCreate} style={{ padding: '2px 8px', fontSize: 11, background: 'transparent', color: 'inherit', border: '1px solid var(--border-default, #333)', cursor: 'pointer' }}>
               Cancel
             </button>
-            <button type="button" onClick={submitCreate} style={{ padding: '2px 10px', fontSize: 11, background: 'var(--accent, #4f7)', color: '#000', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+            <button type="button" onClick={submitCreate} style={{ padding: '2px 10px', fontSize: 11, background: 'var(--accent, #4f7)', color: 'var(--text-on-accent)', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
               Create
             </button>
           </div>

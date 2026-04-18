@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
+import { useStore } from '../../../store';
 import { compileToVizQL } from '../../../chart-ir/compiler/toVizQL';
 import type { VizQLSpec } from '../../../chart-ir/compiler/toVizQL';
 import { compileSpec } from '../../../vizql/compiler';
@@ -22,7 +23,7 @@ import { computeLayout } from '../../../vizql/layout';
 import { drawMarks } from '../../../vizql/marks';
 import { drawGridLines, drawAxes } from '../../../vizql/axes';
 import { drawLegend } from '../../../vizql/legend';
-import { CHART_BG } from '../../../vizql/palettes';
+import { CHART_BG, setChartChromeScheme } from '../../../vizql/palettes';
 import { pickRenderStrategy } from '../../../vizql/webgl/rsr';
 import { prepareInstanceBuffers, renderBuffersToCanvas } from '../../../vizql/webgl/buffers';
 import { renderLayer, renderHConcat, renderVConcat, renderFacet } from '../../../vizql/composition';
@@ -176,6 +177,15 @@ export default function VizQLRenderer({
   const spatialHashRef = useRef<SpatialHash>(EMPTY_SPATIAL_HASH);
 
   const [canvasSize, setCanvasSize] = useState({ width: 520, height: 320 });
+  // Analyst Pro zoom factor — when the freeform sheet applies
+  // CSS transform: scale(zoom), canvas backing-store must render at
+  // zoom × dpr to avoid blurry upscaling of the raster.
+  const cssZoom = useStore((s) => s.analystProCanvasZoom) || 1;
+  // Theme-reactive repaint: chart chrome colors (axis/label/grid/legend) are
+  // live-binding exports in vizql/palettes; when the user flips themes the
+  // module values update but canvas is raster — force a re-paint by including
+  // the resolved scheme in the render effect deps.
+  const resolvedTheme = useStore((s) => s.resolvedTheme);
 
   // -- One-time regl init -------------------------------------------------
   useEffect(() => { ensureReglInit(); }, []);
@@ -232,8 +242,13 @@ export default function VizQLRenderer({
     if (!canvas || !vizqlSpec) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const w = Math.floor(canvasSize.width * dpr);
-    const h = Math.floor(canvasSize.height * dpr);
+    // Effective scale: dpr handles native HiDPI; cssZoom compensates for
+    // the parent CSS transform: scale(zoom) that stretches the canvas
+    // element visually. Without this, canvas raster is rendered at
+    // pre-zoom resolution and gets bilinear-filtered → blurry at >1×.
+    const effectiveScale = dpr * cssZoom;
+    const w = Math.floor(canvasSize.width * effectiveScale);
+    const h = Math.floor(canvasSize.height * effectiveScale);
     if (w <= 0 || h <= 0) return;
 
     const ctx = canvas.getContext('2d');
@@ -242,8 +257,12 @@ export default function VizQLRenderer({
     const t0 = performance.now();
 
     const paint = () => {
-    // Scale context for HiDPI
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Sync chart-chrome palette to current theme *before* painting. The
+    // MutationObserver in palettes.ts is async — relying on it alone can
+    // paint the canvas with stale colors right after a theme flip.
+    setChartChromeScheme(resolvedTheme === 'light' ? 'light' : 'dark');
+    // Scale context for HiDPI + CSS zoom
+    ctx.setTransform(effectiveScale, 0, 0, effectiveScale, 0, 0);
 
     // Logical dimensions (CSS pixels)
     const lw = canvasSize.width;
@@ -369,7 +388,7 @@ export default function VizQLRenderer({
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [vizqlSpec, data, canvasSize, strategy]);
+  }, [vizqlSpec, data, canvasSize, strategy, cssZoom, resolvedTheme]);
 
   // -- Tooltip (mousemove) -----------------------------------------------
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -497,7 +516,7 @@ export default function VizQLRenderer({
       >
         <div style={{
           fontSize: 'clamp(28px, 5vw, 48px)', fontWeight: 700,
-          color: 'var(--text-primary, #e7e7ea)', letterSpacing: '-0.03em',
+          color: 'var(--text-primary)', letterSpacing: '-0.03em',
           lineHeight: 1.1,
         }}>
           {formatted}
@@ -505,7 +524,7 @@ export default function VizQLRenderer({
         <div style={{
           fontSize: 11, fontWeight: 500, textTransform: 'uppercase',
           letterSpacing: '0.06em',
-          color: 'var(--text-muted, rgba(255,255,255,0.5))',
+          color: 'var(--text-muted)',
         }}>
           {label.replace(/_/g, ' ')}
         </div>
@@ -533,14 +552,14 @@ export default function VizQLRenderer({
           display: 'none',
           position: 'fixed',
           zIndex: 9999,
-          background: 'rgba(20,20,30,0.92)',
-          color: '#f0f0f5',
+          background: 'var(--surface-elevated, var(--bg-elevated))',
+          color: 'var(--text-primary)',
           padding: '7px 10px',
           borderRadius: 6,
           pointerEvents: 'none',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
+          boxShadow: 'var(--shadow-deep)',
           backdropFilter: 'blur(6px)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          border: '1px solid var(--border-subtle)',
           maxWidth: 260,
           wordBreak: 'break-word',
         }}

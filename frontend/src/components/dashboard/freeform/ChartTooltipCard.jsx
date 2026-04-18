@@ -88,10 +88,10 @@ function ChartTooltipCard({
         maxWidth: 320,
         padding: 10,
         borderRadius: 8,
-        background: 'var(--surface-elevated, rgba(20,20,28,0.96))',
-        color: 'var(--text-primary, #e6e6ea)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
-        border: '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
+        background: 'var(--surface-elevated)',
+        color: 'var(--text-primary)',
+        boxShadow: '0 8px 24px var(--shadow-deep)',
+        border: '1px solid var(--border-subtle)',
         fontSize: 12,
         fontFamily: 'Inter, system-ui, sans-serif',
         pointerEvents: 'auto',
@@ -100,7 +100,7 @@ function ChartTooltipCard({
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', marginBottom: 8 }}>
         {entries.map(([k, v]) => (
           <div key={k} style={{ display: 'contents' }}>
-            <div style={{ color: 'var(--text-secondary, #b0b0b6)' }}>{k}</div>
+            <div style={{ color: 'var(--text-secondary)' }}>{k}</div>
             <div style={{ fontWeight: 600 }}>{formatValue(v)}</div>
           </div>
         ))}
@@ -112,7 +112,7 @@ function ChartTooltipCard({
           display: 'flex',
           gap: 6,
           paddingTop: 8,
-          borderTop: '1px solid var(--border-subtle, rgba(255,255,255,0.08))',
+          borderTop: '1px solid var(--border-subtle)',
         }}
       >
         <button
@@ -154,9 +154,9 @@ const tooltipButtonStyle = {
   fontSize: 11,
   fontWeight: 600,
   letterSpacing: '0.02em',
-  color: 'var(--text-primary, #e6e6ea)',
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  color: 'var(--text-primary)',
+  background: 'var(--bg-hover)',
+  border: '1px solid var(--border-default)',
   borderRadius: 6,
   cursor: 'pointer',
 };

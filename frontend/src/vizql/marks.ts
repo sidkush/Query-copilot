@@ -11,7 +11,7 @@ import type {
   Ctx, CompiledSpec, AggregatedData, ScaleSet, ChartLayout,
   BandScale, LinearScale, TimeScale, ColorScale, MarkConfig,
 } from './types';
-import { DEFAULT_MARK_COLOR } from './palettes';
+import { DEFAULT_MARK_COLOR, LABEL_COLOR, SLICE_SEPARATOR } from './palettes';
 
 type Row = Record<string, unknown>;
 
@@ -578,8 +578,8 @@ function drawArcs(
     ctx.closePath();
     ctx.fill();
 
-    // Thin white border between slices
-    ctx.strokeStyle = '#fff';
+    // Thin separator between slices — matches tile surface per theme.
+    ctx.strokeStyle = SLICE_SEPARATOR;
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -599,7 +599,7 @@ function drawTexts(
   const textEnc = spec.encoding.text;
   if (!textEnc) return;
 
-  ctx.fillStyle = '#333';
+  ctx.fillStyle = LABEL_COLOR;
   ctx.font = '11px Inter, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

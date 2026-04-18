@@ -41,23 +41,26 @@ export const DEFAULT_MARK_COLOR = '#4e79a7';
  */
 export let CHART_BG = 'transparent';
 export let GRID_COLOR = 'rgba(255,255,255,0.06)';
-export let AXIS_COLOR = 'rgba(255,255,255,0.55)';
-export let TICK_COLOR = 'rgba(255,255,255,0.35)';
-export let LABEL_COLOR = 'rgba(255,255,255,0.72)';
+export let AXIS_COLOR = 'rgba(235,238,245,0.72)';
+export let TICK_COLOR = 'rgba(235,238,245,0.48)';
+export let LABEL_COLOR = 'rgba(235,238,245,0.85)';
+export let SLICE_SEPARATOR = 'rgba(20,22,30,0.9)';
 
 function _applyChartTheme(scheme: 'dark' | 'light'): void {
   if (scheme === 'light') {
     CHART_BG = 'transparent';
-    GRID_COLOR = 'rgba(15,23,42,0.08)';
-    AXIS_COLOR = 'rgba(15,23,42,0.65)';
-    TICK_COLOR = 'rgba(15,23,42,0.45)';
-    LABEL_COLOR = 'rgba(15,23,42,0.78)';
+    GRID_COLOR = 'rgba(15,23,42,0.10)';
+    AXIS_COLOR = 'rgba(15,23,42,0.82)';
+    TICK_COLOR = 'rgba(15,23,42,0.60)';
+    LABEL_COLOR = 'rgba(15,23,42,0.92)';
+    SLICE_SEPARATOR = 'rgba(255,255,255,0.95)';
   } else {
     CHART_BG = 'transparent';
     GRID_COLOR = 'rgba(255,255,255,0.06)';
-    AXIS_COLOR = 'rgba(255,255,255,0.55)';
-    TICK_COLOR = 'rgba(255,255,255,0.35)';
-    LABEL_COLOR = 'rgba(255,255,255,0.72)';
+    AXIS_COLOR = 'rgba(235,238,245,0.72)';
+    TICK_COLOR = 'rgba(235,238,245,0.48)';
+    LABEL_COLOR = 'rgba(235,238,245,0.85)';
+    SLICE_SEPARATOR = 'rgba(20,22,30,0.9)';
   }
 }
 
