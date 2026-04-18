@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { detectCorrections } from "./chart-ir";
 import { alignZones, distributeZones } from "./components/dashboard/freeform/lib/alignmentOps";
-import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating, reorderZone, moveZoneAcrossContainers, wrapInContainer, removeChild, insertChild, distributeEvenly, fitContainerToContent, removeContainer } from "./components/dashboard/freeform/lib/zoneTreeOps";
+import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating, reorderZone, moveZoneAcrossContainers, wrapInContainer, removeChild, insertChild, distributeEvenly, fitContainerToContent, removeContainer, resizeZone } from "./components/dashboard/freeform/lib/zoneTreeOps";
 import { resolveLayout } from "./components/dashboard/freeform/lib/layoutResolver";
 import { generateZoneId } from "./components/dashboard/freeform/lib/zoneTree";
 import { applySetChange } from './components/dashboard/freeform/lib/setOps';
@@ -1507,6 +1507,20 @@ export const useStore = create((set, get) => ({
     const nextDash = { ...dash, tiledRoot: nextRoot };
     set({ analystProDashboard: nextDash });
     get().pushAnalystProHistory(nextDash, 'Move zone across containers');
+  },
+
+  // Plan 7 T15 — resize a tiled zone by setting proportional w/h values.
+  // Renormalizes the parent's siblings via the resizeZone pure helper so
+  // the sum stays at 100000 (invariant). Floating zones get a direct
+  // pxW/pxH patch instead (via setZonePropertyAnalystPro).
+  resizeZoneAnalystPro: (zoneId, size) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash?.tiledRoot || !zoneId || !size) return;
+    const nextRoot = resizeZone(dash.tiledRoot, zoneId, size);
+    if (nextRoot === dash.tiledRoot) return;
+    const nextDash = { ...dash, tiledRoot: nextRoot };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Resize zone');
   },
 
   // Plan 5b: drop-on-edge wrap. Removes source from its current location, then

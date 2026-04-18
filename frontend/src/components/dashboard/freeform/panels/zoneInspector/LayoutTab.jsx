@@ -4,6 +4,7 @@ import {
   DEFAULT_OUTER_PADDING,
   DEFAULT_FIT_MODE,
 } from '../../lib/zoneDefaults';
+import { useStore } from '../../../../../store';
 
 const FIT_MODES = [
   { value: 'fit',        label: 'Fit' },
@@ -26,6 +27,20 @@ export default function LayoutTab({ zone, onPatch }) {
 
   const patchInner = (v) => onPatch({ innerPadding: clamp(Number(v), 0, 100) });
   const patchOuter = (v) => onPatch({ outerPadding: clamp(Number(v), 0, 100) });
+
+  // Plan 7 T15 — tiled resize goes through a dedicated store action so
+  // sibling proportions renormalize to sum === 100000 (the invariant).
+  // setZonePropertyAnalystPro (onPatch) would break that by patching only
+  // the one child's w/h and leaving siblings unchanged.
+  const resizeZoneAnalystPro = useStore((s) => s.resizeZoneAnalystPro);
+  const patchTiledWidth = (v) => {
+    const pct = clamp(Number(v), 1, 99);
+    resizeZoneAnalystPro(zone.id, { w: pct * 1000 });
+  };
+  const patchTiledHeight = (v) => {
+    const pct = clamp(Number(v), 1, 99);
+    resizeZoneAnalystPro(zone.id, { h: pct * 1000 });
+  };
 
   return (
     <div data-testid="zone-properties-layout-tab" className="analyst-pro-zone-inspector__body">
@@ -84,9 +99,11 @@ export default function LayoutTab({ zone, onPatch }) {
             <input
               aria-label="Width %"
               type="number"
+              min={1}
+              max={99}
               value={Math.round((zone.w || 0) / 1000)}
-              readOnly
-              style={{ ...inputStyle, opacity: 0.6 }}
+              onChange={(e) => patchTiledWidth(e.target.value)}
+              style={inputStyle}
             />
           </label>
           <label style={lblStyle}>
@@ -94,9 +111,11 @@ export default function LayoutTab({ zone, onPatch }) {
             <input
               aria-label="Height %"
               type="number"
+              min={1}
+              max={99}
               value={Math.round((zone.h || 0) / 1000)}
-              readOnly
-              style={{ ...inputStyle, opacity: 0.6 }}
+              onChange={(e) => patchTiledHeight(e.target.value)}
+              style={inputStyle}
             />
           </label>
         </>
