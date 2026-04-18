@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { detectCorrections } from "./chart-ir";
 import { alignZones, distributeZones } from "./components/dashboard/freeform/lib/alignmentOps";
-import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating, reorderZone, moveZoneAcrossContainers, wrapInContainer, removeChild } from "./components/dashboard/freeform/lib/zoneTreeOps";
+import { groupSelection, ungroupContainer, toggleLock, toggleLockFloating, reorderZone, moveZoneAcrossContainers, wrapInContainer, removeChild, insertChild, distributeEvenly, fitContainerToContent, removeContainer } from "./components/dashboard/freeform/lib/zoneTreeOps";
+import { resolveLayout } from "./components/dashboard/freeform/lib/layoutResolver";
 import { generateZoneId } from "./components/dashboard/freeform/lib/zoneTree";
 import { applySetChange } from './components/dashboard/freeform/lib/setOps';
 import { buildContextMenu } from './components/dashboard/freeform/lib/contextMenuBuilder';
@@ -1148,6 +1149,139 @@ export const useStore = create((set, get) => ({
       set({ analystProDashboard: nextDash });
       get().pushAnalystProHistory(nextDash, 'Toggle zone lock');
     }
+  },
+
+  // Plan 5e: Distribute Evenly — equal-share override on container children.
+  distributeEvenlyAnalystPro: (containerId) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash?.tiledRoot || !containerId) return;
+    const nextRoot = distributeEvenly(dash.tiledRoot, containerId);
+    if (nextRoot === dash.tiledRoot) return;
+    const nextDash = { ...dash, tiledRoot: nextRoot };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Distribute evenly');
+  },
+
+  // Plan 5e: Fit to Content — write sizeOverride from DOM-measured child sizes.
+  // Resolver-side honouring for tiled containers lands in Plan 7a; floating
+  // containers already respect pxW/pxH.
+  fitContainerToContentAnalystPro: (containerId) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash?.tiledRoot || !containerId) return;
+    const measured = {};
+    if (typeof document !== 'undefined') {
+      const nodes = document.querySelectorAll('[data-zone-id]');
+      nodes.forEach((n) => {
+        const id = n.getAttribute('data-zone-id');
+        if (!id) return;
+        const r = n.getBoundingClientRect();
+        measured[id] = { width: r.width || 0, height: r.height || 0 };
+      });
+    }
+    const nextRoot = fitContainerToContent(dash.tiledRoot, containerId, measured);
+    if (nextRoot === dash.tiledRoot) return;
+    const nextDash = { ...dash, tiledRoot: nextRoot };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Fit container to content');
+  },
+
+  // Plan 5e: Remove Container — unwrap children into grandparent, renormalize.
+  // Collapses selection to the grandparent of the removed container.
+  removeContainerAnalystPro: (containerId) => {
+    const { analystProDashboard: dash, analystProSelection: sel } = get();
+    if (!dash?.tiledRoot || !containerId) return;
+    const findParentId = (zone, targetId, parentId) => {
+      if (zone.id === targetId) return parentId;
+      if (!zone.children) return null;
+      for (const c of zone.children) {
+        const found = findParentId(c, targetId, zone.id);
+        if (found !== null) return found;
+      }
+      return null;
+    };
+    const grandparentId = findParentId(dash.tiledRoot, containerId, null);
+    const nextRoot = removeContainer(dash.tiledRoot, containerId);
+    if (nextRoot === dash.tiledRoot) return;
+    const nextDash = { ...dash, tiledRoot: nextRoot };
+    const nextSel = sel.has(containerId) && grandparentId
+      ? new Set([grandparentId])
+      : sel;
+    set({ analystProDashboard: nextDash, analystProSelection: nextSel });
+    get().pushAnalystProHistory(nextDash, 'Remove container');
+  },
+
+  // Plan 5e: Toggle tiled <-> floating on a zone.
+  //   - Tiled -> floating: resolve the zone's pixel rect via layoutResolver,
+  //     remove from tree (removeChild renormalizes siblings per Appendix E.11),
+  //     push a FloatingZone preserving all non-layout fields.
+  //   - Floating -> tiled: strip floating/x/y/pxW/pxH/zIndex, reset w=h=100000,
+  //     insert as last child of targetContainerId (default dash.tiledRoot.id).
+  toggleZoneFloatAnalystPro: (zoneId, targetContainerId) => {
+    const { analystProDashboard: dash } = get();
+    if (!dash || !zoneId) return;
+
+    // Canvas pixel dims for resolved rect. Fall back to 1440x900 for
+    // automatic/range modes (matches smart-layout heuristic default).
+    const canvasW = dash.size?.mode === 'fixed' ? dash.size.width : 1440;
+    const canvasH = dash.size?.mode === 'fixed' ? dash.size.height : 900;
+
+    // Floating -> tiled?
+    const floatingIdx = dash.floatingLayer.findIndex((z) => z.id === zoneId);
+    if (floatingIdx >= 0) {
+      const fz = dash.floatingLayer[floatingIdx];
+      const {
+        floating: _f, x: _x, y: _y, pxW: _w, pxH: _h, zIndex: _z,
+        ...rest
+      } = fz;
+      const tiledZone = { ...rest, w: 100000, h: 100000 };
+      const nextFloating = [
+        ...dash.floatingLayer.slice(0, floatingIdx),
+        ...dash.floatingLayer.slice(floatingIdx + 1),
+      ];
+      const parentId = targetContainerId || dash.tiledRoot.id;
+      const nextRoot = insertChild(dash.tiledRoot, parentId, tiledZone, Number.MAX_SAFE_INTEGER);
+      if (nextRoot === dash.tiledRoot) return;
+      const nextDash = { ...dash, tiledRoot: nextRoot, floatingLayer: nextFloating };
+      set({
+        analystProDashboard: nextDash,
+        analystProSelection: new Set([zoneId]),
+      });
+      get().pushAnalystProHistory(nextDash, 'Dock zone');
+      return;
+    }
+
+    // Tiled -> floating?
+    const resolved = resolveLayout(dash.tiledRoot, dash.floatingLayer, canvasW, canvasH);
+    const hit = resolved.find((r) => r.zone.id === zoneId && r.depth >= 0);
+    if (!hit) return;
+
+    const src = hit.zone;
+    const maxZ = dash.floatingLayer.reduce((m, z) => Math.max(m, z.zIndex || 0), 0);
+    const { children: _children, w: _sw, h: _sh, ...leafFields } = src;
+    const newFloating = {
+      ...leafFields,
+      floating: true,
+      x: hit.x,
+      y: hit.y,
+      pxW: hit.width,
+      pxH: hit.height,
+      zIndex: maxZ + 1,
+      w: 0,
+      h: 0,
+    };
+
+    const nextRoot = removeChild(dash.tiledRoot, zoneId);
+    if (nextRoot === dash.tiledRoot) return;
+    const nextDash = {
+      ...dash,
+      tiledRoot: nextRoot,
+      floatingLayer: [...dash.floatingLayer, newFloating],
+    };
+    set({
+      analystProDashboard: nextDash,
+      analystProSelection: new Set([zoneId]),
+    });
+    get().pushAnalystProHistory(nextDash, 'Float zone');
   },
 
   // Plan 2b: insert a new floating zone from the object library
