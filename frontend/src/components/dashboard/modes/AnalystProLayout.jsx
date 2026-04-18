@@ -169,11 +169,18 @@ export default function AnalystProLayout({
     openContextMenu(event.clientX, event.clientY, zone.id);
   }, [openContextMenu]);
 
+  // Pre-index tiles by id for O(1) lookup per leaf instead of O(n) find().
+  const tilesById = useMemo(() => {
+    const m = new Map();
+    for (const t of tiles) m.set(String(t.id), t);
+    return m;
+  }, [tiles]);
+
   const renderLeaf = useMemo(() => {
     return (zone, resolved) => {
       let content = null;
       if (zone.type === 'worksheet' && zone.worksheetRef) {
-        const tile = tiles.find((t) => String(t.id) === zone.worksheetRef);
+        const tile = tilesById.get(zone.worksheetRef);
         if (tile) {
           content = (
             <AnalystProWorksheetTile
@@ -199,7 +206,7 @@ export default function AnalystProLayout({
         </ZoneFrame>
       );
     };
-  }, [tiles, onTileClick, handleQuickAction, handleZoneContextMenu]);
+  }, [tilesById, onTileClick, handleQuickAction, handleZoneContextMenu]);
 
   return (
     <div

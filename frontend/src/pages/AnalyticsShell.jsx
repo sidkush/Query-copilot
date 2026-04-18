@@ -7,6 +7,13 @@ import DashboardShell from "../components/dashboard/DashboardShell";
 const AgentPanel = lazy(() => import("../components/agent/AgentPanel"));
 const ChartEditor = lazy(() => import("../components/editor/ChartEditor"));
 
+const DEFAULT_CHART_SPEC = Object.freeze({
+  $schema: "askdb/chart-spec/v1",
+  type: "cartesian",
+  mark: "bar",
+  encoding: {},
+});
+
 /**
  * AnalyticsShell — new-path production page for /analytics.
  *
@@ -116,6 +123,12 @@ export default function AnalyticsShell() {
   const [editorMode, setEditorMode] = useState("pro");
   const [schemaColumns, setSchemaColumns] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  // Memoize the editor result set so it's not rebuilt on every parent re-render.
+  const editorResultSet = useMemo(
+    () => selectedTile ? buildTileResultSet(selectedTile, schemaColumns) : null,
+    [selectedTile, schemaColumns],
+  );
 
   // Document-level ESC → close editor modal.
   useEffect(() => {
@@ -497,8 +510,8 @@ export default function AnalyticsShell() {
                   style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
                 >
                   <ChartEditor
-                    spec={selectedTile.chart_spec || selectedTile.chartSpec || { $schema: "askdb/chart-spec/v1", type: "cartesian", mark: "bar", encoding: {} }}
-                    resultSet={buildTileResultSet(selectedTile, schemaColumns)}
+                    spec={selectedTile.chart_spec || selectedTile.chartSpec || DEFAULT_CHART_SPEC}
+                    resultSet={editorResultSet}
                     mode={editorMode}
                     surface="dashboard-tile"
                     onModeChange={setEditorMode}

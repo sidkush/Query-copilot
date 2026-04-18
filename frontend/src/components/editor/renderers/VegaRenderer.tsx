@@ -386,6 +386,10 @@ export default function VegaRenderer({
     return () => receiver.abort();
   }, [isStreaming, resultSet?.columns, spec, strategy]);
 
+  // Capture row count in a ref so telemetry reads it without triggering re-fires.
+  const rowCountRef = useRef(rowObjects.length);
+  rowCountRef.current = rowObjects.length;
+
   useEffect(() => {
     if (telemetryFiredRef.current || !strategy) return;
     const timer = setTimeout(() => {
@@ -400,7 +404,7 @@ export default function VegaRenderer({
         tier: strategy.tier,
         renderer_family: strategy.rendererFamily,
         renderer_backend: strategy.rendererBackend,
-        row_count: rowObjects.length,
+        row_count: rowCountRef.current,
         downsample_method: strategy.downsample?.method ?? 'none',
         target_points: strategy.downsample?.targetPoints ?? 0,
         first_paint_ms: Math.round(firstPaintMs),
@@ -413,7 +417,7 @@ export default function VegaRenderer({
       });
     }, 2000);
     return () => clearTimeout(timer);
-  }, [strategy, rowObjects.length]);
+  }, [strategy]);
 
   const handleError = useCallback(
     (err: Error, _container: HTMLDivElement) => {
@@ -445,9 +449,11 @@ export default function VegaRenderer({
     );
   }
 
-  const vegaData = isStreaming && !streamingComplete
-    ? { askdb_data: [] as Row[] }
-    : { askdb_data: downsampledRows };
+  const EMPTY_ROWS: Row[] = useMemo(() => [], []);
+  const vegaData = useMemo(
+    () => ({ askdb_data: isStreaming && !streamingComplete ? EMPTY_ROWS : downsampledRows }),
+    [isStreaming, streamingComplete, downsampledRows, EMPTY_ROWS],
+  );
 
   const rowCount = rowObjects.length;
   const downsampledCount = downsampledRows.length;

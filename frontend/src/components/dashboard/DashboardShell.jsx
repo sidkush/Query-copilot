@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { SPRINGS } from "./motion";
 import { ARCHETYPE_THEMES } from "./tokens";
 import DashboardTopBar, { ARCHETYPE_EDIT_MAP } from "./DashboardTopBar";
@@ -132,15 +133,25 @@ export default function DashboardShell({
     } catch { /* ignore */ }
   }, [dashboardId, setVoiceMode]);
 
-  // Store access
-  const activeSemanticModel = useStore((s) => s.activeSemanticModel);
-  const setChartEditorSpec = useStore((s) => s.setChartEditorSpec);
-  const agentTierInfo = useStore((s) => s.agentTierInfo);
-  const turboStatus = useStore((s) => s.turboStatus);
-  const connections = useStore((s) => s.connections);
-  // Analyst Pro canvas size — reactive so SizeToggleDropdown updates re-render the canvas.
-  const analystProSize = useStore((s) => s.analystProSize);
-  const setAnalystProSize = useStore((s) => s.setAnalystProSize);
+  // Store access — batch object selectors with shallow equality to prevent
+  // re-renders when unrelated store slices change.
+  const {
+    activeSemanticModel,
+    setChartEditorSpec,
+    agentTierInfo,
+    turboStatus,
+    connections,
+    analystProSize,
+    setAnalystProSize,
+  } = useStore(useShallow((s) => ({
+    activeSemanticModel: s.activeSemanticModel,
+    setChartEditorSpec: s.setChartEditorSpec,
+    agentTierInfo: s.agentTierInfo,
+    turboStatus: s.turboStatus,
+    connections: s.connections,
+    analystProSize: s.analystProSize,
+    setAnalystProSize: s.setAnalystProSize,
+  })));
 
   // Detect mobile viewport
   useEffect(() => {

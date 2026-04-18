@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import GridLayout from "react-grid-layout";
 import DashboardTileCanvas from "../lib/DashboardTileCanvas";
 import { ARCHETYPE_THEMES, TOKENS } from "../tokens";
@@ -48,17 +48,24 @@ function buildInitialLayout(tiles, existingLayout) {
 function useContainerWidth() {
   const [ref, setRef] = useState(null);
   const [width, setWidth] = useState(1200);
+  const rafId = useRef(0);
 
   useEffect(() => {
     if (!ref) return;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry && entry.contentRect.width > 0) {
-        setWidth(Math.floor(entry.contentRect.width));
+        if (rafId.current) cancelAnimationFrame(rafId.current);
+        rafId.current = requestAnimationFrame(() => {
+          setWidth(Math.floor(entry.contentRect.width));
+        });
       }
     });
     observer.observe(ref);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+    };
   }, [ref]);
 
   return [setRef, width];
@@ -101,10 +108,17 @@ export default function AnalystWorkbenchLayout({
     });
   }, [tiles]);
 
+  // Debounce parent notification — setLayout is immediate (smooth drag),
+  // but onLayoutChange fires 150ms after the last event (avoids cascade
+  // re-renders in AnalyticsShell during drag).
+  const layoutCbTimer = useRef(null);
   const handleLayoutChange = useCallback(
     (nextLayout) => {
       setLayout(nextLayout);
-      if (onLayoutChange) onLayoutChange(nextLayout);
+      if (onLayoutChange) {
+        if (layoutCbTimer.current) clearTimeout(layoutCbTimer.current);
+        layoutCbTimer.current = setTimeout(() => onLayoutChange(nextLayout), 150);
+      }
     },
     [onLayoutChange],
   );

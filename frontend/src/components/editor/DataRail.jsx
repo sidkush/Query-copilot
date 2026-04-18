@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { BreathingDot, SPRINGS } from "../dashboard/motion";
 
@@ -107,7 +107,7 @@ function Section({ title, count, children, defaultOpen = false, accent = "var(--
   );
 }
 
-function Pill({ column, kind }) {
+const Pill = memo(function Pill({ column, kind }) {
   const color = kind === "measure" ? "#2dbf71" : "#4a8fe7";
   const [dragging, setDragging] = useState(false);
   return (
@@ -153,7 +153,7 @@ function Pill({ column, kind }) {
       </span>
     </motion.div>
   );
-}
+});
 
 function EmptyHint({ text }) {
   return (

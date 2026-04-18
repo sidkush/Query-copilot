@@ -33,19 +33,26 @@ export default function FreeformCanvas({ dashboard: dashboardProp, renderLeaf })
     ? storeDashboard
     : dashboardProp;
 
+  const roRafRef = useRef(0);
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
     const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setViewportSize({
-          width: Math.floor(entry.contentRect.width),
-          height: Math.floor(entry.contentRect.height),
-        });
-      }
+      if (roRafRef.current) cancelAnimationFrame(roRafRef.current);
+      roRafRef.current = requestAnimationFrame(() => {
+        for (const entry of entries) {
+          setViewportSize({
+            width: Math.floor(entry.contentRect.width),
+            height: Math.floor(entry.contentRect.height),
+          });
+        }
+      });
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      if (roRafRef.current) cancelAnimationFrame(roRafRef.current);
+    };
   }, []);
 
   const activeDevice = useStore((s) => s.analystProActiveDevice);
@@ -133,17 +140,25 @@ export default function FreeformCanvas({ dashboard: dashboardProp, renderLeaf })
 
   useKeyboardShortcuts({ canvasRef: containerRef });
 
+  const siblingsFloating = useMemo(
+    () => resolved.filter((r) => r.depth === -1),
+    [resolved],
+  );
+
   const { onZonePointerDown } = useDragResize({
     canvasRef: containerRef,
     resolvedMap,
-    siblingsFloating: resolved.filter((r) => r.depth === -1),
+    siblingsFloating,
     resolvedList: resolved,
     // Plan 7 T4 + T5 — canvas pixel dims are resolved via canvasSize above
     // (accounts for fixed-vs-automatic size modes and device overrides).
     canvasSize,
   });
 
-  const selectedResolved = resolved.filter((r) => selection.has(r.zone.id));
+  const selectedResolved = useMemo(
+    () => resolved.filter((r) => selection.has(r.zone.id)),
+    [resolved, selection],
+  );
 
   const handleZoneClick = (zoneId, event) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey) {
