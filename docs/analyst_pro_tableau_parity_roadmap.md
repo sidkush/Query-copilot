@@ -543,6 +543,30 @@
 
 ---
 
+### Plan 7 — Tableau-Parity Finish (Hotfix, distinct from Phase 7 VizQL) — ✅ Shipped 2026-04-18
+
+**Naming note.** This hotfix plan happens to be labelled "Plan 7" but is NOT part of Phase 7 (VizQL Engine) below. Commit tags use `(Plan 7 TN)`; VizQL plans use `(Plan 7a TN)` / `(Plan 7b TN)` / etc, so the two do not collide in git log. Full plan doc: `docs/superpowers/plans/2026-04-18-analyst-pro-plan-7-tableau-parity-finish.md`.
+
+**Goal.** Close three readability + drag bugs the user hit after Plans 5a-6e shipped, plus wire authored-layout persistence (missing since Plan 3 T9 whitelisted the backend fields). 14 tasks across 6 phases: Chrome → Drag → Layout → Persistence → Load-path rip → Verify.
+
+**Status:** ✅ Shipped 2026-04-18. 11 commits (T3 was no-op — hover-only actions already shipped in Plan 5a; T13 live verify deferred to user). Commits: `da0c2be` (T1), `bc61860` (T2), `517309c` (T4), `665806a` (T5), `67af156` (T6), `e63c686` (T7), T8 hook commit, `60405e2` (T9), `1e3945c` (T10), `74022c8` (T11), `0f2bfa3` (T12 fixup).
+
+**Ships.**
+- T1: `TITLE_BAR_DEFAULT_VISIBLE` no longer includes `'worksheet'` — kills the "Worksheet #3w8i" double-title on Vega chart tiles (readability fix).
+- T2: `legacyTilesToDashboard` carries `tile.title` through as `zone.displayName`, so opting into a frame bar shows the real chart name instead of the id-hash fallback.
+- T4: `wrapInContainer` rejects drops that would produce <120 px child cells (`MIN_WRAP_PX` guard) — drags into tiny targets become no-ops instead of producing unreadable wraps. Wired via `FreeformCanvas` → `useDragResize` → `wrapInContainerAnalystPro(…, canvasSize)`.
+- T5: `clampFloatingMove` keeps floating zones inside the canvas rect (Build_Tableau §E.14 parity). Floating drags past edges no longer render off-screen.
+- T6: `classifyTile` pure helper — `'kpi' | 'chart'` classification with explicit override, chartType allowlist, `chart_spec.mark.type === 'text'` detection.
+- T7: legacy shim switches to a KPI-aware bin pack when any KPI is present — KPIs 4/row × 160 px, charts 2/row × 360 px. All-chart dashboards still hit the Plan 5e columnar path byte-identical.
+- T8-T9: `useAnalystProAutosave` debounced (1500 ms) PATCH hook mounted in `AnalystProLayout`. Payload = `{ schemaVersion, archetype, size, tiledRoot, floatingLayer }` (matches Plan 3 T9 backend whitelist). Serialized-payload short-circuit prevents duplicate PATCHes. Unmount cancels.
+- T10-T11: `AnalystProLayout` accepts an `authoredLayout` prop; when its `tiledRoot` is truthy, render it verbatim and skip `legacyTilesToDashboard`. `AnalyticsShell` passes the full backend dashboard object through `DashboardShell`. `FreeformCanvas` reseeds the store on tree-identity change (not just id change), so a mid-session re-hydration restores the authored tree without a wipe cycle.
+
+**New tests (7 files, 50+ assertions).** `zoneDefaults.test.ts` (extended, Plan 7 T1 block), `legacyTilesToDashboard.test.ts` (extended — Plan 7 T2 + T7 describe blocks, 14 new cases), `zoneTreeOps.wrapGuard.test.ts` (5), `useDragResize.bounds.test.ts` (7), `classifyTile.test.ts` (8), `useAnalystProAutosave.test.ts` (7), `AnalystProLayout.loadPath.test.tsx` (3). Full freeform suite: 676 tests green after Plan 7.
+
+**Out of scope (not attempted, noted in plan).** Collaborative editing / CRDT, cross-refresh undo, tile classification beyond kpi-vs-chart, animated drag ghosts, dashboard-level Fit Content button, worksheet-ref vs zone-displayName reconciliation.
+
+---
+
 ## Phase 7 — VizQL Engine (new query architecture)
 
 **Goal.** Our own minerva-equivalent 3-stage compilation pipeline (see `Build_Tableau.md` Part IV + Appendix Y). Produces dialect-aware SQL from a canonical `VisualSpec` IR. Our waterfall router becomes one consumer.
