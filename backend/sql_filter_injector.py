@@ -17,7 +17,7 @@ from typing import Any, Iterable, Optional
 
 
 _IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_SUPPORTED_OPS = frozenset({"eq", "in"})
+_SUPPORTED_OPS = frozenset({"eq", "in", "notIn"})
 
 
 class FilterInjectionError(ValueError):
@@ -45,11 +45,11 @@ def _render_predicate(field: str, op: str, entry: dict) -> str:
     if op not in _SUPPORTED_OPS:
         raise FilterInjectionError(f"Unsupported filter op: {op!r}")
 
-    if op == "in":
+    if op in ("in", "notIn"):
         values = entry.get("values")
         if not isinstance(values, list) or len(values) == 0:
             raise FilterInjectionError(
-                f"'in' filter requires a non-empty 'values' list: {field!r}"
+                f"{op!r} filter requires a non-empty 'values' list: {field!r}"
             )
         rendered = []
         for v in values:
@@ -57,9 +57,10 @@ def _render_predicate(field: str, op: str, entry: dict) -> str:
                 rendered.append(_render_value(v))
             else:
                 raise FilterInjectionError(
-                    f"Unsupported filter value type in 'in' list: {type(v).__name__}"
+                    f"Unsupported filter value type in {op!r} list: {type(v).__name__}"
                 )
-        return f'"{field}" IN ({", ".join(rendered)})'
+        sql_op = "IN" if op == "in" else "NOT IN"
+        return f'"{field}" {sql_op} ({", ".join(rendered)})'
 
     # eq
     value = entry.get("value")
