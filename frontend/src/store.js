@@ -723,6 +723,23 @@ export const useStore = create((set, get) => ({
   analystProSnapEnabled: true,
   setAnalystProSnapEnabled: (enabled) => set({ analystProSnapEnabled: !!enabled }),
 
+  // Plan 6c — tabbed sidebar state
+  analystProSidebarTab: 'dashboard',                 // 'dashboard' | 'layout'
+  analystProSidebarCollapsed: new Set(),             // Set<string> of collapsed section ids
+  setSidebarTabAnalystPro: (tab) => {
+    if (tab !== 'dashboard' && tab !== 'layout') return;
+    if (get().analystProSidebarTab === tab) return;
+    set({ analystProSidebarTab: tab });
+  },
+  toggleSidebarSectionAnalystPro: (sectionId) => {
+    if (typeof sectionId !== 'string' || sectionId.length === 0) return;
+    const current = get().analystProSidebarCollapsed;
+    const next = new Set(current);
+    if (next.has(sectionId)) next.delete(sectionId);
+    else next.add(sectionId);
+    set({ analystProSidebarCollapsed: next });
+  },
+
   // Plan 6a — canvas view-state (ephemeral, NOT pushed to history)
   analystProCanvasZoom: 1.0,
   analystProCanvasPan: { x: 0, y: 0 },
@@ -1285,12 +1302,17 @@ export const useStore = create((set, get) => ({
   },
 
   // Plan 2b: insert a new floating zone from the object library
-  insertObjectAnalystPro: ({ type, x, y }) => {
+  // Plan 6c: accepts optional worksheetRef for `type: 'worksheet'` insertions.
+  insertObjectAnalystPro: ({ type, x, y, worksheetRef }) => {
     const { analystProDashboard: dash } = get();
     if (!dash) return;
     const isContainer = type === 'container-horz' || type === 'container-vert';
-    const defaultSize =
-      type === 'webpage' || isContainer ? { pxW: 480, pxH: 320 } : { pxW: 320, pxH: 200 };
+    const isWorksheet = type === 'worksheet';
+    const defaultSize = isWorksheet
+      ? { pxW: 480, pxH: 320 }
+      : type === 'webpage' || isContainer
+        ? { pxW: 480, pxH: 320 }
+        : { pxW: 320, pxH: 200 };
     const maxZ = dash.floatingLayer.reduce((m, z) => Math.max(m, z.zIndex || 0), 0);
     const id = generateZoneId();
     let newZone;
@@ -1309,6 +1331,20 @@ export const useStore = create((set, get) => ({
         children: [
           { id: generateZoneId(), type: 'blank', w: 100000, h: 100000 },
         ],
+      };
+    } else if (isWorksheet) {
+      newZone = {
+        id,
+        type: 'worksheet',
+        worksheetRef: String(worksheetRef || ''),
+        w: 0,
+        h: 0,
+        floating: true,
+        x,
+        y,
+        pxW: defaultSize.pxW,
+        pxH: defaultSize.pxH,
+        zIndex: maxZ + 1,
       };
     } else {
       newZone = {
