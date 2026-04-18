@@ -93,6 +93,16 @@ export interface VegaRendererProps {
     fields: Record<string, unknown> | null,
     opts: { shiftKey: boolean },
   ) => void;
+  /** Plan 6e: when set, the renderer suppresses its built-in
+   *  MiniChartTooltip and emits hover events upward instead. The owning
+   *  component (e.g. AnalystProWorksheetTile) is then responsible for
+   *  rendering ChartTooltipCard. */
+  onMarkHover?: (
+    sheetId: string,
+    datum: Record<string, unknown>,
+    clientX: number,
+    clientY: number,
+  ) => void;
 }
 
 type Row = Record<string, unknown>;
@@ -126,6 +136,7 @@ export default function VegaRenderer({
   onBrush,
   sheetId,
   onMarkSelect,
+  onMarkHover,
 }: VegaRendererProps) {
   // One-time deprecation warning in dev — rollback path preserved.
   useEffect(() => {
@@ -300,16 +311,31 @@ export default function VegaRenderer({
         }
       });
     }
-    // Viz-in-Tooltip: show a mini sparkline tooltip on data point hover.
-    view.addEventListener('mouseover', (event: MouseEvent, item: { datum?: Record<string, unknown> } | null) => {
-      if (item?.datum) {
-        setTooltipState({ visible: true, x: event.clientX, y: event.clientY, datum: item.datum });
-      }
-    });
-    view.addEventListener('mouseout', () => {
-      setTooltipState(prev => ({ ...prev, visible: false }));
-    });
-  }, [handleNewView, spec, onDrillthrough, onBrush, sheetId, onMarkSelect]);
+    // Plan 6e: when onMarkHover is supplied, route hover up to the parent
+    // (AnalystProWorksheetTile renders ChartTooltipCard). Otherwise fall
+    // back to the legacy MiniChartTooltip path.
+    if (onMarkHover && sheetId) {
+      view.addEventListener('mouseover', (event: MouseEvent, item: { datum?: Record<string, unknown> } | null) => {
+        if (item?.datum) {
+          onMarkHover(sheetId, datumToFields(item.datum), event.clientX, event.clientY);
+        }
+      });
+      view.addEventListener('mousemove', (event: MouseEvent, item: { datum?: Record<string, unknown> } | null) => {
+        if (item?.datum) {
+          onMarkHover(sheetId, datumToFields(item.datum), event.clientX, event.clientY);
+        }
+      });
+    } else {
+      view.addEventListener('mouseover', (event: MouseEvent, item: { datum?: Record<string, unknown> } | null) => {
+        if (item?.datum) {
+          setTooltipState({ visible: true, x: event.clientX, y: event.clientY, datum: item.datum });
+        }
+      });
+      view.addEventListener('mouseout', () => {
+        setTooltipState(prev => ({ ...prev, visible: false }));
+      });
+    }
+  }, [handleNewView, spec, onDrillthrough, onBrush, sheetId, onMarkSelect, onMarkHover]);
 
   useEffect(() => {
     if (!isStreaming || !resultSet?.columns) return;
@@ -495,7 +521,7 @@ export default function VegaRenderer({
           height={DEFAULT_CANVAS_SIZE.height}
         />
       </div>
-      {typeof document !== 'undefined' && createPortal(
+      {typeof document !== 'undefined' && !onMarkHover && createPortal(
         <MiniChartTooltip
           x={tooltipState.x}
           y={tooltipState.y}
