@@ -4,6 +4,6 @@
 import './boardPack';
 import './operatorConsole';
 import './signal';
-// import './editorialBrief';  // Plan E
+import './editorialBrief';
 
 export {};

@@ -1,0 +1,494 @@
+/* EditorialBriefLayout — Plan A★ Phase 6 (Wave 2-EB)
+ *
+ * Magazine-style quarterly brief. All rules scoped under `.eb-layout` so the
+ * preset's typographic choices don't leak into the rest of the app. Font
+ * source: Source Serif 4 (Google Fonts) + JetBrains Mono.
+ *
+ * Source Serif 4 was chosen over the more fashionable serifs (Fraunces,
+ * Playfair, Cormorant, Newsreader, DM Serif, Instrument Serif) which are
+ * on the impeccable-skill reject list — SS4 is a neutral editorial face
+ * with real italics and open licensing. */
+
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500;1,8..60,600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+.eb-layout {
+  --eb-bg: #f4efe4;
+  --eb-fg: #181613;
+  --eb-fg-2: #6a6459;
+  --eb-fg-meta: #8b857a;
+  --eb-accent: #c0793a;
+  --eb-accent-deep: #9a5820;
+  --eb-border: #d4cdbf;
+  --eb-negative: #c83e3e;
+
+  --eb-serif: 'Source Serif 4', Georgia, serif;
+  --eb-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  padding: 24px 40px 32px;
+  background: var(--eb-bg);
+  color: var(--eb-fg);
+  font-family: var(--eb-serif);
+  font-size: 15px;
+  line-height: 1.6;
+  font-feature-settings: 'ss01', 'kern';
+  -webkit-font-smoothing: antialiased;
+}
+
+.eb-layout *,
+.eb-layout *::before,
+.eb-layout *::after {
+  box-sizing: border-box;
+}
+
+/* ── Top bar ───────────────────────────────────────────────────────────── */
+.eb-topbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+  height: 32px;
+  border-bottom: 1px solid var(--eb-border);
+  font-family: var(--eb-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eb-topbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--eb-fg);
+}
+
+.eb-topbar__glyph {
+  width: 10px;
+  height: 10px;
+  background: var(--eb-accent);
+  display: inline-block;
+}
+
+.eb-topbar__stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  color: var(--eb-fg-2);
+  font-weight: 500;
+}
+
+.eb-topbar__stat b {
+  color: var(--eb-fg);
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.eb-topbar__stat-sep {
+  color: var(--eb-fg-meta);
+}
+
+.eb-topbar__meta {
+  color: var(--eb-fg-meta);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Kicker ────────────────────────────────────────────────────────────── */
+.eb-kicker {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  font-family: var(--eb-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--eb-fg-meta);
+}
+
+/* ── Masthead ──────────────────────────────────────────────────────────── */
+.eb-masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--eb-border);
+  margin-bottom: 24px;
+}
+
+.eb-masthead__left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eb-headline {
+  font-family: var(--eb-serif);
+  font-size: 52px;
+  line-height: 1.04;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--eb-fg);
+  margin: 0;
+}
+
+.eb-italic-accent {
+  color: var(--eb-accent);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.eb-byline {
+  font-family: var(--eb-serif);
+  font-size: 14px;
+  color: var(--eb-fg-2);
+  font-style: italic;
+  margin: 0;
+}
+
+.eb-byline b {
+  color: var(--eb-fg);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.eb-summary {
+  font-family: var(--eb-serif);
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 72ch;
+  color: var(--eb-fg);
+  margin: 0;
+}
+
+.eb-accent {
+  color: var(--eb-accent);
+  font-weight: 700;
+}
+
+/* ── KPI row ───────────────────────────────────────────────────────────── */
+.eb-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.eb-kpi-box {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  border: 1px solid var(--eb-border);
+  border-radius: 2px;
+  padding: 20px;
+  background: transparent;
+}
+
+.eb-kpi-box__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--eb-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.eb-kpi-box__label {
+  color: var(--eb-fg-meta);
+  font-weight: 500;
+}
+
+.eb-kpi-box__delta {
+  color: var(--eb-accent);
+  font-weight: 700;
+}
+
+.eb-kpi-box__delta--neg {
+  color: var(--eb-negative);
+}
+
+.eb-kpi-box__value {
+  font-family: var(--eb-serif);
+  font-size: 38px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  color: var(--eb-fg);
+}
+
+.eb-kpi-box__sub {
+  font-family: var(--eb-serif);
+  font-size: 13px;
+  color: var(--eb-fg-meta);
+  font-style: italic;
+}
+
+/* ── Main split 60/40 ──────────────────────────────────────────────────── */
+.eb-main {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.eb-panel {
+  border: 1px solid var(--eb-border);
+  border-radius: 2px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.eb-panel__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--eb-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--eb-fg-meta);
+}
+
+.eb-panel__meta--accent {
+  color: var(--eb-accent);
+}
+
+.eb-chart {
+  margin: 0;
+  padding: 0;
+}
+
+.eb-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Chart axis + line styling */
+.eb-chart .eb-axis-label,
+.eb-chart .eb-axis-tick {
+  font-family: var(--eb-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  fill: var(--eb-fg-meta);
+}
+.eb-chart .eb-axis-line {
+  stroke: var(--eb-border);
+  stroke-width: 1;
+}
+.eb-chart .eb-line {
+  stroke: var(--eb-fg);
+  stroke-width: 1.5;
+  fill: none;
+}
+.eb-chart .eb-line--forecast {
+  stroke: var(--eb-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  fill: none;
+}
+.eb-chart .eb-event-dot {
+  fill: var(--eb-accent);
+  stroke: var(--eb-bg);
+  stroke-width: 1.5;
+}
+.eb-chart .eb-event-label {
+  font-family: var(--eb-serif);
+  font-style: italic;
+  font-size: 11px;
+  fill: var(--eb-accent);
+}
+
+/* Accounts table */
+.eb-accounts {
+  gap: 10px;
+}
+
+.eb-accounts__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--eb-serif);
+  font-size: 13px;
+}
+
+.eb-accounts__table thead th {
+  text-align: left;
+  font-family: var(--eb-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--eb-fg-meta);
+  font-weight: 500;
+  border-bottom: 1px solid var(--eb-border);
+  padding: 6px 6px;
+}
+
+.eb-accounts__table thead th.eb-num,
+.eb-accounts__table tbody td.eb-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.eb-accounts__table tbody td {
+  padding: 8px 6px;
+  border-bottom: 1px dotted var(--eb-border);
+  color: var(--eb-fg);
+}
+
+.eb-accounts__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.eb-accounts__rank {
+  font-family: var(--eb-mono);
+  color: var(--eb-fg-meta);
+  width: 2.5em;
+}
+
+.eb-accounts__delta--pos {
+  color: var(--eb-fg);
+}
+
+.eb-accounts__delta--neg {
+  color: var(--eb-negative);
+}
+
+/* ── Lower split 50/50 ─────────────────────────────────────────────────── */
+.eb-lower {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Churn histogram */
+.eb-hist {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 180px;
+  padding-top: 8px;
+}
+
+.eb-hist__bar {
+  flex: 1 1 0;
+  background: var(--eb-fg);
+  min-height: 2px;
+}
+
+.eb-hist__bar--accent {
+  background: var(--eb-accent);
+}
+
+.eb-hist__axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--eb-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--eb-fg-meta);
+  margin-top: 6px;
+}
+
+/* Analyst commentary */
+.eb-commentary__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: var(--eb-serif);
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--eb-fg);
+}
+
+.eb-commentary__body p {
+  margin: 0;
+}
+
+.eb-dropcap-para::after {
+  content: '';
+  display: block;
+  clear: left;
+}
+
+.eb-dropcap {
+  float: left;
+  font-family: var(--eb-serif);
+  font-size: 72px;
+  line-height: 0.85;
+  color: var(--eb-accent);
+  padding-right: 8px;
+  padding-top: 8px;
+  font-weight: 700;
+}
+
+.eb-recommended {
+  margin-top: 4px !important;
+  font-family: var(--eb-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--eb-accent);
+  line-height: 1.6;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────── */
+.eb-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  gap: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--eb-border);
+  font-family: var(--eb-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--eb-fg-meta);
+}
+
+.eb-footer__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eb-footer__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3aa15a;
+  display: inline-block;
+}
+
+.eb-footer__center {
+  text-align: center;
+}
+
+.eb-footer__right {
+  text-align: right;
+}
+
+/* ── Narrow screens — fall back to a single column without breaking the
+ *     wireframe's rhythm. The bespoke layouts target desktop presentation;
+ *     this keeps the preview panel functional in a 600px pane. ──────────── */
+@media (max-width: 900px) {
+  .eb-layout { padding: 16px; }
+  .eb-headline { font-size: 38px; }
+  .eb-masthead,
+  .eb-main,
+  .eb-lower {
+    grid-template-columns: 1fr;
+  }
+  .eb-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
