@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../../store";
 import { SPRINGS } from "./motion";
@@ -8,19 +8,19 @@ import DashboardContextBar from "./DashboardContextBar";
 import DashboardStatusBar from "./DashboardStatusBar";
 import DashboardModeToggle from "./DashboardModeToggle";
 import CommandPalette from "./CommandPalette";
-import ExecBriefingLayout from "./modes/ExecBriefingLayout";
-import AnalystWorkbenchLayout from "./modes/AnalystWorkbenchLayout";
-import LiveOpsLayout from "./modes/LiveOpsLayout";
-import StoryLayout from "./modes/StoryLayout";
-import PitchLayout from "./modes/PitchLayout";
-import WorkbookLayout from "./modes/WorkbookLayout";
-import TableauClassicLayout from "./modes/TableauClassicLayout";
-import AnalystProLayout from "./modes/AnalystProLayout";
-import MobileLayout from "./modes/MobileLayout";
+const ExecBriefingLayout = lazy(() => import("./modes/ExecBriefingLayout"));
+const AnalystWorkbenchLayout = lazy(() => import("./modes/AnalystWorkbenchLayout"));
+const LiveOpsLayout = lazy(() => import("./modes/LiveOpsLayout"));
+const StoryLayout = lazy(() => import("./modes/StoryLayout"));
+const PitchLayout = lazy(() => import("./modes/PitchLayout"));
+const WorkbookLayout = lazy(() => import("./modes/WorkbookLayout"));
+const TableauClassicLayout = lazy(() => import("./modes/TableauClassicLayout"));
+const AnalystProLayout = lazy(() => import("./modes/AnalystProLayout"));
+const MobileLayout = lazy(() => import("./modes/MobileLayout"));
 import useTileLinking from "./lib/useTileLinking";
 import useVoicePipeline from "./hooks/useVoicePipeline";
-import VoiceModeSelector from "./VoiceModeSelector";
-import VoiceTranscriptOverlay from "./VoiceTranscriptOverlay";
+const VoiceModeSelector = lazy(() => import("./VoiceModeSelector"));
+const VoiceTranscriptOverlay = lazy(() => import("./VoiceTranscriptOverlay"));
 
 /**
  * DashboardShell — SP-1 full-stack shell composition.
@@ -328,22 +328,26 @@ export default function DashboardShell({
             exit={{ opacity: 0, y: -4, transition: { duration: 0.12, ease: [0.22, 1, 0.36, 1] } }}
             style={{ minHeight: "100%" }}
           >
-            <Layout
-              tiles={tiles}
-              dashboardId={dashboardId}
-              dashboardName={dashboardName}
-              onTileClick={onTileClick}
-              onLayoutChange={onLayoutChange}
-              onBrush={onBrush}
-              getFiltersForTile={getFiltersForTile}
-              linkConfig={linkConfig}
-              addLink={addLink}
-              removeLink={removeLink}
-              activeFilters={allActiveFilters}
-              size={analystProSize}
-              onSizeChange={setAnalystProSize}
-              authoredLayout={authoredLayout}
-            />
+            <Suspense fallback={
+              <div style={{ minHeight: '100%', background: 'var(--bg-page, #06060e)' }} />
+            }>
+              <Layout
+                tiles={tiles}
+                dashboardId={dashboardId}
+                dashboardName={dashboardName}
+                onTileClick={onTileClick}
+                onLayoutChange={onLayoutChange}
+                onBrush={onBrush}
+                getFiltersForTile={getFiltersForTile}
+                linkConfig={linkConfig}
+                addLink={addLink}
+                removeLink={removeLink}
+                activeFilters={allActiveFilters}
+                size={analystProSize}
+                onSizeChange={setAnalystProSize}
+                authoredLayout={authoredLayout}
+              />
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -378,15 +382,19 @@ export default function DashboardShell({
       </div>
 
       {/* SP-5d: Transcription overlay — floats above status bar */}
-      <VoiceTranscriptOverlay archetype={mode} />
+      <Suspense fallback={null}>
+        <VoiceTranscriptOverlay archetype={mode} />
+      </Suspense>
 
       {/* SP-5: Voice mode selector popover */}
-      <VoiceModeSelector
-        open={voiceModeMenuOpen}
-        onClose={() => setVoiceModeMenuOpen(false)}
-        anchorRect={voiceModeAnchor}
-        dashboardId={dashboardId}
-      />
+      <Suspense fallback={null}>
+        <VoiceModeSelector
+          open={voiceModeMenuOpen}
+          onClose={() => setVoiceModeMenuOpen(false)}
+          anchorRect={voiceModeAnchor}
+          dashboardId={dashboardId}
+        />
+      </Suspense>
 
       {/* SP-2: Agent toggle FAB — bottom-right, glass style */}
       <AgentFAB />
