@@ -1,18 +1,7 @@
-// Plan A★ Phase 5 — Signal preset registration.
-//
-// The component that draws wireframe 3 lives at
-// `src/components/dashboard/modes/presets/SignalLayout.jsx`. The registry
-// entry below just exposes the tokens to the preset switcher + theme hook.
-//
-// Phase 7 of this plan drops the `starter` ZoneTree from `DashboardPreset`.
-// Until that lands we `as unknown as DashboardPreset`-cast to keep this
-// entry tokens-only without faking a seeded layout the bespoke mode never
-// consumes.
-
 import type { DashboardPreset } from './types';
 import { _registerPreset } from './registry';
 
-export const signalPreset = {
+export const signalPreset: DashboardPreset = {
   id: 'signal',
   name: 'Signal',
   tagline: 'Modern dark SaaS — colored accents, signal cards.',
@@ -29,6 +18,6 @@ export const signalPreset = {
     density: 'comfortable',
     radius: 10,
   },
-} as unknown as DashboardPreset;
+};
 
 _registerPreset(signalPreset);

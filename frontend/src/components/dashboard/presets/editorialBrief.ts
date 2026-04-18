@@ -26,6 +26,6 @@ export const editorialBriefPreset: DashboardPreset = {
     density: 'spacious',
     radius: 2,
   },
-} as DashboardPreset;
+};
 
 _registerPreset(editorialBriefPreset);

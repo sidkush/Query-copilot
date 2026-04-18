@@ -29,37 +29,4 @@ describe('Board Pack preset', () => {
     expect(boardPackPreset.tokens.fontDisplay).not.toMatch(banned);
     expect(boardPackPreset.tokens.fontBody).not.toMatch(banned);
   });
-
-  it('starter layout has a tiled root with four rows and eight leaf zones', () => {
-    const root = boardPackPreset.starter.tiledRoot;
-    expect(root).toBeTruthy();
-    expect(root!.type).toBe('container-vert');
-    expect((root as { children: unknown[] }).children.length).toBe(4);
-
-    function countLeaves(z: unknown): number {
-      const zone = z as { type: string; children?: unknown[] };
-      if (zone.type.startsWith('container-')) {
-        return (zone.children ?? []).reduce<number>((n, c) => n + countLeaves(c), 0);
-      }
-      return 1;
-    }
-    expect(countLeaves(root)).toBe(8);
-  });
-
-  it('floatingLayer is empty (pure tiled)', () => {
-    expect(boardPackPreset.starter.floatingLayer).toEqual([]);
-  });
-
-  it('references fixture worksheet ids for the three chart zones', () => {
-    const refs: string[] = [];
-    function walk(z: unknown): void {
-      const zone = z as { type: string; worksheetRef?: string; children?: unknown[] };
-      if (zone.worksheetRef) refs.push(zone.worksheetRef);
-      (zone.children ?? []).forEach(walk);
-    }
-    walk(boardPackPreset.starter.tiledRoot);
-    expect(refs).toEqual(expect.arrayContaining([
-      'bp:revenueTrend', 'bp:churnDist', 'bp:cohortRetention',
-    ]));
-  });
 });

@@ -1,5 +1,3 @@
-import type { Zone, FloatingZone } from '../freeform/lib/types';
-
 export interface PresetTokens {
   bg: string;
   fg: string;
@@ -20,11 +18,6 @@ export interface DashboardPreset {
   /** Fixed light|dark scheme — presets override the global theme toggle. */
   scheme: 'light' | 'dark';
   tokens: PresetTokens;
-  /** Seed layout applied the first time a dashboard enters this preset. */
-  starter: {
-    tiledRoot: Zone | null;
-    floatingLayer: FloatingZone[];
-  };
 }
 
 export function isDashboardPreset(v: unknown): v is DashboardPreset {
@@ -35,7 +28,6 @@ export function isDashboardPreset(v: unknown): v is DashboardPreset {
     typeof p.name === 'string' &&
     typeof p.tagline === 'string' &&
     (p.scheme === 'light' || p.scheme === 'dark') &&
-    !!p.tokens && typeof p.tokens === 'object' &&
-    !!p.starter && typeof p.starter === 'object'
+    !!p.tokens && typeof p.tokens === 'object'
   );
 }
