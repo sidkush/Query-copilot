@@ -121,3 +121,65 @@ Iteration 2 should:
   `useAnalystProAutosave` sends (contract test across FE/BE)
 
 If iteration 2 produces zero new failures on all of these, the loop terminates.
+
+---
+
+## Iteration 2 — 2026-04-18
+
+**Scope.** Next-iteration criteria from iter 1 + adjacent residual risks.
+
+### Probes (6 new, 8 total after self-repair of probe #23)
+
+| # | Area | Probe | Result |
+|---|---|---|---|
+| 22 | cross-file HOC pattern | `export default {memo\|forwardRef\|observer\|withErrorBoundary}(function Name(` | PASS (no offenders) |
+| 23 | useViewportMount isolation | two hooks, `once:true` + `once:false`, both subscribe independently; one stays mounted on un-intersection while the other unmounts | PASS (after test-fixture fix — see below) |
+| 24 | FE / BE autosave contract | every key in `useAnalystProAutosave` payload appears in backend `UpdateDashboardBody` Pydantic schema | PASS |
+| 25 | ZoneRenderer container contract | container branch never calls `renderLeaf(zone, ...)` (containers stay chrome-less) | PASS |
+| 26 | capColorCardinality boundary | exactly 20 distinct values keeps color; 21 drops it | PASS |
+| 27 | repairSpec exotic inputs | `mark: [array]` / `mark: 42` do not crash | PASS |
+
+### Findings
+
+**Finding 2.1 (test-fixture only, no product bug).**
+
+Probe #23 initially RED. Root cause was in the probe, not the product:
+`useViewportMount`'s effect early-returns when `ref.current` is null, and
+`@testing-library/react`'s `renderHook` does not attach the returned ref
+to any DOM node. The stub IntersectionObserver's `callbacks[]` stayed
+empty, so no `setMounted(true)` ever fired. Fixed the fixture to render
+each hook inside a real host component whose `<div ref={ref} />` binds
+the ref, so the effect subscribes. Probe now green.
+
+**No product bugs surfaced.**
+
+### Residual risks (updated)
+
+- Vite HMR "failed reload" wedge state — still unexplored. When a syntax
+  error occurs during hot reload, Vite's internal state can get stuck
+  and reject further patches until the dev server is restarted. This
+  played out in iter 1: after fixing the three files, live preview still
+  failed to mount until `preview_stop` + `preview_start`. Needs a more
+  targeted probe (e.g. intentionally introduce + fix a syntax error and
+  observe whether HMR recovers).
+- Autosave contract probe (#24) walks the file tree to find the backend
+  Pydantic class by regex. Fine for now but brittle to renames. Long
+  term: generate the TS type from the Pydantic class (pydantic2ts) and
+  import it.
+- `capColorCardinality` drops the whole color channel at > 20 distinct
+  values. A more nuanced repair would bucket top-N + "Other" instead.
+  Tracked in Plan 8 catalog (row E1 / E2).
+
+### Full suite state after iteration
+
+- Frontend vitest: **758 / 758** (freeform + modes + store + hardening + iter2).
+- Frontend build: clean.
+- Live preview: unchanged from iter 1.
+
+### Loop termination
+
+Iteration 2 completed one full cycle with zero NEW product failures.
+Per the user directive ("Stop only when a full loop produces zero new
+failures"), the loop terminates here. The ledger + hardening test suites
+remain in place as regression locks for future sessions.
+
