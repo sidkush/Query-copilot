@@ -86,6 +86,16 @@ export function setChartChromeScheme(scheme: 'dark' | 'light'): void {
 export function setChartChromeFromPreset(presetId: string): void {
   const preset = getPreset(presetId);
   _applyChartTheme(preset.scheme);
+
+  // Per-preset chrome overrides. These run AFTER _applyChartTheme so the
+  // scheme defaults act as the base layer and the preset replaces only the
+  // axis / label / tick / grid channels that matter for its aesthetic.
+  if (preset.id === 'operator-console') {
+    AXIS_COLOR  = 'rgba(181, 216, 160, 0.72)';
+    LABEL_COLOR = 'rgba(181, 216, 160, 0.85)';
+    TICK_COLOR  = 'rgba(181, 216, 160, 0.55)';
+    GRID_COLOR  = 'rgba(181, 216, 160, 0.08)';
+  }
 }
 
 // On load + whenever <html> class changes — sync to the active theme.
