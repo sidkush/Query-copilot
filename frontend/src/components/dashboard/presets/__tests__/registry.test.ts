@@ -1,0 +1,23 @@
+import { describe, it, expect } from 'vitest';
+import { getPreset, listPresets, DEFAULT_PRESET_ID } from '../registry';
+import { isDashboardPreset } from '../types';
+
+describe('preset registry', () => {
+  it('exposes analyst-pro as the default preset', () => {
+    expect(DEFAULT_PRESET_ID).toBe('analyst-pro');
+    expect(getPreset('analyst-pro').id).toBe('analyst-pro');
+  });
+
+  it('returns the default preset for unknown ids', () => {
+    expect(getPreset('made-up').id).toBe('analyst-pro');
+  });
+
+  it('listPresets returns analyst-pro as the only registered entry for now', () => {
+    const ids = listPresets().map((p) => p.id);
+    expect(ids).toEqual(['analyst-pro']);
+  });
+
+  it('the analyst-pro preset validates as a DashboardPreset', () => {
+    expect(isDashboardPreset(getPreset('analyst-pro'))).toBe(true);
+  });
+});
