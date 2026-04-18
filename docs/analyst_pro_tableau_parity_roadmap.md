@@ -412,7 +412,7 @@
 
 ---
 
-### Plan 6c — Tableau-Style Sidebar Tabs
+### Plan 6c — Tableau-Style Sidebar Tabs — ✅ Shipped 2026-04-18
 
 **Problem.** Left rail dumps Objects + Tree + Sets + Params together. Tableau has Dashboard tab + Layout tab.
 
@@ -450,6 +450,8 @@
 - Modify: `store.js` — `analystProSidebarTab`
 
 **Task count target:** 8–10.
+
+**Status:** ✅ Shipped 2026-04-18. 8 commits (T1+T3 merged: one store commit covers both the sidebar tab/collapse slices and the `worksheetRef` extension of `insertObjectAnalystPro`). Left rail is now a two-tab shell (Dashboard | Layout) with collapsible sections: Objects / Sheets / Sets / Parameters on Dashboard; Item Hierarchy / Selected Item on Layout. Sheet drag uses MIME `application/askdb-analyst-pro-sheet+json`; canvas drop inserts a worksheet zone. New tests: `store.sidebarTabs` (7), `SidebarSection` (4), `SheetsInsertPanel` (4), `FreeformCanvas.integration` sheet-drop (2), `SelectedItemMini` (4), `AnalystProSidebar` (7) — 28 new assertions. A11y: `role=tablist/tab/tabpanel`, `aria-selected`, roving `tabIndex`, section headers expose `aria-expanded`/`aria-controls`. Deferred (Build_Tableau §IX.4): size-mode controls stay on the top toolbar `SizeToggleDropdown`.
 
 ---
 
