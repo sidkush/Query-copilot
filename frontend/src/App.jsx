@@ -1,6 +1,5 @@
 import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
 import { useStore } from "./store";
 import { api } from "./api";
 import behaviorEngine from "./lib/behaviorEngine";
@@ -105,48 +104,46 @@ function AnimatedRoutes() {
 
   return (
     <Suspense fallback={<div className="min-h-screen" style={{ background: 'var(--bg-page)' }} />}>
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          {/* Public */}
-          <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
-          <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
-          <Route path="/auth/callback" element={<OAuthCallback />} />
-          <Route path="/shared/:token" element={<PageTransition><SharedDashboard /></PageTransition>} />
+      <Routes location={location} key={location.pathname}>
+        {/* Public */}
+        <Route path="/" element={<PageTransition><Landing /></PageTransition>} />
+        <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
+        <Route path="/auth/callback" element={<OAuthCallback />} />
+        <Route path="/shared/:token" element={<PageTransition><SharedDashboard /></PageTransition>} />
 
-          {/* Protected — no sidebar */}
-          <Route path="/onboarding" element={<ProtectedRoute><PageTransition><Onboarding /></PageTransition></ProtectedRoute>} />
+        {/* Protected — no sidebar */}
+        <Route path="/onboarding" element={<ProtectedRoute><PageTransition><Onboarding /></PageTransition></ProtectedRoute>} />
 
-          {/* Protected — with sidebar */}
-          <Route path="/dashboard" element={<AppPage><PageTransition><Dashboard /></PageTransition></AppPage>} />
-          <Route path="/schema" element={<AppPage><PageTransition><SchemaView /></PageTransition></AppPage>} />
-          <Route path="/chat" element={<AppPage><PageTransition><Chat /></PageTransition></AppPage>} />
-          <Route path="/profile" element={<AppPage><PageTransition><Profile /></PageTransition></AppPage>} />
-          <Route path="/account" element={<AppPage><PageTransition><Account /></PageTransition></AppPage>} />
-          <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
-          <Route path="/analytics" element={<AppPage><PageTransition><AnalyticsShell /></PageTransition></AppPage>} />
-          <Route path="/ml-engine" element={<AppPage><PageTransition><MLEngine /></PageTransition></AppPage>} />
-          <Route path="/semantic-settings" element={<AppPage><PageTransition><SemanticSettingsPage /></PageTransition></AppPage>} />
-          <Route path="/chart-types/new" element={<AppPage><PageTransition><ChartTypeComposerPage /></PageTransition></AppPage>} />
-          <Route path="/gallery" element={<AppPage><PageTransition><GalleryPage /></PageTransition></AppPage>} />
+        {/* Protected — with sidebar */}
+        <Route path="/dashboard" element={<AppPage><PageTransition><Dashboard /></PageTransition></AppPage>} />
+        <Route path="/schema" element={<AppPage><PageTransition><SchemaView /></PageTransition></AppPage>} />
+        <Route path="/chat" element={<AppPage><PageTransition><Chat /></PageTransition></AppPage>} />
+        <Route path="/profile" element={<AppPage><PageTransition><Profile /></PageTransition></AppPage>} />
+        <Route path="/account" element={<AppPage><PageTransition><Account /></PageTransition></AppPage>} />
+        <Route path="/billing" element={<AppPage><PageTransition><Billing /></PageTransition></AppPage>} />
+        <Route path="/analytics" element={<AppPage><PageTransition><AnalyticsShell /></PageTransition></AppPage>} />
+        <Route path="/ml-engine" element={<AppPage><PageTransition><MLEngine /></PageTransition></AppPage>} />
+        <Route path="/semantic-settings" element={<AppPage><PageTransition><SemanticSettingsPage /></PageTransition></AppPage>} />
+        <Route path="/chart-types/new" element={<AppPage><PageTransition><ChartTypeComposerPage /></PageTransition></AppPage>} />
+        <Route path="/gallery" element={<AppPage><PageTransition><GalleryPage /></PageTransition></AppPage>} />
 
-          {/* Admin */}
-          <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
-          <Route path="/admin" element={<PageTransition><AdminDashboard /></PageTransition>} />
+        {/* Admin */}
+        <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
+        <Route path="/admin" element={<PageTransition><AdminDashboard /></PageTransition>} />
 
-          {/* Dev-only — A Phase 1 editor shell smoke-test route */}
-          {import.meta.env.DEV && DevChartEditor && (
-            <Route path="/dev/chart-editor" element={<DevChartEditor />} />
-          )}
+        {/* Dev-only — A Phase 1 editor shell smoke-test route */}
+        {import.meta.env.DEV && DevChartEditor && (
+          <Route path="/dev/chart-editor" element={<DevChartEditor />} />
+        )}
 
-          {/* Dev-only — A Phase 4b dashboard shell smoke-test route */}
-          {import.meta.env.DEV && DevDashboardShell && (
-            <Route path="/dev/dashboard-shell" element={<DevDashboardShell />} />
-          )}
+        {/* Dev-only — A Phase 4b dashboard shell smoke-test route */}
+        {import.meta.env.DEV && DevDashboardShell && (
+          <Route path="/dev/dashboard-shell" element={<DevDashboardShell />} />
+        )}
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AnimatePresence>
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Suspense>
   );
 }

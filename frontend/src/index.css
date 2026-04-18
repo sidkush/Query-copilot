@@ -3,6 +3,20 @@
 @import 'react-resizable/css/styles.css';
 @import "tailwindcss";
 
+/* ── Page-enter CSS animation (replaces framer-motion PageTransition) ── */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0px);
+  }
+}
+
 /* ══════════════════════════════════════════════════════════
    AskDB — Global Styles & Animations
    Corporate Design System: Navy/Slate + Trust Blue
