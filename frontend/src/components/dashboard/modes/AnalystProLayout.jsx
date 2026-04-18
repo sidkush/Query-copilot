@@ -19,7 +19,7 @@ import ContextMenu from '../freeform/ContextMenu';
 import ViewDataDrawer from '../freeform/ViewDataDrawer';
 import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
 import { useStore } from '../../../store';
-import { legacyTilesToDashboard } from './legacyTilesToDashboard';
+import { legacyTilesToDashboard, classifyTile } from './legacyTilesToDashboard';
 
 /** Thin vertical divider for the top toolbar. */
 const Separator = () => (
@@ -74,26 +74,66 @@ export default function AnalystProLayout({
     const base = (authoredLayout && authoredLayout.tiledRoot)
       ? authoredLayout
       : legacyTilesToDashboard(tiles, dashboardId, dashboardName, size);
-    // Plan 7 T15 — heal `{mode:'automatic'}` when the tree has enough rows
-    // that viewport-fill would squish each row below ~160 px (chart cells
-    // then render as a single axis tick with no marks). Switch to a fixed
-    // canvas tall enough for the tree: KPI rows 160 px, chart rows 360 px.
-    // Users can still opt back into automatic via the SizeToggleDropdown.
-    if (!base?.tiledRoot || base.size?.mode !== 'automatic') return base;
+
+    // Plan 7 T17 — row-content-aware heal.
+    //
+    // The old T15 heal derived row px from `row.id.startsWith('kpi-row')`,
+    // which only reflects what the classifier said WHEN the tree was first
+    // packed. If the classifier has since been tightened (Plan 7 T16
+    // rejects `chartType:'number'` and `mark:'text'` as KPI signals), the
+    // persisted authored tree still has stale `kpi-row-*` labels wrapping
+    // actual chart tiles — those cells render as 174 px bands with only
+    // an axis tick and a legend readout, no marks.
+    //
+    // Fix: classify every row by its CURRENT children (via classifyTile +
+    // tile lookup) and assign px from the current classification. Only
+    // rows with all-KPI contents keep the 160 px height; any row with
+    // at least one chart tile gets 360 px so Vega has room to render.
+    // Then renormalize h proportions to sum === 100000 and override the
+    // canvas height to fit.
+    if (!base?.tiledRoot) return base;
     const rows = base.tiledRoot.children ?? [];
-    if (rows.length <= 4) return base; // small dashboards fit viewport fine
+    if (rows.length === 0) return base;
+
+    const tileById = new Map((tiles || []).map((t) => [String(t.id), t]));
+    const classifyRow = (row) => {
+      const kids = row.children || [];
+      const hasChart = kids.some((c) => {
+        if (c.type !== 'worksheet' || !c.worksheetRef) return false;
+        const tile = tileById.get(String(c.worksheetRef));
+        return classifyTile(tile) === 'chart';
+      });
+      return hasChart ? 'chart' : 'kpi';
+    };
+
     const KPI_ROW_PX = 160;
     const CHART_ROW_PX = 360;
     const GUTTER_PX = 32;
-    let total = 0;
-    for (const row of rows) {
-      const isKpiRow = typeof row.id === 'string' && row.id.startsWith('kpi-row');
-      total += isKpiRow ? KPI_ROW_PX : CHART_ROW_PX;
-    }
-    total += Math.max(0, rows.length - 1) * GUTTER_PX;
+    const kinds = rows.map(classifyRow);
+    const px = kinds.map((k) => (k === 'kpi' ? KPI_ROW_PX : CHART_ROW_PX));
+    const totalPx = px.reduce((s, p) => s + p, 0);
+    if (totalPx === 0) return base;
+
+    const needsHealing =
+      base.size?.mode === 'automatic' ||
+      rows.some((r, i) => {
+        const intended = kinds[i];
+        const labelled = typeof r.id === 'string' && r.id.startsWith('kpi-row') ? 'kpi' : 'chart';
+        return intended !== labelled;
+      });
+    if (!needsHealing) return base;
+
+    // Rebuild rows with h proportional to intended px.
+    const newH = px.map((p) => Math.floor((p / totalPx) * 100000));
+    const hSum = newH.reduce((s, v) => s + v, 0);
+    if (newH.length > 0) newH[newH.length - 1] += 100000 - hSum;
+
+    const newRows = rows.map((r, i) => ({ ...r, h: newH[i] }));
+    const canvasHeight = Math.max(900, totalPx + Math.max(0, rows.length - 1) * GUTTER_PX);
     return {
       ...base,
-      size: { mode: 'fixed', width: 1440, height: Math.max(900, total), preset: 'custom' },
+      tiledRoot: { ...base.tiledRoot, children: newRows },
+      size: { mode: 'fixed', width: 1440, height: canvasHeight, preset: 'custom' },
     };
   }, [authoredLayout, tiles, dashboardId, dashboardName, size]);
 
