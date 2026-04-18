@@ -2,6 +2,8 @@
  * Color palettes — Tableau 10 categorical + Viridis sequential + RdBu diverging.
  */
 
+import { getPreset } from '../components/dashboard/presets/registry';
+
 /** Tableau 10 — the industry-standard categorical palette */
 export const TABLEAU_10 = [
   '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
@@ -70,6 +72,20 @@ function _applyChartTheme(scheme: 'dark' | 'light'): void {
  */
 export function setChartChromeScheme(scheme: 'dark' | 'light'): void {
   _applyChartTheme(scheme);
+}
+
+/**
+ * Force chart chrome from the active dashboard preset. Resolves the preset
+ * via `getPreset()` (unknown ids fall back to the default analyst-pro preset)
+ * and applies its `scheme`. Per-preset chrome palette overrides (phosphor
+ * green for Operator Console, amber event markers for Editorial Brief) land
+ * in Plans B-E; for now the scheme is all we need.
+ *
+ * Wave 2-C · Plan A · Task 13.
+ */
+export function setChartChromeFromPreset(presetId: string): void {
+  const preset = getPreset(presetId);
+  _applyChartTheme(preset.scheme);
 }
 
 // On load + whenever <html> class changes — sync to the active theme.
