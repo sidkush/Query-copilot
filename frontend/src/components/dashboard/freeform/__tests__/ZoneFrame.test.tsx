@@ -96,6 +96,31 @@ describe('ZoneFrame — base chrome', () => {
     expect(screen.queryByTestId('zone-frame-z1-title')).toBeNull();
   });
 
+  it('Plan 8 T26 — worksheet zones still expose ⋯/⛶/× actions when title bar is hidden', () => {
+    // After Plan 7 T1 worksheet tiles render without a title bar by default.
+    // The action cluster (menu / fit / close) previously lived INSIDE that
+    // hidden title div, so it disappeared too — the user lost every entry
+    // point to Fit, close, and more-menu on a worksheet tile. The action
+    // cluster must render regardless of title visibility (hover-reveal CSS
+    // is responsible for keeping it out of the way visually).
+    const { showTitle: _showTitle, ...noTitleBase } = baseZone;
+    void _showTitle;
+    render(
+      <ZoneFrame
+        zone={noTitleBase}
+        resolved={{ x: 0, y: 0, width: 400, height: 300 }}
+      >
+        <div />
+      </ZoneFrame>,
+    );
+    expect(screen.queryByTestId('zone-frame-z1-title')).toBeNull();
+    // Actions ARE present even though title is not.
+    expect(screen.getByTestId('zone-frame-z1-actions')).toBeInTheDocument();
+    expect(screen.getByTestId('zone-frame-z1-action-menu')).toBeInTheDocument();
+    expect(screen.getByTestId('zone-frame-z1-action-fit')).toBeInTheDocument();
+    expect(screen.getByTestId('zone-frame-z1-action-close')).toBeInTheDocument();
+  });
+
   it('writes hovered zone id into store on mouseenter / clears on mouseleave', () => {
     render(
       <ZoneFrame zone={baseZone} resolved={{ x: 0, y: 0, width: 400, height: 300 }}>
