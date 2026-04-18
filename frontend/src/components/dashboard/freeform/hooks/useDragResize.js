@@ -9,6 +9,27 @@ const GRID_SIZE = 8;
 const SNAP_THRESHOLD = 6;
 
 /**
+ * Plan 7 T5 — clamp floating-zone move coords so the zone stays inside the
+ * canvas rect. Returns the (possibly adjusted) {x, y} pair.
+ *
+ *  - negative x / y clamp to 0
+ *  - x + pxW past canvas.width clamps to canvas.width - pxW
+ *  - y + pxH past canvas.height clamps to canvas.height - pxH
+ *  - if the zone is bigger than the canvas on an axis, the clamp pins to 0
+ *    (prefer the top-left visible over a negative offset)
+ *  - if canvas is null / undefined, no clamping (safe legacy fallback)
+ */
+export function clampFloatingMove(move, canvas) {
+  const { nx, ny, pxW, pxH } = move;
+  if (!canvas) return { x: nx, y: ny };
+  const maxX = Math.max(0, (canvas.width ?? 0) - (pxW ?? 0));
+  const maxY = Math.max(0, (canvas.height ?? 0) - (pxH ?? 0));
+  const x = Math.max(0, Math.min(maxX, nx));
+  const y = Math.max(0, Math.min(maxY, ny));
+  return { x, y };
+}
+
+/**
  * useDragResize — pointer event handlers for Analyst Pro canvas.
  *
  * Returns:
@@ -55,6 +76,9 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating, resolv
       initialZone: isFloating ? { ...dashboard.floatingLayer.find((f) => f.id === zoneId) } : resolvedZone,
       dashboardAtStart: dashboard,
       resolvedList: Array.isArray(resolvedList) ? resolvedList : [],
+      // Plan 7 T5 — capture canvas size at drag start so floating-move can
+      // clamp coords to the canvas rect without requiring another store read.
+      canvasSize: canvasSize ?? null,
     };
 
     const onMove = (ev) => {
@@ -163,7 +187,13 @@ function applyDragDelta(start, dx, dy, snapEnabled, siblings, dashboard, setDash
           nx = snapped.x;
           ny = snapped.y;
         }
-        return { ...f, x: nx, y: ny };
+        // Plan 7 T5 — keep zone inside canvas. Runs AFTER snap so grid /
+        // edge snaps can't push the zone off-canvas either.
+        const clamped = clampFloatingMove(
+          { nx, ny, pxW: f.pxW, pxH: f.pxH },
+          start.canvasSize,
+        );
+        return { ...f, x: clamped.x, y: clamped.y };
       }
       if (start.mode === 'resize') {
         return applyResizeToFloating(f, start, dx, dy, snapEnabled);
