@@ -3,7 +3,7 @@ import DashboardTileCanvas from '../lib/DashboardTileCanvas';
 import { api } from '../../../api';
 import { useStore } from '../../../store';
 import { applyHighlightToSpec, mergeMarkIntoHighlight } from './lib/highlightFilter';
-import { promoteSpecMark } from './lib/specPromotion';
+import { promoteSpecMark, repairBadAggregate } from './lib/specPromotion';
 import { publish as publishMarkEvent } from './lib/markEventBus';
 import ChartTooltipCard from './ChartTooltipCard';
 
@@ -111,9 +111,14 @@ export default function AnalystProWorksheetTile({ tile, sheetId, onTileClick, fi
     let nextSpec = baseSpec;
     // Plan 7 T18 — agent-generated tiles occasionally ship with `mark: "text"`
     // + an (x, y) encoding pair, which Vega renders as invisible text glyphs
-    // inside the plot area (user cannot infer anything). Promote to "bar"
-    // before further spec decoration so downstream transforms see a sane mark.
+    // inside the plot area (user cannot infer anything). Plan 7 T21 extends
+    // the same promotion to `mark:"arc"` with x/y (arcs ignore x/y, result
+    // is an empty plot).
     nextSpec = promoteSpecMark(nextSpec);
+    // Plan 7 T21 — repair obviously-broken aggregates (e.g. sum of a string
+    // column whose name ends in `_type` / `_name` / `_category`, etc.).
+    // Vega silently sums → null → every bar renders at height 0.
+    nextSpec = repairBadAggregate(nextSpec);
     if (autosize) nextSpec = { ...nextSpec, autosize };
     nextSpec = applyHighlightToSpec(nextSpec, highlight);
     if (nextSpec === baseSpec) return tile;

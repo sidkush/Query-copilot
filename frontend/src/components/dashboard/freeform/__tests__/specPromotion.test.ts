@@ -83,4 +83,82 @@ describe('Plan 7 T18 — promoteSpecMark', () => {
     };
     expect(promoteSpecMark(spec)).toBe(spec);
   });
+
+  it('T21 — promotes mark:"arc" to "bar" when spec has x + y encodings (arcs ignore x/y → no marks)', () => {
+    const spec = {
+      mark: 'arc',
+      encoding: {
+        x: { field: 'rideable_type', type: 'nominal' },
+        y: { aggregate: 'sum', field: 'total_rides', type: 'quantitative' },
+      },
+    };
+    expect(promoteSpecMark(spec).mark).toBe('bar');
+  });
+
+  it('T21 — leaves a LEGITIMATE arc (theta-encoded pie) alone', () => {
+    const pie = {
+      mark: 'arc',
+      encoding: {
+        theta: { field: 'count', type: 'quantitative' },
+        color: { field: 'category', type: 'nominal' },
+      },
+    };
+    expect(promoteSpecMark(pie)).toBe(pie);
+  });
+});
+
+import { repairBadAggregate } from '../lib/specPromotion';
+
+describe('Plan 7 T21 — repairBadAggregate', () => {
+  it('swaps sum(nominal-field) to count when same field is typed nominal elsewhere in the spec', () => {
+    // Case: y.aggregate='sum' on `rideable_type` which is a string field.
+    // The same `rideable_type` is also referenced as a nominal (e.g. it's
+    // the MEASURE field of the chart but mistakenly typed quantitative).
+    // Real-world: agent-generated spec tried to sum a string column.
+    const spec = {
+      mark: 'bar',
+      encoding: {
+        x: { field: 'start_station_name', type: 'nominal' },
+        y: { aggregate: 'sum', field: 'rideable_type', type: 'quantitative' },
+        color: { field: 'concentration_pct', type: 'nominal' },
+      },
+    };
+    const out = repairBadAggregate(spec);
+    expect(out.encoding.y.aggregate).toBe('count');
+    // Field dropped — count(*) is type-agnostic. Type remains quantitative
+    // so the y axis is still numeric.
+    expect(out.encoding.y.field).toBeUndefined();
+    expect(out.encoding.y.type).toBe('quantitative');
+    // Other encodings untouched.
+    expect(out.encoding.x.field).toBe('start_station_name');
+    expect(out.encoding.color.field).toBe('concentration_pct');
+  });
+
+  it('leaves a legitimate sum(quantitative) alone', () => {
+    const spec = {
+      mark: 'bar',
+      encoding: {
+        x: { field: 'rideable_type', type: 'nominal' },
+        y: { aggregate: 'sum', field: 'total_rides', type: 'quantitative' },
+      },
+    };
+    expect(repairBadAggregate(spec)).toBe(spec);
+  });
+
+  it('returns identity for non-sum aggregates', () => {
+    const spec = {
+      mark: 'bar',
+      encoding: {
+        x: { field: 'a', type: 'nominal' },
+        y: { aggregate: 'mean', field: 'a', type: 'quantitative' },
+      },
+    };
+    expect(repairBadAggregate(spec)).toBe(spec);
+  });
+
+  it('handles null / undefined safely', () => {
+    expect(repairBadAggregate(null as any)).toBe(null);
+    expect(repairBadAggregate(undefined as any)).toBe(undefined);
+    expect(repairBadAggregate({ mark: 'bar' } as any)).toEqual({ mark: 'bar' });
+  });
 });
