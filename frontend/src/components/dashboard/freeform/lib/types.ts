@@ -144,11 +144,22 @@ export type Dashboard = {
   id: string;
   name: string;
   /**
-   * Archetype id. Known values: 'analyst-pro', 'editorial-terminal',
-   * 'liquid-analytics', 'signal-lab', 'kinetic-minimalism'.
-   * Future archetypes (phase 2) may add more — kept open as `string`.
+   * Active preset id. Replaces the former `archetype` field. Known
+   * values: 'analyst-pro' (and, once plans B–E ship, 'board-pack',
+   * 'operator-console', 'signal', 'editorial-brief'). Kept open as
+   * `string` so later presets can register without a type bump.
    */
-  archetype: string;
+  activePresetId: string;
+  /**
+   * Per-preset saved ZoneTree. Switching preset loads the entry under
+   * `[presetId]` (or seeds it from `preset.starter` on first visit).
+   * `tiledRoot` is the root ContainerZone (or `null` for an empty
+   * floating-only layout); `floatingLayer` is the floating overlay.
+   */
+  presetLayouts: Record<
+    string,
+    { tiledRoot: Zone | null; floatingLayer: FloatingZone[] }
+  >;
   size: SizeMode;
   tiledRoot: ContainerZone;
   floatingLayer: FloatingZone[];
