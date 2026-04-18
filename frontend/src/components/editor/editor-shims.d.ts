@@ -73,38 +73,14 @@ declare module '*/components/editor/AgentPanel' {
   export default AgentPanel;
 }
 
-// Dashboard archetype shell + layouts (Phase 4a)
+// Dashboard preset shell + Analyst Pro layout (Plan A)
 declare module '*/components/dashboard/DashboardShell' {
   const DashboardShell: JsxEditorComponent;
   export default DashboardShell;
 }
-declare module '*/components/dashboard/DashboardModeToggle' {
-  const DashboardModeToggle: JsxEditorComponent;
-  export default DashboardModeToggle;
-}
-declare module '*/components/dashboard/modes/ExecBriefingLayout' {
-  const ExecBriefingLayout: JsxEditorComponent;
-  export default ExecBriefingLayout;
-}
-declare module '*/components/dashboard/modes/AnalystWorkbenchLayout' {
-  const AnalystWorkbenchLayout: JsxEditorComponent;
-  export default AnalystWorkbenchLayout;
-}
-declare module '*/components/dashboard/modes/LiveOpsLayout' {
-  const LiveOpsLayout: JsxEditorComponent;
-  export default LiveOpsLayout;
-}
-declare module '*/components/dashboard/modes/StoryLayout' {
-  const StoryLayout: JsxEditorComponent;
-  export default StoryLayout;
-}
-declare module '*/components/dashboard/modes/PitchLayout' {
-  const PitchLayout: JsxEditorComponent;
-  export default PitchLayout;
-}
-declare module '*/components/dashboard/modes/WorkbookLayout' {
-  const WorkbookLayout: JsxEditorComponent;
-  export default WorkbookLayout;
+declare module '*/components/dashboard/modes/AnalystProLayout' {
+  const AnalystProLayout: JsxEditorComponent;
+  export default AnalystProLayout;
 }
 
 // Phase 5 — Stage Mode theme registry + provider + creative lane
