@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../../store';
 import { clampToViewport } from './lib/contextMenuBuilder';
+import { computeFlyoutPosition } from './lib/flyoutPosition';
 
 const DEFAULT_MENU_WIDTH = 220;
 const DEFAULT_MENU_HEIGHT = 320;
@@ -98,6 +99,7 @@ function MenuRows({ items, focusIndex, onItemPointerEnter, onItemClick, onItemKe
 function Flyout({ parentRect, items, onClose, onSelect }) {
   const rootRef = useRef(null);
   const [focusIndex, setFocusIndex] = useState(firstFocusableIndex(items));
+  const [measured, setMeasured] = useState(null);
 
   const onKeyDown = (e) => {
     if (e.key === 'ArrowDown')  { e.preventDefault(); setFocusIndex((i) => nextFocusableIndex(items, i, +1)); }
@@ -111,11 +113,20 @@ function Flyout({ parentRect, items, onClose, onSelect }) {
   };
 
   useEffect(() => {
-    if (rootRef.current) rootRef.current.focus();
+    if (rootRef.current) {
+      rootRef.current.focus();
+      const rect = rootRef.current.getBoundingClientRect();
+      setMeasured({ width: rect.width, height: rect.height });
+    }
   }, []);
 
-  const left = parentRect ? parentRect.right + 2 : 0;
-  const top = parentRect ? parentRect.top : 0;
+  const pos = useMemo(() => {
+    if (!parentRect) return { x: 0, y: 0 };
+    const vw = typeof window === 'undefined' ? 1200 : window.innerWidth;
+    const vh = typeof window === 'undefined' ? 800 : window.innerHeight;
+    const size = measured ?? { width: DEFAULT_MENU_WIDTH, height: DEFAULT_MENU_HEIGHT };
+    return computeFlyoutPosition(parentRect, size, { width: vw, height: vh });
+  }, [parentRect, measured]);
 
   return createPortal(
     <div
@@ -123,7 +134,7 @@ function Flyout({ parentRect, items, onClose, onSelect }) {
       role="menu"
       tabIndex={-1}
       className="analyst-pro-context-menu analyst-pro-context-menu__flyout"
-      style={{ left, top }}
+      style={{ left: pos.x, top: pos.y }}
       onKeyDown={onKeyDown}
       data-testid="analyst-pro-context-menu-flyout"
     >
@@ -158,6 +169,10 @@ export default function ContextMenu() {
   // Plan 5d — real dispatches for properties-panel + fitMode + show-title toggle.
   const openPropertiesTab = useStore((s) => s.openPropertiesTabAnalystPro);
   const setZoneProperty = useStore((s) => s.setZonePropertyAnalystPro);
+  const distributeEvenlyAction = useStore((s) => s.distributeEvenlyAnalystPro);
+  const fitContainerAction = useStore((s) => s.fitContainerToContentAnalystPro);
+  const removeContainerAction = useStore((s) => s.removeContainerAnalystPro);
+  const toggleFloatAction = useStore((s) => s.toggleZoneFloatAnalystPro);
   const rootRef = useRef(null);
   const [measured, setMeasured] = useState(null);
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -300,7 +315,21 @@ export default function ContextMenu() {
         if (setActionsDialogOpen) setActionsDialogOpen(true);
         break;
       case 'removeContainerUnwrap':
-        if (zoneId && ungroup) ungroup(zoneId);
+        // Plan 5e: prefer removeContainerAnalystPro (adds selection collapse
+        // to grandparent). Falls back to ungroupAnalystPro if store slice
+        // missing (should never happen post-5e).
+        if (zoneId && removeContainerAction) removeContainerAction(zoneId);
+        else if (zoneId && ungroup) ungroup(zoneId);
+        break;
+      // Plan 5e: live container commands + float toggle.
+      case 'distributeEvenly':
+        if (zoneId && distributeEvenlyAction) distributeEvenlyAction(zoneId);
+        break;
+      case 'fitContainerToContent':
+        if (zoneId && fitContainerAction) fitContainerAction(zoneId);
+        break;
+      case 'toggleFloat':
+        if (zoneId && toggleFloatAction) toggleFloatAction(zoneId);
         break;
       case 'copy':
         if (zone && copyZoneToClipboard) copyZoneToClipboard(zone);
@@ -328,7 +357,7 @@ export default function ContextMenu() {
         break;
     }
     close();
-  }, [menu, dashboard, clipboard, clearSelection, setSelection, updateZone, ungroup, setActionsDialogOpen, copyZoneToClipboard, insertObject, close]);
+  }, [menu, dashboard, clipboard, clearSelection, setSelection, updateZone, ungroup, setActionsDialogOpen, copyZoneToClipboard, insertObject, close, openPropertiesTab, setZoneProperty, distributeEvenlyAction, fitContainerAction, removeContainerAction, toggleFloatAction]);
 
   const onRootKeyDown = (e) => {
     if (!menu) return;

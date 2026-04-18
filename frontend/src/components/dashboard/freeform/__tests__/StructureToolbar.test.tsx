@@ -94,6 +94,86 @@ describe('StructureToolbar', () => {
     expect(groupSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('Distribute Evenly button enabled when a container with >=2 children is selected', () => {
+    const dash = makeBaseDashboard([
+      {
+        id: 'inner',
+        type: 'container-horz',
+        w: 100000,
+        h: 100000,
+        children: [
+          { id: 'x', type: 'blank', w: 50000, h: 100000 },
+          { id: 'y', type: 'blank', w: 50000, h: 100000 },
+        ],
+      },
+    ]);
+    useStore.setState({ analystProDashboard: dash, analystProSelection: new Set(['inner']) });
+    const spy = vi.fn();
+    useStore.setState({ distributeEvenlyAnalystPro: spy });
+
+    render(<StructureToolbar />);
+    const btn = screen.getByRole('button', { name: 'Distribute Evenly' });
+    expect(btn).not.toBeDisabled();
+    act(() => { fireEvent.click(btn); });
+    expect(spy).toHaveBeenCalledWith('inner');
+  });
+
+  it('Fit to Content button calls fitContainerToContentAnalystPro', () => {
+    const dash = makeBaseDashboard([
+      {
+        id: 'inner',
+        type: 'container-vert',
+        w: 100000,
+        h: 100000,
+        children: [{ id: 'x', type: 'blank', w: 100000, h: 100000 }],
+      },
+    ]);
+    useStore.setState({ analystProDashboard: dash, analystProSelection: new Set(['inner']) });
+    const spy = vi.fn();
+    useStore.setState({ fitContainerToContentAnalystPro: spy });
+    render(<StructureToolbar />);
+    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Fit to Content' })); });
+    expect(spy).toHaveBeenCalledWith('inner');
+  });
+
+  it('Remove Container button disabled when root is selected', () => {
+    const dash = makeBaseDashboard([
+      { id: 'a', type: 'blank', w: 100000, h: 100000 },
+    ]);
+    useStore.setState({ analystProDashboard: dash, analystProSelection: new Set(['root']) });
+    render(<StructureToolbar />);
+    expect(screen.getByRole('button', { name: 'Remove Container' })).toBeDisabled();
+  });
+
+  it('Remove Container button calls removeContainerAnalystPro for non-root container', () => {
+    const dash = makeBaseDashboard([
+      {
+        id: 'inner',
+        type: 'container-horz',
+        w: 100000,
+        h: 100000,
+        children: [{ id: 'x', type: 'blank', w: 100000, h: 100000 }],
+      },
+    ]);
+    useStore.setState({ analystProDashboard: dash, analystProSelection: new Set(['inner']) });
+    const spy = vi.fn();
+    useStore.setState({ removeContainerAnalystPro: spy });
+    render(<StructureToolbar />);
+    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Remove Container' })); });
+    expect(spy).toHaveBeenCalledWith('inner');
+  });
+
+  it('all three new buttons disabled when selection is empty', () => {
+    const dash = makeBaseDashboard([
+      { id: 'a', type: 'blank', w: 100000, h: 100000 },
+    ]);
+    useStore.setState({ analystProDashboard: dash, analystProSelection: new Set() });
+    render(<StructureToolbar />);
+    expect(screen.getByRole('button', { name: 'Distribute Evenly' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Fit to Content' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Remove Container' })).toBeDisabled();
+  });
+
   it('Lock button click calls toggleLockAnalystPro for each selected id', () => {
     const dash = makeBaseDashboard([], [
       { id: 'f1', type: 'legend', floating: true, x: 0, y: 0, pxW: 100, pxH: 100, zIndex: 1, w: 0, h: 0 },

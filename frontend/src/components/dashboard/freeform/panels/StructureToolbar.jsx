@@ -7,34 +7,46 @@ export default function StructureToolbar() {
   const groupSel = useStore((s) => s.groupSelectionAnalystPro);
   const ungroup = useStore((s) => s.ungroupAnalystPro);
   const toggleLock = useStore((s) => s.toggleLockAnalystPro);
+  const distributeEvenly = useStore((s) => s.distributeEvenlyAnalystPro);
+  const fitContainer = useStore((s) => s.fitContainerToContentAnalystPro);
+  const removeContainer = useStore((s) => s.removeContainerAnalystPro);
 
-  const { canGroup, canUngroup, canLock, singleSelectedId } = useMemo(() => {
-    if (!dashboard) return { canGroup: false, canUngroup: false, canLock: false, singleSelectedId: null };
-    if (selection.size === 0) return { canGroup: false, canUngroup: false, canLock: false, singleSelectedId: null };
-    // canGroup: ≥2 tiled zones selected (floating-only can't group)
+  const state = useMemo(() => {
+    const empty = {
+      canGroup: false, canUngroup: false, canLock: false,
+      singleSelectedId: null, selectedContainerId: null,
+      selectedContainerHasTwoKids: false, selectedIsRoot: false,
+    };
+    if (!dashboard) return empty;
+    if (selection.size === 0) return empty;
     let tiledCount = 0;
     const findTiled = (zone) => {
-      if (selection.has(zone.id)) {
-        tiledCount++;
-      }
+      if (selection.has(zone.id)) tiledCount++;
       if (zone.children) zone.children.forEach(findTiled);
     };
     findTiled(dashboard.tiledRoot);
     const canGroup = tiledCount >= 2;
-    // canUngroup: exactly 1 zone selected AND it's a container AND not the root
+
     let single = null;
     if (selection.size === 1) single = [...selection][0];
-    let canUngroup = false;
+
+    let selectedContainerId = null;
+    let selectedContainerHasTwoKids = false;
+    const selectedIsRoot = single === dashboard.tiledRoot.id;
     if (single) {
-      const findContainerNotRoot = (zone, isRoot) => {
-        if (zone.id === single && !isRoot && zone.children) return true;
-        if (zone.children) return zone.children.some((c) => findContainerNotRoot(c, false));
-        return false;
+      const walk = (zone) => {
+        if (zone.id === single && zone.children) {
+          selectedContainerId = zone.id;
+          selectedContainerHasTwoKids = zone.children.length >= 2;
+        }
+        if (zone.children) zone.children.forEach(walk);
       };
-      canUngroup = findContainerNotRoot(dashboard.tiledRoot, true);
+      walk(dashboard.tiledRoot);
     }
+
+    const canUngroup = !!selectedContainerId && !selectedIsRoot;
     const canLock = selection.size >= 1;
-    return { canGroup, canUngroup, canLock, singleSelectedId: single };
+    return { canGroup, canUngroup, canLock, singleSelectedId: single, selectedContainerId, selectedContainerHasTwoKids, selectedIsRoot };
   }, [dashboard, selection]);
 
   const btnStyle = (disabled) => ({
@@ -47,13 +59,20 @@ export default function StructureToolbar() {
     opacity: disabled ? 0.4 : 1,
   });
 
+  const canDistribute = !!state.selectedContainerId && state.selectedContainerHasTwoKids;
+  const canFit = !!state.selectedContainerId;
+  const canRemoveContainer = !!state.selectedContainerId && !state.selectedIsRoot;
+
   return (
     <div role="toolbar" aria-label="Structure toolbar" style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}>
-      <button type="button" aria-label="Group" title="Group (Cmd+G)" disabled={!canGroup} onClick={() => groupSel()} style={btnStyle(!canGroup)}>⊞</button>
-      <button type="button" aria-label="Ungroup" title="Ungroup (Cmd+Shift+G)" disabled={!canUngroup} onClick={() => singleSelectedId && ungroup(singleSelectedId)} style={btnStyle(!canUngroup)}>⊟</button>
-      <button type="button" aria-label="Toggle lock" title="Lock (Cmd+L)" disabled={!canLock} onClick={() => {
+      <button type="button" aria-label="Group" title="Group (Cmd+G)" disabled={!state.canGroup} onClick={() => groupSel()} style={btnStyle(!state.canGroup)}>⊞</button>
+      <button type="button" aria-label="Ungroup" title="Ungroup (Cmd+Shift+G)" disabled={!state.canUngroup} onClick={() => state.singleSelectedId && ungroup(state.singleSelectedId)} style={btnStyle(!state.canUngroup)}>⊟</button>
+      <button type="button" aria-label="Toggle lock" title="Lock (Cmd+L)" disabled={!state.canLock} onClick={() => {
         selection.forEach((id) => toggleLock(id));
-      }} style={btnStyle(!canLock)}>🔒</button>
+      }} style={btnStyle(!state.canLock)}>🔒</button>
+      <button type="button" aria-label="Distribute Evenly" title="Distribute Evenly" disabled={!canDistribute} onClick={() => state.selectedContainerId && distributeEvenly(state.selectedContainerId)} style={btnStyle(!canDistribute)}>⇹</button>
+      <button type="button" aria-label="Fit to Content" title="Fit Container to Content" disabled={!canFit} onClick={() => state.selectedContainerId && fitContainer(state.selectedContainerId)} style={btnStyle(!canFit)}>⇲</button>
+      <button type="button" aria-label="Remove Container" title="Remove Container" disabled={!canRemoveContainer} onClick={() => state.selectedContainerId && removeContainer(state.selectedContainerId)} style={btnStyle(!canRemoveContainer)}>⬚</button>
     </div>
   );
 }

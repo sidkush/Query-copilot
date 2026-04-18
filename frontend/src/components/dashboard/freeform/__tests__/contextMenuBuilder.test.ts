@@ -78,6 +78,14 @@ describe('clampToViewport', () => {
   it('clamps to (0,0) if the menu is larger than the viewport', () => {
     expect(clampToViewport(50, 50, 2000, 2000, 1000, 800)).toEqual({ x: 0, y: 0 });
   });
+
+  it('clamps negative y to 0 (scrolled-out click source)', () => {
+    expect(clampToViewport(100, -3949, 200, 300, 1000, 800)).toEqual({ x: 100, y: 0 });
+  });
+
+  it('clamps negative x to 0', () => {
+    expect(clampToViewport(-50, 100, 200, 300, 1000, 800)).toEqual({ x: 0, y: 100 });
+  });
 });
 
 describe('buildContextMenu — common items (any zone)', () => {
@@ -93,7 +101,7 @@ describe('buildContextMenu — common items (any zone)', () => {
     const items = buildContextMenu(root.children[0], dash, new Set());
     const cb = items.find((i) => i.kind === 'checkbox' && i.id === 'toggleFloat');
     expect(cb).toBeDefined();
-    expect(cb).toMatchObject({ kind: 'checkbox', checked: false, todo: { plan: '5e' } });
+    expect(cb).toMatchObject({ kind: 'checkbox', checked: false, shortcut: 'Cmd+Shift+F' });
   });
 
   it('includes a Fit submenu with five fit modes', () => {

@@ -110,6 +110,8 @@ export function clampToViewport(
   else if (nx + w > viewportW) nx = Math.max(0, nx - w);
   if (h >= viewportH) ny = 0;
   else if (ny + h > viewportH) ny = Math.max(0, ny - h);
+  if (nx < 0) nx = 0;
+  if (ny < 0) ny = 0;
   return { x: nx, y: ny };
 }
 
@@ -200,13 +202,11 @@ function appendContainerExtras(items: MenuItem[], zone: Zone, dashboard: Dashboa
     id: 'distributeEvenly',
     label: 'Distribute Evenly',
     disabled: zone.children.length < 2,
-    todo: { plan: '5e', reason: 'distributeEvenlyAnalystPro lands in Plan 5e.' },
   });
   items.push({
     kind: 'command',
     id: 'fitContainerToContent',
     label: 'Fit Container to Content',
-    todo: { plan: '5e', reason: 'fitContainerToContentAnalystPro lands in Plan 5e.' },
   });
   const isRoot = dashboard.tiledRoot.id === zone.id;
   items.push({
@@ -223,8 +223,8 @@ function appendCommonHead(items: MenuItem[], zone: Zone, _dashboard: Dashboard):
     kind: 'checkbox',
     id: 'toggleFloat',
     label: 'Floating',
+    shortcut: 'Cmd+Shift+F',
     checked: isFloatingZone(zone),
-    todo: { plan: '5e', reason: 'toggleZoneFloatAnalystPro lands in Plan 5e.' },
   });
 
   items.push(SEP);
