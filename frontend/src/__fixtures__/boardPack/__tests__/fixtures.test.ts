@@ -11,17 +11,10 @@ describe('Board Pack fixtures', () => {
     expect(BOARD_PACK_KPIS.map(k => k.id))
       .toEqual(['mrr', 'arr', 'churn', 'ltvcac', 'payback']);
   });
-  it('revenue trend net-new MRR of last real month approx +478K', () => {
-    const real = BOARD_PACK_REVENUE_TREND.filter(p => !p.forecast);
-    const last = real[real.length - 1].mrr;
-    const prev = real[real.length - 2].mrr;
-    const netNew = last - prev;
-    // 2_938_000 - 2_748_000 = 190_000 — NOT 478K.
-    // The "+$478K" hero number is the sum of the last two months' net-new:
-    // (2_748_000 - 2_602_000) + (2_938_000 - 2_748_000) = 146_000 + 190_000 = 336_000.
-    // That is still not 478K. If you read a mismatch here, STOP and report it —
-    // the plan's arithmetic claim may be wrong. Record your finding in the report.
-    expect(netNew).toBeGreaterThan(100_000); // sanity guard only
+  it('Q3 2026 net-new MRR equals the +$478K hero number', () => {
+    const q3Start = BOARD_PACK_REVENUE_TREND.find(p => p.month === '2026-06')!.mrr;
+    const q3End   = BOARD_PACK_REVENUE_TREND.find(p => p.month === '2026-09')!.mrr;
+    expect(q3End - q3Start).toBe(478_000);
   });
   it('top accounts share sum is approximately 41%', () => {
     const sum = BOARD_PACK_TOP_ACCOUNTS

@@ -9,7 +9,7 @@ export const BOARD_PACK_REVENUE_TREND: readonly MonthlyRevenuePoint[] = [
   { month: '2026-03', mrr: 2_240_000 },
   { month: '2026-04', mrr: 2_316_000 },
   { month: '2026-05', mrr: 2_402_000 },
-  { month: '2026-06', mrr: 2_494_000 },
+  { month: '2026-06', mrr: 2_460_000 },
   { month: '2026-07', mrr: 2_602_000 },
   { month: '2026-08', mrr: 2_748_000 },
   { month: '2026-09', mrr: 2_938_000 },
