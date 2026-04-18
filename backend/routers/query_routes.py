@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
 from auth import get_current_user
 from user_storage import increment_query_stats, get_daily_usage, log_sql_edit
 from query_memory import QueryMemory, anonymize_sql
@@ -164,7 +164,7 @@ class AskRequest(BaseModel):
 
 class _AdditionalFilter(BaseModel):
     field: str
-    op: str = "eq"
+    op: Literal["eq", "in", "notIn"] = "eq"
     value: Optional[object] = None
     values: Optional[list[object]] = None
 

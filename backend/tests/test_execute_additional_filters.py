@@ -170,3 +170,21 @@ def test_execute_rejects_invalid_field(fake_app_state, auth_headers):
     )
     assert resp.status_code == 400
     assert "invalid filter" in resp.json()["detail"].lower()
+
+
+def test_execute_accepts_not_in_op(monkeypatch):
+    """notIn is a valid op for the request model and reaches the injector."""
+    from routers.query_routes import _AdditionalFilter
+
+    f = _AdditionalFilter(field="region", op="notIn", values=["East"])
+    payload = f.model_dump()
+    assert payload == {"field": "region", "op": "notIn", "value": None, "values": ["East"]}
+
+
+def test_execute_rejects_unknown_op():
+    from pydantic import ValidationError
+    from routers.query_routes import _AdditionalFilter
+    import pytest
+
+    with pytest.raises(ValidationError):
+        _AdditionalFilter(field="x", op="like", values=["%a%"])
