@@ -26,6 +26,8 @@ export default defineConfig({
       'src/components/editor/renderers/__tests__/**/*.test.tsx',
       'src/components/dashboard/presets/__tests__/**/*.test.ts',
       'src/components/dashboard/presets/__tests__/**/*.test.tsx',
+      'src/components/dashboard/modes/presets/__tests__/**/*.test.ts',
+      'src/components/dashboard/modes/presets/__tests__/**/*.test.tsx',
       'src/components/dashboard/__tests__/**/*.test.ts',
       'src/components/dashboard/__tests__/**/*.test.tsx',
     ],
