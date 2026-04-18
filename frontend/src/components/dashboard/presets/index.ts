@@ -3,7 +3,7 @@
 // to the list below.
 import './boardPack';
 import './operatorConsole';
-// import './signal';          // Plan D
+import './signal';
 // import './editorialBrief';  // Plan E
 
 export {};
