@@ -9,12 +9,11 @@ describe('applyPreset', () => {
     expect(out).toBe(d);
   });
 
-  it('seeds presetLayouts from the preset starter on first switch', () => {
+  it('switches activePresetId to the resolved preset on first switch', () => {
     const d = emptyDashboardForPreset('analyst-pro');
-    const next = applyPreset(d, 'board-pack');       // board-pack not yet registered
-    // fallback resolves to analyst-pro starter when unknown; layout preserved
-    expect(next.activePresetId).toBe('analyst-pro');
-    expect(next.presetLayouts['analyst-pro']).toBeDefined();
+    const next = applyPreset(d, 'board-pack');
+    // board-pack is now a registered preset — activePresetId should update
+    expect(next.activePresetId).toBe('board-pack');
   });
 
   it('preserves an already-saved layout when re-entering a preset', () => {

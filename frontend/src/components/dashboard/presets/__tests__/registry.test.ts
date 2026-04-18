@@ -12,9 +12,13 @@ describe('preset registry', () => {
     expect(getPreset('made-up').id).toBe('analyst-pro');
   });
 
-  it('listPresets returns analyst-pro as the only registered entry for now', () => {
+  it('listPresets returns all four registered presets alongside analyst-pro', () => {
     const ids = listPresets().map((p) => p.id);
-    expect(ids).toEqual(['analyst-pro']);
+    expect(ids).toContain('analyst-pro');
+    expect(ids).toContain('board-pack');
+    expect(ids).toContain('operator-console');
+    expect(ids).toContain('signal');
+    expect(ids).toContain('editorial-brief');
   });
 
   it('the analyst-pro preset validates as a DashboardPreset', () => {
