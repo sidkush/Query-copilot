@@ -49,6 +49,11 @@ export default function AnalystProLayout({
   onTileClick,
   onSizeChange,
   size,
+  // Plan 7 T10 — authored dashboard from the server. When present with a
+  // truthy tiledRoot, we feed it straight to FreeformCanvas and skip the
+  // legacy shim, so a reload restores the user's authored layout instead
+  // of overwriting it with the tile-array heuristic.
+  authoredLayout,
 }) {
   useActionRuntime();
 
@@ -63,14 +68,14 @@ export default function AnalystProLayout({
   const rulersVisible = useStore((s) => s.analystProRulersVisible);
   const toggleRulers = useStore((s) => s.toggleRulersAnalystPro);
 
-  // Build dashboard object from legacy tile array (Plan 1 read-only path).
-  // Plan 2 will receive a full `dashboard` prop instead.
-  const dashboard = useMemo(() => legacyTilesToDashboard(tiles, dashboardId, dashboardName, size), [
-    tiles,
-    dashboardId,
-    dashboardName,
-    size,
-  ]);
+  // Plan 7 T10 — prefer server-authored layout when present; else fall back
+  // to the legacy tile-array shim (Plan 5e smart layout / KPI-aware bin pack).
+  const dashboard = useMemo(() => {
+    if (authoredLayout && authoredLayout.tiledRoot) {
+      return authoredLayout;
+    }
+    return legacyTilesToDashboard(tiles, dashboardId, dashboardName, size);
+  }, [authoredLayout, tiles, dashboardId, dashboardName, size]);
 
   const handleQuickAction = useCallback((action, zone, event) => {
     void event;

@@ -347,6 +347,10 @@ export default function AnalyticsShell() {
         dbType={activeConn?.db_type}
         databaseName={activeConn?.database_name}
         lastRefreshed={dashboard.updated_at}
+        // Plan 7 T10 — forward the full backend dashboard object so
+        // AnalystProLayout can prefer the server-authored tiledRoot over
+        // the legacy tile-array shim. Non-AnalystPro modes ignore it.
+        authoredLayout={dashboard}
         style={{ flex: 1, minWidth: 0 }}
       />
       {/* Agent panel (only when no tile being edited) */}

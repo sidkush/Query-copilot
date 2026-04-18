@@ -91,6 +91,10 @@ export default function DashboardShell({
   children,
   // SP-2: style override for flex layout when agent panel is docked
   style: styleProp,
+  // Plan 7 T10 — server-authored Analyst Pro layout { tiledRoot,
+  // floatingLayer, size, schemaVersion, archetype }. When present, the
+  // Analyst Pro archetype skips the legacy shim and uses this directly.
+  authoredLayout,
 }) {
   const [mode, setMode] = useState(initialMode);
   const [editMode, setEditMode] = useState(ARCHETYPE_EDIT_MAP[initialMode] || 'default');
@@ -338,6 +342,7 @@ export default function DashboardShell({
               activeFilters={allActiveFilters}
               size={analystProSize}
               onSizeChange={setAnalystProSize}
+              authoredLayout={authoredLayout}
             />
           </motion.div>
         </AnimatePresence>
