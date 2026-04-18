@@ -1,0 +1,163 @@
+@font-face {
+  font-family: 'BoardPackDisplay';
+  src: url('/fonts/board-pack/display.woff2') format('woff2');
+  font-weight: 700 900;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'BoardPackBody';
+  src: url('/fonts/board-pack/body.woff2') format('woff2');
+  font-weight: 400 500;
+  font-display: swap;
+  font-style: normal;
+}
+
+:root[data-active-preset='board-pack'] {
+  color-scheme: light;
+  background: var(--preset-bg);
+  color: var(--preset-fg);
+}
+
+:root[data-active-preset='board-pack'] body {
+  font-family: var(--preset-font-body);
+  font-feature-settings: 'ss01', 'ss02';
+}
+
+:root[data-active-preset='board-pack'] .bp-warn {
+  color: var(--preset-accent-warn);
+  font-weight: 600;
+}
+
+:root[data-active-preset='board-pack'] [data-zone-role='leaf'],
+:root[data-active-preset='board-pack'] [data-zone-role='container'] {
+  border-radius: 0;
+  box-shadow: none;
+  border: 0;
+}
+
+:root[data-active-preset='board-pack'] [data-zone-id='bp-top'],
+:root[data-active-preset='board-pack'] [data-zone-id='bp-headline'],
+:root[data-active-preset='board-pack'] [data-zone-id='bp-mid'] {
+  border-bottom: 1px solid var(--preset-border);
+}
+
+:root[data-active-preset='board-pack'] .bp-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 6px 0;
+}
+:root[data-active-preset='board-pack'] .bp-topbar__logo {
+  font-family: var(--preset-font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  font-size: 14px;
+}
+:root[data-active-preset='board-pack'] .bp-topbar__kicker {
+  flex: 1;
+}
+:root[data-active-preset='board-pack'] .bp-topbar__status {
+  color: var(--preset-fg);
+  opacity: 0.65;
+}
+
+:root[data-active-preset='board-pack'] .bp-hero-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  opacity: 0.75;
+}
+
+:root[data-active-preset='board-pack'] [data-zone-id='bp-hero'] h1 {
+  font-family: var(--preset-font-display);
+  font-size: clamp(88px, 9vw, 140px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  margin: 0 0 24px 0;
+  color: var(--preset-fg);
+}
+
+:root[data-active-preset='board-pack'] [data-zone-id='bp-hero'] p {
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 48ch;
+  color: var(--preset-fg);
+}
+
+:root[data-active-preset='board-pack'] .bp-kpi-list {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+:root[data-active-preset='board-pack'] .bp-kpi-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--preset-border);
+  padding: 14px 0;
+}
+:root[data-active-preset='board-pack'] .bp-kpi-row:first-child {
+  border-top: 1px solid var(--preset-border);
+}
+:root[data-active-preset='board-pack'] .bp-kpi-row dt {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+:root[data-active-preset='board-pack'] .bp-kpi-row dd {
+  margin: 0;
+  font-family: var(--preset-font-display);
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+:root[data-active-preset='board-pack'] .bp-kpi-row dd small {
+  font-family: var(--preset-font-body);
+  font-weight: 500;
+  font-size: 11px;
+  opacity: 0.7;
+  letter-spacing: 0;
+}
+
+:root[data-active-preset='board-pack'] .bp-accounts__head {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  opacity: 0.75;
+}
+:root[data-active-preset='board-pack'] .bp-accounts__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: bp-rank;
+}
+:root[data-active-preset='board-pack'] .bp-accounts__list li {
+  counter-increment: bp-rank;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--preset-border);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+:root[data-active-preset='board-pack'] .bp-accounts__list li::before {
+  content: counter(bp-rank, decimal-leading-zero);
+  margin-right: 12px;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
