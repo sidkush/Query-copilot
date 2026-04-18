@@ -136,3 +136,32 @@ class TestUnderlyingAudit:
         assert view["conn_id"] == "conn-1"
         assert view["user"] == "pytest@askdb.dev"
         assert sorted(view["mark_fields"]) == ["region", "year"]
+
+
+class TestUnderlyingWrapHardening:
+    def test_outer_wrap_includes_limit_in_sql(self, client):
+        c, engine = client
+        _underlying(c, limit=12345)
+        called_sql = engine.execute_sql.call_args.args[0]
+        # 12345 < 50000 cap, so the literal value flows through.
+        assert "LIMIT 12345" in called_sql
+
+    def test_default_limit_appears_in_outer_wrap(self, client):
+        c, engine = client
+        _underlying(c, limit=None)
+        called_sql = engine.execute_sql.call_args.args[0]
+        assert "LIMIT 10000" in called_sql
+
+    def test_inner_line_comment_does_not_swallow_outer_wrap(self, client):
+        c, engine = client
+        # Worksheet SQL ending in a line comment is a real shape
+        # (e.g., user-pinned annotation). The outer LIMIT must still apply.
+        _underlying(
+            c,
+            sql="SELECT region FROM sales -- pinned",
+            mark_selection={},
+        )
+        called_sql = engine.execute_sql.call_args.args[0]
+        assert "LIMIT 10000" in called_sql
+        # The newline before ) terminates the line comment so the alias survives.
+        assert "_askdb_underlying" in called_sql

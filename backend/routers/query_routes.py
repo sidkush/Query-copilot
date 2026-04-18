@@ -1152,8 +1152,6 @@ def underlying_rows(req: UnderlyingRequest, user: dict = Depends(get_current_use
         FilterInjectionError,
     )
     from sql_validator import SQLValidator
-    from pii_masking import mask_dataframe
-    import pandas as pd
 
     email = user["email"]
     entry = get_connection(req.conn_id, email)
@@ -1170,7 +1168,8 @@ def underlying_rows(req: UnderlyingRequest, user: dict = Depends(get_current_use
     except FilterInjectionError as exc:
         raise HTTPException(status_code=400, detail=f"Invalid filter: {exc}")
 
-    wrapped_sql = f"SELECT * FROM ({wrapped_sql.rstrip().rstrip(';').rstrip()}) AS _askdb_underlying LIMIT {limit}"
+    inner_sql = wrapped_sql.rstrip().rstrip(';').rstrip()
+    wrapped_sql = f"SELECT * FROM (\n{inner_sql}\n) AS _askdb_underlying LIMIT {limit}"
 
     validator = SQLValidator()
     is_valid, clean_sql, error = validator.validate(wrapped_sql)
@@ -1185,11 +1184,9 @@ def underlying_rows(req: UnderlyingRequest, user: dict = Depends(get_current_use
     columns = payload.get("columns", [])
     rows = payload.get("rows", [])
 
-    if rows and columns:
-        df = pd.DataFrame(rows, columns=columns)
-        masked = mask_dataframe(df)
-        rows = masked.values.tolist()
-        columns = list(masked.columns)
+    # Engine.execute_sql already runs mask_dataframe() before returning.
+    # Avoid re-masking (would coerce dtypes via DataFrame round-trip and
+    # could double-mask if the masker becomes non-idempotent).
 
     try:
         from audit_trail import _append_entry as _audit_append
