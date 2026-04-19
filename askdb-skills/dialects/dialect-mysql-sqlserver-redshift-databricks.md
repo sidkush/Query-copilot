@@ -5,7 +5,7 @@ description: MySQL has no DATE_TRUNC — use DATE_FORMAT or FLOOR tricks DATE_FO
 legacy: true
 name: dialect-mysql-sqlserver-redshift-databricks
 priority: 3
-tokens_budget: 1700
+tokens_budget: 2100
 ---
 
 # MySQL SQL Dialect — AskDB AgentEngine
@@ -63,6 +63,16 @@ SELECT * FROM articles WHERE MATCH(title, body) AGAINST('search term');
 - Backtick identifiers: Use backticks for reserved words `` `order` ``, `` `date` ``
 - Strict mode: May reject invalid dates, division by zero if enabled
 - JSON: Supported in MySQL 5.7+
+
+### Cross-Dialect Gotchas — MySQL (research-context §3.5)
+
+| Gotcha | MySQL rule |
+|--------|-----------|
+| §3.5 rule 5 | `\|\|` is **logical OR**, not string concat — always use `CONCAT(a, b)` |
+| §3.5 rule 8 | With `ONLY_FULL_GROUP_BY` OFF (non-default in MySQL 5.x), LLM-generated SQL may select non-grouped columns — result is non-deterministic and non-portable |
+| §3.5 rule 9 | `IGNORE NULLS` on `LAG`/`LEAD` **not supported** — wrap in CASE/subquery |
+| §3.5 rule 10 | `DAYOFWEEK(d)` returns 1 = Sunday, 2 = Monday … 7 = Saturday |
+| §3.5 rule 12 | `LIMIT` supported (not `TOP`) |
 
 ---
 
@@ -126,6 +136,16 @@ SUM(amount) OVER (ORDER BY date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
 - NULL sorting: NULLS sort FIRST in ASC — use `ORDER BY ISNULL(col, 1), col`
 - Date literals: Use unambiguous format: `'2024-01-15'` (ISO 8601)
 - NOLOCK hint: `WITH (NOLOCK)` — tempting for speed but can read dirty data. Avoid.
+
+### Cross-Dialect Gotchas — SQL Server / T-SQL (research-context §3.5)
+
+| Gotcha | T-SQL rule |
+|--------|-----------|
+| §3.5 rule 5 | `+` for string concat in older T-SQL; `CONCAT()` available SQL Server 2012+ and preferred |
+| §3.5 rule 6 | Square brackets `[order]` for reserved-word identifiers (not backtick or `"`) |
+| §3.5 rule 7 | No `QUALIFY` — wrap window function in CTE or subquery to filter on window result |
+| §3.5 rule 12 | `TOP N` / `FETCH NEXT N ROWS ONLY` — no bare `LIMIT` |
+| §3.5 rule 9 | `IGNORE NULLS` not supported on `LAG`/`LEAD` in T-SQL |
 
 ---
 
