@@ -5,7 +5,7 @@ description: 'The RSR dynamically selects the renderer based on data volume and 
 legacy: true
 name: vizql-capabilities-progressive-disclosure
 priority: 3
-tokens_budget: 1600
+tokens_budget: 2000
 ---
 
 # VizQL v0.9 Capabilities — AskDB AgentEngine
@@ -51,6 +51,30 @@ def select_renderer(row_count, chart_type, gpu_tier, frame_budget_ms=16):
 | Table (data grid) | Virtualized | DOM | Lazy rows |
 | KPI/BAN tile | N/A | DOM | Always instant |
 | Sparkline | 1K points | SVG | Inline in KPI tile |
+
+## Vega-Lite Limitations and Server-Side Workarounds (research-context §3.8)
+
+AskDB renders charts via Vega-Lite specs (`react-vega` / `VegaRenderer.tsx`). Know these limitations before designing a chart pipeline:
+
+| Limitation | Detail | Server-side workaround |
+|------------|--------|----------------------|
+| No LOD expressions | No FIXED / INCLUDE / EXCLUDE equivalent | Implement via SQL window function + CTE (see `join-intelligence.md`); return pre-aggregated result |
+| `bin` + `agg` awkward | Using `timeUnit` + `aggregate` together requires careful spec ordering; pre-bucketed strings bypass transforms | Use `timeUnit: "yearmonth"` + `aggregate: "sum"` in the transform array rather than pre-formatted date strings |
+| No native pivot | Only `fold` (unpivot); no `pivot` transform | Apply PIVOT SQL server-side; return already-pivoted data to Vega-Lite |
+| Inline data > 50K rows | Browser memory pressure; sluggish renders | Pre-aggregate server-side; use `"url"`-based data source pointing to `/api/data/{query_id}` for > 1MB payloads |
+| SVG renderer limit | SVG parsing slows above 2K marks | RSR auto-switches to Canvas above 5K marks; for < 2K marks SVG gives best accessibility |
+
+**Renderer threshold summary (research-context §3.8 + RSR code above):**
+
+| Mark count | Renderer | Notes |
+|-----------|---------|-------|
+| < 2K | SVG | Accessible, crisp, full ARIA |
+| 2K – 5K | Canvas fast (auto) | RSR switches automatically |
+| > 5K | Canvas fast (forced) | RSR selection above |
+| > 100K | WebGL SDF | |
+| > 1M | WebGL + Arrow streaming | |
+
+**`url`-based data rule:** When the Vega-Lite spec's inline `"values"` array would exceed 1MB JSON, switch to `"url": "/api/data/{query_id}"` to stream data separately and avoid bloating the spec payload.
 
 ## Native Table Calculations (30)
 
