@@ -296,6 +296,9 @@ export default function DashboardShell({
       {/* ═══ TopBar ═══ */}
       <DashboardTopBar
         dashboardName={dashboardName}
+        dashboardId={dashboardId}
+        dashboardList={dashboardList}
+        onSwitchDashboard={onSwitchDashboard}
         orgName={orgName}
         workspaceName={workspaceName}
         onNameChange={onNameChange}

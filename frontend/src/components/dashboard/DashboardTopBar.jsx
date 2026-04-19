@@ -4,6 +4,7 @@ import { useStore } from '../../store';
 import { BreathingDot, SPRINGS } from './motion';
 import { TOKENS } from './tokens';
 import DashboardPresetSwitcher from './DashboardPresetSwitcher';
+import DashboardPicker from './DashboardPicker';
 
 const T = TOKENS.topBar;
 
@@ -19,6 +20,9 @@ const T = TOKENS.topBar;
  */
 export default function DashboardTopBar({
   dashboardName,
+  dashboardId,
+  dashboardList = [],
+  onSwitchDashboard,
   orgName,
   workspaceName,
   onNameChange,
@@ -32,6 +36,7 @@ export default function DashboardTopBar({
    */
   rightSlot = null,
 }) {
+  const connections = useStore((s) => s.connections);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(dashboardName || '');
   const inputRef = useRef(null);
@@ -135,55 +140,16 @@ export default function DashboardTopBar({
             </>
           )}
 
-          {/* Editable dashboard name */}
-          {editing ? (
-            <input
-              ref={inputRef}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={saveName}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') saveName();
-                if (e.key === 'Escape') { setName(dashboardName || ''); setEditing(false); }
-              }}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                borderBottom: `2px solid ${TOKENS.accent}`,
-                outline: 'none',
-                fontSize: 13,
-                fontWeight: 700,
-                color: T.breadcrumbActive,
-                fontFamily: TOKENS.fontDisplay,
-                letterSpacing: '-0.01em',
-                minWidth: 80,
-                maxWidth: 240,
-              }}
-            />
-          ) : (
-            <button
-              onClick={() => setEditing(true)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                cursor: 'text',
-                fontSize: 13,
-                fontWeight: 700,
-                color: T.breadcrumbActive,
-                fontFamily: TOKENS.fontDisplay,
-                letterSpacing: '-0.01em',
-                padding: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: 240,
-              }}
-              title={dashboardName || 'Untitled dashboard'}
-              aria-label={`Dashboard: ${dashboardName || 'Untitled'}. Click to rename.`}
-            >
-              {dashboardName || 'Untitled dashboard'}
-            </button>
-          )}
+          {/* TSS — DashboardPicker: dropdown listing saved dashboards +
+              double-click to rename. Replaces the inline rename button. */}
+          <DashboardPicker
+            dashboardName={dashboardName}
+            dashboardId={dashboardId}
+            dashboardList={dashboardList}
+            onSwitch={onSwitchDashboard}
+            onRename={(next) => onNameChange?.(next)}
+            connections={connections}
+          />
 
           {/* AI activity indicator — breathing dot + label when agent is active */}
           <AnimatePresence>
