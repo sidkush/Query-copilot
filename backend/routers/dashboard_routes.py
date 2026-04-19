@@ -215,6 +215,7 @@ class AutogenAllPresetsBody(BaseModel):
     semantic_tags: dict = {}
     preset_ids: Optional[list] = None  # default = all 4 themed presets
     skip_pinned: bool = True
+    user_intent: str = ""  # free-text dashboard intent (T5)
 
 class SaveBookmark(BaseModel):
     name: str
@@ -2308,6 +2309,7 @@ async def autogen_all_presets(
                 semantic_tags=body.semantic_tags or {},
                 preset_ids=body.preset_ids,
                 skip_pinned=body.skip_pinned,
+                user_intent=body.user_intent or "",
             ):
                 yield f"data: {_json.dumps(event, default=str)}\n\n"
         except Exception as e:  # pragma: no cover
