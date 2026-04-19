@@ -61,17 +61,15 @@ describe('SignalLayout — bespoke wireframe 3', () => {
     expect(rows.length).toBe(5);
   });
 
-  it('stream legend has 4 swatches — Enterprise, Mid-market, SMB, Self-serve', () => {
+  it('stream legend has 4 swatches (labels bind via sg.legend-0..3 slots, TSS2 T9)', () => {
     render(<SignalLayout />);
     const legend = screen.getByTestId('signal-stream-legend');
     const swatches = legend.querySelectorAll('.sg-legend-swatch');
     expect(swatches.length).toBe(4);
-
-    const text = legend.textContent ?? '';
-    expect(text).toMatch(/Enterprise/i);
-    expect(text).toMatch(/Mid-market/i);
-    expect(text).toMatch(/SMB/i);
-    expect(text).toMatch(/Self-serve/i);
+    // Legend items render via <Slot id="sg.legend-N"> so each swatch
+    // has a sibling label driven by the binding (post T9 purge).
+    const items = legend.querySelectorAll('.sg-legend-item');
+    expect(items.length).toBe(4);
   });
 
   it('root computed background resolves to #0b0f17 — deep slate', () => {
@@ -103,5 +101,49 @@ describe('SignalLayout — bespoke wireframe 3', () => {
       if (stroke) hexes.add(stroke.toLowerCase());
     });
     expect(hexes.size).toBeGreaterThanOrEqual(4);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────
+// Plan TSS2 T9 — hardcoded SaaS content purge guard
+// ──────────────────────────────────────────────────────────────────
+// When the preset renders with no bindings / no tileData (fresh
+// dashboard on a freshly-connected database), it MUST NOT leak the
+// wireframe-era SaaS fallback copy (MRR / ARR / churn / specific
+// account names, etc.). Unbound slots degrade to '—' or empty.
+
+describe('SignalLayout — hardcoded SaaS content purge (TSS2 T9)', () => {
+  const FORBIDDEN = [
+    'MRR',
+    'ARR',
+    'Churn',
+    'LTV:CAC',
+    '$2.47M',
+    '$29.6M',
+    '2.31%',
+    '4.7\u00d7',
+    '$124.8K',
+    '$108.4K',
+    'Enterprise expansion is concentrated',
+    'Amberline',
+    'Beta-Axion',
+    'Northfield',
+    'Enterprise 58%',
+    'Mid-market 22%',
+    'SMB 14%',
+    'Self-serve 6%',
+  ];
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('renders without any hardcoded SaaS fallback strings when unbound', () => {
+    render(<SignalLayout />);
+    const root = screen.getByTestId('layout-signal');
+    const text = root.textContent ?? '';
+    for (const banned of FORBIDDEN) {
+      expect(text).not.toContain(banned);
+    }
   });
 });
