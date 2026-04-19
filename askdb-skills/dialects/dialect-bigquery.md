@@ -5,7 +5,7 @@ description: Timestamp truncation TIMESTAMP_TRUNC(ts_col, HOUR) TIMESTAMP_TRUNC(
 legacy: true
 name: dialect-bigquery
 priority: 3
-tokens_budget: 1200
+tokens_budget: 1500
 ---
 
 # BigQuery SQL Dialect — AskDB AgentEngine
@@ -136,7 +136,7 @@ LIMIT 1000
 
 | Issue | BigQuery behavior | Fix |
 |-------|-----------------|-----|
-| Integer division | Returns INT (3/4 = 0) | Cast: `SAFE_DIVIDE(3, 4)` |
+| Integer division | Returns **FLOAT** (3/4 = 0.75) — unlike PG/Snowflake | Use `SAFE_DIVIDE(n, d)` for zero safety; no cast needed for basic division (from research-context §3.5 rule 11) |
 | NULL comparison | Standard SQL | `IS NULL` not `= NULL` |
 | LIMIT with ORDER BY | Required for deterministic results | Always add both |
 | Timestamp vs DateTime | TIMESTAMP = UTC, DATETIME = no timezone | Use TIMESTAMP for cross-timezone |
@@ -151,6 +151,19 @@ SAFE_DIVIDE(numerator, denominator)   -- No division by zero error
 SAFE_CAST(value AS INT64)             -- No cast error
 SAFE.REGEXP_EXTRACT(string, pattern)  -- No regex error
 ```
+
+## Cross-Dialect Gotchas — BigQuery (research-context §3.5)
+
+| Gotcha # | Rule | BigQuery behaviour | Other dialects differ? |
+|----------|------|--------------------|----------------------|
+| §3.5 rule 1 | Date truncation arg order | `DATE_TRUNC(col, MONTH)` — col first, unit unquoted | PG/Snowflake: `DATE_TRUNC('month', col)` — unit first, quoted |
+| §3.5 rule 5 | String concat | `CONCAT` only — `\|\|` raises syntax error | PG/Snowflake allow `\|\|`; MySQL `\|\|` is OR |
+| §3.5 rule 6 | Quoted identifiers | Backtick `` ` `` | PG/Snowflake use `"double quotes"` |
+| §3.5 rule 8 | GROUP BY strictness | Every non-aggregated SELECT column must appear in GROUP BY | MySQL with `ONLY_FULL_GROUP_BY` OFF is lenient (dangerous) |
+| §3.5 rule 9 | Window NULL handling | `IGNORE NULLS` / `RESPECT NULLS` on `LAG`, `LEAD`, `FIRST_VALUE` supported | PG < 16 does not support; PG 16+ yes |
+| §3.5 rule 10 | Day-of-week (DOW) | `EXTRACT(DAYOFWEEK FROM d)` returns **1 = Sunday** | PG `EXTRACT(dow)` 0 = Sunday; Snowflake `DAYOFWEEK` 0 = Sun by default |
+| §3.5 rule 3 | Timezone | TIMESTAMP is always UTC; no TIMESTAMPTZ split | PG has both TIMESTAMP and TIMESTAMPTZ |
+| §3.5 rule 4 | NULL coalesce | No `NVL` — always use `COALESCE` | `NVL` works in Oracle and Snowflake only |
 
 ---
 

@@ -5,7 +5,7 @@ description: '| Term | Correct interpretation | Common wrong interpretation | |-
 legacy: true
 name: time-intelligence
 priority: 3
-tokens_budget: 1500
+tokens_budget: 2000
 ---
 
 # Time Intelligence — AskDB AgentEngine
@@ -168,6 +168,81 @@ FROM (
 ```
 
 **Always note:** "February has 28 days vs March's 31 days. Showing both raw totals and daily averages for fair comparison."
+
+## Day-of-Week Dialect Differences (research-context §3.5 rule 10)
+
+Never hardcode DOW integers — they differ across dialects:
+
+| Dialect | Expression | Returns | Sunday = ? |
+|---------|-----------|---------|-----------|
+| PostgreSQL | `EXTRACT(dow FROM d)` | int | 0 |
+| BigQuery | `EXTRACT(DAYOFWEEK FROM d)` | int | 1 |
+| Snowflake | `DAYOFWEEK(d)` | int | 0 (default; configurable via `WEEK_START`) |
+| MySQL | `DAYOFWEEK(d)` | int | 1 |
+| DuckDB | `EXTRACT(dayofweek FROM d)` | int | 0 |
+
+**Safe pattern:** Use dialect's `DAYNAME`/`FORMAT_DATE` to return a day string instead of an integer:
+
+```sql
+-- PG / DuckDB
+TO_CHAR(d, 'Day')
+-- BigQuery
+FORMAT_DATE('%A', d)
+-- MySQL / Snowflake
+DAYNAME(d)
+```
+
+## Leap-Year Feb 29 Clamp (research-context §3.7 rule 2)
+
+When computing PYTD (Prior Year to Date) from a date that falls in a leap year:
+
+```sql
+-- Safe PYTD that clamps Feb 29 → Feb 28 on non-leap prior years (PostgreSQL)
+WHERE date_col
+  BETWEEN DATE_TRUNC('year', CURRENT_DATE - INTERVAL '1 year')
+      AND LEAST(
+            CURRENT_DATE - INTERVAL '1 year',
+            DATE_TRUNC('year', CURRENT_DATE) - INTERVAL '1 day'
+          )
+```
+
+**Rule:** If the anchor date is Feb 29 and the prior year is not a leap year, the PYTD end date becomes Feb 28 of the prior year.
+
+## Week-Start Convention (research-context §3.7 rule 10)
+
+`DATE_TRUNC('week', d)` returns **Monday** in PostgreSQL, DuckDB, Snowflake, BigQuery — this is ISO 8601.
+
+US convention uses **Sunday** as week start:
+
+```sql
+-- US Sunday-start week (PostgreSQL)
+DATE_TRUNC('week', d + INTERVAL '1 day') - INTERVAL '1 day'
+
+-- BigQuery Sunday-start
+DATE_TRUNC(d, WEEK(SUNDAY))
+
+-- Snowflake with session param
+ALTER SESSION SET WEEK_START = 0;  -- 0 = Sunday
+DATE_TRUNC('WEEK', d)
+```
+
+**Rule:** Always clarify week-start convention when user asks for "weekly" data without specifying.
+
+## Date-Dimension Table Preference (research-context §3.7 rule 8)
+
+When schema contains `dim_date`, `date_dim`, `calendar`, or `fiscal_calendar`, **join to it instead of computing inline**:
+
+```sql
+-- Preferred when dim_date exists:
+SELECT dd.fiscal_year, dd.fiscal_quarter, SUM(o.amount)
+FROM orders o
+JOIN dim_date dd ON o.order_date = dd.date
+GROUP BY dd.fiscal_year, dd.fiscal_quarter
+ORDER BY dd.fiscal_year, dd.fiscal_quarter;
+-- Avoids: hardcoding fiscal offsets in every query
+```
+
+**Detection heuristic:** Schema table named `dim_date`, `date_dim`, `calendar`, `fiscal_cal*`, or with columns `fiscal_year`, `fiscal_quarter`, `is_holiday`.
 
 ---
 

@@ -5,7 +5,7 @@ description: Does an explicit FK constraint exist? YES → Use it directly. High
 legacy: true
 name: join-intelligence
 priority: 3
-tokens_budget: 1100
+tokens_budget: 1500
 ---
 
 # Join Intelligence — AskDB AgentEngine
@@ -119,6 +119,62 @@ When two paths exist to reach the same result:
 2. Pick candidate with highest overlap (>90%)
 3. If both >90%: Ask user
 4. If neither >90%: Warn that join may be unreliable
+
+## Cardinality Tagging (research-context §3.6 rule 8)
+
+Tag every FK relationship before generating JOIN SQL:
+
+| Tag | Definition | Detection heuristic |
+|-----|------------|-------------------|
+| 1:1 | Each left row matches ≤ 1 right row | FK column has UNIQUE constraint on the FK side |
+| 1:N | One left row maps to many right rows | Standard FK (most dimension → fact relationships) |
+| N:M | Many-to-many | Junction table with 2+ FK columns and no standalone PK measures |
+
+**Rule:** Never `SUM` across a N:M join without pre-aggregating one side first (§3.6 rule 1). Fact-to-fact direct joins are always N:M unless filtered to 1 row.
+
+```sql
+-- Cardinality check before aggregating:
+SELECT COUNT(*) as rows, COUNT(DISTINCT a.id) as unique_ids
+FROM table_a a JOIN table_b b ON a.id = b.a_id;
+-- If rows >> unique_ids → N:M → pre-aggregate b before joining
+```
+
+## Bridge-Table Detection (research-context §3.6 rule 4)
+
+A bridge table (junction table) has exactly 2 FK columns pointing to different parent tables and no aggregate-measure columns of its own.
+
+Examples: `order_items(order_id, product_id, quantity)`, `user_roles(user_id, role_id)`, `course_enrollments(student_id, course_id, enrolled_at)`.
+
+**Rule:** When a bridge table exists between two entities, **always route through it** — never join the two parent tables directly.
+
+```sql
+-- WRONG: direct join creates Cartesian fan-out
+SELECT p.name, o.order_id
+FROM products p JOIN orders o ON p.id = o.product_id;
+
+-- CORRECT: through the bridge table
+SELECT p.name, o.order_id, oi.quantity
+FROM products p
+JOIN order_items oi ON p.id = oi.product_id
+JOIN orders o ON oi.order_id = o.id;
+```
+
+## Post-Execution Row-Count Sanity (research-context §3.6 rule 5)
+
+After `run_sql` returns results, compare result rows to expected source grain:
+
+```python
+# Pseudo-logic in agent post-execution check
+if result_row_count > expected_source_rows * 10:
+    emit_warning(
+        f"⚠ Fan-out detected: result has {result_row_count} rows "
+        f"vs source grain ~{expected_source_rows}. "
+        "Possible missing GROUP BY or N:M join without pre-aggregation. "
+        "Verify aggregation logic before presenting this data."
+    )
+```
+
+Surface to user as: `"⚠ Result ({N} rows) is {X}× larger than the source table ({M} rows) — possible fan-out from a many-to-many join. Check aggregation logic."`
 
 ---
 

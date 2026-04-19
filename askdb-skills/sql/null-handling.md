@@ -4,7 +4,7 @@ description: 'Understanding WHY a value is NULL changes how you handle it:'
 legacy: true
 name: null-handling
 priority: 2
-tokens_budget: 1100
+tokens_budget: 900
 ---
 
 # NULL Handling — AskDB AgentEngine
@@ -46,17 +46,7 @@ NULLIF(denominator, 0)  -- Returns NULL if denominator = 0
 
 ## NULL in Aggregations
 
-```sql
--- SUM, AVG, MIN, MAX all ignore NULL
--- COUNT(*) includes NULL rows
--- COUNT(column) ignores NULL
-
--- When NULLs represent "no activity" and you want 0:
-SUM(COALESCE(amount, 0))
-
--- When NULLs are meaningful absences you want to count:
-COUNT(*) - COUNT(amount) as null_count
-```
+See **`aggregation-rules.md` §NULL in Aggregations** for canonical rules (SUM/AVG/COUNT behavior, COALESCE patterns, NULL-count query). This section intentionally omits that content to avoid duplication (research-context §2.2 redundancy cleanup).
 
 ## NULL-Safe Division (Always Use This)
 

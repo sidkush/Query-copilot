@@ -5,160 +5,16 @@ description: 'css /* Background */ --bg-primary: #0D1117 --bg-secondary: #161B22
 legacy: true
 name: color-system
 priority: 3
-tokens_budget: 2100
+tokens_budget: 1100
 ---
 
 # Color System — AskDB AgentEngine
 
 ## Theme-Specific Palettes
 
-### Workbench Theme (Dark Professional)
+Theme CSS tokens (Workbench, Board Pack, LiveOps, Briefing) have been **moved to `dashboard-aesthetics.md` §Theme CSS Palettes** to eliminate duplication (research-context §2.2 dedup). See that file for hex values and CSS custom properties.
 
-```css
-/* Background */
---bg-primary: #0D1117
---bg-secondary: #161B22
---bg-tertiary: #1C2128
---bg-card: #21262D
-
-/* Text */
---text-primary: #E6EDF3
---text-secondary: #8B949E
---text-muted: #484F58
-
-/* Accent (primary brand) */
---accent-primary: #388BFD     /* Blue — primary metric */
---accent-success: #3FB950     /* Green — positive performance */
---accent-danger: #F85149      /* Red — negative / alert */
---accent-warning: #D29922     /* Amber — warning / neutral */
---accent-purple: #A371F7      /* Purple — secondary metric */
-
-/* Chart series (in order) */
---series-1: #388BFD           /* Primary */
---series-2: #3FB950           /* Secondary */
---series-3: #D29922           /* Tertiary */
---series-4: #A371F7           /* Quaternary */
---series-5: #F78166           /* Quinary */
---series-other: #484F58       /* "Other" / de-emphasized */
-
-/* Grid and borders */
---grid-line: rgba(56, 139, 253, 0.08)
---border-subtle: rgba(255, 255, 255, 0.08)
-```
-
-### Board Pack Theme (Editorial Light)
-
-```css
-/* Background */
---bg-primary: #FAFAF8
---bg-secondary: #F4F4F1
---bg-tertiary: #EBEBEB
---bg-card: #FFFFFF
-
-/* Text */
---text-primary: #1A1A18
---text-secondary: #5A5A56
---text-muted: #9A9A96
-
-/* Accent */
---accent-primary: #1A1A18     /* Near-black — editorial */
---accent-highlight: #C84B31   /* Warm red — callouts */
---accent-success: #2D6A4F     /* Forest green */
---accent-warning: #E9C46A     /* Golden — highlights */
---accent-link: #264653        /* Dark teal */
-
-/* Chart series */
---series-1: #264653           /* Dark teal */
---series-2: #2A9D8F           /* Teal */
---series-3: #E9C46A           /* Gold */
---series-4: #F4A261           /* Warm orange */
---series-5: #C84B31           /* Red */
---series-other: #9A9A96       /* Gray */
-
-/* Annotation colors */
---annotation-positive: #2D6A4F
---annotation-negative: #C84B31
---annotation-neutral: #5A5A56
-
-/* Grid */
---grid-line: rgba(0, 0, 0, 0.06)
---border-subtle: rgba(0, 0, 0, 0.08)
-```
-
-### LiveOps Theme (Terminal / Monitoring)
-
-```css
-/* Background — terminal aesthetic */
---bg-primary: #080A0F
---bg-secondary: #0D1017
---bg-panel: #111519
---bg-card: #141820
-
-/* Text */
---text-primary: #E8E6E0
---text-secondary: #8892A0
---text-muted: #3D4450
-
-/* Signal colors (status-oriented) */
---signal-ok: #1D9E75          /* Green — nominal */
---signal-warn: #E9C46A        /* Amber — degraded */
---signal-error: #E24B4A       /* Red — critical */
---signal-info: #4A9EFF        /* Blue — informational */
-
-/* Chart traces */
---trace-primary: #1D9E75      /* Main metric line */
---trace-secondary: #4A9EFF    /* Secondary metric */
---trace-anomaly: #E24B4A      /* Anomaly highlight */
---trace-forecast: #8892A0     /* Forecast (dimmer) */
-
-/* Event markers */
---event-positive: #1D9E75
---event-negative: #E24B4A
---event-neutral: #4A9EFF
-
-/* Terminal elements */
---terminal-green: #1D9E75
---terminal-cursor: #E8E6E0
---scanline: rgba(0, 255, 0, 0.02)  /* Optional scanline effect */
-
-/* Grid */
---grid-line: rgba(74, 158, 255, 0.05)
-```
-
-### Briefing Theme (Warm Editorial)
-
-```css
-/* Background — warm paper */
---bg-primary: #FAF8F4
---bg-secondary: #F0EDE6
---bg-card: #FFFFFF
---bg-accent: #F5EDD8
-
-/* Text — warm blacks */
---text-primary: #2C2A24
---text-secondary: #6B6660
---text-muted: #A09B96
-
-/* Accent */
---accent-primary: #8B4513    /* Saddle brown — editorial anchor */
---accent-highlight: #C17D3C  /* Warm amber — callouts */
---accent-success: #3A6B4A    /* Forest green */
---accent-danger: #A33A2A     /* Warm red */
-
-/* Chart series */
---series-1: #8B4513          /* Brown */
---series-2: #3A6B4A          /* Green */
---series-3: #2C5F8A          /* Navy blue */
---series-4: #8A5A2C          /* Tan */
---series-5: #6B3A3A          /* Burgundy */
---series-other: #A09B96      /* Warm gray */
-
-/* Drop cap accent */
---drop-cap-color: #C17D3C
-
-/* Grid */
---grid-line: rgba(139, 69, 19, 0.06)
-```
+This file retains only semantic color rules applicable across all themes.
 
 ## Semantic Color Rules (Apply Across All Themes)
 
@@ -215,12 +71,26 @@ def assign_series_colors(series_names, theme):
     return assignments
 ```
 
-## Colorblind Accessibility
+## Colorblind Accessibility (research-context §3.8 color rules 2-4)
 
-Default palettes are designed to be distinguishable for common color vision deficiencies:
+**CVD prevalence:** ~8% of men have red-green color vision deficiency (deuteranopia / protanopia). Color is **never** the sole encoding — always pair with shape, label, or direction arrow.
+
+**Sequential palettes for continuous data:**
+- **Viridis** and **Cividis** pass all CVD tests (deuteranopia, protanopia, tritanopia) and perceptual uniformity tests. Prefer over custom ramps.
+- **Diverging:** RdBu, BrBG, PiYG — only when there is a meaningful midpoint (e.g., deviation from target).
+
+**OkLCH for custom ramps (2024-2026 CSS standard; research-context §3.8 color rule 4):**
+When Viridis/Cividis don't fit the brand, generate custom sequential ramps in OkLCH color space for perceptually equal brightness steps (HSL produces unequal steps across hues):
+```css
+/* OkLCH sequential ramp (blue, 5 steps, perceptually uniform) */
+oklch(0.95 0.03 250) → oklch(0.80 0.08 250) → oklch(0.65 0.14 250)
+→ oklch(0.50 0.18 250) → oklch(0.35 0.20 250)
+```
+
+**Dark mode:** Invert lightness only (L channel in OkLCH); cap saturation (chroma) at ~60% to prevent oversaturation.
 
 **Deuteranopia (red-green) check:**
-- Never rely on red vs green alone
+- Never rely on red vs green alone (~8% of men affected)
 - Always add: arrows (↑↓), labels, or patterns as secondary encoding
 - KPI deltas: color + directional symbol
 

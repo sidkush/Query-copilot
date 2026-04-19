@@ -5,7 +5,7 @@ description: What is the primary analytical question? ├── How much? (singl
 legacy: true
 name: chart-selection
 priority: 2
-tokens_budget: 1400
+tokens_budget: 1600
 ---
 
 # Chart Selection — AskDB AgentEngine
@@ -31,7 +31,7 @@ What is the primary analytical question?
 │   └── Changing share over time     → 100% stacked bar or stacked area
 ├── What is the relationship between two metrics?
 │   ├── Correlation (continuous)     → Scatter plot
-│   ├── Correlation over time        → Dual-axis line chart
+│   ├── Correlation over time        → Small multiples (2 stacked single-axis charts; dual-axis banned per NN/g)
 │   └── Distribution + outliers      → Box plot or violin plot
 ├── How is data distributed?
 │   ├── Continuous variable          → Histogram
@@ -41,14 +41,24 @@ What is the primary analytical question?
 └── Tabular / drill-down needed      → Data table tile
 ```
 
+## 5-Second Rule (research-context §3.8 layout rule 3)
+
+The primary insight of a chart must be graspable within **5 seconds** (NN/g standard). If a viewer needs > 5 seconds to extract the key message:
+- Add a direct annotation on the chart (not a footnote)
+- Simplify to fewer series
+- Split into small multiples
+- Change the title to state the insight explicitly
+
+**Test:** Cover the chart title. Can you state the insight from the visual alone in under 5 seconds?
+
 ## Hard Rules
 
 ### Never use these chart types for these data shapes:
-- **Pie chart with > 6 slices** — segments become unreadable below ~5%
+- **Pie chart with > 5 slices** — segments become unreadable below ~5% (research-context §3.8 rule 6; EU Data Viz Guide; Practical Reporting)
 - **Pie chart with negative values** — mathematically invalid
 - **Line chart for unordered categories** — implies trend that doesn't exist
 - **Stacked bar with > 5 segments** — inner segments become impossible to compare
-- **Dual Y-axis** — use only when units genuinely differ (e.g., revenue in $ and volume in units)
+- **Dual Y-axis (any chart)** — **BANNED** (NN/g guideline; research-context §3.8 rule 12). Use small multiples (two stacked single-axis charts) instead. Dual-axis implies false correlation between unrelated scales.
 
 ### Always use these for these shapes:
 - **Single number** → BAN tile (Big Ass Number), NOT a one-bar bar chart
@@ -72,15 +82,13 @@ Scatter: > 1M points      → LTTB downsampling first, then WebGL
 
 ## Axis Scale Rules
 
-### When to use logarithmic scale:
-- Data spans multiple orders of magnitude (1 to 1,000,000)
-- Showing growth rates that compound (revenue doubling each year)
-- Never for data that contains 0 or negative values
+### When to use logarithmic scale (research-context §3.8 rule 8):
+- Data spans **> 2 orders of magnitude** (e.g., values from 100 to 100,000+)
+- Showing compounding growth rates
+- Never for data containing 0 or negative values
 
-### When to use dual Y-axis:
-- Two metrics with genuinely different units (revenue $ vs order count)
-- Make the relationship explicit, not just coincidental
-- Label both axes clearly
+### Dual Y-axis: BANNED (research-context §3.8 rule 12)
+NN/g guideline: dual-axis misleads readers by implying false correlation between the two scales. Use **small multiples** — two separate single-axis charts stacked — for mixed-scale comparisons.
 
 ### Zero-baseline rule:
 - Bar charts: ALWAYS start Y-axis at 0. Starting at non-zero is misleading.

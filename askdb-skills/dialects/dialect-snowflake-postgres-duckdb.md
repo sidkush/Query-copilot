@@ -5,7 +5,7 @@ description: FLATTEN arrays SELECT f.value:product_id::STRING as product_id FROM
 legacy: true
 name: dialect-snowflake-postgres-duckdb
 priority: 3
-tokens_budget: 1800
+tokens_budget: 2200
 ---
 
 # Snowflake SQL Dialect — AskDB AgentEngine
@@ -78,6 +78,18 @@ SELECT * FROM large_table SAMPLE BLOCK (1);  -- 1% of blocks
 - Semicolons: Required to separate statements
 - LIMIT: Use LIMIT not TOP
 - Division: Returns FLOAT (no integer division issue)
+
+### Cross-Dialect Gotchas — Snowflake (research-context §3.5)
+
+| Gotcha | Snowflake rule |
+|--------|---------------|
+| §3.5 rule 4 | No `NVL` in BigQuery — use `COALESCE` for portability even though Snowflake has `NVL` |
+| §3.5 rule 5 | `\|\|` concat works in Snowflake and PG; avoid in BigQuery |
+| §3.5 rule 6 | Unquoted identifiers stored UPPERCASE (`orders` → `ORDERS` in INFORMATION_SCHEMA); quote with `"` to preserve case |
+| §3.5 rule 8 | Non-aggregated SELECT columns must appear in GROUP BY (strict, same as PG/BigQuery) |
+| §3.5 rule 9 | `IGNORE NULLS` / `RESPECT NULLS` on `LAG`, `LEAD`, `FIRST_VALUE` supported |
+| §3.5 rule 10 | `DAYOFWEEK(d)` returns 0 = Sunday by default; configurable via `ALTER SESSION SET WEEK_START = 1` |
+| §3.5 rule 7 | `QUALIFY` supported for window-filter shorthand (no subquery needed) |
 
 ---
 
@@ -156,6 +168,18 @@ SUM(amount) FILTER (WHERE type = 'recurring') OVER (ORDER BY month)
 - ILIKE: PostgreSQL only — not in MySQL or SQL Server
 - Arrays: PostgreSQL supports array types natively
 - CTEs: Materialized by default in older versions (use MATERIALIZED/NOT MATERIALIZED hint)
+
+### Cross-Dialect Gotchas — PostgreSQL (research-context §3.5)
+
+| Gotcha | PostgreSQL rule |
+|--------|----------------|
+| §3.5 rule 3 | Has both `TIMESTAMPTZ` (with timezone) and `TIMESTAMP` (no timezone); always prefer `TIMESTAMPTZ` for cross-TZ safety |
+| §3.5 rule 4 | No `NVL`; use `COALESCE` (NVL is Oracle/Snowflake-only) |
+| §3.5 rule 5 | `\|\|` concat works natively |
+| §3.5 rule 6 | Unquoted identifiers lowercased (`Orders` → `orders`); quote with `"` to preserve |
+| §3.5 rule 8 | All non-aggregated SELECT columns must appear in GROUP BY (strict) |
+| §3.5 rule 9 | PG 16+ supports `IGNORE NULLS` on `LAG`/`LEAD`; older PG needs CTE workaround |
+| §3.5 rule 10 | `EXTRACT(dow FROM d)` returns 0 = Sunday; `DATE_TRUNC('week', d)` is ISO Monday start |
 
 ---
 
@@ -249,3 +273,12 @@ PRAGMA memory_limit='8GB';      -- Memory cap
 - `STRUCT` access: `struct_col.field_name`
 - List indexing: 1-based (like SQL, not 0-based like Python)
 - `CURRENT_TIMESTAMP` returns microsecond precision
+
+### Cross-Dialect Gotchas — DuckDB (research-context §3.5)
+
+| Gotcha | DuckDB rule |
+|--------|------------|
+| §3.5 rule 7 | `QUALIFY` supported (same as Snowflake/BigQuery) |
+| §3.5 rule 10 | `EXTRACT(dayofweek FROM d)` returns 0 = Sunday (same as PG) |
+| §3.5 rule 11 | `/` between integers may return float depending on version; prefer `//` for explicit integer division |
+| §3.5 rule 5 | `\|\|` concat works (PG-compatible) |
