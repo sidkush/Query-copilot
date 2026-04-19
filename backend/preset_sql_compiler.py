@@ -109,6 +109,50 @@ def _time_grain_keyword(grain: str) -> str:
     return g.upper()  # DATE_TRUNC takes an unquoted keyword: DAY / MONTH / …
 
 
+# String-like dtype tokens we must defensively PARSE on BigQuery. The
+# BQ `DATE_TRUNC` / `TIMESTAMP_TRUNC` functions reject string args, so a
+# raw VARCHAR column storing "2023-05-01 10:00:00 UTC" would crash the
+# whole chart query. Wrapping in `SAFE.PARSE_TIMESTAMP` returns NULL on
+# bad rows instead of blowing up — the safe-fail behaviour the dashboard
+# auto-gen pipeline assumes. See Plan TSS2 T11.
+_STRING_DTYPE_TOKENS = ("VARCHAR", "STRING", "TEXT", "CHAR")
+
+
+def _date_expr(
+    col_name: str,
+    schema: Dict[str, Any],
+    dialect: str,
+) -> str:
+    """Render the date expression for DATE_TRUNC, wrapping VARCHAR on BQ.
+
+    On BigQuery when the bound column's dtype is string-like (VARCHAR,
+    STRING, TEXT, CHAR) we wrap the reference in
+    ``SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S UTC', …)``. Truly typed
+    TIMESTAMP / DATE columns pass through unchanged.
+
+    One format for now — the plan's Risks section tracks adding a
+    fallback (`%Y-%m-%dT%H:%M:%SZ`) in a later task.
+    """
+    # Re-validate the identifier here so a caller that hits this helper
+    # directly can't sneak a bad name through (defence in depth — the
+    # callers also validate via _quote_ident).
+    _validate_identifier(col_name, "column")
+
+    columns = (schema or {}).get("columns") or []
+    col = next(
+        (c for c in columns if (c or {}).get("name") == col_name),
+        None,
+    )
+    dtype = str((col or {}).get("dtype") or "").upper()
+    is_string = any(tok in dtype for tok in _STRING_DTYPE_TOKENS)
+
+    quoted = _quote_ident(col_name)
+    if is_string and (dialect or "").lower() == "bigquery":
+        # CityBikes-style "YYYY-MM-DD HH:MM:SS UTC".
+        return f"SAFE.PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%S UTC', {quoted})"
+    return quoted
+
+
 def _compile_where(
     filt: Optional[Dict[str, Any]],
     params: Dict[str, Any],
@@ -206,12 +250,19 @@ def compile_chart_sql(
     table_ref: str,
     time_grain: str = "month",
     row_limit: int = 5000,
+    dialect: str = "bigquery",
 ) -> Tuple[str, Dict[str, Any]]:
     """Compile a time-bucketed chart query.
 
     Expects ``binding['primary_date']`` — the LLM's picked temporal
     column (fallback via semantic-tag ``primaryDate``). An optional
     ``binding['dimension']`` produces a secondary ``series`` column.
+
+    ``dialect`` defaults to ``"bigquery"`` (only engine the compiler
+    currently emits for). When the bound ``primary_date`` column's dtype
+    is string-like, the date expression is wrapped in
+    ``SAFE.PARSE_TIMESTAMP`` so ``DATE_TRUNC`` receives a real timestamp
+    instead of raw text. See ``_date_expr`` + Plan TSS2 T11.
     """
     measure = binding.get("measure") or {}
     col = measure.get("column")
@@ -228,7 +279,7 @@ def compile_chart_sql(
     if row_limit <= 0 or row_limit > 50_000:
         raise ValueError(f"row_limit {row_limit} out of bounds (1..50000)")
 
-    date_sql = _quote_ident(date_col)
+    date_sql = _date_expr(date_col, schema, dialect)
     col_sql = _quote_ident(col)
     agg_sql = _agg_sql(agg, col_sql)
     table_sql = _quote_table(table_ref)
