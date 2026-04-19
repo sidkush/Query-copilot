@@ -4,10 +4,12 @@ import re
 import time
 import logging
 from collections import defaultdict
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Literal, Optional
 from auth import get_current_user
+from config import settings
 from user_storage import increment_query_stats, get_daily_usage, log_sql_edit
 from query_memory import QueryMemory, anonymize_sql
 from arrow_bridge import extract_columns_rows
@@ -186,6 +188,12 @@ class FeedbackRequest(BaseModel):
     sql: str
     is_correct: bool
     conn_id: Optional[str] = None
+    corrected_sql: Optional[str] = None
+    note: Optional[str] = None
+
+
+# Plan 3 P4T11: correction queue root (filesystem, not ChromaDB).
+CORRECTION_QUEUE_ROOT = Path(".data/corrections_pending")
 
 
 @router.post("/generate")
@@ -434,21 +442,47 @@ def execute_sql(req: ExecuteRequest, user: dict = Depends(get_current_user)):
 
 @router.post("/feedback")
 def record_feedback(req: FeedbackRequest, user: dict = Depends(get_current_user)):
-    """Record user feedback on query accuracy."""
+    """Record user feedback on query accuracy.
+
+    Positive feedback flows the legacy path (examples collection + boost).
+    Negative feedback (is_correct=False) routes through the ICRH-safe
+    correction queue per askdb-skills/agent/learn-from-corrections.md.
+    """
     email = user["email"]
     entry = get_connection(req.conn_id, email)
-    entry.engine.record_feedback(req.question, req.sql, req.is_correct)
 
-    # Boost confidence in query memory
     if req.is_correct:
+        entry.engine.record_feedback(req.question, req.sql, True)
         try:
             _qm = QueryMemory()
             conn_id = req.conn_id or entry.conn_id
             _qm.boost_confidence(conn_id, req.question if hasattr(req, 'question') else "")
         except Exception as e:
             logger.debug("Failed to boost insight confidence: %s", e)
+        return {"status": "ok", "conn_id": entry.conn_id}
 
-    return {"status": "ok", "conn_id": entry.conn_id}
+    # Plan 3 P4T11: negative feedback ⇒ correction queue (never auto-ingested).
+    if settings.CORRECTION_QUEUE_ENABLED:
+        try:
+            from correction_queue import enqueue
+            import hashlib
+            user_hash = hashlib.sha256(email.encode("utf-8")).hexdigest()[:16]
+            enqueue(
+                user_hash=user_hash,
+                question=req.question,
+                original_sql=req.sql,
+                corrected_sql=req.corrected_sql or "",
+                user_note=req.note or "",
+                connection_id=req.conn_id or entry.conn_id,
+                queue_root=CORRECTION_QUEUE_ROOT,
+            )
+            return {"status": "queued", "conn_id": entry.conn_id}
+        except Exception as e:
+            logger.warning("correction_queue enqueue failed: %s", e)
+
+    # Fallback when queue disabled: record legacy negative (noop).
+    entry.engine.record_feedback(req.question, req.sql, False)
+    return {"status": "recorded", "conn_id": entry.conn_id}
 
 
 @router.get("/stats")
