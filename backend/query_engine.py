@@ -196,6 +196,48 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
         self._skill_collection = None
         self._connection_entry_stub = None
 
+    def _build_system_payload(self, assembled_text: str, question: str):
+        """Plan 4 T9: convert assembled system_prompt string into provider payload.
+
+        Mirror of AgentEngine._build_system_payload. When flag off, returns
+        the string verbatim (provider's _build_system wraps as single cached
+        block if caching is on). When flag on, splits into 3 cached
+        breakpoints via _build_system_blocks logic, returning Anthropic-shaped
+        list of dicts.
+        """
+        from config import settings
+        from prompt_block import compose_system_blocks
+
+        if not settings.SKILL_LIBRARY_ENABLED or self._skill_library is None:
+            return assembled_text
+
+        from skill_router import SkillRouter
+        router = SkillRouter(library=self._skill_library, chroma_collection=self._skill_collection)
+        conn_stub = self._connection_entry_stub
+        hits = (
+            router.resolve(question, conn_stub, action_type="sql-generation")
+            if conn_stub is not None else router.library.always_on()
+        )
+
+        identity_parts = [assembled_text]
+        schema_parts: list = []
+        retrieved_parts: list = []
+        for h in hits:
+            header = f"\n\n### Skill: {h.name}\n\n"
+            if h.priority == 1:
+                identity_parts.append(header + h.content)
+            elif h.source == "deterministic":
+                schema_parts.append(header + h.content)
+            else:
+                retrieved_parts.append(header + h.content)
+
+        blocks = compose_system_blocks(
+            identity_core="".join(identity_parts),
+            schema_context="".join(schema_parts),
+            retrieved_skills="".join(retrieved_parts),
+        )
+        return [b.to_anthropic() for b in blocks]
+
     def _build_system_blocks(self, question: str):
         """Plan 3 P3T8: skill-library-aware prompt composition for single-shot flow.
 
@@ -627,9 +669,11 @@ Generate the dashboard JSON now."""
 
     def _call_claude_dashboard(self, system_prompt: str, user_prompt: str, model: str) -> str:
         """Call Claude with a higher token limit for dashboard generation."""
+        # Plan 4 T9: block-aware payload for dashboard-gen single-shot path.
+        _sys_payload = self._build_system_payload(system_prompt, user_prompt)
         response = self.provider.complete(
             model=model,
-            system=system_prompt,
+            system=_sys_payload,
             messages=[{"role": "user", "content": user_prompt}],
             max_tokens=16384,
         )

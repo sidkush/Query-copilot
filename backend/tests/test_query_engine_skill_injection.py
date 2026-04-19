@@ -34,3 +34,24 @@ def test_query_engine_flag_on_has_cached_blocks(monkeypatch):
     qe._skill_library = SkillLibrary(root=Path(__file__).resolve().parents[2] / "askdb-skills")
     prompt = qe._build_system_blocks("show revenue")
     assert any(b.ttl in ("1h", "5m") for b in prompt)
+
+
+def test_build_system_payload_flag_off_returns_string(monkeypatch):
+    from config import settings
+    monkeypatch.setattr(settings, "SKILL_LIBRARY_ENABLED", False)
+    qe = _make_qe()
+    out = qe._build_system_payload("You are AskDB.", "q")
+    assert isinstance(out, str)
+    assert out == "You are AskDB."
+
+
+def test_build_system_payload_flag_on_returns_list(monkeypatch):
+    from config import settings
+    from skill_library import SkillLibrary
+    monkeypatch.setattr(settings, "SKILL_LIBRARY_ENABLED", True)
+    qe = _make_qe()
+    qe._skill_library = SkillLibrary(root=Path(__file__).resolve().parents[2] / "askdb-skills")
+    out = qe._build_system_payload("MARKER_TEXT_9999", "q")
+    assert isinstance(out, list)
+    joined = "\n".join(b["text"] for b in out)
+    assert "MARKER_TEXT_9999" in joined
