@@ -1,0 +1,205 @@
+/*
+ * SaveDashboardDialog.css — TSS W3-A.
+ *
+ * Rules: no gradient text, no glassmorphism, no pure black/white.
+ * Side-stripe borders kept at 1px. All colors route through tokens.
+ */
+
+.tss-save-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklab, var(--bg-page, #06060e) 72%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 24px;
+}
+
+.tss-save-dialog-panel {
+  width: 480px;
+  max-width: 100%;
+  background: var(--bg-elevated, #1a1a22);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 24px 64px -16px rgba(6, 6, 14, 0.6),
+              0 2px 8px rgba(6, 6, 14, 0.4);
+  color: var(--text-primary, #e7e7ea);
+  font-family: inherit;
+}
+
+.tss-save-dialog-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary, #e7e7ea);
+  margin: 0;
+}
+
+.tss-save-dialog-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary, #b0b0b6);
+  margin: -8px 0 0;
+  line-height: 1.4;
+}
+
+.tss-save-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tss-save-dialog-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary, #b0b0b6);
+}
+
+.tss-save-dialog-input,
+.tss-save-dialog-select {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-page, #06060e);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  color: var(--text-primary, #e7e7ea);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+.tss-save-dialog-input:focus,
+.tss-save-dialog-select:focus {
+  border-color: var(--accent, #a78bfa);
+}
+
+.tss-save-dialog-switch-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-page, #06060e);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+}
+
+.tss-save-dialog-switch-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tss-save-dialog-switch-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #e7e7ea);
+}
+
+.tss-save-dialog-switch-hint {
+  font-size: 11px;
+  color: var(--text-secondary, #b0b0b6);
+  line-height: 1.4;
+}
+
+.tss-save-dialog-switch {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
+  background: var(--bg-elevated, #1a1a22);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.tss-save-dialog-switch[aria-checked="true"] {
+  background: color-mix(in oklab, var(--accent, #a78bfa) 30%, var(--bg-elevated, #1a1a22));
+  border-color: color-mix(in oklab, var(--accent, #a78bfa) 55%, transparent);
+}
+
+.tss-save-dialog-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-secondary, #b0b0b6);
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.tss-save-dialog-switch[aria-checked="true"] .tss-save-dialog-switch-thumb {
+  transform: translateX(16px);
+  background: var(--accent, #a78bfa);
+}
+
+.tss-save-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tss-save-dialog-btn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.tss-save-dialog-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
+  color: var(--text-secondary, #b0b0b6);
+}
+
+.tss-save-dialog-btn-ghost:hover {
+  border-color: var(--border-hover, rgba(255, 255, 255, 0.2));
+  color: var(--text-primary, #e7e7ea);
+}
+
+.tss-save-dialog-btn-primary {
+  background: color-mix(in oklab, var(--accent, #7c3aed) 85%, var(--bg-elevated, #1a1a22));
+  border: 1px solid color-mix(in oklab, var(--accent, #7c3aed) 55%, transparent);
+  color: #f5f5f7;
+}
+
+.tss-save-dialog-btn-primary:hover:not(:disabled) {
+  background: var(--accent, #7c3aed);
+  border-color: var(--accent, #7c3aed);
+}
+
+.tss-save-dialog-btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tss-save-dialog-db-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: color-mix(in oklab, var(--accent, #a78bfa) 16%, transparent);
+  color: var(--accent, #a78bfa);
+  border: 1px solid color-mix(in oklab, var(--accent, #a78bfa) 28%, transparent);
+}
