@@ -209,6 +209,13 @@ class RefreshTileBody(BaseModel):
     source_id: Optional[str] = None
     parameters: Optional[dict] = None  # What-If param name → numeric value
 
+class AutogenAllPresetsBody(BaseModel):
+    """Typed-Seeking-Spring Phase 2 — themed-preset autogen request body."""
+    conn_id: str
+    semantic_tags: dict = {}
+    preset_ids: Optional[list] = None  # default = all 4 themed presets
+    skip_pinned: bool = True
+
 class SaveBookmark(BaseModel):
     name: str
     state: dict
@@ -2267,4 +2274,52 @@ def fire_action(
         cascadeId=cascade_id,
         targets=targets,
         auditRef="query_decisions.jsonl",
+    )
+
+
+# ── Typed-Seeking-Spring Phase 2 — themed-preset autogen SSE route ──
+
+@router.post("/{dashboard_id}/autogen-all-presets")
+async def autogen_all_presets(
+    dashboard_id: str,
+    body: AutogenAllPresetsBody,
+    user=Depends(get_current_user),
+):
+    """Run the themed-preset autogen orchestrator, streaming AgentStep
+    events (``plan`` / ``tool_result`` / ``complete`` / ``error``) via
+    Server-Sent Events.
+
+    Body: ``{conn_id, semantic_tags, preset_ids?, skip_pinned=True}``
+    """
+    email = user["email"]
+    # Load dashboard up-front for a 404 before we kick off the stream.
+    d = load_dashboard(email, dashboard_id)
+    if not d:
+        raise HTTPException(404, "Dashboard not found")
+
+    from preset_autogen import run_autogen
+
+    def _sse_generator():
+        try:
+            for event in run_autogen(
+                email=email,
+                dashboard_id=dashboard_id,
+                conn_id=body.conn_id,
+                semantic_tags=body.semantic_tags or {},
+                preset_ids=body.preset_ids,
+                skip_pinned=body.skip_pinned,
+            ):
+                yield f"data: {_json.dumps(event, default=str)}\n\n"
+        except Exception as e:  # pragma: no cover
+            err = {"type": "error", "content": f"autogen failed: {e}"}
+            yield f"data: {_json.dumps(err)}\n\n"
+
+    return StreamingResponse(
+        _sse_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
