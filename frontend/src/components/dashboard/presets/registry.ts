@@ -17,7 +17,6 @@ const analystProPreset: DashboardPreset = {
     density: 'comfortable',
     radius: 8,
   },
-  starter: { tiledRoot: null, floatingLayer: [] },
 };
 
 const _registry: Record<string, DashboardPreset> = {

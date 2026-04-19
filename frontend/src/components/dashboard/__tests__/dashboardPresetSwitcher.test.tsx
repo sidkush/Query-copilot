@@ -14,7 +14,6 @@ describe('DashboardPresetSwitcher', () => {
       tagline: 'fixture',
       scheme: 'dark',
       tokens: listPresets()[0].tokens,
-      starter: { tiledRoot: null, floatingLayer: [] },
     });
     useStore.setState({ analystProDashboard: emptyDashboardForPreset('analyst-pro') });
   });
