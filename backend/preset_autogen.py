@@ -864,27 +864,85 @@ def run_autogen(
 
 
 def _schema_profile_for_entry(entry) -> Dict[str, Any]:
-    """Extract a compact column-list schema profile from the entry."""
+    """Extract a compact column-list schema profile from the entry.
+
+    Handles three shapes:
+      1. `entry.schema_profile` as a Pydantic-ish object with `.tables`.
+      2. `entry.schema_profile` as a nested dict `{tables:[{columns:[...]}]}`
+         (the shape written by `profile_connection` to `.data/schema_cache/`).
+      3. Neither — loads the on-disk cache at
+         `settings.SCHEMA_CACHE_DIR/{conn_id}.json` as a last resort.
+
+    Normalises each column to `{name, dtype, cardinality, sample_values, ...}`
+    so downstream `schema_semantics.classify_column` works regardless of
+    whether the profile originally carried `type` or `dtype`.
+    """
+    def _norm_col(c: Any, table_name: Optional[str] = None) -> Dict[str, Any]:
+        if isinstance(c, dict):
+            out = dict(c)
+        else:
+            out = {
+                "name": getattr(c, "name", "?"),
+                "dtype": getattr(c, "dtype", None),
+                "type": getattr(c, "type", None),
+                "role": getattr(c, "role", None),
+                "semantic_type": getattr(c, "semantic_type", None),
+                "cardinality": getattr(c, "cardinality", None),
+                "null_pct": getattr(c, "null_pct", None),
+                "sample_values": getattr(c, "sample_values", []) or [],
+            }
+        if not out.get("dtype") and out.get("type"):
+            out["dtype"] = out["type"]
+        if table_name and "table" not in out:
+            out["table"] = table_name
+        return out
+
+    def _from_tables(tables_iter) -> List[Dict[str, Any]]:
+        cols: List[Dict[str, Any]] = []
+        for t in tables_iter or []:
+            if isinstance(t, dict):
+                tname = t.get("name")
+                tcols = t.get("columns") or []
+            else:
+                tname = getattr(t, "name", None)
+                tcols = getattr(t, "columns", []) or []
+            for c in tcols:
+                cols.append(_norm_col(c, tname))
+        return cols
+
     try:
         profile = getattr(entry, "schema_profile", None)
-        if profile and hasattr(profile, "tables"):
-            cols: List[Dict[str, Any]] = []
-            for t in profile.tables or []:
-                for c in getattr(t, "columns", []) or []:
-                    cols.append({
-                        "name": getattr(c, "name", "?"),
-                        "dtype": getattr(c, "dtype", "?"),
-                        "role": getattr(c, "role", "?"),
-                        "semantic_type": getattr(c, "semantic_type", "?"),
-                        "cardinality": getattr(c, "cardinality", None),
-                        "null_pct": getattr(c, "null_pct", None),
-                        "sample_values": getattr(c, "sample_values", []) or [],
-                    })
-            return {"columns": cols}
+        if profile is not None:
+            if hasattr(profile, "tables"):
+                cols = _from_tables(profile.tables)
+                if cols:
+                    return {"columns": cols, "tables": list(profile.tables)}
+            elif isinstance(profile, dict):
+                if profile.get("columns"):
+                    return {
+                        "columns": [_norm_col(c) for c in profile["columns"]],
+                        "tables": profile.get("tables"),
+                    }
+                cols = _from_tables(profile.get("tables"))
+                if cols:
+                    return {"columns": cols, "tables": profile.get("tables")}
     except Exception as e:
         logger.debug("schema_profile extract failed: %s", e)
-    # Fallback — empty profile; the heuristic picker + LLM will still
-    # try against whatever table_ref caller supplies.
+
+    # Last-resort: load from on-disk schema cache.
+    try:
+        conn_id = getattr(entry, "conn_id", None) or getattr(entry, "id", None)
+        if conn_id:
+            from config import settings as _settings
+            cache_path = Path(_settings.SCHEMA_CACHE_DIR) / f"{conn_id}.json"
+            if cache_path.exists():
+                data = json.loads(cache_path.read_text(encoding="utf-8"))
+                cols = _from_tables(data.get("tables"))
+                if cols:
+                    return {"columns": cols, "tables": data.get("tables")}
+    except Exception as e:
+        logger.debug("schema cache read failed: %s", e)
+
     return {"columns": []}
 
 
