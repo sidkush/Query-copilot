@@ -949,6 +949,48 @@ class AgentEngine:
             retrieved_skills="".join(retrieved_parts),
         )
 
+    def _build_system_payload(self, assembled_text: str, question: str):
+        """Plan 4 T3: convert a fully-assembled system_prompt string into the
+        shape the provider expects.
+
+        `assembled_text` is the final legacy string (after any plan-block
+        appends done inside run()). When the flag is off, return the string
+        unchanged — provider sees `system="..."`. When the flag is on, split
+        into 3 cached breakpoints per caching-breakpoint-policy.md, appending
+        retrieved skill content to the identity block.
+        """
+        from config import settings
+        from prompt_block import compose_system_blocks
+
+        if not settings.SKILL_LIBRARY_ENABLED or self._skill_library is None:
+            return assembled_text  # string shape preserves legacy compat
+
+        from skill_router import SkillRouter
+        router = SkillRouter(
+            library=self._skill_library,
+            chroma_collection=self._skill_collection,
+        )
+        hits = router.resolve(question, self.connection_entry, action_type="sql-generation")
+
+        identity_parts = [assembled_text]
+        schema_parts: list[str] = []
+        retrieved_parts: list[str] = []
+        for h in hits:
+            header = f"\n\n### Skill: {h.name}\n\n"
+            if h.priority == 1:
+                identity_parts.append(header + h.content)
+            elif h.source == "deterministic":
+                schema_parts.append(header + h.content)
+            else:
+                retrieved_parts.append(header + h.content)
+
+        blocks = compose_system_blocks(
+            identity_core="".join(identity_parts),
+            schema_context="".join(schema_parts),
+            retrieved_skills="".join(retrieved_parts),
+        )
+        return [b.to_anthropic() for b in blocks]
+
     def set_voice_mode(self, enabled: bool):
         """Toggle voice mode for conversational, spoken-friendly responses."""
         self._voice_mode = enabled
@@ -1859,9 +1901,12 @@ class AgentEngine:
                 yield step
 
                 try:
+                    # Plan 4 T3: payload is str (flag off, legacy compat) or
+                    # list-of-blocks with cache_control (flag on, 4-breakpoint).
+                    _sys_payload = self._build_system_payload(system_prompt, question)
                     response = self.provider.complete_with_tools(
                         model=model,
-                        system=system_prompt,
+                        system=_sys_payload,
                         messages=messages,
                         tools=active_tools,
                         max_tokens=settings.MAX_TOKENS,
