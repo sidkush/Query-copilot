@@ -989,6 +989,24 @@ class AgentEngine:
             schema_context="".join(schema_parts),
             retrieved_skills="".join(retrieved_parts),
         )
+
+        # Plan 4 T8: shadow-mode dual-run diff.
+        if getattr(settings, "SKILL_SHADOW_MODE_ENABLED", False):
+            try:
+                from shadow_mode import ShadowRunner
+                from pathlib import Path as _P
+                import hashlib as _h
+                runner = ShadowRunner(audit_path=_P(".data/audit/shadow_diff.jsonl"))
+                runner.log(
+                    session_id=getattr(self, "_session_id", "unknown"),
+                    question_hash=_h.sha256(question.encode()).hexdigest()[:12],
+                    legacy_text=assembled_text,
+                    block_texts=[b.text for b in blocks],
+                    retrieved_skills=[h.name for h in hits],
+                )
+            except Exception:
+                pass
+
         return [b.to_anthropic() for b in blocks]
 
     def set_voice_mode(self, enabled: bool):

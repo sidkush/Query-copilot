@@ -280,6 +280,7 @@ class Settings(BaseSettings):
     SKILL_ALWAYS_ON_TOKENS_CAP: int = Field(default=7000)
     CORRECTION_QUEUE_ENABLED: bool = Field(default=True)
     SKILL_DRIFT_KL_THRESHOLD: float = Field(default=0.3)
+    SKILL_SHADOW_MODE_ENABLED: bool = Field(default=True)
 
     model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8", "extra": "ignore"}
 
