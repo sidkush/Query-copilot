@@ -1,0 +1,323 @@
+// backend/proto/askdb/vizdataservice/v1.proto
+//
+// VisualSpec IR. Input to the VizQL compiler (Plans 7b-7e).
+// Mirrors Tableau's tableau.vizdataservice.v1 shape as documented in
+// docs/Build_Tableau.md Section I.5 and Appendix A.
+//
+// Proto3. Field numbering is stable: never renumber, never repurpose.
+// When adding fields: append with next free number, mark old as reserved
+// if removed. Enum values also stable.
+//
+// Regenerate bindings: `bash backend/scripts/regen_proto.sh` and
+// `bash frontend/scripts/regen_proto.sh` (or `make proto` on systems
+// with GNU make).
+
+syntax = "proto3";
+
+package askdb.vizdataservice.v1;
+
+// ----------------------------------------------------------------------------
+// Enums (mirror docs/Build_Tableau.md Appendix A)
+// ----------------------------------------------------------------------------
+
+// A.1 DataType
+enum DataType {
+  DATA_TYPE_UNSPECIFIED = 0;
+  DATA_TYPE_BOOL        = 1;
+  DATA_TYPE_BOOLEAN     = 2;  // Tableau emits both `bool` and `boolean`
+  DATA_TYPE_DATE        = 3;
+  DATA_TYPE_DATE_TIME   = 4;
+  DATA_TYPE_FLOAT       = 5;
+  DATA_TYPE_INT         = 6;
+  DATA_TYPE_NUMBER      = 7;
+  DATA_TYPE_SPATIAL     = 8;
+  DATA_TYPE_STRING      = 9;
+  DATA_TYPE_UNKNOWN     = 10;
+}
+
+// A.2 FieldRoleType
+enum FieldRole {
+  FIELD_ROLE_UNSPECIFIED = 0;
+  FIELD_ROLE_DIMENSION   = 1;
+  FIELD_ROLE_MEASURE     = 2;
+  FIELD_ROLE_UNKNOWN     = 3;
+}
+
+// A.3 ColumnClass (protobuf)
+enum ColumnClass {
+  COLUMN_CLASS_UNSPECIFIED     = 0;
+  COLUMN_CLASS_CATEGORICAL_BIN = 1;
+  COLUMN_CLASS_DANGLING        = 2;
+  COLUMN_CLASS_DATABASE        = 3;
+  COLUMN_CLASS_GROUP           = 4;
+  COLUMN_CLASS_INSTANCE        = 5;
+  COLUMN_CLASS_LOCAL_DATA      = 6;
+  COLUMN_CLASS_MDX_CALC        = 7;
+  COLUMN_CLASS_METADATA        = 8;
+  COLUMN_CLASS_NUMERIC_BIN     = 9;
+  COLUMN_CLASS_USER_CALC       = 10;
+  COLUMN_CLASS_VISUAL_DATA     = 11;
+}
+
+// A.4 MarkType
+enum MarkType {
+  MARK_TYPE_UNSPECIFIED   = 0;
+  MARK_TYPE_BAR           = 1;
+  MARK_TYPE_LINE          = 2;
+  MARK_TYPE_AREA          = 3;
+  MARK_TYPE_PIE           = 4;
+  MARK_TYPE_CIRCLE        = 5;
+  MARK_TYPE_SQUARE        = 6;
+  MARK_TYPE_TEXT          = 7;
+  MARK_TYPE_SHAPE         = 8;
+  MARK_TYPE_MAP           = 9;
+  MARK_TYPE_POLYGON       = 10;
+  MARK_TYPE_HEATMAP       = 11;
+  MARK_TYPE_GANTT_BAR     = 12;  // wire string: "gantt-bar"
+  MARK_TYPE_VIZ_EXTENSION = 13;  // wire string: "viz-extension"
+}
+
+// A.5 EncodingType
+enum EncodingType {
+  ENCODING_TYPE_UNSPECIFIED = 0;
+  ENCODING_TYPE_COLOR       = 1;
+  ENCODING_TYPE_SIZE        = 2;
+  ENCODING_TYPE_SHAPE       = 3;
+  ENCODING_TYPE_LABEL       = 4;
+  ENCODING_TYPE_TOOLTIP     = 5;
+  ENCODING_TYPE_DETAIL      = 6;
+  ENCODING_TYPE_PATH        = 7;
+  ENCODING_TYPE_ANGLE       = 8;
+  ENCODING_TYPE_GEOMETRY    = 9;
+  ENCODING_TYPE_CUSTOM      = 10;
+}
+
+// ShelfKind from the Plan 7a brief (roadmap Plan 7a deliverable 1).
+// ROW/COLUMN are worksheet pill shelves; the marks-card channels mirror
+// EncodingType but are addressed on the shelf axis (Part III.1 + III.2).
+enum ShelfKind {
+  SHELF_KIND_UNSPECIFIED = 0;
+  SHELF_KIND_ROW         = 1;
+  SHELF_KIND_COLUMN      = 2;
+  SHELF_KIND_DETAIL      = 3;
+  SHELF_KIND_COLOR       = 4;
+  SHELF_KIND_SIZE        = 5;
+  SHELF_KIND_SHAPE       = 6;
+  SHELF_KIND_LABEL       = 7;
+  SHELF_KIND_PATH        = 8;
+  SHELF_KIND_ANGLE       = 9;
+  SHELF_KIND_TOOLTIP     = 10;
+}
+
+// A.8 FilterType - 4 kinds, discriminator for FilterSpec.
+enum FilterKind {
+  FILTER_KIND_UNSPECIFIED   = 0;
+  FILTER_KIND_CATEGORICAL   = 1;  // wire string: "categorical"
+  FILTER_KIND_HIERARCHICAL  = 2;  // wire string: "hierarchical"
+  FILTER_KIND_RANGE         = 3;  // wire string: "range"
+  FILTER_KIND_RELATIVE_DATE = 4;  // wire string: "relativeDate"
+}
+
+// A.14 AggregationType - superset union of Appendix A.14.
+enum AggType {
+  AGG_TYPE_UNSPECIFIED = 0;
+  AGG_TYPE_SUM         = 1;
+  AGG_TYPE_AVG         = 2;
+  AGG_TYPE_COUNT       = 3;
+  AGG_TYPE_COUNTD      = 4;
+  AGG_TYPE_MIN         = 5;
+  AGG_TYPE_MAX         = 6;
+  AGG_TYPE_MEDIAN      = 7;
+  AGG_TYPE_VAR         = 8;
+  AGG_TYPE_VARP        = 9;
+  AGG_TYPE_STDEV       = 10;
+  AGG_TYPE_STDEVP      = 11;
+  AGG_TYPE_KURTOSIS    = 12;
+  AGG_TYPE_SKEWNESS    = 13;
+  AGG_TYPE_ATTR        = 14;
+  AGG_TYPE_NONE        = 15;
+  AGG_TYPE_PERCENTILE  = 16;
+  AGG_TYPE_COLLECT     = 17;
+  AGG_TYPE_IN_OUT      = 18;
+  AGG_TYPE_END         = 19;
+  AGG_TYPE_QUART1      = 20;
+  AGG_TYPE_QUART3      = 21;
+  AGG_TYPE_USER        = 22;
+  // Date truncations (A.14 continuation)
+  AGG_TYPE_YEAR         = 30;
+  AGG_TYPE_QTR          = 31;
+  AGG_TYPE_MONTH        = 32;
+  AGG_TYPE_WEEK         = 33;
+  AGG_TYPE_DAY          = 34;
+  AGG_TYPE_HOUR         = 35;
+  AGG_TYPE_MINUTE       = 36;
+  AGG_TYPE_SECOND       = 37;
+  AGG_TYPE_WEEKDAY      = 38;
+  AGG_TYPE_MONTH_YEAR   = 39;
+  AGG_TYPE_MDY          = 40;
+  AGG_TYPE_TRUNC_YEAR   = 41;
+  AGG_TYPE_TRUNC_QTR    = 42;
+  AGG_TYPE_TRUNC_MONTH  = 43;
+  AGG_TYPE_TRUNC_WEEK   = 44;
+  AGG_TYPE_TRUNC_DAY    = 45;
+  AGG_TYPE_TRUNC_HOUR   = 46;
+  AGG_TYPE_TRUNC_MINUTE = 47;
+  AGG_TYPE_TRUNC_SECOND = 48;
+}
+
+// ----------------------------------------------------------------------------
+// Leaf messages
+// ----------------------------------------------------------------------------
+
+// Field reference. `id` is the stable column identifier.
+// `semantic_role` is optional (e.g. "[Geographical].[Latitude]").
+// `is_disagg=true` disables default aggregation (Build_Tableau VIII.2).
+message Field {
+  string      id            = 1;
+  DataType    data_type     = 2;
+  FieldRole   role          = 3;
+  string      semantic_role = 4;
+  AggType     aggregation   = 5;
+  bool        is_disagg     = 6;
+  ColumnClass column_class  = 7;
+}
+
+// Calculation - formula string + is_adhoc flag. Parser lands in Plan 8a.
+message Calculation {
+  string id        = 1;
+  string formula   = 2;
+  bool   is_adhoc  = 3;
+}
+
+// Shelf - ordered list of Field refs on a given channel.
+message Shelf {
+  ShelfKind      kind   = 1;
+  repeated Field fields = 2;
+}
+
+// Encoding - marks-card binding with optional custom_encoding_type_id
+// escape hatch (Build_Tableau III.2 - drives Viz Extensions).
+message Encoding {
+  string       field_encoding_id       = 1;
+  EncodingType encoding_type           = 2;
+  string       custom_encoding_type_id = 3;
+  Field        field                   = 4;
+}
+
+// ----------------------------------------------------------------------------
+// FilterSpec - discriminated union. The four sub-message fields are
+// mutually exclusive by filter_kind.
+// ----------------------------------------------------------------------------
+
+message CategoricalFilterProps {
+  repeated string values          = 1;
+  bool            is_exclude_mode = 2;
+  bool            case_sensitive  = 3;
+}
+
+message HierarchicalFilterProps {
+  repeated string filter_levels             = 1;
+  repeated string hier_val_selection_models = 2;
+}
+
+message RangeFilterProps {
+  double min               = 1;
+  double max               = 2;
+  // Null-handling: "keep" | "drop" | "only".
+  string range_null_option = 3;
+}
+
+message RelativeDateFilterProps {
+  string anchor_date     = 1;  // ISO-8601; empty = "now at query time"
+  string period_type     = 2;  // "years"|"quarters"|"months"|"weeks"|"days"|"hours"|"minutes"
+  string date_range_type = 3;  // "last"|"next"|"current"|"toDate"
+  int32  range_n         = 4;
+}
+
+message FilterSpec {
+  FilterKind filter_kind = 1;
+  Field      field       = 2;
+
+  // Exactly one of these is populated based on filter_kind.
+  CategoricalFilterProps  categorical   = 3;
+  HierarchicalFilterProps hierarchical  = 4;
+  RangeFilterProps        range         = 5;
+  RelativeDateFilterProps relative_date = 6;
+
+  bool has_null                       = 7;
+  bool include_null                   = 8;
+  bool is_logical_table_scoped_filter = 9;
+
+  // Placement in the 9-stage filter pipeline (Build_Tableau IV.7).
+  // "extract"|"datasource"|"context"|"dimension"|"measure"
+  // |"table_calc"|"totals". LOD stages live on LodCalculation.
+  string filter_stage = 10;
+
+  map<string, string> filter_properties = 11;
+}
+
+// ----------------------------------------------------------------------------
+// Parameters, LOD, Analytics
+// ----------------------------------------------------------------------------
+
+// Workbook-scoped parameter (Build_Tableau VI). Domain kinds:
+// "list" | "range" | "free".
+message Parameter {
+  string   id            = 1;
+  string   name          = 2;
+  DataType data_type     = 3;
+  string   value         = 4;
+  string   domain_kind   = 5;
+  repeated string domain_values = 6;
+  double   domain_min    = 7;
+  double   domain_max    = 8;
+  double   domain_step   = 9;
+}
+
+// LOD calculation (Build_Tableau V.2). lod_kind: "fixed"|"include"|"exclude".
+message LodCalculation {
+  string         id                = 1;
+  string         lod_kind          = 2;
+  repeated Field lod_dims          = 3;
+  Calculation    inner_calculation = 4;
+  AggType        outer_aggregation = 5;
+}
+
+// Analytics pane slots (Build_Tableau XIII). Typed-field in Plan 9.
+message Analytics {
+  message Slot {
+    string id   = 1;
+    string kind = 2;  // "reference-line"|"reference-band"|"trend"|"forecast"|"cluster"|"box-plot"|"totals"
+    map<string, string> properties = 3;
+  }
+  repeated Slot slots = 1;
+}
+
+// ----------------------------------------------------------------------------
+// Root message
+// ----------------------------------------------------------------------------
+
+// VisualSpec - the canonical IR.
+message VisualSpec {
+  string sheet_id = 1;
+
+  repeated Field          fields           = 2;
+  repeated Shelf          shelves          = 3;
+  repeated Encoding       encodings        = 4;
+  repeated FilterSpec     filters          = 5;
+  repeated Parameter      parameters       = 6;
+  repeated LodCalculation lod_calculations = 7;
+  MarkType                mark_type        = 8;
+  Analytics               analytics        = 9;
+
+  // AI-origin marker (Build_Tableau I.5).
+  bool   is_generative_ai_web_authoring = 10;
+
+  // Snowflake vs separate cross-product (Build_Tableau IV.3).
+  // "snowflake" | "separate". Default "separate".
+  string domain_type = 11;
+
+  // Reserved for dual-axis metadata (Plan 7b).
+  reserved 12, 13, 14;
+  reserved "dual_axis", "shared_axis", "combined_axis";
+}
