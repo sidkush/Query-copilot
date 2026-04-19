@@ -54,6 +54,7 @@ from pathlib import Path
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple
 
 from config import settings
+from schema_semantics import classify_column, forbid_for_agg, digest_with_semantics
 from preset_sql_compiler import (
     compile_kpi_sql, compile_table_sql, compile_chart_sql,
 )
@@ -214,17 +215,9 @@ def _tool_schema_for_slot(slot: SlotDescriptor) -> Dict[str, Any]:
 # ───────────────────────────────────────────────────────────────────
 
 def _schema_digest(schema_profile: Dict[str, Any], max_cols: int = 40) -> str:
-    """Compact schema listing fed to the LLM."""
-    cols = schema_profile.get("columns", []) or []
-    lines: List[str] = []
-    for c in cols[:max_cols]:
-        n = c.get("name", "?")
-        t = c.get("semantic_type") or c.get("dtype") or "?"
-        card = c.get("cardinality")
-        samples = c.get("sample_values") or []
-        sample_s = ",".join(str(v) for v in samples[:3])
-        lines.append(f"  - {n} :: {t} (card={card}) samples=[{sample_s}]")
-    return "\n".join(lines)
+    """Compact schema listing fed to the LLM. Delegates to semantic classifier
+    so the digest includes role tags + forbidden aggregations."""
+    return digest_with_semantics(schema_profile, max_cols=max_cols)
 
 
 # ───────────────────────────────────────────────────────────────────
@@ -233,39 +226,66 @@ def _schema_digest(schema_profile: Dict[str, Any], max_cols: int = 40) -> str:
 # ───────────────────────────────────────────────────────────────────
 
 def _heuristic_pick(
-    slot: SlotDescriptor,
-    schema_profile: Dict[str, Any],
-    semantic_tags: Dict[str, Any],
-) -> Dict[str, Any]:
+    slot,
+    schema_profile,
+    semantic_tags,
+):
     kind = slot.get("kind", "kpi")
     cols = schema_profile.get("columns", []) or []
+    classified = [(c, classify_column(c)) for c in cols]
+
     rev = semantic_tags.get("revenueMetric") or {}
     primary_date = semantic_tags.get("primaryDate")
     primary_dim = semantic_tags.get("primaryDimension")
     entity = semantic_tags.get("entityName")
 
-    def _first_by(pred):
-        return next((c for c in cols if pred(c)), None)
+    def _first(pred):
+        return next(((c, t) for c, t in classified if pred(c, t)), (None, None))
 
-    quant = _first_by(lambda c: c.get("semantic_type") == "quantitative")
-    temporal = _first_by(lambda c: c.get("semantic_type") == "temporal")
-    nominal = _first_by(lambda c: c.get("semantic_type") == "nominal")
+    safe_measure, _ = _first(lambda c, t: "measure" in t.roles)
+    identifier_col, _ = _first(lambda c, t: "identifier" in t.roles)
+    temporal_col, _ = _first(lambda c, t: "temporal" in t.roles)
+    entity_col, _ = _first(lambda c, t: "entity_name" in t.roles)
+    dim_col, _ = _first(
+        lambda c, t: "dimension" in t.roles and "identifier" not in t.roles
+    )
 
-    out: Dict[str, Any] = {}
+    out = {}
+
+    def _kpi_measure():
+        if rev.get("column"):
+            col = next((c for c in cols if c.get("name") == rev["column"]), None)
+            if col is not None:
+                tags = classify_column(col)
+                agg = (rev.get("agg") or "SUM").upper()
+                if not forbid_for_agg(tags, agg):
+                    return rev["column"], agg
+        if safe_measure is not None:
+            return safe_measure["name"], "SUM"
+        if identifier_col is not None:
+            return identifier_col["name"], "COUNT_DISTINCT"
+        return None, "COUNT"
+
     if kind == "kpi":
-        out["column"] = rev.get("column") if rev else (quant.get("name") if quant else None)
-        out["agg"] = (rev.get("agg") if rev else "SUM") or "SUM"
+        col, agg = _kpi_measure()
+        out["column"] = col
+        out["agg"] = agg
     elif kind == "table":
-        out["column"] = rev.get("column") if rev else (quant.get("name") if quant else None)
-        out["agg"] = (rev.get("agg") if rev else "SUM") or "SUM"
-        out["dimension"] = entity or primary_dim or (nominal.get("name") if nominal else None)
+        col, agg = _kpi_measure()
+        out["column"] = col
+        out["agg"] = agg
+        out["dimension"] = entity or primary_dim or (
+            entity_col["name"] if entity_col else (dim_col["name"] if dim_col else None)
+        )
     elif kind == "chart":
-        out["column"] = rev.get("column") if rev else (quant.get("name") if quant else None)
-        out["agg"] = (rev.get("agg") if rev else "SUM") or "SUM"
-        out["primary_date"] = primary_date or (temporal.get("name") if temporal else None)
-        # Optional series
-        if primary_dim or (nominal and nominal.get("cardinality", 0) <= 8):
-            out["dimension"] = primary_dim or (nominal.get("name") if nominal else None)
+        col, agg = _kpi_measure()
+        out["column"] = col
+        out["agg"] = agg
+        out["primary_date"] = primary_date or (
+            temporal_col["name"] if temporal_col else None
+        )
+        if primary_dim or dim_col is not None:
+            out["dimension"] = primary_dim or (dim_col["name"] if dim_col else None)
     return out
 
 
