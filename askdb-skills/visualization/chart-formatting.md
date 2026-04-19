@@ -5,7 +5,7 @@ description: 'Currency: < $1,000 → $847 Currency K: $1K+ → $8.2K Currency M:
 legacy: true
 name: chart-formatting
 priority: 3
-tokens_budget: 1300
+tokens_budget: 1700
 ---
 
 # Chart Formatting — AskDB AgentEngine
@@ -43,6 +43,44 @@ Yearly:          2022, 2023, 2024
 ```
 
 **Auto-select label density:** Show max 12 labels on X-axis. Skip intermediate dates if > 12 points.
+
+## Locale-Aware Number Formatting (research-context §3.8 typography rule 3)
+
+Use `Intl.NumberFormat` for locale-aware compact notation rather than hardcoded K/M/B suffixes:
+
+```javascript
+// Compact notation (en-US): 8200000 → "8.2M"
+new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(8_200_000)
+// → "8.2M"
+
+// en-IN (lakh/crore): 8200000 → "82L" (82 lakh), 10000000 → "1Cr"
+new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 }).format(8_200_000)
+// → "82L"
+
+// Currency compact (en-US):
+new Intl.NumberFormat('en-US', {
+  style: 'currency', currency: 'USD',
+  notation: 'compact', maximumFractionDigits: 1
+}).format(8_200_000)
+// → "$8.2M"
+
+// Detect user locale from connection metadata or browser navigator.language
+```
+
+**Rule:** Detect user locale from connection profile or `navigator.language`. Default `en-US` if unknown. Do not hardcode suffix logic.
+
+## Tabular Numbers for Aligned Columns (research-context §3.8 typography rule)
+
+In data tables and tooltip columns where numbers need vertical alignment:
+
+```css
+.chart-value, .table-cell-numeric {
+  font-variant-numeric: tabular-nums;  /* Fixed-width digits for alignment */
+  font-feature-settings: "tnum";       /* Fallback for older browsers */
+}
+```
+
+Without `tabular-nums`, variable-width digits cause misaligned decimal points in columns.
 
 ## Legend Placement
 
@@ -100,11 +138,19 @@ Yearly:          2022, 2023, 2024
 
 **Format:**
 ```
-Target line:   Dashed line, amber color, labeled "$2M Target"
-Average line:  Dashed line, gray, labeled "Avg: $847K"
-Event marker:  Vertical dashed line, labeled with event name
-Forecast:      Dashed continuation of trend line (different opacity)
+Target line:    Dashed line, amber color, labeled "$2M Target"
+Average line:   Dashed line, gray, labeled "Avg: $847K"
+Event marker:   Vertical dashed line, labeled with event name
+Forecast:       Dashed continuation of trend line (different opacity)
+Anomaly callout: Filled circle + arrow + inline label "Spike: +42% — investigate"
 ```
+
+**Annotation placement rule (research-context §3.8 typography rule 4):** Annotate anomalies **directly on the chart**, not in a footnote. Footnotes are missed; inline annotations are seen.
+
+**Annotation copy format:**
+- Anomaly: `"[Event]: [magnitude] — [suggested action]"` (max 60 chars)
+- Reference line: `"[Label]: [value]"` (max 30 chars)
+- Forecast endpoint: `"[Period]: [value] (forecast)"` (max 40 chars)
 
 ## Responsive Tile Sizing
 
