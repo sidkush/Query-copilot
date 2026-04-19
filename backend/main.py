@@ -40,6 +40,17 @@ async def lifespan(app: FastAPI):
         start_digest_scheduler()
     except Exception as exc:
         logger.warning(f"Digest scheduler failed to start: {exc}")
+    # ── Skill library (Plan 3 P3T5) ─────────────────────────────
+    try:
+        from skill_library import SkillLibrary
+        from pathlib import Path as _Path
+        _skills_root = _Path(__file__).resolve().parent.parent / "askdb-skills"
+        app.state.skill_library = SkillLibrary(root=_skills_root)
+        logger.info(f"skill_library loaded: {len(app.state.skill_library.all_names())} skills")
+    except Exception as exc:
+        logger.warning(f"skill_library failed to load: {exc}")
+        app.state.skill_library = None
+    app.state.skill_collection = None  # wired in T9 if enabled
     # Start periodic cleanup_stale scheduler for query memory (every 6 hours)
     memory_cleanup_task = None
     try:
