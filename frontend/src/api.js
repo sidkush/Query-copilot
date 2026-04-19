@@ -891,6 +891,50 @@ export const api = {
   getSemanticFreshness: (connId) =>
     request(`/connections/${connId}/semantic/freshness`),
 
+  // ── TSS W3-A — preset-autogen save flow ──
+  // `saveDashboardBinding` persists the boundConnId + semanticTags patch
+  // via PATCH so the backend autogen pipeline can read them. Falls back
+  // to the existing PUT /dashboards/{id} endpoint (RESTful PATCH is not
+  // yet wired on the backend — see typed-seeking-spring plan) by using
+  // the same path with method: PATCH. The helper throws on non-2xx.
+  saveDashboardBinding: async (dashboardId, patch) => {
+    const res = await fetch(
+      `${API_BASE}/dashboards/${encodeURIComponent(dashboardId)}`,
+      {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify(patch),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`saveDashboardBinding failed: ${res.status}`);
+    }
+    const text = await res.text();
+    try {
+      return text ? JSON.parse(text) : {};
+    } catch {
+      return {};
+    }
+  },
+
+  // `autogenAllPresets` POSTs to the SSE endpoint and returns the raw
+  // response body as a `ReadableStream` — the store's inline SSE parser
+  // consumes it via `getReader()`. Throws on non-2xx.
+  autogenAllPresets: async (dashboardId, body) => {
+    const res = await fetch(
+      `${API_BASE}/dashboards/${encodeURIComponent(dashboardId)}/autogen-all-presets`,
+      {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(body),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`autogenAllPresets failed: ${res.status}`);
+    }
+    return res.body;
+  },
+
   // Health
   health: () => request("/health"),
 };

@@ -13,6 +13,9 @@ import AutogenProgressChip from "./AutogenProgressChip";
 // TSS W3-B — per-slot edit popover + advanced drawer (tail-mounted).
 import SlotEditPopover from "./SlotEditPopover";
 import ChartEditorDrawer from "./ChartEditorDrawer";
+// TSS W3-A — save-new-dashboard flow + semantic-tag wizard.
+import SaveDashboardDialog from "./SaveDashboardDialog";
+import SemanticTagWizard from "./SemanticTagWizard";
 const AnalystProLayout = lazy(() => import("./modes/AnalystProLayout"));
 import {
   BoardPackLayout,
@@ -429,7 +432,62 @@ export default function DashboardShell({
 
       {/* SP-2: Agent toggle FAB — bottom-right, glass style */}
       <AgentFAB />
+
+      {/* TSS W3-A — save-new-dashboard flow tail mounts. Both components
+          internally short-circuit on `open=false`; we still gate the mount
+          to keep the render tree flat. */}
+      <SaveDashboardFlowMount />
     </motion.div>
+  );
+}
+
+/**
+ * SaveDashboardFlowMount — TSS W3-A.
+ *
+ * Lifts the SaveDashboardDialog + SemanticTagWizard render decisions into
+ * a tiny sub-component so DashboardShell's main render body stays lean.
+ * Reads the two open flags + wizard context from the store.
+ */
+function SaveDashboardFlowMount() {
+  const saveDashboardDialogOpen = useStore((s) => s.saveDashboardDialogOpen);
+  const closeSaveDashboardDialog = useStore((s) => s.closeSaveDashboardDialog);
+  const semanticTagWizardOpen = useStore((s) => s.semanticTagWizardOpen);
+  const semanticTagWizardContext = useStore((s) => s.semanticTagWizardContext);
+  const closeSemanticTagWizard = useStore((s) => s.closeSemanticTagWizard);
+  const saveDashboardAndAutogen = useStore((s) => s.saveDashboardAndAutogen);
+
+  return (
+    <>
+      {saveDashboardDialogOpen && (
+        <SaveDashboardDialog
+          open={saveDashboardDialogOpen}
+          onClose={closeSaveDashboardDialog}
+        />
+      )}
+      {semanticTagWizardOpen && (
+        <SemanticTagWizard
+          open={semanticTagWizardOpen}
+          onClose={closeSemanticTagWizard}
+          dashboardId={semanticTagWizardContext?.dashboardId}
+          connId={semanticTagWizardContext?.connId}
+          schemaProfile={semanticTagWizardContext?.schemaProfile}
+          onComplete={(tags) => {
+            // Re-enter saveDashboardAndAutogen with collected tags so the
+            // autogen POST fires with them populated. We pass the
+            // existing dashboardId so the action short-circuits the
+            // create/bind steps (Path B).
+            if (semanticTagWizardContext) {
+              saveDashboardAndAutogen?.({
+                dashboardId: semanticTagWizardContext.dashboardId,
+                connId: semanticTagWizardContext.connId,
+                runSmartBuild: true,
+                tags: tags || {},
+              });
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 

@@ -13,8 +13,38 @@ import {
 } from './components/dashboard/freeform/lib/parameterOps';
 import { applyPreset } from './components/dashboard/presets/applyPreset';
 import { emptyDashboardForPreset } from './components/dashboard/freeform/lib/dashboardShape';
+import { api } from './api';
 
 let _themeTimer = null;
+
+// ── TSS W3-A — inline SSE parser ─────────────────────────────────────────
+// Consumes a ReadableStream of `data: {json}\n\n` frames and yields parsed
+// payloads. Malformed frames are silently skipped — the autogen pipeline
+// emits heartbeats + tool-level events, and we only care about the typed
+// ones. `saveDashboardAndAutogen` is the only consumer today; keeping the
+// helper inline (rather than lifting to a util file) matches the existing
+// `rebuildAllPresets` inline-stub convention.
+async function* _parseSSE(stream) {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const frames = buf.split('\n\n');
+    buf = frames.pop() || '';
+    for (const frame of frames) {
+      const line = frame.split('\n').find((l) => l.startsWith('data: '));
+      if (!line) continue;
+      try {
+        yield JSON.parse(line.slice(6));
+      } catch {
+        /* ignore malformed frames */
+      }
+    }
+  }
+}
 
 function findZoneById(dashboard, id) {
   if (!dashboard || !id) return null;
@@ -884,6 +914,219 @@ export const useStore = create((set, get) => ({
           : latest,
       });
     }
+  },
+
+  // ── TSS W3-A — Save-new-dashboard flow ──────────────────────────────
+  // `saveDashboardDialogOpen` toggles the SaveDashboardDialog modal;
+  // `semanticTagWizardOpen` toggles the 5-question wizard that writes
+  // into dashboard.semanticTags before autogen fires.
+  saveDashboardDialogOpen: false,
+  openSaveDashboardDialog: () => set({ saveDashboardDialogOpen: true }),
+  closeSaveDashboardDialog: () => set({ saveDashboardDialogOpen: false }),
+
+  semanticTagWizardOpen: false,
+  // `semanticTagWizardContext` carries { dashboardId, connId, schemaProfile }
+  // for the wizard; null when the wizard is not mounted.
+  semanticTagWizardContext: null,
+  openSemanticTagWizard: (ctx) =>
+    set({ semanticTagWizardOpen: true, semanticTagWizardContext: ctx || null }),
+  closeSemanticTagWizard: () =>
+    set({ semanticTagWizardOpen: false, semanticTagWizardContext: null }),
+
+  /**
+   * saveDashboardAndAutogen — the orchestrator behind the "Save & Build"
+   * button in SaveDashboardDialog.
+   *
+   * Two entry paths:
+   *   A. Initial call from the dialog — { name, connId, runSmartBuild,
+   *      tags: {} }. Creates the dashboard, persists the binding, opens
+   *      the wizard (when runSmartBuild && tags is empty).
+   *   B. Wizard onComplete — { dashboardId, connId, tags: {...} }.
+   *      Skips the create step; fires autogen directly with the
+   *      collected tags.
+   *
+   * Flow (path A):
+   *   1. Create dashboard server-side via api.createDashboard(name).
+   *   2. Persist boundConnId via api.saveDashboardBinding (best-effort).
+   *   3. Mirror into analystProDashboard.
+   *   4. If runSmartBuild and no tags yet → open wizard, return.
+   *   5. Otherwise pipe through the autogen SSE stream.
+   *
+   * Returns the dashboardId for convenience.
+   */
+  saveDashboardAndAutogen: async ({
+    name,
+    connId,
+    runSmartBuild = true,
+    tags = null,
+    dashboardId: dashboardIdIn = null,
+  }) => {
+    if (!connId) return null;
+
+    // Path B — wizard onComplete already has dashboardId + tags. Skip
+    // the create/bind steps and go straight to autogen.
+    let dashboardId = dashboardIdIn;
+    let serverDash = null;
+
+    if (!dashboardId) {
+      if (!name) return null;
+      // Step 1 — create the dashboard on the backend.
+      try {
+        serverDash = await api.createDashboard(name);
+        dashboardId = serverDash?.id || serverDash?.dashboard_id || null;
+      } catch (err) {
+        set({
+          analystProDashboard: {
+            ...(get().analystProDashboard || emptyDashboardForPreset('analyst-pro')),
+            bindingAutogenState: 'error',
+            bindingAutogenError: err?.message || 'Failed to create dashboard',
+          },
+        });
+        return null;
+      }
+
+      // Step 2 — persist the connection binding. Best-effort: if the
+      // backend does not yet accept PATCH for this field, we still
+      // mirror it locally so the UI proceeds.
+      if (dashboardId) {
+        try {
+          await api.saveDashboardBinding(dashboardId, {
+            boundConnId: connId,
+            semanticTags: tags || {},
+          });
+        } catch {
+          /* non-fatal — local state below still carries the binding */
+        }
+      }
+
+      // Step 3 — mirror into analystProDashboard.
+      const prior = get().analystProDashboard || emptyDashboardForPreset('analyst-pro');
+      const nextDash = {
+        ...prior,
+        ...(serverDash || {}),
+        id: dashboardId,
+        name,
+        boundConnId: connId,
+        semanticTags: tags || prior.semanticTags || {},
+        bindingAutogenState: runSmartBuild ? 'queued' : (prior.bindingAutogenState || null),
+      };
+      set({ analystProDashboard: nextDash, activeConnId: connId });
+
+      if (!runSmartBuild) return dashboardId;
+
+      // Step 4 — open wizard when we need tags. Wizard context carries
+      // dashboardId + name so onComplete can re-enter this action
+      // directly without going back through the dialog.
+      if (tags === null || (tags && Object.keys(tags).length === 0 && runSmartBuild)) {
+        let schemaProfile = null;
+        try {
+          schemaProfile = await api.getSchemaProfile(connId);
+        } catch {
+          /* non-fatal — wizard renders empty and user skips through */
+        }
+        set({
+          semanticTagWizardOpen: true,
+          semanticTagWizardContext: {
+            dashboardId,
+            connId,
+            schemaProfile,
+            dashboardName: name,
+          },
+        });
+        return dashboardId;
+      }
+    } else {
+      // Path B — carry new tags onto the existing dashboard record.
+      const prior = get().analystProDashboard || emptyDashboardForPreset('analyst-pro');
+      set({
+        analystProDashboard: {
+          ...prior,
+          id: dashboardId,
+          boundConnId: connId,
+          semanticTags: tags || {},
+          bindingAutogenState: 'queued',
+        },
+      });
+      // Persist tags onto the backend (best-effort).
+      try {
+        await api.saveDashboardBinding(dashboardId, {
+          semanticTags: tags || {},
+        });
+      } catch {
+        /* non-fatal */
+      }
+    }
+
+    // Step 5 — fire autogen. Tags may be {} (pure heuristics) — the
+    // backend falls back to schema-only inference.
+    set({
+      analystProDashboard: { ...get().analystProDashboard, bindingAutogenState: 'running' },
+      autogenProgress: { done: 0, total: 5, activePresets: [] },
+    });
+    try {
+      const stream = await api.autogenAllPresets(dashboardId, {
+        conn_id: connId,
+        semantic_tags: tags || {},
+      });
+      if (stream) {
+        for await (const payload of _parseSSE(stream)) {
+          const type = payload?.type;
+          if (type === 'progress' && payload.progress) {
+            get().setAutogenProgress(payload.progress);
+          } else if (type === 'tool_result') {
+            // Each completed preset emits a tool_result; bump the done
+            // counter if the payload carries it, otherwise increment.
+            const prog = get().autogenProgress;
+            const done = Number.isFinite(payload.progress?.done)
+              ? payload.progress.done
+              : Math.min((prog.done || 0) + 1, prog.total || 5);
+            get().setAutogenProgress({
+              done,
+              total: prog.total || 5,
+              activePresets: payload.progress?.activePresets || prog.activePresets || [],
+            });
+          } else if (type === 'complete') {
+            const latest = get().analystProDashboard;
+            set({
+              analystProDashboard: latest
+                ? { ...latest, bindingAutogenState: 'complete' }
+                : latest,
+            });
+          } else if (type === 'error') {
+            const latest = get().analystProDashboard;
+            set({
+              analystProDashboard: latest
+                ? {
+                    ...latest,
+                    bindingAutogenState: 'error',
+                    bindingAutogenError: payload?.message || 'Autogen error',
+                  }
+                : latest,
+            });
+          }
+        }
+        // Stream drained without an explicit `complete` frame — treat as
+        // success so the UI does not hang on 'running'.
+        const final = get().analystProDashboard;
+        if (final && final.bindingAutogenState === 'running') {
+          set({
+            analystProDashboard: { ...final, bindingAutogenState: 'complete' },
+          });
+        }
+      }
+    } catch (err) {
+      const latest = get().analystProDashboard;
+      set({
+        analystProDashboard: latest
+          ? {
+              ...latest,
+              bindingAutogenState: 'error',
+              bindingAutogenError: err?.message || String(err),
+            }
+          : latest,
+      });
+    }
+    return dashboardId;
   },
 
   analystProSize: { mode: 'automatic' },

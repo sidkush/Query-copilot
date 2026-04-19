@@ -223,9 +223,12 @@ export default function DashboardTopBar({
       {/* ═══ CENTER-RIGHT slot — DashboardPresetSwitcher (Wave 3) ═══ */}
       <DashboardPresetSwitcher />
 
-      {/* ═══ RIGHT: chip slot + Share + Save ═══ */}
+      {/* ═══ RIGHT: chip slot + New + Share + Save ═══ */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         {rightSlot}
+        {/* TSS W3-A — New Dashboard ghost button. Kicks the
+            SaveDashboardDialog → SemanticTagWizard → autogen flow. */}
+        <NewDashboardButton />
         {onShare && (
           <button
             onClick={onShare}
@@ -278,6 +281,53 @@ export default function DashboardTopBar({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * NewDashboardButton — TSS W3-A.
+ *
+ * Ghost "+ New Dashboard" trigger that lives in the right cluster to the
+ * left of Share. Fires the store's `openSaveDashboardDialog` action; the
+ * dialog itself is mounted in DashboardShell's tail.
+ */
+function NewDashboardButton() {
+  const openSaveDashboardDialog = useStore((s) => s.openSaveDashboardDialog);
+  return (
+    <button
+      type="button"
+      onClick={() => openSaveDashboardDialog?.()}
+      className="premium-btn premium-sheen"
+      data-testid="topbar-new-dashboard"
+      style={{
+        padding: '6px 12px',
+        borderRadius: 6,
+        background: 'transparent',
+        border: '1px solid var(--border-default)',
+        color: 'var(--text-secondary)',
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: 'pointer',
+        transition: 'all 150ms ease',
+        letterSpacing: '-0.01em',
+        fontFamily: TOKENS.fontDisplay,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-hover)';
+        e.currentTarget.style.color = 'var(--text-primary)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--border-default)';
+        e.currentTarget.style.color = 'var(--text-secondary)';
+      }}
+      aria-label="Create new dashboard"
+    >
+      <span aria-hidden="true" style={{ fontSize: 13, lineHeight: 1 }}>+</span>
+      New Dashboard
+    </button>
   );
 }
 
