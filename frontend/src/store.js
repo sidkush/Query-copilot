@@ -700,6 +700,128 @@ export const useStore = create((set, get) => ({
       },
     });
   },
+
+  // ── Typed-Seeking-Spring W2-C — preset-autogen progress ──
+  // Drives the DashboardShell progress chip + the RebuildButton confirm
+  // flow. `done` / `total` count preset-mode completion (0-5) and
+  // `activePresets` is the list currently being generated (used by the
+  // chip subtitle + by W2-A to know which SSE stream is in flight).
+  // Defaults to the empty shape so any component reading it pre-wiring
+  // sees "nothing running" and renders nothing.
+  autogenProgress: { done: 0, total: 0, activePresets: [] },
+  setAutogenProgress: (progress) => {
+    const safe = progress && typeof progress === 'object' ? progress : {};
+    set({
+      autogenProgress: {
+        done: Number.isFinite(safe.done) ? safe.done : 0,
+        total: Number.isFinite(safe.total) ? safe.total : 0,
+        activePresets: Array.isArray(safe.activePresets) ? safe.activePresets : [],
+      },
+    });
+  },
+
+  /**
+   * rebuildAllPresets — kick a full regeneration of every preset's
+   * binding set for the active dashboard. W2-A will land the
+   * `api.autogenAllPresets` helper + the POST /dashboards/{id}/
+   * autogen-all-presets route; this stub wires the SSE consumption so
+   * the UI can sit on top of it today. Until W2-A merges, this resolves
+   * without touching the server — it just flips bindingAutogenState
+   * through the lifecycle so the chip demo renders.
+   *
+   * TODO (W2-A): replace the inline fetch stub with
+   * `import { autogenAllPresets } from '../../api'` — that helper will
+   * POST to `/api/v1/dashboards/{id}/autogen-all-presets` and yield SSE
+   * events that update `autogenProgress` as each preset lands.
+   */
+  rebuildAllPresets: async ({ skipPinned = true } = {}) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    const dashboardId = dash.id || get().activeDashboardId;
+    const boundConnId = dash.boundConnId || get().activeConnId;
+    const semanticTags = dash.semanticTags || {};
+    if (!dashboardId || !boundConnId) return;
+
+    set({
+      analystProDashboard: { ...dash, bindingAutogenState: 'running' },
+      autogenProgress: { done: 0, total: 5, activePresets: [] },
+    });
+
+    try {
+      // TODO(W2-A): replace with api.autogenAllPresets(dashboardId, body).
+      // For now we issue a raw fetch so the wiring is complete and the
+      // SSE shape matches the backend contract.
+      const token = get().token;
+      const response = await fetch(
+        `/api/v1/dashboards/${encodeURIComponent(dashboardId)}/autogen-all-presets`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            conn_id: boundConnId,
+            semantic_tags: semanticTags,
+            skip_pinned: skipPinned,
+          }),
+        },
+      );
+
+      if (!response.ok || !response.body) {
+        throw new Error(`autogen-all-presets failed: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      // Basic SSE line reader — W2-A will ship a richer parser that
+      // reuses agent_routes' AgentStep shape; this just pulls "data: {…}"
+      // frames and forwards progress snapshots.
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const frame = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          const dataLine = frame
+            .split('\n')
+            .find((l) => l.startsWith('data:'));
+          if (!dataLine) continue;
+          try {
+            const payload = JSON.parse(dataLine.slice(5).trim());
+            if (payload?.type === 'progress' && payload.progress) {
+              get().setAutogenProgress(payload.progress);
+            }
+          } catch {
+            // Ignore malformed frames — W2-A hardens this path.
+          }
+        }
+      }
+
+      const latest = get().analystProDashboard;
+      set({
+        analystProDashboard: latest
+          ? { ...latest, bindingAutogenState: 'complete' }
+          : latest,
+      });
+    } catch (err) {
+      const latest = get().analystProDashboard;
+      set({
+        analystProDashboard: latest
+          ? {
+              ...latest,
+              bindingAutogenState: 'error',
+              bindingAutogenError: err?.message || String(err),
+            }
+          : latest,
+      });
+    }
+  },
+
   analystProSize: { mode: 'automatic' },
   setAnalystProSize: (size) => {
     const dash = get().analystProDashboard;
