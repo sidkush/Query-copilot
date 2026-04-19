@@ -5,19 +5,19 @@ description: The skill library uses ChromaDB as a semantic retrieval layer. Inst
 legacy: true
 name: chromadb-retrieval-integration
 priority: 3
-tokens_budget: 2300
+tokens_budget: 2400
 ---
 
 # ChromaDB Retrieval Integration — AskDB AgentEngine
 
 ## Architecture Overview
 
-The skill library uses ChromaDB as a semantic retrieval layer. Instead of loading all 31+ markdown files into every system prompt (expensive, slow), the agent retrieves only the 2-4 most relevant skill files per query.
+The skill library uses ChromaDB as a semantic retrieval layer. Instead of loading all 49 markdown files into every system prompt (expensive, slow), the agent retrieves only the 2-4 most relevant skill files per query.
 
 ```
 User query
     ↓
-Query embedding (all-MiniLM-L6-v2 or similar)
+Query embedding (pure-Python 384-dim n-gram hash; no ML deps; ~5-10ms — research-context §1.3)
     ↓
 ChromaDB similarity search (6 collections)
     ↓
@@ -205,31 +205,54 @@ def get_relevant_skills(
     unique_chunks = deduplicate(retrieved_chunks)
     return unique_chunks[:top_k * 3]  # Each skill averages 3 chunks
 
-def detect_domain(schema_context: dict) -> str:
-    """Infer data domain from table/column names in schema."""
-    table_names = " ".join(schema_context.get("tables", []))
-    column_names = " ".join(schema_context.get("columns", []))
-    all_names = f"{table_names} {column_names}".lower()
-    
-    DOMAIN_SIGNALS = {
-        "sales": ["opportunity", "deal", "pipeline", "lead", "account", "win_rate", "close_date"],
-        "product": ["event", "session", "retention", "dau", "mau", "feature", "experiment"],
-        "finance": ["gl_entry", "invoice", "budget", "mrr", "arr", "revenue_recognition"],
-        "marketing": ["campaign", "utm", "impression", "click", "lead", "mql", "sql"],
-        "ecommerce": ["order", "sku", "cart", "inventory", "return", "fulfillment"],
-        "hr": ["employee", "headcount", "tenure", "attrition", "compensation"],
-        "operations": ["incident", "ticket", "uptime", "latency", "sla", "queue"],
-        "iot": ["sensor", "device", "telemetry", "reading", "measurement"],
-    }
-    
-    domain_scores = {}
-    for domain, signals in DOMAIN_SIGNALS.items():
-        score = sum(1 for signal in signals if signal in all_names)
-        if score > 0:
-            domain_scores[domain] = score
-    
-    return max(domain_scores, key=domain_scores.get) if domain_scores else None
+# detect_domain() is already implemented at backend/behavior_engine.py:193
+# Returns: "sales"|"product"|"finance"|"marketing"|"ecommerce"|"hr"|"operations"|"iot"|"general"
+# Do NOT re-implement — call behavior_engine.detect_domain(schema_info) directly.
 ```
+
+## Target Hybrid Retrieval Architecture (research-context §3.2 — Plan 3 implementation)
+
+> **Status:** Not yet implemented. Current system uses pure semantic (n-gram hash) retrieval only. This section documents the Plan 3 target architecture for skill-library retrieval quality improvement.
+
+### Why hybrid retrieval (§3.2 rule 1)
+
+Pure semantic search loses on exact column names and enum literals (e.g., `order_status = 'shipped'`). BM25 keyword search finds exact tokens but misses paraphrases. Hybrid = both.
+
+**Target pipeline:**
+```
+User query
+  → BM25 index (exact token match, per-connection)  ─┐
+  → Dense embedding (n-gram hash, current)            ├─ Fuse scores (RRF)
+  → Fused top-50 results                              ┘
+  → Reranker (cross-encoder: bge-reranker-v2 or Cohere Rerank 3.5)
+  → Top-5 chunks injected into context
+```
+
+Recall@5 with reranking: ~0.816 vs 0.695 hybrid-only (research-context §3.2 source).
+
+### HyDE warning — skip for schema retrieval (§3.2 rule 3)
+
+HyDE (Hypothetical Document Embeddings) hallucinates column names when generating hypothetical schema documents. **Never use HyDE for schema retrieval.** HyDE is acceptable for NL insight queries but not for table/column name lookup.
+
+### Contextual retrieval — prepend chunk summary (§3.2 rule 5)
+
+Before embedding each skill-file chunk, prepend a one-sentence context summary:
+
+```python
+# During ingestion (Plan 3 implementation)
+context_prefix = f"This chunk is from {category}/{filename}, section '{section_header}'. "
+embedded_text = context_prefix + chunk_text
+# Reduces retrieval failures by ~35% (Anthropic Contextual Retrieval Cookbook)
+```
+
+### Parent-child chunking for schema tables (§3.2 rule 4)
+
+```
+Child chunk  = column description (embed this for retrieval)
+Parent chunk = full DDL + sample rows + FK context (return this to agent)
+```
+
+Retrieve by child similarity, but inject the parent into the context window. Prevents fragmenting FK context across separate chunks.
 
 ## Context Assembly
 
