@@ -248,10 +248,20 @@ class AnthropicProvider(ModelProvider):
                 "Please retry in 30 seconds."
             )
 
-    def _build_system(self, system_text: str, cache: bool = True) -> list:
-        """Wrap system prompt with ephemeral cache control if caching is enabled."""
+    def _build_system(self, system_text, cache: bool = True) -> list:
+        """Wrap system prompt with ephemeral cache control if caching is enabled.
+
+        Plan 4 T4: accepts both:
+          - str: legacy path, wrap in single cached block.
+          - list[dict]: block path (agent_engine._build_system_payload).
+            Each block already has `type` + `text` + optional `cache_control`
+            with explicit ttl. Pass through unchanged so the 4-breakpoint
+            TTL policy from caching-breakpoint-policy.md is respected.
+        """
         if not system_text:
             return []
+        if isinstance(system_text, list):
+            return system_text  # already Anthropic-shaped blocks
         block = {"type": "text", "text": system_text}
         if cache and self.supports_prompt_caching():
             block["cache_control"] = {"type": "ephemeral"}
