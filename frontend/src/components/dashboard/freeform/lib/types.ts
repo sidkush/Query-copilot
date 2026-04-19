@@ -139,6 +139,73 @@ export const FIXED_PRESETS: Record<Exclude<FixedPreset, 'custom'>, { width: numb
   phone: { width: 375, height: 667 },
 };
 
+/**
+ * Connected-data binding for a themed preset slot. Each preset layout
+ * declares its slots in `modes/presets/slots.ts`; the autogen backend
+ * fills these, and users edit them via the SlotEditPopover.
+ *
+ * Typed-Seeking-Spring Phase 1.
+ */
+export type TileBindingAgg =
+  | 'SUM'
+  | 'AVG'
+  | 'COUNT'
+  | 'MIN'
+  | 'MAX'
+  | 'COUNT_DISTINCT';
+
+export type TileBindingKind = 'kpi' | 'chart' | 'table' | 'narrative';
+
+export type TileBinding = {
+  /** Points into `dashboard.tiles` for kpi/chart/table kinds. Absent
+   *  on narrative bindings (they render from `renderedMarkdown`). */
+  tileId?: string;
+  slotId: string;
+  kind: TileBindingKind;
+  /** Measure reference — column + aggregation. Present on kpi/chart/table
+   *  bindings that aggregate a numeric field. */
+  measure?: { column: string; agg: TileBindingAgg };
+  /** Primary dimension for grouping / x-axis / rank. */
+  dimension?: string;
+  /** Optional single-condition filter applied before aggregation. */
+  filter?: {
+    column: string;
+    op: 'eq' | 'in' | 'gt' | 'lt';
+    value: unknown;
+  };
+  /** Narrative-only: markdown with `{variable}` tokens referencing
+   *  other slots' values. */
+  markdownTemplate?: string;
+  /** Narrative-only: the LLM's last-generated final copy, with
+   *  variables resolved. */
+  renderedMarkdown?: string;
+  /** When true, Rebuild skips this slot so user edits survive. */
+  isUserPinned?: boolean;
+  /** When the autogen couldn't pick a field (e.g. no numeric column
+   *  matched), the slot surfaces a "Bind data" CTA instead of silently
+   *  rendering the fallback. */
+  unresolved?: boolean;
+};
+
+/** Optional semantic hints a user gave the autogen about their schema.
+ *  Captured once per dashboard via the SemanticTagWizard and reused on
+ *  every Rebuild. Every field is skippable — the autogen falls back to
+ *  pure heuristics when a tag is absent. */
+export type DashboardSemanticTags = {
+  primaryDate?: string;
+  revenueMetric?: { column: string; agg: TileBindingAgg };
+  primaryDimension?: string;
+  entityName?: string;
+  timeGrain?: 'day' | 'week' | 'month' | 'quarter';
+};
+
+export type BindingAutogenState =
+  | 'pending'
+  | 'running'
+  | 'complete'
+  | 'partial'
+  | 'error';
+
 export type Dashboard = {
   schemaVersion: 'askdb/dashboard/v1';
   id: string;
@@ -168,6 +235,22 @@ export type Dashboard = {
   sets: unknown[];
   actions: unknown[];
   globalStyle?: { font?: string; background?: string };
+  /**
+   * Typed-Seeking-Spring Phase 1 — connection-bound dashboard save:
+   * every saved dashboard pins to exactly one DB connection id.
+   * Reopening the dashboard under a different active connection
+   * prompts the user to switch via ConnectionMismatchBanner.
+   */
+  boundConnId?: string;
+  /** Semantic hints captured by the SemanticTagWizard on save. */
+  semanticTags?: DashboardSemanticTags;
+  /** Per-preset slot → binding map. Populated by the autogen
+   *  orchestrator + edited live by SlotEditPopover. Absent entries
+   *  render from the preset slot descriptor's static fallback. */
+  presetBindings?: Record<string, Record<string, TileBinding>>;
+  /** Autogen lifecycle state; drives the DashboardShell progress chip. */
+  bindingAutogenState?: BindingAutogenState;
+  bindingAutogenError?: string;
 };
 
 // Plan 6a — Device layouts (Build_Tableau.md §IX.5, Appendix A.13, E.15).
