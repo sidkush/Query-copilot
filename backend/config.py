@@ -272,6 +272,15 @@ class Settings(BaseSettings):
     # Demo login guard — must be explicitly enabled
     DEMO_ENABLED: bool = Field(default=False)
 
+    # ── Skill Library (Plan 3) ────────────────────────────
+    SKILL_LIBRARY_ENABLED: bool = Field(default=False)
+    SKILL_LIBRARY_PATH: str = Field(default="../askdb-skills")
+    SKILL_MAX_RETRIEVED: int = Field(default=3)
+    SKILL_MAX_TOTAL_TOKENS: int = Field(default=20000)
+    SKILL_ALWAYS_ON_TOKENS_CAP: int = Field(default=7000)
+    CORRECTION_QUEUE_ENABLED: bool = Field(default=True)
+    SKILL_DRIFT_KL_THRESHOLD: float = Field(default=0.3)
+
     model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @model_validator(mode="after")
