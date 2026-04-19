@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-SkillSource = Literal["always_on", "deterministic", "rag", "bundle"]
+SkillSource = Literal["always_on", "deterministic", "rag", "bundle", "memory_cache"]
 
 
 @dataclass(frozen=True, slots=True)

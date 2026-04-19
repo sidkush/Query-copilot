@@ -171,6 +171,39 @@ class SkillRouter:
             return None
         return _DOMAIN_MAP.get(domain)
 
+    def add_memory_hits(
+        self,
+        base_hits: list,
+        memory_hits: list,
+        weight_cap: float = 0.3,
+    ) -> list:
+        """Plan 4 T7: merge past-query-memory evidence with a hard weight cap.
+
+        Prevents echo-chamber per learn-from-corrections.md §Cap retrieval
+        echo: memory-sourced hits contribute at most `weight_cap` share of
+        total token weight. Re-tags accepted hits as source='memory_cache'
+        for audit clarity.
+        """
+        base_tokens = sum(h.tokens for h in base_hits)
+        if weight_cap >= 1.0:
+            max_memory = sum(h.tokens for h in memory_hits)
+        else:
+            # memory_tokens <= weight_cap * (base_tokens + memory_tokens)
+            # → memory_tokens <= base_tokens * weight_cap / (1 - weight_cap)
+            max_memory = int(base_tokens * weight_cap / max(1e-9, 1.0 - weight_cap))
+
+        kept: list = list(base_hits)
+        spent = 0
+        for h in sorted(memory_hits, key=lambda m: m.tokens):
+            if spent + h.tokens > max_memory:
+                continue
+            kept.append(SkillHit(
+                name=h.name, priority=h.priority, tokens=h.tokens,
+                source="memory_cache", content=h.content, path=h.path,
+            ))
+            spent += h.tokens
+        return kept
+
     def _enforce_caps(self, hits: list[SkillHit]) -> list[SkillHit]:
         hits.sort(key=lambda h: (h.priority, h.name))
         kept: list[SkillHit] = []
