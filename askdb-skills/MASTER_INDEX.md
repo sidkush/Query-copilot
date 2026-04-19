@@ -1,0 +1,198 @@
+# AskDB Skill Library — Master Index
+**Version:** 1.0 | **Files:** 33 | **Collections:** 6
+**Built:** April 2026 | **Covers:** BigQuery, Snowflake, PostgreSQL, DuckDB, MySQL, SQL Server, Redshift, Databricks
+
+---
+
+## Quick Reference: File Map
+
+```
+askdb-skills/
+├── core/                              # Always partially loaded
+│   ├── security-rules.md             ★ Priority 1 — always in context
+│   ├── agent-identity-response-format.md  ★ Priority 1 — always in context
+│   ├── confirmation-thresholds.md    ★ Priority 1 — always in context
+│   ├── error-handling.md             Priority 2
+│   ├── query-lifecycle-budget.md     Priority 2
+│   └── chromadb-retrieval-integration.md  (this file's companion — for devs)
+│
+├── sql/                               # Retrieved on query generation
+│   ├── schema-profiling.md           FK inference, cardinality, naming patterns
+│   ├── join-intelligence.md          Join types, fan-out, many-to-many, self-ref
+│   ├── aggregation-rules.md          COUNT DISTINCT, HAVING, pre-agg, division
+│   ├── time-intelligence.md          Period definitions, POP comparison, timezones
+│   ├── null-handling.md              NULL semantics, COALESCE, soft deletes
+│   ├── window-functions.md           ROWS vs RANGE, LAG/LEAD, top-N per group
+│   ├── ambiguity-resolution.md       Metric conflicts, pronouns, negation
+│   ├── calculation-patterns.md       MRR, churn, cohort, LTV, funnel SQL
+│   ├── performance-optimization.md   Tier selection, anti-patterns, pushdown
+│   ├── sql-validation-rules.md       6-layer validator, what each layer catches
+│   └── data-types-and-subqueries.md  Currency, casting, CTEs, EXISTS, recursive
+│
+├── visualization/                     # Retrieved on chart/dashboard creation
+│   ├── chart-selection.md            Decision tree: data shape → chart type
+│   ├── dashboard-aesthetics.md       10-second rule, layout hierarchy, color rules
+│   ├── dashboard-layout-patterns.md  6 layout templates, grid system, tile sizing
+│   ├── insight-generation.md         Summary structure, headlines, anomaly language
+│   ├── chart-formatting.md           Axis format, tooltips, labels, annotations
+│   ├── color-system.md               All 4 theme palettes with CSS variables
+│   └── vizql-capabilities-progressive-disclosure.md  RSR, 30 calcs, LOD, WebGL
+│
+├── agent/                             # Retrieved for complex agentic tasks
+│   ├── dashboard-build-protocol.md   5-phase build sequence, quality checklist
+│   ├── multi-step-planning.md        When to plan, budget allocation, failure handling
+│   ├── voice-interaction-patterns.md  Voice vs text, pronoun resolution, TTS format
+│   ├── session-memory-protocol.md    SQLite persistence, resume protocol, preferences
+│   ├── context-compaction-teach-by-correction.md  What to compact, learning rules
+│   └── screenshot-interpretation.md  Layout detection, panel mapping, sketch reading
+│
+├── dialects/                          # One retrieved per connected DB engine
+│   ├── dialect-bigquery.md           QUALIFY, APPROX functions, partition cost
+│   ├── dialect-snowflake-postgres-duckdb.md  VARIANT, JSONB, ASOF, PIVOT
+│   └── dialect-mysql-sqlserver-redshift-databricks.md  DATE_FORMAT, T-SQL, Delta
+│
+└── domain/                            # One retrieved per detected data domain
+    ├── domain-sales.md               CRM schema, funnel, pipeline, win rate SQL
+    ├── domain-product-finance-marketing-ecommerce.md  DAU, P&L, CAC, GMV SQL
+    ├── domain-hr-operations.md       Headcount, attrition, MTTR, SLA SQL
+    └── domain-iot-timeseries.md      Downsampling, ASOF, gap detection, anomaly SQL
+```
+
+---
+
+## Retrieval Trigger Matrix
+
+Use this to decide which collections to query for a given user action:
+
+| User action | Core | SQL | Viz | Agent | Dialect | Domain |
+|-------------|------|-----|-----|-------|---------|--------|
+| Single NL query | Always | ✅ | — | — | ✅ | ✅ |
+| Dashboard build | Always | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Chart type change | Always | — | ✅ | — | — | — |
+| Voice command | Always | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Schema question | Always | ✅ | — | — | ✅ | — |
+| Error recovery | Always | ✅ | — | ✅ | ✅ | — |
+| Session resume | Always | — | — | ✅ | — | — |
+| Screenshot upload | Always | — | ✅ | ✅ | — | — |
+| Export request | Always | — | — | — | ✅ | — |
+
+---
+
+## Files by Scenario — Fast Reference
+
+### Scenario: "Show me revenue by region"
+Load: `aggregation-rules.md` + `time-intelligence.md` + `chart-selection.md` + dialect file
+
+### Scenario: "Build me a sales dashboard"
+Load: `dashboard-build-protocol.md` + `dashboard-layout-patterns.md` + `dashboard-aesthetics.md` + `domain-sales.md` + `chart-selection.md` + dialect file
+
+### Scenario: "Why is this chart wrong?" (user correcting agent)
+Load: `aggregation-rules.md` + `null-handling.md` + `sql-validation-rules.md` + `context-compaction-teach-by-correction.md`
+
+### Scenario: Voice command in LiveOps mode
+Load: `voice-interaction-patterns.md` + `domain-hr-operations.md` (or ops domain) + dialect file + `chart-formatting.md`
+
+### Scenario: Screenshot uploaded — "Rebuild this Tableau dashboard"
+Load: `screenshot-interpretation.md` + `dashboard-build-protocol.md` + `dashboard-layout-patterns.md` + `chart-selection.md`
+
+### Scenario: Complex join failure
+Load: `join-intelligence.md` + `schema-profiling.md` + `sql-validation-rules.md` + dialect file
+
+### Scenario: IoT sensor data question
+Load: `domain-iot-timeseries.md` + `performance-optimization.md` + `time-intelligence.md` + dialect file
+
+---
+
+## Priority System
+
+```
+Priority 1 (ALWAYS in context — small, critical):
+  • security-rules.md (~2K tokens)
+  • agent-identity-response-format.md (~1.5K tokens)
+  • confirmation-thresholds.md (~1.5K tokens)
+  Total always-on: ~5K tokens
+
+Priority 2 (Retrieved frequently):
+  • aggregation-rules.md
+  • null-handling.md
+  • chart-selection.md
+  • error-handling.md
+  • query-lifecycle-budget.md
+
+Priority 3 (Retrieved on specific triggers):
+  • Everything else
+```
+
+---
+
+## Maintenance Guide
+
+### When to update a skill file:
+- **After any production error the skill should have prevented** → Add to Examples section of relevant file
+- **After user correction that reveals a new pattern** → Add to Examples + consider generalizing rule
+- **After adding a new chart type or tile type** → Update `chart-selection.md` and `vizql-capabilities-progressive-disclosure.md`
+- **After adding a new database engine** → Create new dialect file OR extend existing
+
+### How to add a new skill file:
+1. Create `.md` file in appropriate collection folder
+2. Follow structure: Title → Rules/Guidelines → Examples (mandatory)
+3. Run `ingest_skill_library()` to update ChromaDB
+4. Add to this index (file map + retrieval trigger matrix)
+5. Test retrieval: run 3 queries that should trigger it, verify it's retrieved
+
+### File naming convention:
+```
+{category}-{topic}.md           # sql/aggregation-rules.md
+dialect-{engine}.md             # dialects/dialect-bigquery.md  
+domain-{domain}.md              # domain/domain-sales.md
+```
+
+---
+
+## Token Budget Reference
+
+| File | Approx tokens | Load cost |
+|------|--------------|-----------|
+| Always-on core (3 files) | ~5,000 | Every query |
+| Typical SQL file | ~2,000–3,000 | Per query |
+| Typical viz file | ~2,000–2,500 | Per chart |
+| Typical domain file | ~2,000–3,000 | Per session |
+| Full library (all 33 files) | ~80,000 | Never load all at once |
+| Typical session load (smart retrieval) | ~15,000–20,000 | 4-6 files + always-on |
+
+**Context budget math:**
+- Claude context: 200K tokens
+- Always-on skills: 5K
+- Retrieved skills: 15K
+- User conversation: 50K (long session)
+- Available for data/schema/results: ~130K ✅
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | April 2026 | Initial release — 33 files, 6 collections |
+
+---
+
+## Contribution Notes
+
+Every file follows this structure:
+```markdown
+# [Topic Name] — AskDB AgentEngine
+
+## [Section 1]
+[Rules/guidance]
+
+## [Section 2]
+[Rules/guidance with SQL examples where applicable]
+
+---
+
+## Examples
+[3-5 concrete input → output examples]
+```
+
+The **Examples section is mandatory** in every file. This is what makes retrieval work — the embedding model matches user query language to example language, not abstract rule language.
