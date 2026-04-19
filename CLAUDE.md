@@ -40,3 +40,13 @@ DB enforcement, and 6-layer SQL validation. Active branch:
   area's `.md` file first. Do not guess.
 - Every numeric constant lives in `config-defaults.md`. If you touch
   a value in code, update that file in the same commit.
+
+## VizQL codegen
+
+- `make proto` regenerates Python (`backend/vizql/proto/`) + TS
+  (`frontend/.../vizSpecGenerated.ts`) bindings from
+  `backend/proto/askdb/vizdataservice/v1.proto`. Windows (no GNU
+  make): `bash backend/scripts/regen_proto.sh` +
+  `bash frontend/scripts/regen_proto.sh` (or `npm run proto` from
+  `frontend/`). Edit the `.proto`, run the codegen, commit the diff
+  together. See `backend/vizql/README.md`.
