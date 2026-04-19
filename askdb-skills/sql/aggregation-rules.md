@@ -95,6 +95,18 @@ LEFT JOIN monthly_targets t ON mr.month = t.month;
 
 **When NULLs should be zero:** Use `COALESCE(column, 0)` before aggregating when nulls represent "no activity" (e.g., 0 sales days).
 
+**Counting NULLs explicitly** (data quality check; research-context §3.2 audit pattern):
+```sql
+SELECT
+  COUNT(*)                         AS total_rows,
+  COUNT(amount)                    AS rows_with_amount,
+  COUNT(*) - COUNT(amount)         AS missing_amount_count,
+  ROUND(
+    (COUNT(*) - COUNT(amount)) * 100.0 / NULLIF(COUNT(*), 0), 1
+  )                                AS missing_pct
+FROM orders;
+```
+
 ## Division — Always Protect Against Zero
 
 ```sql
