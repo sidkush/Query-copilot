@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: Does an explicit FK constraint exist? YES → Use it directly. Highest
+  confidence. NO → Run column name inference (see schema-profiling.md) → If...
+legacy: true
+name: join-intelligence
+priority: 3
+tokens_budget: 1100
+---
+
 # Join Intelligence — AskDB AgentEngine
 
 ## Join Decision Tree

@@ -1,3 +1,13 @@
+---
+applies_to: multi-step-agent, dashboard-build
+description: 'Phase 1: UNDERSTAND 1a. Parse user intent — what is the business question?
+  1b. Identify data domain (sales, product, finance, marketing, ops) 1c....'
+legacy: true
+name: dashboard-build-protocol
+priority: 3
+tokens_budget: 1400
+---
+
 # Dashboard Build Protocol — AskDB AgentEngine
 
 ## The Sequence (Never Skip Steps)

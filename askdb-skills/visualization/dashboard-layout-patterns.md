@@ -1,3 +1,12 @@
+---
+applies_to: chart-selection, dashboard-build
+description: Use these as starting points. Agent selects based on detected data domain.
+legacy: true
+name: dashboard-layout-patterns
+priority: 3
+tokens_budget: 1300
+---
+
 # Dashboard Layout Patterns — AskDB AgentEngine
 
 ## Standard Layout Templates

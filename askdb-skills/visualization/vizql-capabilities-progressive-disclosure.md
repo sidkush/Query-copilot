@@ -1,3 +1,13 @@
+---
+applies_to: chart-selection, dashboard-build
+description: 'The RSR dynamically selects the renderer based on data volume and GPU
+  tier:'
+legacy: true
+name: vizql-capabilities-progressive-disclosure
+priority: 3
+tokens_budget: 1600
+---
+
 # VizQL v0.9 Capabilities — AskDB AgentEngine
 
 ## Renderer Selection (RSR — Render Strategy Router)

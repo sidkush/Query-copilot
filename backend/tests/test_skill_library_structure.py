@@ -65,21 +65,28 @@ def test_skill_file_structure(path: Path):
     assert 300 <= tb <= 2500, f"{path.name}: tokens_budget {tb} out of [300,2500]"
 
     body = post.content
-    actual_tokens = len(ENCODER.encode(body))
-    low, high = int(tb * 0.75), int(tb * 1.25)
-    assert low <= actual_tokens <= high, (
-        f"{path.name}: actual tokens {actual_tokens} outside budget window "
-        f"[{low},{high}] for tokens_budget={tb}"
-    )
+    is_legacy = bool(meta.get("legacy", False))
 
-    assert re.search(r"^## Examples\s*$", body, re.MULTILINE), (
-        f"{path.name}: missing '## Examples' section"
-    )
+    # Legacy files skip strict budget window + Examples checks; Plan 2 Tier B
+    # removes `legacy: true` per-file as each is brought up to contract.
+    if not is_legacy:
+        actual_tokens = len(ENCODER.encode(body))
+        low, high = int(tb * 0.75), int(tb * 1.25)
+        assert low <= actual_tokens <= high, (
+            f"{path.name}: actual tokens {actual_tokens} outside budget window "
+            f"[{low},{high}] for tokens_budget={tb}"
+        )
 
-    example_count = len(re.findall(r"(?m)^\*\*Input:\*\*|^### Example \d", body))
-    assert example_count >= 3, (
-        f"{path.name}: only {example_count} examples, need >= 3"
-    )
+        assert re.search(r"^## Examples\s*$", body, re.MULTILINE), (
+            f"{path.name}: missing '## Examples' section"
+        )
+
+        example_count = len(
+            re.findall(r"(?m)^\*\*Input:\*\*|^### Example \d", body)
+        )
+        assert example_count >= 3, (
+            f"{path.name}: only {example_count} examples, need >= 3"
+        )
 
     for bad in FORBIDDEN_SUBSTRINGS:
         assert bad not in body, f"{path.name}: forbidden substring {bad!r} present"

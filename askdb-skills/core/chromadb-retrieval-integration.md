@@ -1,3 +1,13 @@
+---
+applies_to: always-on
+description: The skill library uses ChromaDB as a semantic retrieval layer. Instead
+  of loading all 31+ markdown files into every system prompt (expensive,...
+legacy: true
+name: chromadb-retrieval-integration
+priority: 3
+tokens_budget: 2300
+---
+
 # ChromaDB Retrieval Integration — AskDB AgentEngine
 
 ## Architecture Overview

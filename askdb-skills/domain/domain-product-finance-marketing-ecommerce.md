@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation, chart-selection
+description: sql -- DAU / MAU / WAU SELECT DATE_TRUNC('day', event_date) as day, COUNT(DISTINCT
+  user_id) as dau FROM events GROUP BY day ORDER BY day;
+legacy: true
+name: domain-product-finance-marketing-ecommerce
+priority: 3
+tokens_budget: 2200
+---
+
 # Domain: Product Analytics — AskDB AgentEngine
 
 ## Auto-Detection Signals

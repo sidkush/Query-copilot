@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: '| Use case | Window function | GROUP BY | |----------|----------------|----------|
+  | Running total while keeping row detail | ✅ SUM() OVER | ❌...'
+legacy: true
+name: window-functions
+priority: 3
+tokens_budget: 1400
+---
+
 # Window Functions — AskDB AgentEngine
 
 ## When to Use Window Functions vs GROUP BY

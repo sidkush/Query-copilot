@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: Row count estimate > 100M AND aggregation only → DataFusion pushdown
+  to warehouse Row count estimate > 1M AND < 100M → DuckDB TurboTier twin Row...
+legacy: true
+name: performance-optimization
+priority: 3
+tokens_budget: 1200
+---
+
 # Performance Optimization — AskDB AgentEngine
 
 ## Tier Selection Logic (Before Writing SQL)

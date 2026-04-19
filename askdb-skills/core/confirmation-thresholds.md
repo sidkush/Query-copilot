@@ -1,3 +1,12 @@
+---
+applies_to: always-on
+description: 'These actions REQUIRE explicit user confirmation before proceeding:'
+legacy: true
+name: confirmation-thresholds
+priority: 1
+tokens_budget: 700
+---
+
 # Confirmation Thresholds — AskDB AgentEngine
 
 ## Always Confirm Before Acting (High-Stakes)

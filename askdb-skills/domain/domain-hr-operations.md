@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation, chart-selection
+description: 'HR data contains sensitive PII. Apply enhanced masking: - `salary`,
+  `compensation`, `pay_rate` → Aggregate only, never individual values unless...'
+legacy: true
+name: domain-hr-operations
+priority: 3
+tokens_budget: 1300
+---
+
 # Domain: HR Analytics — AskDB AgentEngine
 
 ## Auto-Detection Signals

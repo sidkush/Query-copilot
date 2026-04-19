@@ -1,3 +1,13 @@
+---
+applies_to: multi-step-agent, dashboard-build
+description: 'python # Trigger compaction when: # 1. Tool call log exceeds 40 entries
+  in working memory # 2. Estimated token count of context > 60% of model...'
+legacy: true
+name: context-compaction-teach-by-correction
+priority: 3
+tokens_budget: 2000
+---
+
 # Context Compaction Rules — AskDB AgentEngine
 
 ## When Compaction Triggers

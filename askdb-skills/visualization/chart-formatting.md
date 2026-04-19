@@ -1,3 +1,13 @@
+---
+applies_to: chart-selection, dashboard-build
+description: 'Currency: < $1,000 → $847 Currency K: $1K+ → $8.2K Currency M: $1M+
+  → $8.2M'
+legacy: true
+name: chart-formatting
+priority: 3
+tokens_budget: 1300
+---
+
 # Chart Formatting — AskDB AgentEngine
 
 ## Axis Formatting

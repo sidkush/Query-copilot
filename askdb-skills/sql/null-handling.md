@@ -1,3 +1,12 @@
+---
+applies_to: sql-generation
+description: 'Understanding WHY a value is NULL changes how you handle it:'
+legacy: true
+name: null-handling
+priority: 2
+tokens_budget: 1100
+---
+
 # NULL Handling — AskDB AgentEngine
 
 ## The Three Meanings of NULL

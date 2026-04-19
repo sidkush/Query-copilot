@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: Run these metadata queries immediately on connection. Cache results in
+  TurboTier.
+legacy: true
+name: schema-profiling
+priority: 3
+tokens_budget: 1100
+---
+
 # Schema Profiling — AskDB AgentEngine
 
 ## What to Extract on First Connection

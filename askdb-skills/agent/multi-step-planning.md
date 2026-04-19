@@ -1,3 +1,13 @@
+---
+applies_to: multi-step-agent, dashboard-build
+description: Always plan first when:** - Building a dashboard (multiple tiles) - Executing
+  more than 5 tool calls - Request involves multiple data sources -...
+legacy: true
+name: multi-step-planning
+priority: 3
+tokens_budget: 1200
+---
+
 # Multi-Step Planning — AskDB AgentEngine
 
 ## When to Plan Before Acting

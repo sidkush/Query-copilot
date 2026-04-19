@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: Year-over-Year Growth Rate (current_period - prior_year_period) / NULLIF(prior_year_period,
+  0) * 100
+legacy: true
+name: calculation-patterns
+priority: 3
+tokens_budget: 1400
+---
+
 # Calculation Patterns — AskDB AgentEngine
 
 ## Business Metrics — Canonical Formulas

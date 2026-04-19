@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation, chart-selection
+description: 'Apply this skill when schema contains: - `sensor_id`, `device_id`, `device_name`,
+  `thing_id` - `reading`, `measurement`, `telemetry`,...'
+legacy: true
+name: domain-iot-timeseries
+priority: 3
+tokens_budget: 2100
+---
+
 # Domain: IoT & Time Series Analytics — AskDB AgentEngine
 
 ## Auto-Detection Signals

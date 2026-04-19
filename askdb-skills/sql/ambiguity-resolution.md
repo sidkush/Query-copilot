@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: Is there a single clearly correct interpretation? YES → Proceed. Disclose
+  assumption in summary. NO, 2 viable options → Ask ONE targeted question...
+legacy: true
+name: ambiguity-resolution
+priority: 3
+tokens_budget: 1300
+---
+
 # Ambiguity Resolution — AskDB AgentEngine
 
 ## Ambiguity Decision Framework

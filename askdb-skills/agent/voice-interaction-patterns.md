@@ -1,3 +1,12 @@
+---
+applies_to: multi-step-agent, dashboard-build
+description: 'Voice input is fundamentally different from typed text:'
+legacy: true
+name: voice-interaction-patterns
+priority: 3
+tokens_budget: 1300
+---
+
 # Voice Interaction Patterns — AskDB AgentEngine
 
 ## Voice vs Text Differences

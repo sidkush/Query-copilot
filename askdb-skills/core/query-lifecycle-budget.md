@@ -1,3 +1,13 @@
+---
+applies_to: always-on
+description: 1. USER INPUT (NL text or voice) ↓ 2. INTENT PARSING - Extract entities
+  (metrics, dimensions, filters, time range) - Detect ambiguity → resolve or...
+legacy: true
+name: query-lifecycle-budget
+priority: 2
+tokens_budget: 1400
+---
+
 # Query Lifecycle — AskDB AgentEngine
 
 ## End-to-End Pipeline

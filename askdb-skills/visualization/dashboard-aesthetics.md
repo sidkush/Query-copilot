@@ -1,3 +1,13 @@
+---
+applies_to: chart-selection, dashboard-build
+description: A well-designed dashboard communicates its most important insight to
+  a non-technical user within 10 seconds of viewing. If a user needs to read...
+legacy: true
+name: dashboard-aesthetics
+priority: 3
+tokens_budget: 1400
+---
+
 # Dashboard Aesthetics — AskDB AgentEngine
 
 ## The 10-Second Rule

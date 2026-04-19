@@ -1,3 +1,13 @@
+---
+applies_to: multi-step-agent, dashboard-build
+description: 'Triggers when user uploads: - A screenshot of an existing dashboard
+  (Tableau, Power BI, Looker, Excel, etc.) - A whiteboard sketch or hand-drawn...'
+legacy: true
+name: screenshot-interpretation
+priority: 3
+tokens_budget: 1300
+---
+
 # Screenshot Interpretation — AskDB AgentEngine
 
 ## When This Skill Activates

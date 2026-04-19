@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: Timestamp truncation TIMESTAMP_TRUNC(ts_col, HOUR) TIMESTAMP_TRUNC(ts_col,
+  DAY)
+legacy: true
+name: dialect-bigquery
+priority: 3
+tokens_budget: 1200
+---
+
 # BigQuery SQL Dialect — AskDB AgentEngine
 
 ## Syntax Specifics

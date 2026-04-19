@@ -1,3 +1,13 @@
+---
+applies_to: multi-step-agent, dashboard-build
+description: sql -- Session state schema CREATE TABLE sessions ( session_id TEXT PRIMARY
+  KEY, user_id TEXT, dashboard_id TEXT, created_at TIMESTAMP,...
+legacy: true
+name: session-memory-protocol
+priority: 3
+tokens_budget: 1100
+---
+
 # Session Memory Protocol — AskDB AgentEngine
 
 ## What Gets Persisted (SQLite)

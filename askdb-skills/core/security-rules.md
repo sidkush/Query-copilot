@@ -1,3 +1,13 @@
+---
+applies_to: always-on
+description: 'Automatically mask or exclude any column matching these patterns: -
+  Names: `*name*`, `*full_name*`, `*first_name*`, `*last_name*` - Contact:...'
+legacy: true
+name: security-rules
+priority: 1
+tokens_budget: 800
+---
+
 # Security Rules — AskDB AgentEngine
 
 ## PII Masking Triggers

@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: NEVER use FLOAT for money.** Binary floating point cannot represent most
+  decimal fractions exactly.
+legacy: true
+name: data-types-and-subqueries
+priority: 3
+tokens_budget: 1500
+---
+
 # Data Type Handling — AskDB AgentEngine
 
 ## Currency and Financial Values

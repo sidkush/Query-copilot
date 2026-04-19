@@ -1,3 +1,13 @@
+---
+applies_to: chart-selection, dashboard-build
+description: 'css /* Background */ --bg-primary: #0D1117 --bg-secondary: #161B22 --bg-tertiary:
+  #1C2128 --bg-card: #21262D'
+legacy: true
+name: color-system
+priority: 3
+tokens_budget: 2100
+---
+
 # Color System — AskDB AgentEngine
 
 ## Theme-Specific Palettes

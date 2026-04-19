@@ -1,3 +1,12 @@
+---
+applies_to: always-on
+description: Apply Error Handling — AskDB AgentEngine rules.
+legacy: true
+name: error-handling
+priority: 2
+tokens_budget: 800
+---
+
 # Error Handling — AskDB AgentEngine
 
 ## Recovery Path by Error Type

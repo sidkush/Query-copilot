@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: Every generated SQL passes through all 6 layers before execution. Layers
+  run in sequence — first failure stops execution and triggers correction.
+legacy: true
+name: sql-validation-rules
+priority: 3
+tokens_budget: 1500
+---
+
 # SQL Validation Rules — AskDB AgentEngine
 
 ## The 6-Layer Validator

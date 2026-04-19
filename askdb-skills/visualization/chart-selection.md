@@ -1,3 +1,13 @@
+---
+applies_to: chart-selection, dashboard-build
+description: What is the primary analytical question? ├── How much? (single value)
+  → KPI / BAN tile + sparkline ├── How has X changed over time? │ ├── 1-2...
+legacy: true
+name: chart-selection
+priority: 2
+tokens_budget: 1400
+---
+
 # Chart Selection — AskDB AgentEngine
 
 ## Primary Decision Tree

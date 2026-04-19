@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: '| Term | Correct interpretation | Common wrong interpretation | |------|----------------------|---------------------------|
+  | "Last month" | Full...'
+legacy: true
+name: time-intelligence
+priority: 3
+tokens_budget: 1500
+---
+
 # Time Intelligence — AskDB AgentEngine
 
 ## Standard Period Definitions

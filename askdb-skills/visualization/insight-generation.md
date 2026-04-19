@@ -1,3 +1,12 @@
+---
+applies_to: chart-selection, dashboard-build
+description: 'Every chart and dashboard gets an AI-generated summary. Use this structure:'
+legacy: true
+name: insight-generation
+priority: 3
+tokens_budget: 1300
+---
+
 # Insight Generation — AskDB AgentEngine
 
 ## AI Summary Structure

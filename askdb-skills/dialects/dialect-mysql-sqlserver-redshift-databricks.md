@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: MySQL has no DATE_TRUNC — use DATE_FORMAT or FLOOR tricks DATE_FORMAT(date_col,
+  '%Y-%m-01') -- Month start equivalent...
+legacy: true
+name: dialect-mysql-sqlserver-redshift-databricks
+priority: 3
+tokens_budget: 1700
+---
+
 # MySQL SQL Dialect — AskDB AgentEngine
 
 ## Syntax Specifics

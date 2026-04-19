@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation, chart-selection
+description: 'Apply this skill file when schema contains tables/columns matching:
+  - `opportunities`, `deals`, `pipeline`, `leads`, `accounts`, `contacts` -...'
+legacy: true
+name: domain-sales
+priority: 3
+tokens_budget: 1200
+---
+
 # Domain: Sales Analytics — AskDB AgentEngine
 
 ## Auto-Detection Signals

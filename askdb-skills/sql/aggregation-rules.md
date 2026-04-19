@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: '| Question type | Correct function | Wrong function | |---------------|-----------------|----------------|
+  | "How many customers bought X?" |...'
+legacy: true
+name: aggregation-rules
+priority: 2
+tokens_budget: 1400
+---
+
 # Aggregation Rules — AskDB AgentEngine
 
 ## COUNT vs COUNT DISTINCT — The Most Common Error

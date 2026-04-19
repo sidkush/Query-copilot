@@ -1,3 +1,13 @@
+---
+applies_to: sql-generation
+description: FLATTEN arrays SELECT f.value:product_id::STRING as product_id FROM orders,
+  LATERAL FLATTEN(input => items) f; ```
+legacy: true
+name: dialect-snowflake-postgres-duckdb
+priority: 3
+tokens_budget: 1800
+---
+
 # Snowflake SQL Dialect — AskDB AgentEngine
 
 ## Syntax Specifics
