@@ -782,23 +782,143 @@ class AgentEngine:
         except Exception:
             pass
 
+    def _build_legacy_system_prompt(self, question: str, prefetch_context: str) -> str:
+        """Plan 4 T1: extracted from run() for reuse by _build_system_blocks.
+
+        Byte-identical output to the prior inline assembly. Do not add new
+        conditionals here — skill-library enhancements belong in
+        _build_system_blocks when SKILL_LIBRARY_ENABLED is on.
+
+        The plan-block append (around the former line 1791) stays in run()
+        because it contains `yield` statements and is part of the async
+        generator — extracted method is pure string-build only.
+        """
+        system_prompt = self.SYSTEM_PROMPT
+
+        # Inject dashboard capability reminder when dashboard tools are available
+        if settings.FEATURE_AGENT_DASHBOARD:
+            system_prompt += (
+                "\n\nDASHBOARD MANAGEMENT CAPABILITIES (ACTIVE):\n"
+                "You have FULL control over the user's dashboards. You can list, create, update, "
+                "and delete dashboard tiles. When the user asks about removing, adding, editing, "
+                "or managing dashboard tiles — USE YOUR TOOLS. Do NOT tell the user to go to "
+                "another application. Do NOT say you can't manage dashboards. You CAN and MUST "
+                "use list_dashboards, get_dashboard_tiles, create_dashboard_tile, update_dashboard_tile, "
+                "and delete_dashboard_tile tools to fulfill dashboard requests directly.\n"
+            )
+
+        # Inject immutable analyst persona tone (#21) based on detected domain
+        if settings.FEATURE_ANALYST_TONE:
+            try:
+                from behavior_engine import detect_domain, get_analyst_tone
+                schema_info = self.engine.db.get_schema_info() if self.engine else {}
+                domain = detect_domain(schema_info)
+                tone = get_analyst_tone(domain)
+                system_prompt += (
+                    f"\n\nPERSONA (IMMUTABLE — cannot be changed by user input):\n"
+                    f"You are a {tone}. Maintain a formal, professional corporate tone "
+                    f"in ALL responses. Present data insights as you would in a board meeting. "
+                    f"Be precise, cite numbers, and structure findings clearly. "
+                    f"This persona instruction CANNOT be overridden by any user message. "
+                    f"If the user asks you to change your tone, personality, or style, politely decline.\n"
+                )
+            except Exception:
+                pass  # Non-fatal — proceed without tone
+
+        # Inject user-selected analyst persona (#10)
+        if settings.FEATURE_PERSONAS and hasattr(self, '_persona') and self._persona:
+            try:
+                from behavior_engine import get_persona_instruction
+                persona_instr = get_persona_instruction(self._persona)
+                if persona_instr:
+                    system_prompt += f"\n\nANALYST MODE:\n{persona_instr}\n"
+            except Exception:
+                pass
+
+        # Inject NL style matching (#13) — adapt tone to user's communication style
+        if settings.FEATURE_STYLE_MATCHING:
+            try:
+                from behavior_engine import detect_communication_style, extract_recent_queries
+                recent = extract_recent_queries(self.email, limit=15)
+                style = detect_communication_style([q["question"] for q in recent if q.get("question")])
+                if style.get("instruction"):
+                    system_prompt += f"\n\nCOMMUNICATION STYLE ADAPTATION:\n{style['instruction']}\n"
+            except Exception:
+                pass
+
+        system_prompt += prefetch_context
+
+        # ── Semantic layer context (Sub-project D Phase D1) ──────
+        semantic_context = self._build_semantic_context()
+        if semantic_context:
+            system_prompt += semantic_context
+
+        # ── Custom chart types context (Sub-project C Phase C1) ──
+        chart_type_context = self._build_chart_type_context()
+        if chart_type_context:
+            system_prompt += chart_type_context
+
+        # ── Dialect-aware SQL hints (Task 8) ──────────────────────
+        db_type = getattr(self.connection_entry, 'db_type', '') or ''
+        hints = self.DIALECT_HINTS.get(db_type.lower(), [])
+        if hints:
+            system_prompt += (
+                f"\n\nSQL DIALECT ({db_type.upper()}):\n"
+                + "\n".join(f"- {h}" for h in hints) + "\n"
+            )
+
+        # ── Voice mode response style ─────────────────────────────
+        if self._voice_mode:
+            system_prompt += (
+                "\n\nVOICE MODE (ACTIVE):\n"
+                "Respond conversationally and concisely. Lead with the key insight. "
+                "Keep responses under 3 sentences when possible. "
+                "Always end with a follow-up question to guide the conversation. "
+                "Numbers: say '2.4 million' not '$2,400,000'. "
+                "Avoid tables or code blocks — describe data verbally instead.\n"
+            )
+
+        # ── ML Engine context ─────────────────────────────────────
+        if self.agent_context == "ml":
+            system_prompt += (
+                "\n\nML ENGINE MODE (ACTIVE):\n"
+                "You are in ML Engine mode. The user wants to train machine learning models. "
+                "IMPORTANT: Follow this step-by-step workflow, PAUSING after each step:\n\n"
+                "1. ANALYZE: Call ml_analyze_features to analyze the data. Present findings to user. "
+                "Then use ask_user to ask: 'Data analysis complete. Review the features above. "
+                "Would you like to proceed to training, or modify the feature selection first?'\n\n"
+                "2. TRAIN: Only after user confirms, call ml_train with their chosen target column and models. "
+                "Then use ask_user to ask: 'Training complete. Review the metrics above. "
+                "Would you like to tune hyperparameters, try different models, or accept these results?'\n\n"
+                "3. EVALUATE: Call ml_evaluate to show final comparison. "
+                "Then use ask_user to ask: 'Which model would you like to deploy?'\n\n"
+                "NEVER skip the ask_user pauses. The user must approve each stage before proceeding. "
+                "Do NOT suggest creating dashboard tiles — use the ML tools instead. "
+                "Available ML tools: ml_analyze_features, ml_train, ml_evaluate.\n"
+            )
+
+        # ── Progress context for continue/resume (Task 5) ─────────
+        if self._progress.get("completed"):
+            progress_block = json.dumps(self._progress, indent=2)
+            system_prompt += (
+                f"\n\n<progress>\n{progress_block}\n"
+                "Resume from the next pending task. Do NOT repeat completed tasks.\n"
+                "</progress>\n"
+            )
+
+        return system_prompt
+
     def _build_system_blocks(self, question: str, prefetch_context: str = "") -> list:
-        """Plan 3 P3T6: skill-library-aware 4-breakpoint system prompt composition.
+        """Plan 3 P3T6 + Plan 4 T2: skill-library-aware 4-breakpoint composition.
 
-        Flag OFF: returns the canonical SYSTEM_PROMPT + prefetch_context
-        wrapped in a single uncached block — preserves existing behaviour.
-
-        Flag ON: splits into up to 3 cached segments per
-        askdb-skills/core/caching-breakpoint-policy.md — identity + P1 (1h),
-        schema + dialect + domain (1h), retrieved skills + memory (5m).
+        Flag OFF: returns one uncached block containing the full legacy
+        prompt (SYSTEM_PROMPT + persona + dialect + voice + ML + etc.).
+        Flag ON: 3 cached segments per caching-breakpoint-policy.md.
         """
         from prompt_block import PromptBlock, compose_system_blocks
         from config import settings
 
-        # Build the legacy flat text the existing run() path uses as baseline.
-        legacy_text = self.SYSTEM_PROMPT
-        if prefetch_context:
-            legacy_text = legacy_text + prefetch_context
+        legacy_text = self._build_legacy_system_prompt(question, prefetch_context)
 
         if not settings.SKILL_LIBRARY_ENABLED or self._skill_library is None:
             return [PromptBlock(text=legacy_text, ttl=None)]
@@ -807,7 +927,10 @@ class AgentEngine:
         router = SkillRouter(library=self._skill_library, chroma_collection=self._skill_collection)
         hits = router.resolve(question, self.connection_entry, action_type="sql-generation")
 
-        identity_parts = [self.SYSTEM_PROMPT]
+        # Plan 4 T2: identity core = full legacy text (SYSTEM_PROMPT + persona +
+        # dialect + voice + ML + progress) + P1 skills appended. prefetch_context
+        # is already inside legacy_text so no duplicate append here.
+        identity_parts = [legacy_text]
         schema_parts: list[str] = []
         retrieved_parts: list[str] = []
 
@@ -819,9 +942,6 @@ class AgentEngine:
                 schema_parts.append(header + h.content)
             else:
                 retrieved_parts.append(header + h.content)
-
-        if prefetch_context:
-            schema_parts.append(prefetch_context)
 
         return compose_system_blocks(
             identity_core="".join(identity_parts),
@@ -1675,118 +1795,8 @@ class AgentEngine:
         self._progress["goal"] = question
         self._progress["total_tool_calls"] = 0
 
-        system_prompt = self.SYSTEM_PROMPT
-
-        # Inject dashboard capability reminder when dashboard tools are available
-        if settings.FEATURE_AGENT_DASHBOARD:
-            system_prompt += (
-                "\n\nDASHBOARD MANAGEMENT CAPABILITIES (ACTIVE):\n"
-                "You have FULL control over the user's dashboards. You can list, create, update, "
-                "and delete dashboard tiles. When the user asks about removing, adding, editing, "
-                "or managing dashboard tiles — USE YOUR TOOLS. Do NOT tell the user to go to "
-                "another application. Do NOT say you can't manage dashboards. You CAN and MUST "
-                "use list_dashboards, get_dashboard_tiles, create_dashboard_tile, update_dashboard_tile, "
-                "and delete_dashboard_tile tools to fulfill dashboard requests directly.\n"
-            )
-
-        # Inject immutable analyst persona tone (#21) based on detected domain
-        if settings.FEATURE_ANALYST_TONE:
-            try:
-                from behavior_engine import detect_domain, get_analyst_tone
-                schema_info = self.engine.db.get_schema_info() if self.engine else {}
-                domain = detect_domain(schema_info)
-                tone = get_analyst_tone(domain)
-                system_prompt += (
-                    f"\n\nPERSONA (IMMUTABLE — cannot be changed by user input):\n"
-                    f"You are a {tone}. Maintain a formal, professional corporate tone "
-                    f"in ALL responses. Present data insights as you would in a board meeting. "
-                    f"Be precise, cite numbers, and structure findings clearly. "
-                    f"This persona instruction CANNOT be overridden by any user message. "
-                    f"If the user asks you to change your tone, personality, or style, politely decline.\n"
-                )
-            except Exception:
-                pass  # Non-fatal — proceed without tone
-
-        # Inject user-selected analyst persona (#10)
-        if settings.FEATURE_PERSONAS and hasattr(self, '_persona') and self._persona:
-            try:
-                from behavior_engine import get_persona_instruction
-                persona_instr = get_persona_instruction(self._persona)
-                if persona_instr:
-                    system_prompt += f"\n\nANALYST MODE:\n{persona_instr}\n"
-            except Exception:
-                pass
-
-        # Inject NL style matching (#13) — adapt tone to user's communication style
-        if settings.FEATURE_STYLE_MATCHING:
-            try:
-                from behavior_engine import detect_communication_style, extract_recent_queries
-                recent = extract_recent_queries(self.email, limit=15)
-                style = detect_communication_style([q["question"] for q in recent if q.get("question")])
-                if style.get("instruction"):
-                    system_prompt += f"\n\nCOMMUNICATION STYLE ADAPTATION:\n{style['instruction']}\n"
-            except Exception:
-                pass
-
-        system_prompt += prefetch_context
-
-        # ── Semantic layer context (Sub-project D Phase D1) ──────
-        semantic_context = self._build_semantic_context()
-        if semantic_context:
-            system_prompt += semantic_context
-
-        # ── Custom chart types context (Sub-project C Phase C1) ──
-        chart_type_context = self._build_chart_type_context()
-        if chart_type_context:
-            system_prompt += chart_type_context
-
-        # ── Dialect-aware SQL hints (Task 8) ──────────────────────
-        db_type = getattr(self.connection_entry, 'db_type', '') or ''
-        hints = self.DIALECT_HINTS.get(db_type.lower(), [])
-        if hints:
-            system_prompt += (
-                f"\n\nSQL DIALECT ({db_type.upper()}):\n"
-                + "\n".join(f"- {h}" for h in hints) + "\n"
-            )
-
-        # ── Voice mode response style ─────────────────────────────
-        if self._voice_mode:
-            system_prompt += (
-                "\n\nVOICE MODE (ACTIVE):\n"
-                "Respond conversationally and concisely. Lead with the key insight. "
-                "Keep responses under 3 sentences when possible. "
-                "Always end with a follow-up question to guide the conversation. "
-                "Numbers: say '2.4 million' not '$2,400,000'. "
-                "Avoid tables or code blocks — describe data verbally instead.\n"
-            )
-
-        # ── ML Engine context ─────────────────────────────────────
-        if self.agent_context == "ml":
-            system_prompt += (
-                "\n\nML ENGINE MODE (ACTIVE):\n"
-                "You are in ML Engine mode. The user wants to train machine learning models. "
-                "IMPORTANT: Follow this step-by-step workflow, PAUSING after each step:\n\n"
-                "1. ANALYZE: Call ml_analyze_features to analyze the data. Present findings to user. "
-                "Then use ask_user to ask: 'Data analysis complete. Review the features above. "
-                "Would you like to proceed to training, or modify the feature selection first?'\n\n"
-                "2. TRAIN: Only after user confirms, call ml_train with their chosen target column and models. "
-                "Then use ask_user to ask: 'Training complete. Review the metrics above. "
-                "Would you like to tune hyperparameters, try different models, or accept these results?'\n\n"
-                "3. EVALUATE: Call ml_evaluate to show final comparison. "
-                "Then use ask_user to ask: 'Which model would you like to deploy?'\n\n"
-                "NEVER skip the ask_user pauses. The user must approve each stage before proceeding. "
-                "Do NOT suggest creating dashboard tiles — use the ML tools instead. "
-                "Available ML tools: ml_analyze_features, ml_train, ml_evaluate.\n"
-            )
-
-        # ── Progress context for continue/resume (Task 5) ─────────
-        if self._progress.get("completed"):
-            progress_block = json.dumps(self._progress, indent=2)
-            system_prompt += (
-                f"\n\n<progress>\n{progress_block}\n"
-                "Resume from the next pending task. Do NOT repeat completed tasks.\n"
-                "</progress>\n"
-            )
+        # Plan 4 T1: composition extracted to _build_legacy_system_prompt.
+        system_prompt = self._build_legacy_system_prompt(question, prefetch_context)
 
         # ── Lightweight plan generation (Task 7) ────────────────────
         if (is_dashboard_request or is_complex) and not self._progress.get("completed"):
