@@ -19,11 +19,13 @@ describe('SignalLayout — slot bindings', () => {
     expect(found).toEqual(expected);
   });
 
-  it('hero KPI renders "$2.47M" fallback when unbound', () => {
+  it('hero KPI renders the neutral em-dash fallback when unbound', () => {
+    // Plan TSS2 T7-T10 purge: sg.kpi-0 descriptor fallback is now
+    // { value: '—', delta: null, spark: 'growth', label: '—' }.
     render(<SignalLayout editable={false} />);
     const kpi0 = screen.getByTestId('slot-sg.kpi-0');
     expect(kpi0.getAttribute('data-state')).toBe('fallback');
-    expect(kpi0.textContent).toContain('$2.47M');
+    expect(kpi0.textContent).toContain('\u2014');
   });
 
   it('swaps the live value when bound', () => {

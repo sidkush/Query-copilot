@@ -19,15 +19,15 @@ describe('EditorialBriefLayout — slot bindings', () => {
     expect(found).toEqual(expected);
   });
 
-  it('headline still reads the magazine fallback when unbound', () => {
+  it('headline renders the neutral unbound state with no fake copy', () => {
+    // Plan TSS2 T7-T10 purge: eb.headline-topic descriptor fallback is
+    // now '—' and the layout intentionally renders empty copy when
+    // unbound (no hardcoded magazine headline).
     render(<EditorialBriefLayout editable={false} />);
     const headline = screen.getByTestId('slot-eb.headline-topic');
     expect(headline.getAttribute('data-state')).toBe('fallback');
-    // Whitespace-normalize to compare against the fallback phrase.
     const text = headline.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-    expect(text).toContain('The Quarter');
-    expect(text).toContain('Made');
-    expect(text).toContain('July');
+    expect(text).toBe('');
   });
 
   it('first KPI swaps to the bound value', () => {

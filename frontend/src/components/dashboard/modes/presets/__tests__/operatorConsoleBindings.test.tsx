@@ -19,11 +19,13 @@ describe('OperatorConsoleLayout — slot bindings', () => {
     expect(found).toEqual(expected);
   });
 
-  it('renders the phosphor-green CH.1A fallback value when no binding', () => {
+  it('renders the neutral em-dash CH.1A fallback value when no binding', () => {
+    // Plan TSS2 T7-T10 purge: oc.ch1a descriptor fallback is now
+    // { value: '—', unit: '', delta: null, footer: 'nom', label: '—' }.
     render(<OperatorConsoleLayout editable={false} bindings={undefined} tileData={undefined} />);
     const ch1a = screen.getByTestId('slot-oc.ch1a');
     expect(ch1a.getAttribute('data-state')).toBe('fallback');
-    expect(ch1a.textContent).toContain('2.47');
+    expect(ch1a.textContent).toContain('\u2014');
   });
 
   it('renders without any of the binding props (backward compat)', () => {

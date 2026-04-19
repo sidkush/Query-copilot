@@ -39,7 +39,9 @@ describe('Slot — universal binding wrapper', () => {
     );
     const out = screen.getByTestId('rendered').textContent ?? '';
     expect(out).toContain('fallback');
-    expect(out).toContain('+$478K');
+    // Plan TSS2 T7-T10 purge: bp.hero-number descriptor fallback is now
+    // { value: '—', delta: null, label: '—' } — no finance-flavored copy.
+    expect(out).toContain('\u2014');
   });
 
   it('state=unresolved when descriptor is unknown', () => {

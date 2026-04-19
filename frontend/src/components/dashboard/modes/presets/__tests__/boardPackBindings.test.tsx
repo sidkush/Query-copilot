@@ -22,10 +22,12 @@ describe('BoardPackLayout — slot bindings', () => {
     expect(found).toEqual(expected);
   });
 
-  it('still reads "+$478K" from the hero number slot under the static fallback', () => {
+  it('renders the neutral em-dash fallback in the hero number slot when unbound', () => {
+    // Plan TSS2 T7-T10 purge: bp.hero-number descriptor fallback is now
+    // { value: '—', delta: null, label: '—' } — no finance-flavored copy.
     render(<BoardPackLayout editable={false} bindings={undefined} tileData={undefined} />);
     const hero = screen.getByTestId('slot-bp.hero-number');
-    expect(hero.textContent?.replace(/\s+/g, '')).toContain('+$478K');
+    expect(hero.textContent?.replace(/\s+/g, '')).toContain('\u2014');
     expect(hero.getAttribute('data-state')).toBe('fallback');
   });
 
