@@ -42,3 +42,46 @@ def test_build_system_empty_returns_empty_list():
     assert out == []
     out2 = provider._build_system(None, cache=True)
     assert out2 == []
+
+
+def test_emit_cache_stats_writes_jsonl(tmp_path, monkeypatch):
+    """Every successful response appends a line to cache_stats.jsonl."""
+    import anthropic_provider
+    monkeypatch.setattr(anthropic_provider, "_CACHE_STATS_PATH", tmp_path / "cache_stats.jsonl")
+
+    from anthropic_provider import _emit_cache_stats
+    fake_usage = MagicMock(
+        input_tokens=500, output_tokens=25,
+        cache_read_input_tokens=400, cache_creation_input_tokens=30,
+    )
+    _emit_cache_stats("claude-haiku-4-5-20251001", fake_usage)
+
+    stats_path = tmp_path / "cache_stats.jsonl"
+    assert stats_path.exists()
+    lines = stats_path.read_text().strip().splitlines()
+    assert len(lines) == 1
+    rec = json.loads(lines[0])
+    assert rec["cache_read_input_tokens"] == 400
+    assert rec["cache_creation_input_tokens"] == 30
+    assert rec["input_tokens"] == 500
+    assert rec["model"] == "claude-haiku-4-5-20251001"
+    assert "ts" in rec
+
+
+def test_emit_cache_stats_never_raises(tmp_path, monkeypatch):
+    """Even with malformed usage, never raise."""
+    import anthropic_provider
+    monkeypatch.setattr(anthropic_provider, "_CACHE_STATS_PATH", tmp_path / "cache_stats.jsonl")
+    from anthropic_provider import _emit_cache_stats
+    # None usage — missing all attrs.
+    _emit_cache_stats("model", None)  # must not raise
+    # Path unwritable (directory in place of file at a fresh location).
+    dir_as_file = tmp_path / "unwritable"
+    dir_as_file.mkdir()
+    monkeypatch.setattr(anthropic_provider, "_CACHE_STATS_PATH", dir_as_file)
+    _emit_cache_stats(
+        "model",
+        MagicMock(input_tokens=1, output_tokens=1,
+                  cache_read_input_tokens=0, cache_creation_input_tokens=0),
+    )
+    # No exception = pass.

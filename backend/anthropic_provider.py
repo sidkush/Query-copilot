@@ -12,12 +12,36 @@ Preserves Anthropic-specific features:
   - Circuit breaker (3 failures → 30s cooldown)
 """
 
+import json as _json
 import logging
 import threading
 import time
+from datetime import datetime as _dt, timezone as _tz
+from pathlib import Path as _Path
 from typing import Iterator, Optional
 
 import anthropic
+
+# Plan 4 T5: cache stats emission path. Best-effort append-only; never
+# raised into caller.
+_CACHE_STATS_PATH = _Path(".data/audit/cache_stats.jsonl")
+
+
+def _emit_cache_stats(model: str, usage) -> None:
+    try:
+        _CACHE_STATS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        rec = {
+            "ts": _dt.now(_tz.utc).isoformat(),
+            "model": model,
+            "input_tokens": getattr(usage, "input_tokens", 0) or 0,
+            "output_tokens": getattr(usage, "output_tokens", 0) or 0,
+            "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+            "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        }
+        with _CACHE_STATS_PATH.open("a", encoding="utf-8") as f:
+            f.write(_json.dumps(rec) + "\n")
+    except Exception:
+        pass
 
 from model_provider import (
     ModelProvider,
@@ -138,6 +162,7 @@ class AnthropicProvider(ModelProvider):
                 messages=messages,
             )
             self._breaker.record_success()
+            _emit_cache_stats(model, response.usage)
             text = response.content[0].text if response.content else ""
             return ProviderResponse(
                 text=text,
@@ -195,6 +220,7 @@ class AnthropicProvider(ModelProvider):
                 tools=tools,
             )
             self._breaker.record_success()
+            _emit_cache_stats(model, response.usage)
             blocks = []
             for block in response.content:
                 if block.type == "text":
