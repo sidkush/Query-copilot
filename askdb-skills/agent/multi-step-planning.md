@@ -5,7 +5,7 @@ description: Always plan first when:** - Building a dashboard (multiple tiles) -
 legacy: true
 name: multi-step-planning
 priority: 3
-tokens_budget: 1200
+tokens_budget: 1700
 ---
 
 # Multi-Step Planning — AskDB AgentEngine
@@ -131,6 +131,51 @@ Different phases have different acceptable latencies:
 | LiveTier query | 30s | Offer to use TurboTier result |
 | Chart rendering | 3s | Fallback to lower fidelity renderer |
 | AI summary | 8s | Use template summary instead |
+
+## Schema-Link-First Decomposition (research-context §3.1 rules 1, 3)
+
+For any query involving > 2 tables or ambiguous column references, run a dedicated schema-linking pass **before drafting SQL**:
+
+```
+Step 1 — find_relevant_tables: retrieve candidate tables for the user's intent
+Step 2 — inspect_schema: inject FK evidence, enum values, typical filters as hints
+Step 3 — sub-problem ID: decompose into atomic SQL sub-problems
+Step 4 — NL plan: write a plain-English plan for each sub-problem
+Step 5 — SQL draft: generate SQL per sub-problem using only columns surfaced in step 1-2
+Step 6 — self-repair if error (see self-repair-error-taxonomy.md)
+```
+
+**Rule:** Reject any column in the generated SQL that the schema-linker did not surface in step 1-2. If a column name is guessed, the join key may be wrong.
+
+**Evidence hint injection (§3.1 rule 2):** After `inspect_schema`, prepend FK and enum evidence into the planning context:
+```
+Evidence: orders.customer_id = customers.id (FK, 1:N)
+Evidence: orders.status IN ('pending','processing','shipped','delivered','cancelled')
+Evidence: customers.tier IN ('free','pro','enterprise')
+```
+
+## Self-Consistency Voting for Hard Queries (research-context §3.1 rule 4)
+
+**Hard query threshold:** touches > 3 tables, or involves a window function + GROUP BY combination, or has previously returned a validation error in this session.
+
+For hard queries:
+1. Generate **N ≥ 3 candidate SQL statements** internally (vary temperature or decomposition path).
+2. Execute all candidates via `run_sql` (or EXPLAIN for row-count check without full execution).
+3. Vote by result-set equivalence: select the candidate where ≥ 2 of 3 return the same row count + column structure.
+4. If no majority after 3 candidates: surface two best options to user with `ask_user`.
+
+```python
+# Pseudo-logic
+candidates = [generate_sql(query, temp=0.0),
+              generate_sql(query, temp=0.3),
+              generate_sql(query, temp=0.7)]
+row_counts = [execute_explain(sql) for sql in candidates]
+majority = most_common(row_counts)
+if majority.count >= 2:
+    use(candidates[row_counts.index(majority.value)])
+else:
+    ask_user(f"Two interpretations possible:\n1. {candidates[0]}\n2. {candidates[1]}\nWhich matches your intent?")
+```
 
 ---
 
