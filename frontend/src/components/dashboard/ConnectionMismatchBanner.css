@@ -1,0 +1,76 @@
+/*
+ * ConnectionMismatchBanner — Typed-Seeking-Spring W2-C
+ *
+ * Non-dismissable 32px strip that surfaces when the user's active DB
+ * connection is not the one the dashboard was saved against. Near-black
+ * text on a warm amber 60% alpha background; the bound connection's
+ * name + db-type are called out so the user knows where to switch to.
+ *
+ * Rules:
+ *   - Single 1px bottom rule in the amber hue at 40% alpha.
+ *   - No side stripes, no shadows, no gradients.
+ *   - Full-width, fixed height, never scrolls out of view.
+ */
+.connection-mismatch-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  height: 32px;
+  padding: 0 16px;
+  background: oklch(0.82 0.12 73 / 0.95);
+  border-bottom: 1px solid oklch(0.82 0.12 73 / 0.4);
+  color: oklch(0.18 0.03 60);
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 500;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.connection-mismatch-banner__message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connection-mismatch-banner__name {
+  font-weight: 600;
+}
+
+.connection-mismatch-banner__dbtype {
+  opacity: 0.7;
+  font-variant: small-caps;
+  letter-spacing: 0.02em;
+}
+
+.connection-mismatch-banner__switch {
+  appearance: none;
+  border: 1px solid oklch(0.28 0.04 60 / 0.6);
+  background: oklch(0.96 0.03 75 / 0.8);
+  color: oklch(0.18 0.03 60);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  height: 22px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.connection-mismatch-banner__switch:hover {
+  background: oklch(0.96 0.03 75);
+  border-color: oklch(0.28 0.04 60 / 0.85);
+}
+
+.connection-mismatch-banner__switch:focus-visible {
+  outline: 2px solid oklch(0.28 0.04 60);
+  outline-offset: 2px;
+}
