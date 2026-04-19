@@ -1,8 +1,8 @@
 // src/components/dashboard/modes/presets/OperatorConsoleLayout.jsx
 // Plan A* Phase 4 (Wave 2-OC) — CRT-terminal layout, wireframe 2.
-// TSS Wave 2-B — literals now route through <Slot> wrappers so the
-// autogen pipeline can bind real telemetry while the static fixture
-// still renders verbatim under the wireframe fallback.
+// TSS2 T8 — hardcoded telemetry literals purged. Every data region now
+// renders exclusively through its <Slot id="oc.*">; unbound slots fall
+// back to the universal em-dash ('—') or an empty frame.
 
 import './OperatorConsoleLayout.css';
 import './slots.css';
@@ -18,84 +18,56 @@ const ROOT_STYLE = Object.freeze({
     "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
 });
 
-const CHANNEL_META = [
-  { slotId: 'oc.ch1a', id: 'ch1a', label: 'MRR · CH.1A' },
-  { slotId: 'oc.ch1b', id: 'ch1b', label: 'ARR · CH.1B' },
-  { slotId: 'oc.ch1c', id: 'ch1c', label: 'CHURN · CH.1C' },
-  { slotId: 'oc.ch1d', id: 'ch1d', label: 'PAYBACK · CH.1D' },
+// Slot ids for the four CH.1 channel tiles. Labels/units/values all come
+// from the bound descriptor (Slot fallback: { value: '—', … }) — the
+// layout intentionally carries no fake "MRR / ARR / Churn / Payback"
+// copy. Channel ids still drive the data-channel attribute so CSS can
+// tint each slot deterministically.
+const CHANNEL_SLOTS = [
+  { slotId: 'oc.ch1a', id: 'ch1a' },
+  { slotId: 'oc.ch1b', id: 'ch1b' },
+  { slotId: 'oc.ch1c', id: 'ch1c' },
+  { slotId: 'oc.ch1d', id: 'ch1d' },
 ];
 
-// Revenue trace geometry (unchanged from Plan A*).
-const TRACE_POINTS = [
-  [40, 200], [120, 188], [200, 170], [280, 178], [360, 152],
-  [440, 136], [520, 126], [600, 108], [680, 82], [720, 64],
-  [760, 98], [840, 82], [920, 60], [980, 48],
-];
-const TRACE_PATH = TRACE_POINTS
-  .map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`))
-  .join(' ');
-
-const ANOMALY_X = 720;
-const ANOMALY_Y = 64;
-
+// Y-axis ticks for the revenue-trace frame are pure chrome — they do
+// not claim a data value, only the ruled baseline. Kept as abstract
+// 1..5 ticks so the SVG retains its phosphor chrome without lying
+// about a specific revenue scale.
 const Y_TICKS = [
-  { label: '3.0M', y: 36 },
-  { label: '2.5M', y: 86 },
-  { label: '2.0M', y: 136 },
-  { label: '1.5M', y: 186 },
-  { label: '1.0M', y: 236 },
-];
-
-const HIST_BINS = [
-  { x: '0',   h: 18, tone: 'low'  },
-  { x: '10',  h: 28, tone: 'low'  },
-  { x: '20',  h: 42, tone: 'low'  },
-  { x: '30',  h: 56, tone: 'mid'  },
-  { x: '40',  h: 68, tone: 'mid'  },
-  { x: '50',  h: 78, tone: 'mid'  },
-  { x: '60',  h: 84, tone: 'high' },
-  { x: '70',  h: 74, tone: 'high' },
-  { x: '80',  h: 58, tone: 'high' },
-  { x: '85',  h: 46, tone: 'risk' },
-  { x: '90',  h: 32, tone: 'risk' },
-  { x: '95+', h: 22, tone: 'risk' },
-  { x: '99',  h: 12, tone: 'risk' },
-];
-
-const DEFAULT_EVENT_LOG = [
-  { time: '09:42:14', status: 'ok',   msg: 'Warehouse ingest 247K rows · p95=148ms' },
-  { time: '09:41:58', status: 'ok',   msg: 'Cache warmed · schema_hash=a3f91c' },
-  { time: '09:41:12', status: 'warn', msg: 'Waverly flat 6wk · churn_score 87' },
-  { time: '09:40:44', status: 'ok',   msg: 'Amberline expansion confirmed +18%' },
-  { time: '09:40:02', status: 'warn', msg: 'Thornton adoption ↓40 after leader chg' },
-  { time: '09:39:48', status: 'err',  msg: 'bigquery slot saturation (recovered 3s)' },
-  { time: '09:39:12', status: 'ok',   msg: 'Beta-Axion seat expansion +48 seats' },
-  { time: '09:38:44', status: 'ok',   msg: 'Q3 close report drafted · reviewed by d.park' },
+  { label: '', y: 36 },
+  { label: '', y: 86 },
+  { label: '', y: 136 },
+  { label: '', y: 186 },
+  { label: '', y: 236 },
 ];
 
 function ChannelSlot({ meta, slotProps }) {
   return (
     <Slot id={meta.slotId} presetId={PRESET_ID} {...slotProps}>
       {({ value, state }) => {
-        // Descriptor fallback is { value, unit, delta, footer, footerTone }.
-        // Bound value is { value, delta? } from formatValue.
+        // Descriptor fallback is { value, unit, delta, footer, footerTone,
+        // label }. Bound value is { value, delta?, label? } from formatValue.
         const fb = state === 'fallback' || state === 'loading'
-          ? /** @type {{ value?: string, unit?: string, delta?: string, footer?: string, footerTone?: string }} */ (value)
+          ? /** @type {{ value?: string, unit?: string, delta?: string, footer?: string, footerTone?: string, label?: string }} */ (value)
           : null;
         const bound = state === 'bound' && value && typeof value === 'object'
           ? value
           : null;
-        const displayValue = bound?.value ?? fb?.value ?? '';
+        const displayValue = bound?.value ?? fb?.value ?? '—';
         const unit = fb?.unit ?? '';
         const delta = bound?.delta ?? fb?.delta ?? '';
         const deltaTone = delta.startsWith('\u2212') || delta.startsWith('-')
           ? 'neg'
           : 'pos';
-        const footer = fb?.footer ?? 'nom';
+        const footer = fb?.footer ?? '—';
         const footerTone = fb?.footerTone ?? null;
+        // Label is derived from the bound field (or '—' when unbound) —
+        // we no longer hardcode "MRR · CH.1A" etc.
+        const label = bound?.label ?? fb?.label ?? '—';
         return (
           <div className="oc-channel" data-channel={meta.id}>
-            <div className="oc-channel__label">{meta.label}</div>
+            <div className="oc-channel__label">{label}</div>
             <div className="oc-channel__value">
               <span>{displayValue}</span>
               <small>{unit}</small>
@@ -149,28 +121,24 @@ export default function OperatorConsoleLayout({
           <span className="oc-topstrip__bright">LIVE</span>
           <span className="oc-topstrip__dim">·</span>
           <span className="oc-topstrip__bright">SYSTEM</span>
-          <span className="oc-topstrip__dim">· PROD-EU-1 · RUN · Q3-2026-042 · OPERATOR · M.CHEN</span>
         </div>
         <div className="oc-topstrip__right">
-          <span className="oc-topstrip__dim">T+00:42:14</span>
-          <span className="oc-topstrip__dim">·</span>
-          <span className="oc-topstrip__dim">REV 2.8.1</span>
-          <span className="oc-topstrip__dim">·</span>
-          <span className="oc-topstrip__dim">0 ANOMALY</span>
-          <span className="oc-topstrip__dim">·</span>
-          <span className="oc-topstrip__warn">3 WATCH</span>
+          <NarrativeSlot
+            id="oc.metadata"
+            presetId={PRESET_ID}
+            slotProps={slotProps}
+            as="span"
+            className="oc-topstrip__dim oc-topstrip__metadata"
+          />
         </div>
       </header>
 
       <section className="oc-ch1" data-testid="operator-console-ch1">
         <div className="oc-ch-header">
-          <span>▶ CH.1 — REVENUE SIGNAL</span>
-          <span className="oc-ch-header__meta">
-            Δ 12.4% · confidence 0.97 · sample n=842
-          </span>
+          <span>▶ CH.1</span>
         </div>
         <div className="oc-channels">
-          {CHANNEL_META.map((c) => (
+          {CHANNEL_SLOTS.map((c) => (
             <ChannelSlot key={c.id} meta={c} slotProps={slotProps} />
           ))}
         </div>
@@ -178,10 +146,7 @@ export default function OperatorConsoleLayout({
 
       <section className="oc-ch2" data-testid="operator-console-ch2">
         <div className="oc-ch-header">
-          <span>▶ CH.2 — REVENUE TRACE</span>
-          <span className="oc-ch-header__meta">
-            12mo · bandwidth 30d · sampling 1/day
-          </span>
+          <span>▶ CH.2 — TRACE</span>
         </div>
 
         <div className="oc-trace-wrap">
@@ -191,50 +156,52 @@ export default function OperatorConsoleLayout({
           </div>
 
           <Slot id="oc.trace" presetId={PRESET_ID} {...slotProps}>
-            {() => (
-              <svg
-                className="oc-trace"
-                viewBox="0 0 1000 260"
-                preserveAspectRatio="none"
-                role="img"
-                aria-label="Revenue trace with anomaly marker"
-              >
-                {Y_TICKS.map((t) => (
-                  <text
-                    key={t.label}
-                    className="oc-trace-axis-label"
-                    x={4}
-                    y={t.y}
-                    textAnchor="start"
-                  >
-                    {t.label}
-                  </text>
-                ))}
-                <line x1={40} x2={990} y1={236} y2={236} stroke="#203520" strokeWidth="1" />
-                <path className="oc-trace-line" d={TRACE_PATH} />
-                <line
-                  className="oc-trace-anomaly-line"
-                  x1={ANOMALY_X}
-                  x2={ANOMALY_X}
-                  y1={16}
-                  y2={244}
-                />
-                <circle
-                  className="oc-trace-anomaly-dot"
-                  cx={ANOMALY_X}
-                  cy={ANOMALY_Y}
-                  r={4.5}
-                />
-                <text
-                  className="oc-trace-anomaly-label"
-                  x={ANOMALY_X - 10}
-                  y={ANOMALY_Y - 8}
-                  textAnchor="end"
+            {({ value, state }) => {
+              // Bound path: value is { points: [[x,y], …] } from formatValue
+              // (normalised to the 1000×260 viewbox). Fallback: no path.
+              const points =
+                state === 'bound' &&
+                value &&
+                typeof value === 'object' &&
+                Array.isArray(value.points)
+                  ? value.points
+                  : [];
+              const path = points.length
+                ? points
+                    .map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`))
+                    .join(' ')
+                : '';
+              return (
+                <svg
+                  className="oc-trace"
+                  viewBox="0 0 1000 260"
+                  preserveAspectRatio="none"
+                  role="img"
+                  aria-label="Trace"
                 >
-                  EVT ▲ BetaAxion <tspan>+$120K</tspan>
-                </text>
-              </svg>
-            )}
+                  {Y_TICKS.map((t, i) => (
+                    <text
+                      key={i}
+                      className="oc-trace-axis-label"
+                      x={4}
+                      y={t.y}
+                      textAnchor="start"
+                    >
+                      {t.label}
+                    </text>
+                  ))}
+                  <line
+                    x1={40}
+                    x2={990}
+                    y1={236}
+                    y2={236}
+                    stroke="#203520"
+                    strokeWidth="1"
+                  />
+                  {path ? <path className="oc-trace-line" d={path} /> : null}
+                </svg>
+              );
+            }}
           </Slot>
 
           <NarrativeSlot
@@ -266,52 +233,66 @@ export default function OperatorConsoleLayout({
       <div className="oc-split">
         <section className="oc-ch3" data-testid="operator-console-ch3">
           <div className="oc-ch-header">
-            <span>▶ CH.3 — CHURN RISK DISTRIBUTION</span>
-            <span className="oc-ch-header__meta">n=842 · 30d</span>
+            <span>▶ CH.3 — DISTRIBUTION</span>
           </div>
           <Slot id="oc.histogram" presetId={PRESET_ID} {...slotProps}>
-            {() => (
-              <div className="oc-hist-wrap">
-                <div className="oc-hist">
-                  {HIST_BINS.map((b) => (
-                    <div
-                      key={b.x}
-                      className="oc-hist__bar"
-                      data-bin={b.tone}
-                      style={{ height: `${b.h}%` }}
-                      title={`churn score ${b.x}`}
-                    />
-                  ))}
+            {({ value, state }) => {
+              // Bound: value = { bins: [{ x, h, tone? }, …] } (h in [0,100]).
+              // Fallback: empty frame — no hardcoded 13-bar churn histogram.
+              const bins =
+                state === 'bound' &&
+                value &&
+                typeof value === 'object' &&
+                Array.isArray(value.bins)
+                  ? value.bins
+                  : [];
+              return (
+                <div className="oc-hist-wrap">
+                  <div className="oc-hist">
+                    {bins.map((b, i) => (
+                      <div
+                        key={`${b.x ?? i}-${i}`}
+                        className="oc-hist__bar"
+                        data-bin={b.tone ?? 'mid'}
+                        style={{ height: `${b.h ?? 0}%` }}
+                        title={b.x != null ? String(b.x) : ''}
+                      />
+                    ))}
+                  </div>
+                  <div className="oc-hist-axis" aria-hidden="true">
+                    {bins.map((b, i) => (
+                      <span key={`${b.x ?? i}-${i}`}>{b.x ?? ''}</span>
+                    ))}
+                  </div>
                 </div>
-                <div className="oc-hist-axis" aria-hidden="true">
-                  {HIST_BINS.map((b) => (
-                    <span key={b.x}>{b.x}</span>
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            }}
           </Slot>
         </section>
 
         <section className="oc-ch4" data-testid="operator-console-eventlog">
           <div className="oc-ch-header">
             <span>▶ CH.4 — EVENT LOG</span>
-            <span className="oc-ch-header__meta">tail · live</span>
           </div>
           <Slot id="oc.event-log" presetId={PRESET_ID} {...slotProps}>
             {({ value, state }) => {
+              // Bound: value = { rows: [{ time, status, msg }] }. Fallback:
+              // empty <ul> — the old 8-row fake log (Warehouse ingest /
+              // Waverly / Amberline / …) has been removed.
               const rows =
-                state === 'bound' && value && typeof value === 'object' && 'rows' in value
+                state === 'bound' &&
+                value &&
+                typeof value === 'object' &&
+                'rows' in value &&
+                Array.isArray(value.rows)
                   ? value.rows
-                  : null;
-              const display = rows && rows.length
-                ? rows.slice(0, 8).map((r, i) => ({
-                    time: String(r.time ?? r.ts ?? ''),
-                    status: String(r.status ?? r.severity ?? 'ok').toLowerCase(),
-                    msg: String(r.msg ?? r.message ?? r.event ?? ''),
-                    key: `${r.time ?? i}-${i}`,
-                  }))
-                : DEFAULT_EVENT_LOG.map((e, i) => ({ ...e, key: `${e.time}-${i}` }));
+                  : [];
+              const display = rows.slice(0, 8).map((r, i) => ({
+                time: String(r.time ?? r.ts ?? ''),
+                status: String(r.status ?? r.severity ?? 'ok').toLowerCase(),
+                msg: String(r.msg ?? r.message ?? r.event ?? ''),
+                key: `${r.time ?? i}-${i}`,
+              }));
               return (
                 <ul className="oc-log">
                   {display.map((e) => (
@@ -321,7 +302,9 @@ export default function OperatorConsoleLayout({
                       data-status={e.status}
                     >
                       <span className="oc-log__time">{e.time}</span>
-                      <span className="oc-log__tag">{e.status.toUpperCase()}</span>
+                      <span className="oc-log__tag">
+                        {e.status.toUpperCase()}
+                      </span>
                       <span className="oc-log__msg">{e.msg}</span>
                     </li>
                   ))}
@@ -333,18 +316,13 @@ export default function OperatorConsoleLayout({
       </div>
 
       <footer className="oc-footer">
-        <div className="oc-footer__left">
-          <span className="oc-footer__glyph">▶</span>
-          BIGQUERY://PROD.FINANCE_REPORTS
-        </div>
-        <div className="oc-footer__center">
-          SAMPLE 1/1D · BAND 30D · FILT NONE
-        </div>
-        <div className="oc-footer__right">
-          CPU 8.4% · MEM 412M ·{' '}
-          <span className="oc-bright">UPLINK OK</span>
-          {' · '}RENDER 128MS
-        </div>
+        <NarrativeSlot
+          id="oc.footer"
+          presetId={PRESET_ID}
+          slotProps={slotProps}
+          as="div"
+          className="oc-footer__line"
+        />
       </footer>
     </div>
   );
