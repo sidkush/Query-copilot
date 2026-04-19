@@ -10,6 +10,9 @@ import CommandPalette from "./CommandPalette";
 // TSS W2-C — autogen lifecycle chrome.
 import ConnectionMismatchBanner from "./ConnectionMismatchBanner";
 import AutogenProgressChip from "./AutogenProgressChip";
+// TSS W3-B — per-slot edit popover + advanced drawer (tail-mounted).
+import SlotEditPopover from "./SlotEditPopover";
+import ChartEditorDrawer from "./ChartEditorDrawer";
 const AnalystProLayout = lazy(() => import("./modes/AnalystProLayout"));
 import {
   BoardPackLayout,
@@ -169,6 +172,19 @@ export default function DashboardShell({
   const activeConnId = useStore((s) => s.activeConnId);
   const mismatch = Boolean(boundConnId && activeConnId && activeConnId !== boundConnId);
 
+  // TSS W3-B — per-slot edit popover + advanced drawer state.
+  const presetBindings = useStore(
+    (s) => s.analystProDashboard?.presetBindings?.[activePresetId],
+  );
+  const slotEditPopoverOpen = useStore((s) => s.slotEditPopoverOpen);
+  const slotEditPopoverContext = useStore((s) => s.slotEditPopoverContext);
+  const closeSlotEditPopover = useStore((s) => s.closeSlotEditPopover);
+  const openSlotEditPopover = useStore((s) => s.openSlotEditPopover);
+  const advancedEditorOpen = useStore((s) => s.advancedEditorOpen);
+  const advancedEditorContext = useStore((s) => s.advancedEditorContext);
+  const closeAdvancedEditor = useStore((s) => s.closeAdvancedEditor);
+  const setSlotBinding = useStore((s) => s.setSlotBinding);
+
   // Detect narrow viewport — triggers ContextBar collapse into TopBar breadcrumb
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${CONTEXT_BAR_COLLAPSE_BREAKPOINT}px)`);
@@ -326,6 +342,13 @@ export default function DashboardShell({
                 size={analystProSize}
                 onSizeChange={setAnalystProSize}
                 authoredLayout={authoredLayout}
+                // TSS W3-B — slot-aware edit wiring.
+                bindings={presetBindings}
+                tileData={undefined}
+                onSlotEdit={(slotId, anchor) =>
+                  openSlotEditPopover(slotId, anchor, activePresetId)
+                }
+                editable={true}
               />
             );
           })()}
@@ -375,6 +398,34 @@ export default function DashboardShell({
           dashboardId={dashboardId}
         />
       </Suspense>
+
+      {/* ─── TSS W3-B tail mounts — slot edit popover + advanced drawer ─── */}
+      {slotEditPopoverOpen && slotEditPopoverContext && (
+        <SlotEditPopover
+          open
+          onClose={closeSlotEditPopover}
+          presetId={slotEditPopoverContext.presetId}
+          slotId={slotEditPopoverContext.slotId}
+          anchorEl={slotEditPopoverContext.anchorEl}
+          binding={
+            presetBindings?.[slotEditPopoverContext.slotId]
+          }
+          schemaProfile={undefined}
+        />
+      )}
+      {advancedEditorOpen && advancedEditorContext && (
+        <ChartEditorDrawer
+          open
+          onClose={closeAdvancedEditor}
+          slotId={advancedEditorContext.slotId}
+          binding={advancedEditorContext.binding}
+          onSave={(patch) => {
+            const ctxPresetId =
+              slotEditPopoverContext?.presetId ?? activePresetId;
+            setSlotBinding(ctxPresetId, advancedEditorContext.slotId, patch);
+          }}
+        />
+      )}
 
       {/* SP-2: Agent toggle FAB — bottom-right, glass style */}
       <AgentFAB />
