@@ -1,0 +1,87 @@
+/*
+ * ChartEditorDrawer — Typed-Seeking-Spring W3-B.
+ *
+ * Right-side slide-in drawer hosting the full ChartEditor for
+ * Tableau-grade control. 70% viewport width; 30%-alpha backdrop.
+ */
+
+.chart-editor-drawer__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 90;
+}
+
+.chart-editor-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 70vw;
+  background: var(--bg-elevated, #111118);
+  border-left: 1px solid var(--border-default, rgba(255, 255, 255, 0.08));
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.4);
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  color: var(--text-primary, #e7e7ea);
+}
+
+.chart-editor-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-default, rgba(255, 255, 255, 0.08));
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.chart-editor-drawer__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #e7e7ea);
+  margin: 0;
+}
+
+.chart-editor-drawer__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.chart-editor-drawer__btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.08));
+  background: transparent;
+  color: var(--text-primary, #e7e7ea);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.chart-editor-drawer__btn--primary {
+  background: var(--accent-soft, rgba(78, 205, 196, 0.18));
+  border-color: var(--accent, #4ecdc4);
+}
+
+.chart-editor-drawer__btn--close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-secondary, #8b8b92);
+}
+
+.chart-editor-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
