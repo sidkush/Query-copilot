@@ -771,6 +771,64 @@ class AgentEngine:
         self._steps: list[AgentStep] = []
         self._result = AgentResult()
 
+        # Plan 3: skill library (optional; lifespan attaches via app.state).
+        self._skill_library = None
+        self._skill_collection = None
+        try:
+            import importlib as _importlib
+            _main = _importlib.import_module("main")
+            self._skill_library = getattr(_main.app.state, "skill_library", None)
+            self._skill_collection = getattr(_main.app.state, "skill_collection", None)
+        except Exception:
+            pass
+
+    def _build_system_blocks(self, question: str, prefetch_context: str = "") -> list:
+        """Plan 3 P3T6: skill-library-aware 4-breakpoint system prompt composition.
+
+        Flag OFF: returns the canonical SYSTEM_PROMPT + prefetch_context
+        wrapped in a single uncached block — preserves existing behaviour.
+
+        Flag ON: splits into up to 3 cached segments per
+        askdb-skills/core/caching-breakpoint-policy.md — identity + P1 (1h),
+        schema + dialect + domain (1h), retrieved skills + memory (5m).
+        """
+        from prompt_block import PromptBlock, compose_system_blocks
+        from config import settings
+
+        # Build the legacy flat text the existing run() path uses as baseline.
+        legacy_text = self.SYSTEM_PROMPT
+        if prefetch_context:
+            legacy_text = legacy_text + prefetch_context
+
+        if not settings.SKILL_LIBRARY_ENABLED or self._skill_library is None:
+            return [PromptBlock(text=legacy_text, ttl=None)]
+
+        from skill_router import SkillRouter
+        router = SkillRouter(library=self._skill_library, chroma_collection=self._skill_collection)
+        hits = router.resolve(question, self.connection_entry, action_type="sql-generation")
+
+        identity_parts = [self.SYSTEM_PROMPT]
+        schema_parts: list[str] = []
+        retrieved_parts: list[str] = []
+
+        for h in hits:
+            header = f"\n\n### Skill: {h.name}\n\n"
+            if h.priority == 1:
+                identity_parts.append(header + h.content)
+            elif h.source == "deterministic":
+                schema_parts.append(header + h.content)
+            else:
+                retrieved_parts.append(header + h.content)
+
+        if prefetch_context:
+            schema_parts.append(prefetch_context)
+
+        return compose_system_blocks(
+            identity_core="".join(identity_parts),
+            schema_context="".join(schema_parts),
+            retrieved_skills="".join(retrieved_parts),
+        )
+
     def set_voice_mode(self, enabled: bool):
         """Toggle voice mode for conversational, spoken-friendly responses."""
         self._voice_mode = enabled
