@@ -1,34 +1,30 @@
-// Plan A★ Phase 3 / Wave 2-BP — BoardPackLayout (cream tearsheet, wireframe 1).
+// Plan A* Phase 3 / Wave 2-BP — BoardPackLayout (cream tearsheet, wireframe 1).
+// TSS Wave 2-B — every hardcoded literal now routes through a <Slot> so
+// the dashboard autogen pipeline can bind real connection data, while
+// the static demo values still render verbatim when no binding exists.
 //
-// Bespoke React component that renders the Board Pack preset verbatim per
-// wireframe 1. Region contract:
+// Region contract (unchanged from Plan A*):
 //   - Top bar           (AskDB logo, centered kicker, LIVE dot)
 //   - Hero split 50/50  (+$478K display + narrative | 5-row KPI list)
 //   - Mid split 70/30   (revenue trend figure | top-accounts aside)
 //   - Bottom strip 3-up (churn histogram | cohort bars | insight card)
-//
-// Cream #f5f1e8 background, near-black #141414 text, muted red #c83e3e
-// reserved for risk phrases, the red event dot on the trend, and the dashed
-// forecast tail. Radius 0 everywhere, no card borders, no gradients, no
-// drop shadows, no backdrop-filter — compliant with the impeccable-skill
-// reflex-reject list. Inline `backgroundColor` mirror of the CSS rule
-// keeps the invariant observable in jsdom where stylesheets aren't applied.
-//
-// Data is intentionally static (wireframe verbatim). No props; the wave
-// scope is visual parity with the reference image, not data wiring —
-// the dashboard ingestion pipeline will adapt later plans.
 
 import './BoardPackLayout.css';
+import './slots.css';
+import Slot from './Slot.jsx';
+import NarrativeSlot from './NarrativeSlot.jsx';
 
-const KPIS = [
-  { label: 'MRR', value: '$2.47M', delta: '+12.4%', warn: false },
-  { label: 'ARR', value: '$29.6M', delta: '+8.7%', warn: false },
-  { label: 'Churn', value: '2.31%', delta: '\u22120.4pp', warn: false },
-  { label: 'LTV : CAC', value: '4.7\u00d7', delta: '+0.3', warn: false },
-  { label: 'Payback', value: '14.2mo', delta: '+0.8', warn: true },
+const PRESET_ID = 'board-pack';
+
+const DEFAULT_KPIS = [
+  { slotId: 'bp.kpi-0', label: 'MRR', warn: false },
+  { slotId: 'bp.kpi-1', label: 'ARR', warn: false },
+  { slotId: 'bp.kpi-2', label: 'Churn', warn: false },
+  { slotId: 'bp.kpi-3', label: 'LTV : CAC', warn: false },
+  { slotId: 'bp.kpi-4', label: 'Payback', warn: true },
 ];
 
-const ACCOUNTS = [
+const DEFAULT_ACCOUNTS = [
   { name: 'Amberline Logistics', value: '$124.8K', delta: '+18%', warn: false },
   { name: 'Northfield Biotech', value: '$108.4K', delta: '+11%', warn: false },
   { name: 'Waverly Capital', value: '$96.2K', delta: '\u22124%', warn: true },
@@ -36,17 +32,7 @@ const ACCOUNTS = [
   { name: 'Ordinance Retail', value: '$72.1K', delta: '+6%', warn: false },
 ];
 
-/**
- * Revenue trend SVG.
- *
- * 560x220 viewbox. One black 1.5px line from lower-left climbing to the
- * upper-right. Filled underlay in #eeebe2 for volume context. Two event
- * dots: black near the middle of the trace, red near the top-right. Red
- * dashed tail extends from the red dot to x=560 to cue the forecast.
- */
 function TrendChart() {
-  // Smooth monotonic path chosen to land near the target dots.
-  // Start: (0, 180) → steady rise → (560, 40).
   const linePath =
     'M0,180 C60,170 110,158 160,140 ' +
     'S260,108 320,90 S430,56 500,44 L560,40';
@@ -59,13 +45,10 @@ function TrendChart() {
       className="bp-chart__svg"
       viewBox="0 0 560 220"
       role="img"
-      aria-label="Revenue · twelve-month trend"
+      aria-label="Revenue - twelve-month trend"
       preserveAspectRatio="none"
     >
-      {/* Area fill under the line */}
       <path d={areaPath} fill="#eeebe2" stroke="none" />
-      {/* Dashed red forecast tail — sits underneath the solid line so the
-          solid line keeps crisp contrast where they overlap. */}
       <line
         x1="500"
         y1="44"
@@ -76,16 +59,13 @@ function TrendChart() {
         strokeDasharray="4 4"
         strokeLinecap="round"
       />
-      {/* Trend line */}
       <path d={linePath} fill="none" stroke="#141414" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-      {/* Event dots */}
       <circle cx="260" cy="118" r="4" fill="#141414" />
       <circle cx="500" cy="44" r="4.5" fill="#c83e3e" />
     </svg>
   );
 }
 
-/** Churn-risk distribution — 10 bars, last two in red for the 85+ bucket. */
 function ChurnHist() {
   const heights = [8, 14, 20, 28, 36, 30, 22, 16, 28, 34];
   return (
@@ -111,7 +91,6 @@ function ChurnHist() {
   );
 }
 
-/** Cohort retention strip — 16 narrow bars, last one red to mark "best". */
 function CohortStrip() {
   const count = 16;
   return (
@@ -137,18 +116,46 @@ function CohortStrip() {
   );
 }
 
-export default function BoardPackLayout() {
+function KpiRow({ slotId, label, warn, slotProps }) {
+  return (
+    <Slot id={slotId} presetId={PRESET_ID} {...slotProps}>
+      {({ value }) => {
+        const kpi = value && typeof value === 'object' ? value : { value: '', delta: null };
+        return (
+          <div className="bp-kpi">
+            <dt>{label}</dt>
+            <dd>
+              <span>{kpi.value}</span>
+              <small className={warn ? 'bp-warn' : undefined}>
+                {kpi.delta ?? ''}
+              </small>
+            </dd>
+          </div>
+        );
+      }}
+    </Slot>
+  );
+}
+
+export default function BoardPackLayout({
+  bindings,
+  tileData,
+  onSlotEdit,
+  editable = true,
+  /* legacy props */
+  tiles: _tiles,
+  dashboardId: _dashboardId,
+  dashboardName: _dashboardName,
+} = {}) {
+  const slotProps = { bindings, tileData, onEdit: onSlotEdit, editable };
+
   return (
     <div
       className="bp-layout"
       data-testid="layout-board-pack"
       data-preset="board-pack"
-      // Inline background so jsdom tests (no external-stylesheet CSSOM) can
-      // still observe the cream invariant. The CSS rule sets the same value
-      // for non-test browsers; no conflict.
       style={{ backgroundColor: 'rgb(245, 241, 232)' }}
     >
-      {/* --- TOP BAR --------------------------------------------------- */}
       <header className="bp-topbar">
         <div className="bp-topbar__brand">
           <span className="bp-topbar__glyph" aria-hidden="true" />
@@ -158,95 +165,151 @@ export default function BoardPackLayout() {
         <div className="bp-topbar__status">LIVE &middot; AUTO-REFRESH 2S</div>
       </header>
 
-      {/* --- HERO (50 / 50) ------------------------------------------- */}
       <section className="bp-hero">
         <div className="bp-hero__left">
           <div className="bp-hero__kicker">Q3 2026 &middot; NET NEW MRR</div>
-          <div className="bp-hero__number" data-testid="board-pack-hero-number">
-            +$478<span className="bp-hero__unit">K</span>
-          </div>
-          <p className="bp-hero__prose">
-            Three enterprise expansions in July together added{' '}
-            <b className="bp-warn">$290K MRR</b> — 61% of net new. Mid-market
-            added 47 logos. <b className="bp-warn">Watch:</b> enterprise Q4
-            pipe at 2.1&times; coverage.
-          </p>
+          <Slot id="bp.hero-number" presetId={PRESET_ID} {...slotProps}>
+            {({ value }) => {
+              const raw =
+                value && typeof value === 'object' && 'value' in value
+                  ? String(value.value ?? '')
+                  : '';
+              const match = /^(.*?)([KMB%])?$/.exec(raw);
+              const head = match?.[1] ?? raw;
+              const unit = match?.[2] ?? '';
+              return (
+                <div
+                  className="bp-hero__number"
+                  data-testid="board-pack-hero-number"
+                >
+                  {head}
+                  {unit ? <span className="bp-hero__unit">{unit}</span> : null}
+                </div>
+              );
+            }}
+          </Slot>
+          <NarrativeSlot
+            id="bp.hero-narrative"
+            presetId={PRESET_ID}
+            slotProps={slotProps}
+            as="p"
+            className="bp-hero__prose"
+          />
         </div>
 
         <dl className="bp-kpi-list" data-testid="board-pack-kpi-list">
-          {KPIS.map((k) => (
-            <div className="bp-kpi" key={k.label}>
-              <dt>{k.label}</dt>
-              <dd>
-                <span>{k.value}</span>
-                <small className={k.warn ? 'bp-warn' : undefined}>{k.delta}</small>
-              </dd>
-            </div>
+          {DEFAULT_KPIS.map((k) => (
+            <KpiRow
+              key={k.slotId}
+              slotId={k.slotId}
+              label={k.label}
+              warn={k.warn}
+              slotProps={slotProps}
+            />
           ))}
         </dl>
       </section>
 
-      {/* --- MID ROW (70 / 30) --------------------------------------- */}
       <section className="bp-mid">
-        <figure className="bp-chart">
-          <div className="bp-eyebrow">REVENUE &middot; 12MO</div>
-          <h2 className="bp-title">Growth compounded in late Q3</h2>
-          <p className="bp-caption">Forecast suggests $3.1M MRR by Oct &middot; dashed</p>
-          <TrendChart />
-          <div className="bp-axis">
-            <span>AUG &rsquo;25</span>
-            <span>JUL &rsquo;26 &middot; +12.4%</span>
-          </div>
-        </figure>
+        <Slot id="bp.trend-chart" presetId={PRESET_ID} {...slotProps}>
+          {() => (
+            <figure className="bp-chart">
+              <div className="bp-eyebrow">REVENUE &middot; 12MO</div>
+              <h2 className="bp-title">Growth compounded in late Q3</h2>
+              <p className="bp-caption">Forecast suggests $3.1M MRR by Oct &middot; dashed</p>
+              <TrendChart />
+              <div className="bp-axis">
+                <span>AUG &rsquo;25</span>
+                <span>JUL &rsquo;26 &middot; +12.4%</span>
+              </div>
+            </figure>
+          )}
+        </Slot>
 
-        <aside className="bp-accounts" data-testid="board-pack-accounts">
-          <div className="bp-eyebrow">TOP ACCOUNTS &middot; MRR</div>
-          <h2 className="bp-title">Five accounts = 41% of MRR</h2>
-          <p className="bp-caption">Concentration risk &middot; monitor Waverly (&minus;4%)</p>
-          <ul className="bp-accounts__list">
-            {ACCOUNTS.map((a) => (
-              <li className="bp-accounts__row" key={a.name}>
-                <span className="bp-accounts__name">{a.name}</span>
-                <span className="bp-accounts__value">
-                  <span>{a.value}</span>
-                  <span className={`bp-accounts__delta${a.warn ? ' bp-warn' : ''}`}>
-                    {a.delta}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        <Slot id="bp.accounts-list" presetId={PRESET_ID} {...slotProps}>
+          {({ value, state }) => {
+            const rows =
+              state === 'bound' && value && typeof value === 'object' && 'rows' in value
+                ? value.rows
+                : null;
+            const displayRows =
+              rows && rows.length
+                ? rows.slice(0, 5).map((r, i) => ({
+                    name: String(r.name ?? r.entity ?? r.account ?? `Row ${i + 1}`),
+                    value: String(r.value ?? r.mrr ?? r.total ?? ''),
+                    delta: r.delta != null ? String(r.delta) : '',
+                    warn: !!r.warn,
+                  }))
+                : DEFAULT_ACCOUNTS;
+            return (
+              <aside className="bp-accounts" data-testid="board-pack-accounts">
+                <div className="bp-eyebrow">TOP ACCOUNTS &middot; MRR</div>
+                <h2 className="bp-title">Five accounts = 41% of MRR</h2>
+                <p className="bp-caption">Concentration risk &middot; monitor Waverly (&minus;4%)</p>
+                <ul className="bp-accounts__list">
+                  {displayRows.map((a) => (
+                    <li className="bp-accounts__row" key={a.name}>
+                      <span className="bp-accounts__name">{a.name}</span>
+                      <span className="bp-accounts__value">
+                        <span>{a.value}</span>
+                        <span className={`bp-accounts__delta${a.warn ? ' bp-warn' : ''}`}>
+                          {a.delta}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            );
+          }}
+        </Slot>
       </section>
 
-      {/* --- BOTTOM STRIP (3-up) ------------------------------------- */}
       <section className="bp-strip" data-testid="board-pack-bottom-strip">
-        <div className="bp-strip__card">
-          <div className="bp-eyebrow">CHURN RISK &middot; DIST.</div>
-          <h3 className="bp-title">Tail is manageable</h3>
-          <p className="bp-caption">12 accounts above 85 &middot; $340K MRR</p>
-          <ChurnHist />
-        </div>
+        <Slot id="bp.strip-churn" presetId={PRESET_ID} {...slotProps}>
+          {() => (
+            <div className="bp-strip__card">
+              <div className="bp-eyebrow">CHURN RISK &middot; DIST.</div>
+              <h3 className="bp-title">Tail is manageable</h3>
+              <p className="bp-caption">12 accounts above 85 &middot; $340K MRR</p>
+              <ChurnHist />
+            </div>
+          )}
+        </Slot>
 
-        <div className="bp-strip__card">
-          <div className="bp-eyebrow">COHORT &middot; JULY &rsquo;25</div>
-          <h3 className="bp-title">Retention holds</h3>
-          <p className="bp-caption">M12 retention = 92.1% &middot; best cohort YTD</p>
-          <CohortStrip />
-        </div>
+        <Slot id="bp.strip-cohort" presetId={PRESET_ID} {...slotProps}>
+          {() => (
+            <div className="bp-strip__card">
+              <div className="bp-eyebrow">COHORT &middot; JULY &rsquo;25</div>
+              <h3 className="bp-title">Retention holds</h3>
+              <p className="bp-caption">M12 retention = 92.1% &middot; best cohort YTD</p>
+              <CohortStrip />
+            </div>
+          )}
+        </Slot>
 
-        <div className="bp-strip__card">
-          <div className="bp-eyebrow">INSIGHT</div>
-          <h3 className="bp-title">Enterprise concentration is the Q4 lever</h3>
-          <p className="bp-strip__body">
-            Pipeline coverage 2.1&times; below target 3.0&times;.{' '}
-            <b className="bp-warn">
-              Accelerate Acme tier-up + 2 mid-market upsells
-            </b>{' '}
-            to hit Q4 expansion plan. Recommend QBR scheduled for Waverly
-            before Oct 15.
-          </p>
-        </div>
+        <Slot id="bp.strip-insight" presetId={PRESET_ID} {...slotProps}>
+          {({ value, state }) => (
+            <div className="bp-strip__card">
+              <div className="bp-eyebrow">INSIGHT</div>
+              <h3 className="bp-title">Enterprise concentration is the Q4 lever</h3>
+              {state === 'fallback' ? (
+                <p className="bp-strip__body">
+                  Pipeline coverage 2.1&times; below target 3.0&times;.{' '}
+                  <b className="bp-warn">
+                    Accelerate Acme tier-up + 2 mid-market upsells
+                  </b>{' '}
+                  to hit Q4 expansion plan. Recommend QBR scheduled for Waverly
+                  before Oct 15.
+                </p>
+              ) : (
+                <p className="bp-strip__body">
+                  {typeof value === 'string' ? value : ''}
+                </p>
+              )}
+            </div>
+          )}
+        </Slot>
 
         <div className="bp-strip__footer">AI &middot; REVIEWED 2MIN AGO</div>
       </section>

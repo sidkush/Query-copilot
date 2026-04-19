@@ -1,0 +1,106 @@
+/* TSS Wave 2-B — shared slot-wrapper CSS for all four themed presets.
+ *
+ * The <Slot> wrapper renders a <div data-slot="...">. For layouts that
+ * rely on CSS Grid / Flex / dl-list semantics (Board Pack's bp-kpi-list,
+ * bp-strip; Operator Console's oc-channels; Signal's sg-kpis; etc.)
+ * the extra div would disrupt the parent's immediate-child selectors.
+ * `display: contents` flattens the wrapper out of the box model while
+ * leaving pointer-events + data attributes observable for tests.
+ *
+ * Pseudo-elements don't render on display:contents nodes, so the
+ * hover affordance (dashed 1px outline + pencil glyph) is applied to
+ * the slot's first child via the "> *:first-child" selector. The
+ * outline sits inside the child's own padding so it doesn't shift
+ * layout on hover.
+ *
+ * Hover rules are intentionally scoped per preset so each preset can
+ * pick its own foreground color for the outline.
+ */
+
+/* Common — wrapper is layout-transparent. */
+.bp-layout [data-slot],
+.oc-layout [data-slot],
+.sg-layout [data-slot],
+.eb-layout [data-slot] {
+  display: contents;
+}
+
+/* Board Pack — muted foreground dashed outline + pencil glyph. */
+.bp-layout .slot--hover > *:first-child {
+  outline: 1px dashed rgba(20, 20, 20, 0.25);
+  outline-offset: 2px;
+  position: relative;
+  cursor: pointer;
+  transition: outline-color 120ms ease;
+}
+.bp-layout .slot--hover > *:first-child::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M0.5 7.5 L1 6 L5 2 L6 3 L2 7 Z M5.5 1.5 L6.5 0.5 L7.5 1.5 L6.5 2.5 Z' fill='%23141414'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* Operator Console — phosphor outline + dim pencil. */
+.oc-layout .slot--hover > *:first-child {
+  outline: 1px dashed rgba(181, 216, 160, 0.25);
+  outline-offset: 2px;
+  position: relative;
+  cursor: pointer;
+  transition: outline-color 120ms ease;
+}
+.oc-layout .slot--hover > *:first-child::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M0.5 7.5 L1 6 L5 2 L6 3 L2 7 Z M5.5 1.5 L6.5 0.5 L7.5 1.5 L6.5 2.5 Z' fill='%23b5d8a0'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* Signal — cool rule outline + teal-gray pencil. */
+.sg-layout .slot--hover > *:first-child {
+  outline: 1px dashed rgba(231, 233, 239, 0.25);
+  outline-offset: 2px;
+  position: relative;
+  cursor: pointer;
+  transition: outline-color 120ms ease;
+}
+.sg-layout .slot--hover > *:first-child::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M0.5 7.5 L1 6 L5 2 L6 3 L2 7 Z M5.5 1.5 L6.5 0.5 L7.5 1.5 L6.5 2.5 Z' fill='%23e7e9ef'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+/* Editorial Brief — near-black dashed outline + ink pencil. */
+.eb-layout .slot--hover > *:first-child {
+  outline: 1px dashed rgba(24, 22, 19, 0.25);
+  outline-offset: 2px;
+  position: relative;
+  cursor: pointer;
+  transition: outline-color 120ms ease;
+}
+.eb-layout .slot--hover > *:first-child::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M0.5 7.5 L1 6 L5 2 L6 3 L2 7 Z M5.5 1.5 L6.5 0.5 L7.5 1.5 L6.5 2.5 Z' fill='%23181613'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
