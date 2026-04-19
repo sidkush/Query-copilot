@@ -1,0 +1,20 @@
+{"id":"rev-01","question":"Total revenue last month","expected_tables":["orders"],"expected_pattern":"SUM\\(.*amount.*\\)","dialect":"postgresql"}
+{"id":"rev-02","question":"Gross revenue by region","expected_tables":["orders","customers","regions"],"expected_pattern":"(?s)SUM\\(.*GROUP BY.*region","dialect":"postgresql"}
+{"id":"time-01","question":"Monthly active users over last 6 months","expected_tables":["users","events"],"expected_pattern":"(?s)DATE_TRUNC\\('month'.*COUNT\\(DISTINCT","dialect":"postgresql"}
+{"id":"time-02","question":"Year-over-year growth","expected_tables":["orders"],"expected_pattern":"LAG\\(|DATEADD|INTERVAL '1 year'","dialect":"postgresql"}
+{"id":"time-03","question":"Last 30 days sales","expected_tables":["orders"],"expected_pattern":"INTERVAL '29 days'|CURRENT_DATE - 29","dialect":"postgresql"}
+{"id":"join-01","question":"Customers with total spend","expected_tables":["customers","orders"],"expected_pattern":"(?s)JOIN.*GROUP BY.*customer","dialect":"postgresql"}
+{"id":"join-02","question":"Products per order","expected_tables":["orders","order_items","products"],"expected_pattern":"(?s)JOIN.*order_items.*JOIN","dialect":"postgresql"}
+{"id":"join-03","question":"Employees and their managers","expected_tables":["employees"],"expected_pattern":"(?s)LEFT JOIN employees.*manager_id","dialect":"postgresql"}
+{"id":"null-01","question":"Average order value excluding nulls","expected_tables":["orders"],"expected_pattern":"AVG\\(.*amount.*\\)","dialect":"postgresql"}
+{"id":"null-02","question":"Conversion rate","expected_tables":["events"],"expected_pattern":"NULLIF\\(","dialect":"postgresql"}
+{"id":"funnel-01","question":"Signup to purchase conversion","expected_tables":["users","orders"],"expected_pattern":"(?s)SELECT.*COUNT","dialect":"postgresql"}
+{"id":"cohort-01","question":"Cohort retention by signup month","expected_tables":["users","events"],"expected_pattern":"(?s)DATE_TRUNC\\('month'.*FIRST_VALUE","dialect":"postgresql"}
+{"id":"churn-01","question":"Monthly churn rate","expected_tables":["subscriptions","customers"],"expected_pattern":"(?s)cancelled_at|is_churned","dialect":"postgresql"}
+{"id":"ltv-01","question":"Customer lifetime value","expected_tables":["orders","customers"],"expected_pattern":"(?s)SUM\\(.*amount.*\\).*GROUP BY.*customer","dialect":"postgresql"}
+{"id":"cac-01","question":"Customer acquisition cost Q1","expected_tables":["marketing_spend","customers"],"expected_pattern":"(?s)SUM\\(.*spend.*\\).*COUNT","dialect":"postgresql"}
+{"id":"top-01","question":"Top 10 products by revenue","expected_tables":["products","order_items"],"expected_pattern":"(?s)ORDER BY.*DESC.*LIMIT 10","dialect":"postgresql"}
+{"id":"dist-01","question":"Distribution of order values","expected_tables":["orders"],"expected_pattern":"(?s)COUNT\\(|GROUP BY|NTILE","dialect":"postgresql"}
+{"id":"geo-01","question":"Sales by country","expected_tables":["orders","customers"],"expected_pattern":"(?s)GROUP BY.*country","dialect":"postgresql"}
+{"id":"dialect-01","question":"ILIKE search for 'acme'","expected_tables":["customers"],"expected_pattern":"ILIKE","dialect":"postgresql"}
+{"id":"dialect-02","question":"BigQuery date truncation to month","expected_tables":["orders"],"expected_pattern":"DATE_TRUNC\\([^,]+, MONTH\\)","dialect":"bigquery"}
