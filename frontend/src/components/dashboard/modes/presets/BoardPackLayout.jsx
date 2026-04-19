@@ -1,13 +1,17 @@
-// Plan A* Phase 3 / Wave 2-BP — BoardPackLayout (cream tearsheet, wireframe 1).
-// TSS Wave 2-B — every hardcoded literal now routes through a <Slot> so
-// the dashboard autogen pipeline can bind real connection data, while
-// the static demo values still render verbatim when no binding exists.
+// Plan A* Phase 3 / Wave 2-BP - BoardPackLayout (cream tearsheet, wireframe 1).
+// TSS2 T7 - every hardcoded finance literal (DEFAULT_KPIS labels,
+// DEFAULT_ACCOUNTS, kicker, chart titles, insight copy, ChurnHist +
+// CohortStrip arrays, top-bar strip) now resolves through <Slot> so
+// the autogen pipeline drives the preset entirely from the bound
+// connection. When no binding exists the preset collapses to neutral
+// em-dash placeholders - no finance words, no wireframe rows.
 //
 // Region contract (unchanged from Plan A*):
-//   - Top bar           (AskDB logo, centered kicker, LIVE dot)
-//   - Hero split 50/50  (+$478K display + narrative | 5-row KPI list)
-//   - Mid split 70/30   (revenue trend figure | top-accounts aside)
-//   - Bottom strip 3-up (churn histogram | cohort bars | insight card)
+//   - Top bar              (AskDB logo, centered kicker slot, LIVE dot)
+//   - Top-bar metric strip (6 compact KPI slots, bp.topbar-0..5)
+//   - Hero split 50/50     (hero number + narrative | 5-row KPI list)
+//   - Mid split 70/30      (revenue trend figure | top-accounts aside)
+//   - Bottom strip 3-up    (churn histogram | cohort bars | insight card)
 
 import './BoardPackLayout.css';
 import './slots.css';
@@ -16,20 +20,24 @@ import NarrativeSlot from './NarrativeSlot.jsx';
 
 const PRESET_ID = 'board-pack';
 
+// KPI rows - labels/values come entirely from bound tiles. With no
+// binding the Slot renders the descriptor fallback ({value: '-', ...})
+// so the DOM contains em-dashes only, no finance terms.
 const DEFAULT_KPIS = [
-  { slotId: 'bp.kpi-0', label: 'MRR', warn: false },
-  { slotId: 'bp.kpi-1', label: 'ARR', warn: false },
-  { slotId: 'bp.kpi-2', label: 'Churn', warn: false },
-  { slotId: 'bp.kpi-3', label: 'LTV : CAC', warn: false },
-  { slotId: 'bp.kpi-4', label: 'Payback', warn: true },
+  { slotId: 'bp.kpi-0' },
+  { slotId: 'bp.kpi-1' },
+  { slotId: 'bp.kpi-2' },
+  { slotId: 'bp.kpi-3' },
+  { slotId: 'bp.kpi-4' },
 ];
 
-const DEFAULT_ACCOUNTS = [
-  { name: 'Amberline Logistics', value: '$124.8K', delta: '+18%', warn: false },
-  { name: 'Northfield Biotech', value: '$108.4K', delta: '+11%', warn: false },
-  { name: 'Waverly Capital', value: '$96.2K', delta: '\u22124%', warn: true },
-  { name: 'Kestrel Aerospace', value: '$88.7K', delta: '+22%', warn: false },
-  { name: 'Ordinance Retail', value: '$72.1K', delta: '+6%', warn: false },
+const TOPBAR_SLOTS = [
+  'bp.topbar-0',
+  'bp.topbar-1',
+  'bp.topbar-2',
+  'bp.topbar-3',
+  'bp.topbar-4',
+  'bp.topbar-5',
 ];
 
 function TrendChart() {
@@ -45,7 +53,7 @@ function TrendChart() {
       className="bp-chart__svg"
       viewBox="0 0 560 220"
       role="img"
-      aria-label="Revenue - twelve-month trend"
+      aria-label="Primary trend"
       preserveAspectRatio="none"
     >
       <path d={areaPath} fill="#eeebe2" stroke="none" />
@@ -66,8 +74,20 @@ function TrendChart() {
   );
 }
 
-function ChurnHist() {
-  const heights = [8, 14, 20, 28, 36, 30, 22, 16, 28, 34];
+// ChurnHist reads bar heights from the bound tile. Unbound -> empty
+// frame (no bars), no hardcoded silhouette.
+function ChurnHist({ bins }) {
+  const heights = Array.isArray(bins)
+    ? bins
+        .map((b) =>
+          typeof b === 'number'
+            ? b
+            : b && typeof b === 'object' && typeof b.height === 'number'
+              ? b.height
+              : null,
+        )
+        .filter((h) => h != null)
+    : [];
   return (
     <svg
       className="bp-strip__sparksvg"
@@ -75,7 +95,7 @@ function ChurnHist() {
       height="40"
       viewBox="0 0 120 40"
       role="img"
-      aria-label="Churn risk histogram"
+      aria-label="Distribution strip"
     >
       {heights.map((h, i) => (
         <rect
@@ -84,15 +104,17 @@ function ChurnHist() {
           y={40 - h}
           width={10}
           height={h}
-          fill={i >= 8 ? '#c83e3e' : '#141414'}
+          fill={i >= heights.length - 2 ? '#c83e3e' : '#141414'}
         />
       ))}
     </svg>
   );
 }
 
-function CohortStrip() {
-  const count = 16;
+// CohortStrip - bar count + heights from the bound tile. Unbound ->
+// empty frame.
+function CohortStrip({ bins }) {
+  const count = Array.isArray(bins) ? bins.length : 0;
   return (
     <svg
       className="bp-strip__sparksvg"
@@ -100,7 +122,7 @@ function CohortStrip() {
       height="8"
       viewBox="0 0 120 8"
       role="img"
-      aria-label="Cohort retention strip"
+      aria-label="Cohort strip"
     >
       {Array.from({ length: count }, (_, i) => (
         <rect
@@ -116,20 +138,44 @@ function CohortStrip() {
   );
 }
 
-function KpiRow({ slotId, label, warn, slotProps }) {
+function KpiRow({ slotId, slotProps }) {
   return (
     <Slot id={slotId} presetId={PRESET_ID} {...slotProps}>
       {({ value }) => {
-        const kpi = value && typeof value === 'object' ? value : { value: '', delta: null };
+        const kpi =
+          value && typeof value === 'object'
+            ? value
+            : { value: '\u2014', delta: null, label: '\u2014' };
+        const label = kpi.label ?? '\u2014';
+        const warn = !!kpi.warn;
         return (
           <div className="bp-kpi">
             <dt>{label}</dt>
             <dd>
-              <span>{kpi.value}</span>
+              <span>{kpi.value ?? '\u2014'}</span>
               <small className={warn ? 'bp-warn' : undefined}>
                 {kpi.delta ?? ''}
               </small>
             </dd>
+          </div>
+        );
+      }}
+    </Slot>
+  );
+}
+
+function TopbarKpi({ slotId, slotProps }) {
+  return (
+    <Slot id={slotId} presetId={PRESET_ID} {...slotProps}>
+      {({ value }) => {
+        const kpi =
+          value && typeof value === 'object'
+            ? value
+            : { value: '\u2014', delta: null, label: '\u2014' };
+        return (
+          <div className="bp-topbar__stat">
+            <span className="bp-topbar__stat-label">{kpi.label ?? '\u2014'}</span>
+            <span className="bp-topbar__stat-value">{kpi.value ?? '\u2014'}</span>
           </div>
         );
       }}
@@ -164,13 +210,27 @@ export default function BoardPackLayout({
           <span className="bp-topbar__glyph" aria-hidden="true" />
           <span className="bp-topbar__logo">AskDB</span>
         </div>
-        <div className="bp-topbar__kicker">Q3 REVENUE &middot; BOARD PACK</div>
-        <div className="bp-topbar__status">LIVE &middot; AUTO-REFRESH 2S</div>
+        <NarrativeSlot
+          id="bp.kicker"
+          presetId={PRESET_ID}
+          slotProps={slotProps}
+          as="div"
+          className="bp-topbar__kicker"
+        />
+        <div className="bp-topbar__status">LIVE</div>
       </header>
+
+      <section
+        className="bp-topbar-strip"
+        data-testid="board-pack-topbar-strip"
+      >
+        {TOPBAR_SLOTS.map((slotId) => (
+          <TopbarKpi key={slotId} slotId={slotId} slotProps={slotProps} />
+        ))}
+      </section>
 
       <section className="bp-hero">
         <div className="bp-hero__left">
-          <div className="bp-hero__kicker">Q3 2026 &middot; NET NEW MRR</div>
           <Slot id="bp.hero-number" presetId={PRESET_ID} {...slotProps}>
             {({ value }) => {
               const raw =
@@ -185,7 +245,7 @@ export default function BoardPackLayout({
                   className="bp-hero__number"
                   data-testid="board-pack-hero-number"
                 >
-                  {head}
+                  {head || '\u2014'}
                   {unit ? <span className="bp-hero__unit">{unit}</span> : null}
                 </div>
               );
@@ -202,65 +262,76 @@ export default function BoardPackLayout({
 
         <dl className="bp-kpi-list" data-testid="board-pack-kpi-list">
           {DEFAULT_KPIS.map((k) => (
-            <KpiRow
-              key={k.slotId}
-              slotId={k.slotId}
-              label={k.label}
-              warn={k.warn}
-              slotProps={slotProps}
-            />
+            <KpiRow key={k.slotId} slotId={k.slotId} slotProps={slotProps} />
           ))}
         </dl>
       </section>
 
       <section className="bp-mid">
         <Slot id="bp.trend-chart" presetId={PRESET_ID} {...slotProps}>
-          {() => (
-            <figure className="bp-chart">
-              <div className="bp-eyebrow">REVENUE &middot; 12MO</div>
-              <h2 className="bp-title">Growth compounded in late Q3</h2>
-              <p className="bp-caption">Forecast suggests $3.1M MRR by Oct &middot; dashed</p>
-              <TrendChart />
-              <div className="bp-axis">
-                <span>AUG &rsquo;25</span>
-                <span>JUL &rsquo;26 &middot; +12.4%</span>
-              </div>
-            </figure>
-          )}
+          {({ value, state }) => {
+            const title =
+              state === 'bound' &&
+              value &&
+              typeof value === 'object' &&
+              typeof value.title === 'string'
+                ? value.title
+                : '';
+            return (
+              <figure className="bp-chart">
+                <h2 className="bp-title">{title || '\u2014'}</h2>
+                <TrendChart />
+              </figure>
+            );
+          }}
         </Slot>
 
         <Slot id="bp.accounts-list" presetId={PRESET_ID} {...slotProps}>
           {({ value, state }) => {
             const rows =
-              state === 'bound' && value && typeof value === 'object' && 'rows' in value
+              state === 'bound' &&
+              value &&
+              typeof value === 'object' &&
+              'rows' in value &&
+              Array.isArray(value.rows)
                 ? value.rows
-                : null;
-            const displayRows =
-              rows && rows.length
-                ? rows.slice(0, 5).map((r, i) => ({
-                    name: String(r.name ?? r.entity ?? r.account ?? `Row ${i + 1}`),
-                    value: String(r.value ?? r.mrr ?? r.total ?? ''),
-                    delta: r.delta != null ? String(r.delta) : '',
-                    warn: !!r.warn,
-                  }))
-                : DEFAULT_ACCOUNTS;
+                : [];
+            const displayRows = rows.slice(0, 5).map((r, i) => ({
+              key: String(r.name ?? r.entity ?? r.account ?? i),
+              name: String(r.name ?? r.entity ?? r.account ?? '\u2014'),
+              value: String(r.value ?? r.mrr ?? r.total ?? '\u2014'),
+              delta: r.delta != null ? String(r.delta) : '',
+              warn: !!r.warn,
+            }));
             return (
               <aside className="bp-accounts" data-testid="board-pack-accounts">
-                <div className="bp-eyebrow">TOP ACCOUNTS &middot; MRR</div>
-                <h2 className="bp-title">Five accounts = 41% of MRR</h2>
-                <p className="bp-caption">Concentration risk &middot; monitor Waverly (&minus;4%)</p>
                 <ul className="bp-accounts__list">
-                  {displayRows.map((a) => (
-                    <li className="bp-accounts__row" key={a.name}>
-                      <span className="bp-accounts__name">{a.name}</span>
+                  {displayRows.length === 0 ? (
+                    <li
+                      className="bp-accounts__row bp-accounts__empty"
+                      data-testid="board-pack-accounts-empty"
+                    >
+                      <span className="bp-accounts__name">{'\u2014'}</span>
                       <span className="bp-accounts__value">
-                        <span>{a.value}</span>
-                        <span className={`bp-accounts__delta${a.warn ? ' bp-warn' : ''}`}>
-                          {a.delta}
-                        </span>
+                        <span>{'\u2014'}</span>
+                        <span className="bp-accounts__delta" />
                       </span>
                     </li>
-                  ))}
+                  ) : (
+                    displayRows.map((a) => (
+                      <li className="bp-accounts__row" key={a.key}>
+                        <span className="bp-accounts__name">{a.name}</span>
+                        <span className="bp-accounts__value">
+                          <span>{a.value}</span>
+                          <span
+                            className={`bp-accounts__delta${a.warn ? ' bp-warn' : ''}`}
+                          >
+                            {a.delta}
+                          </span>
+                        </span>
+                      </li>
+                    ))
+                  )}
                 </ul>
               </aside>
             );
@@ -270,51 +341,46 @@ export default function BoardPackLayout({
 
       <section className="bp-strip" data-testid="board-pack-bottom-strip">
         <Slot id="bp.strip-churn" presetId={PRESET_ID} {...slotProps}>
-          {() => (
-            <div className="bp-strip__card">
-              <div className="bp-eyebrow">CHURN RISK &middot; DIST.</div>
-              <h3 className="bp-title">Tail is manageable</h3>
-              <p className="bp-caption">12 accounts above 85 &middot; $340K MRR</p>
-              <ChurnHist />
-            </div>
-          )}
+          {({ value, state }) => {
+            const bins =
+              state === 'bound' &&
+              value &&
+              typeof value === 'object' &&
+              Array.isArray(value.bins)
+                ? value.bins
+                : [];
+            return (
+              <div className="bp-strip__card">
+                <ChurnHist bins={bins} />
+              </div>
+            );
+          }}
         </Slot>
 
         <Slot id="bp.strip-cohort" presetId={PRESET_ID} {...slotProps}>
-          {() => (
-            <div className="bp-strip__card">
-              <div className="bp-eyebrow">COHORT &middot; JULY &rsquo;25</div>
-              <h3 className="bp-title">Retention holds</h3>
-              <p className="bp-caption">M12 retention = 92.1% &middot; best cohort YTD</p>
-              <CohortStrip />
-            </div>
-          )}
+          {({ value, state }) => {
+            const bins =
+              state === 'bound' &&
+              value &&
+              typeof value === 'object' &&
+              Array.isArray(value.bins)
+                ? value.bins
+                : [];
+            return (
+              <div className="bp-strip__card">
+                <CohortStrip bins={bins} />
+              </div>
+            );
+          }}
         </Slot>
 
-        <Slot id="bp.strip-insight" presetId={PRESET_ID} {...slotProps}>
-          {({ value, state }) => (
-            <div className="bp-strip__card">
-              <div className="bp-eyebrow">INSIGHT</div>
-              <h3 className="bp-title">Enterprise concentration is the Q4 lever</h3>
-              {state === 'fallback' ? (
-                <p className="bp-strip__body">
-                  Pipeline coverage 2.1&times; below target 3.0&times;.{' '}
-                  <b className="bp-warn">
-                    Accelerate Acme tier-up + 2 mid-market upsells
-                  </b>{' '}
-                  to hit Q4 expansion plan. Recommend QBR scheduled for Waverly
-                  before Oct 15.
-                </p>
-              ) : (
-                <p className="bp-strip__body">
-                  {typeof value === 'string' ? value : ''}
-                </p>
-              )}
-            </div>
-          )}
-        </Slot>
-
-        <div className="bp-strip__footer">AI &middot; REVIEWED 2MIN AGO</div>
+        <NarrativeSlot
+          id="bp.strip-insight"
+          presetId={PRESET_ID}
+          slotProps={slotProps}
+          as="div"
+          className="bp-strip__card bp-strip__card--insight"
+        />
       </section>
     </div>
   );
