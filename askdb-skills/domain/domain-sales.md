@@ -10,6 +10,8 @@ tokens_budget: 1200
 
 # Domain: Sales Analytics — AskDB AgentEngine
 
+> **Shared metric defs** (revenue, conversion, AOV, CAC, LTV, cohort retention, MRR, ARR, funnel stages) live in `shared/metric-definitions-glossary.md`. This file covers sales-specific CRM schema patterns, funnel + rep-performance + stuck-deal queries — apply glossary defaults unless sales-specific override below says otherwise.
+
 ## Auto-Detection Signals
 
 Apply this skill file when schema contains tables/columns matching:

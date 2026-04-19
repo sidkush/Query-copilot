@@ -10,6 +10,8 @@ tokens_budget: 2200
 
 # Domain: Product Analytics — AskDB AgentEngine
 
+> **Shared metric defs** (revenue, DAU/MAU, churn, retention, AOV, CAC, LTV, ROAS, GMV, cohort) live in `shared/metric-definitions-glossary.md`. This file covers product/finance/marketing/ecommerce-specific extensions: DAU/MAU SQL patterns, GAAP P&L structure, ROAS attribution, GMV inventory turnover — apply glossary defaults unless a section below says otherwise.
+
 ## Auto-Detection Signals
 Tables/columns: `events`, `sessions`, `users`, `pageviews`, `feature_flags`, `experiments`, `user_properties`, `dau`, `mau`, `retention`
 

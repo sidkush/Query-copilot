@@ -1601,7 +1601,7 @@ Write `askdb-skills/shared/metric-definitions-glossary.md`:
 ````markdown
 ---
 name: metric-definitions-glossary
-description: Canonical definitions of business metrics used across sales, finance, product, marketing, ecommerce, HR, ops domains — revenue, active users, churn, cohort retention, AOV, CAC, LTV, funnel stages
+description: Canonical cross-domain metric defs — revenue, active users, churn, retention, AOV, CAC, LTV, funnel, cohort — referenced by domain skills
 priority: 3
 tokens_budget: 1400
 applies_to: sql-generation

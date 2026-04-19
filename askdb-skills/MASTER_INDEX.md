@@ -1,6 +1,7 @@
 # AskDB Skill Library — Master Index
-**Version:** 1.0 | **Files:** 33 | **Collections:** 6
-**Built:** April 2026 | **Covers:** BigQuery, Snowflake, PostgreSQL, DuckDB, MySQL, SQL Server, Redshift, Databricks
+**Version:** 1.1 | **Files:** 48 | **Collections:** 7
+**Built:** April 2026 | **Last updated:** 2026-04-19 (Plan 1 content foundation — Tier A + Tier C)
+**Covers:** BigQuery, Snowflake, PostgreSQL, DuckDB, MySQL, SQL Server, Redshift, Databricks
 
 ---
 
@@ -12,12 +13,16 @@ askdb-skills/
 │   ├── security-rules.md             ★ Priority 1 — always in context
 │   ├── agent-identity-response-format.md  ★ Priority 1 — always in context
 │   ├── confirmation-thresholds.md    ★ Priority 1 — always in context
+│   ├── caching-breakpoint-policy.md  ★ Priority 1 — 4-breakpoint Anthropic caching layout (NEW v1.1)
 │   ├── error-handling.md             Priority 2
 │   ├── query-lifecycle-budget.md     Priority 2
+│   ├── llm-error-recovery.md         Priority 2 — API error taxonomy + repair playbook (NEW v1.1)
+│   ├── data-quality-trust-scoring.md Priority 2 — NULL/outlier/cardinality trust score (NEW v1.1)
 │   └── chromadb-retrieval-integration.md  (this file's companion — for devs)
 │
 ├── sql/                               # Retrieved on query generation
 │   ├── schema-profiling.md           FK inference, cardinality, naming patterns
+│   ├── schema-linking-evidence.md    Evidence packet + FK graph + cardinality tags (NEW v1.1)
 │   ├── join-intelligence.md          Join types, fan-out, many-to-many, self-ref
 │   ├── aggregation-rules.md          COUNT DISTINCT, HAVING, pre-agg, division
 │   ├── time-intelligence.md          Period definitions, POP comparison, timezones
@@ -26,6 +31,7 @@ askdb-skills/
 │   ├── ambiguity-resolution.md       Metric conflicts, pronouns, negation
 │   ├── calculation-patterns.md       MRR, churn, cohort, LTV, funnel SQL
 │   ├── performance-optimization.md   Tier selection, anti-patterns, pushdown
+│   ├── self-repair-error-taxonomy.md 12 SQL error classes + repair templates (NEW v1.1)
 │   ├── sql-validation-rules.md       6-layer validator, what each layer catches
 │   └── data-types-and-subqueries.md  Currency, casting, CTEs, EXISTS, recursive
 │
@@ -36,14 +42,19 @@ askdb-skills/
 │   ├── insight-generation.md         Summary structure, headlines, anomaly language
 │   ├── chart-formatting.md           Axis format, tooltips, labels, annotations
 │   ├── color-system.md               All 4 theme palettes with CSS variables
+│   ├── accessibility-wcag.md         WCAG 2.2 AA contrast + alt-text + keyboard nav (NEW v1.1)
 │   └── vizql-capabilities-progressive-disclosure.md  RSR, 30 calcs, LOD, WebGL
 │
 ├── agent/                             # Retrieved for complex agentic tasks
+│   ├── skill-library-meta.md         ★ Priority 1 — retrieval rules + self-consistency + anti-hallucination (NEW v1.1)
 │   ├── dashboard-build-protocol.md   5-phase build sequence, quality checklist
 │   ├── multi-step-planning.md        When to plan, budget allocation, failure handling
 │   ├── voice-interaction-patterns.md  Voice vs text, pronoun resolution, TTS format
 │   ├── session-memory-protocol.md    SQLite persistence, resume protocol, preferences
-│   ├── context-compaction-teach-by-correction.md  What to compact, learning rules
+│   ├── session-persistence.md        Split from context-compaction: SQLite + compaction + resume (NEW v1.1)
+│   ├── learn-from-corrections.md     Split from context-compaction: ICRH-safe correction queue (NEW v1.1)
+│   ├── streaming-progressive-results.md SSE cadence + sampled previews + cancel (NEW v1.1)
+│   ├── batch-query-optimization.md   Parallel vs serial + dependency DAG + pool limits (NEW v1.1)
 │   └── screenshot-interpretation.md  Layout detection, panel mapping, sketch reading
 │
 ├── dialects/                          # One retrieved per connected DB engine
@@ -51,11 +62,14 @@ askdb-skills/
 │   ├── dialect-snowflake-postgres-duckdb.md  VARIANT, JSONB, ASOF, PIVOT
 │   └── dialect-mysql-sqlserver-redshift-databricks.md  DATE_FORMAT, T-SQL, Delta
 │
-└── domain/                            # One retrieved per detected data domain
-    ├── domain-sales.md               CRM schema, funnel, pipeline, win rate SQL
-    ├── domain-product-finance-marketing-ecommerce.md  DAU, P&L, CAC, GMV SQL
-    ├── domain-hr-operations.md       Headcount, attrition, MTTR, SLA SQL
-    └── domain-iot-timeseries.md      Downsampling, ASOF, gap detection, anomaly SQL
+├── domain/                            # One retrieved per detected data domain
+│   ├── domain-sales.md               CRM schema, funnel, pipeline, win rate SQL
+│   ├── domain-product-finance-marketing-ecommerce.md  DAU, P&L, CAC, GMV SQL
+│   ├── domain-hr-operations.md       Headcount, attrition, MTTR, SLA SQL
+│   └── domain-iot-timeseries.md      Downsampling, ASOF, gap detection, anomaly SQL
+│
+└── shared/                            # Referenced by multiple domain skills (NEW v1.1)
+    └── metric-definitions-glossary.md  Canonical revenue/churn/AOV/CAC/LTV/cohort defs
 ```
 
 ---
@@ -157,7 +171,7 @@ domain-{domain}.md              # domain/domain-sales.md
 | Typical SQL file | ~2,000–3,000 | Per query |
 | Typical viz file | ~2,000–2,500 | Per chart |
 | Typical domain file | ~2,000–3,000 | Per session |
-| Full library (all 33 files) | ~80,000 | Never load all at once |
+| Full library (all 48 files) | ~95,000 | Never load all at once |
 | Typical session load (smart retrieval) | ~15,000–20,000 | 4-6 files + always-on |
 
 **Context budget math:**
@@ -174,6 +188,7 @@ domain-{domain}.md              # domain/domain-sales.md
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | April 2026 | Initial release — 33 files, 6 collections |
+| 1.1 | 2026-04-19 | Plan 1 Tier A+C: +9 new skills (llm-error-recovery, data-quality-trust-scoring, caching-breakpoint-policy, streaming-progressive-results, batch-query-optimization, skill-library-meta, schema-linking-evidence, self-repair-error-taxonomy, accessibility-wcag), +metric-definitions-glossary (new `shared/` collection), split context-compaction-teach-by-correction → session-persistence + learn-from-corrections. 33 → 48 files, 6 → 7 collections. Existing 37 files retro-backfilled with Anthropic Skills frontmatter + `legacy: true` flag; Plan 2 (Tier B) drops legacy flag per-file as each is brought fully up to the authoring contract. |
 
 ---
 
