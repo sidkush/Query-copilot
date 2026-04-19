@@ -55,6 +55,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple
 
 from config import settings
 from schema_semantics import classify_column, forbid_for_agg, digest_with_semantics
+from user_intent_interpreter import infer_semantic_tags
 from preset_sql_compiler import (
     compile_kpi_sql, compile_table_sql, compile_chart_sql,
 )
@@ -762,6 +763,7 @@ def run_autogen(
     semantic_tags: Optional[Dict[str, Any]] = None,
     preset_ids: Optional[List[str]] = None,
     skip_pinned: bool = True,
+    user_intent: str = "",
 ) -> Generator[Dict[str, Any], None, None]:
     """Fill all themed-preset slot bindings for a dashboard.
 
@@ -786,6 +788,27 @@ def run_autogen(
     # Build schema profile — use the entry's cached schema if available,
     # else an empty one (heuristic picker handles the gap).
     schema_profile = _schema_profile_for_entry(entry)
+
+    # T5 — thread user_intent through to the slot picker. If the caller
+    # didn't supply a meaningful SemanticTags dict (or is missing the
+    # primary date), interpret the free-text intent into one. Existing
+    # non-empty tags always win over inferred ones.
+    if user_intent:
+        current = dict(semantic_tags or {})
+        if not current or not current.get("primaryDate"):
+            try:
+                inferred = infer_semantic_tags(
+                    provider, user_intent, schema_profile, settings.PRIMARY_MODEL,
+                )
+            except Exception:
+                inferred = {"userIntent": user_intent}
+            merged = dict(inferred or {})
+            merged.update({k: v for k, v in current.items() if v})
+            merged.setdefault("userIntent", user_intent)
+            semantic_tags = merged
+        else:
+            current.setdefault("userIntent", user_intent)
+            semantic_tags = current
 
     # Enumerate all slot targets for the plan event
     plan_slots: List[Tuple[str, str]] = []
