@@ -591,6 +591,8 @@
 
 **Task count target:** 8.
 
+**Status:** ✅ Shipped 2026-04-19. 8 tasks. Commits `03d9cfa` (T1 scaffold), `8e40cce` (T2 v1.proto), `b63b0e1` (T3 codegen), `a8e6d13` (T4 Python spec.py + 15 roundtrip tests), `2e02f38` (T5 TS vizSpec.ts + 11 tests), `9c97520` (T6 vizSpecBridge.ts + 11 tests), `df00d9a` (T7 README + CLAUDE.md). Python codegen uses `python -m grpc_tools.protoc`; TypeScript codegen reuses the same bundled protoc via `--plugin=protoc-gen-ts_proto=…` (no system protoc binary required — Windows-friendly). 37 new test assertions across backend + frontend; zero regressions (688 backend pass, 22 new ts tests pass, chart-ir failure count unchanged from baseline). Dependencies pinned: `protobuf==5.29.3`, `grpcio-tools==1.68.1`, `ts-proto@2.6.1`. Plan doc: `docs/superpowers/plans/2026-04-17-analyst-pro-plan-7a-visualspec-ir.md`.
+
 ---
 
 ### Plan 7b — Minerva Logical Plan Port
