@@ -50,7 +50,20 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning(f"skill_library failed to load: {exc}")
         app.state.skill_library = None
-    app.state.skill_collection = None  # wired in T9 if enabled
+    app.state.skill_collection = None
+    # ── Skill ChromaDB ingest (Plan 3 P3T9) ─────────────────────
+    if app.state.skill_library is not None and settings.SKILL_LIBRARY_ENABLED:
+        try:
+            import chromadb as _chromadb
+            from skill_ingest import maybe_ingest
+            _chroma_client = _chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
+            _stamp_dir = _Path(".data")
+            maybe_ingest(app.state.skill_library, _chroma_client, _stamp_dir)
+            app.state.skill_collection = _chroma_client.get_or_create_collection(name="skills_v1")
+            logger.info("skill_collection ready")
+        except Exception as exc:
+            logger.warning(f"skill_ingest startup failed: {exc}")
+            app.state.skill_collection = None
     # Start periodic cleanup_stale scheduler for query memory (every 6 hours)
     memory_cleanup_task = None
     try:
