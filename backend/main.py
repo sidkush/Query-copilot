@@ -51,6 +51,37 @@ async def lifespan(app: FastAPI):
         logger.warning(f"skill_library failed to load: {exc}")
         app.state.skill_library = None
     app.state.skill_collection = None
+    app.state.skill_scheduler = None
+    # ── Skill scheduler: correction reviewer + drift monitor (Plan 3 P4T12, P6T15) ──
+    if settings.CORRECTION_QUEUE_ENABLED or settings.SKILL_LIBRARY_ENABLED:
+        try:
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler
+            from apscheduler.triggers.cron import CronTrigger
+            from correction_reviewer import review_batch
+            from drift_monitor import check_drift
+            _sched = AsyncIOScheduler()
+            _sched.add_job(
+                lambda: review_batch(
+                    _Path(".data/corrections_pending"),
+                    golden_eval_ok=lambda _rec: True,  # Plan 3 P5T13 wires golden eval here
+                ),
+                CronTrigger(minute=17),
+                id="correction_reviewer", max_instances=1, replace_existing=True,
+            )
+            _sched.add_job(
+                lambda: check_drift(
+                    today_audit=_Path(".data/audit/skill_retrieval.jsonl"),
+                    baseline_audit=_Path(".data/audit/skill_retrieval_baseline.jsonl"),
+                    threshold=settings.SKILL_DRIFT_KL_THRESHOLD,
+                ),
+                CronTrigger(hour=3, minute=23),
+                id="drift_monitor", max_instances=1, replace_existing=True,
+            )
+            _sched.start()
+            app.state.skill_scheduler = _sched
+            logger.info("skill scheduler started (correction_reviewer + drift_monitor)")
+        except Exception as exc:
+            logger.warning(f"skill scheduler failed to start: {exc}")
     # ── Skill ChromaDB ingest (Plan 3 P3T9) ─────────────────────
     if app.state.skill_library is not None and settings.SKILL_LIBRARY_ENABLED:
         try:
