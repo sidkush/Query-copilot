@@ -7,6 +7,9 @@ import DashboardTopBar from "./DashboardTopBar";
 import DashboardContextBar from "./DashboardContextBar";
 import DashboardStatusBar from "./DashboardStatusBar";
 import CommandPalette from "./CommandPalette";
+// TSS W2-C — autogen lifecycle chrome.
+import ConnectionMismatchBanner from "./ConnectionMismatchBanner";
+import AutogenProgressChip from "./AutogenProgressChip";
 const AnalystProLayout = lazy(() => import("./modes/AnalystProLayout"));
 import {
   BoardPackLayout,
@@ -155,6 +158,17 @@ export default function DashboardShell({
     setAnalystProSize: s.setAnalystProSize,
   })));
 
+  // TSS W2-C — preset-autogen lifecycle readers.
+  // boundConnId + bindingAutogenState live inside the dashboard JSON, so
+  // we read them from the same slice that powers the layout. activeConnId
+  // drives the mismatch banner; autogenProgress feeds the chip.
+  const boundConnId = useStore((s) => s.analystProDashboard?.boundConnId);
+  const bindingAutogenState = useStore(
+    (s) => s.analystProDashboard?.bindingAutogenState,
+  );
+  const activeConnId = useStore((s) => s.activeConnId);
+  const mismatch = Boolean(boundConnId && activeConnId && activeConnId !== boundConnId);
+
   // Detect narrow viewport — triggers ContextBar collapse into TopBar breadcrumb
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${CONTEXT_BAR_COLLAPSE_BREAKPOINT}px)`);
@@ -269,7 +283,14 @@ export default function DashboardShell({
         onShare={onShare}
         onSave={onSave}
         saving={saving}
+        rightSlot={<AutogenProgressChip bindingAutogenState={bindingAutogenState} />}
       />
+
+      {/* ═══ TSS W2-C — Connection-mismatch banner (sits directly under
+          the TopBar, above the ContextBar; non-dismissable). ═══ */}
+      {mismatch ? (
+        <ConnectionMismatchBanner boundConnId={boundConnId} />
+      ) : null}
 
       {/* ═══ ContextBar ═══
           Collapses on narrow viewports (<768px) to reclaim vertical space;

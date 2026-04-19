@@ -25,6 +25,12 @@ export default function DashboardTopBar({
   onShare,
   onSave,
   saving,
+  /**
+   * TSS W2-C — optional content slotted next to Save (AutogenProgressChip
+   * lives here). Keeps the chip inside the TopBar's right cluster without
+   * coupling TopBar to the autogen slice.
+   */
+  rightSlot = null,
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(dashboardName || '');
@@ -217,8 +223,9 @@ export default function DashboardTopBar({
       {/* ═══ CENTER-RIGHT slot — DashboardPresetSwitcher (Wave 3) ═══ */}
       <DashboardPresetSwitcher />
 
-      {/* ═══ RIGHT: Share + Save ═══ */}
+      {/* ═══ RIGHT: chip slot + Share + Save ═══ */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {rightSlot}
         {onShare && (
           <button
             onClick={onShare}
