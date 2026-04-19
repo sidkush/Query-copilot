@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 // TSS Wave 2-B — <NarrativeSlot>, a thin wrapper around <Slot> that
 // always renders narrative-kind slots. It coerces the value to a string
 // + sanitises it before dropping into DOM, reusing the same

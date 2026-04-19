@@ -87,7 +87,9 @@ export default function ChartEditorDrawer({
   const [spec, setSpec] = useState(() => bindingToSpec(binding));
 
   // Reset the local spec whenever we open against a different slot.
+  // Guarded by `open`; only runs on dialog open transition, not every render.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) setSpec(bindingToSpec(binding));
   }, [open, slotId, binding]);
 

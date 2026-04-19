@@ -70,9 +70,11 @@ export default function SlotEditPopover({
   );
   const [pinCopy, setPinCopy] = useState(Boolean(binding?.isUserPinned));
 
-  // Reset local state when we open against a new slot.
+  // Reset local state when we open against a new slot. Guarded by `open`;
+  // only fires on dialog open transition, not every render.
   useEffect(() => {
     if (!open) return;
+    /* eslint-disable react-hooks/set-state-in-effect */
     setMeasure(binding?.measure?.column ?? '');
     setAgg(binding?.measure?.agg ?? 'SUM');
     setDimension(binding?.dimension ?? '');
@@ -84,6 +86,7 @@ export default function SlotEditPopover({
     setFilterVal(binding?.filter?.value != null ? String(binding.filter.value) : '');
     setNarrative(binding?.renderedMarkdown ?? binding?.markdownTemplate ?? '');
     setPinCopy(Boolean(binding?.isUserPinned));
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [open, slotId, binding]);
 
   // ── columns from schema profile ──────────────────────────────
@@ -113,6 +116,8 @@ export default function SlotEditPopover({
       rect.left,
       (typeof window !== 'undefined' ? window.innerWidth : 1200) - 332
     );
+    // Position synced to DOM measurement; runs on open/anchor change only.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPosition({ top: Math.max(8, top), left: Math.max(8, left) });
   }, [open, anchorEl]);
 
