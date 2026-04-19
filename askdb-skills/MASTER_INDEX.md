@@ -1,6 +1,6 @@
 # AskDB Skill Library — Master Index
-**Version:** 1.1 | **Files:** 48 | **Collections:** 7
-**Built:** April 2026 | **Last updated:** 2026-04-19 (Plan 1 content foundation — Tier A + Tier C)
+**Version:** 1.2 | **Files:** 48 | **Collections:** 7
+**Built:** April 2026 | **Last updated:** 2026-04-20 (Plan 2 Tier B — research-derived rules for 14 existing files)
 **Covers:** BigQuery, Snowflake, PostgreSQL, DuckDB, MySQL, SQL Server, Redshift, Databricks
 
 ---
@@ -189,6 +189,7 @@ domain-{domain}.md              # domain/domain-sales.md
 |---------|------|---------|
 | 1.0 | April 2026 | Initial release — 33 files, 6 collections |
 | 1.1 | 2026-04-19 | Plan 1 Tier A+C: +9 new skills (llm-error-recovery, data-quality-trust-scoring, caching-breakpoint-policy, streaming-progressive-results, batch-query-optimization, skill-library-meta, schema-linking-evidence, self-repair-error-taxonomy, accessibility-wcag), +metric-definitions-glossary (new `shared/` collection), split context-compaction-teach-by-correction → session-persistence + learn-from-corrections. 33 → 48 files, 6 → 7 collections. Existing 37 files retro-backfilled with Anthropic Skills frontmatter + `legacy: true` flag; Plan 2 (Tier B) drops legacy flag per-file as each is brought fully up to the authoring contract. |
+| 1.2 | 2026-04-20 | Plan 2 Tier B: Updated 14 existing files with 2025-2026 research-derived rules (§3.1–§3.8 of research-context). **3 dialect** (§3.5 cross-dialect gotchas: DOW indexing, `\|\|`/concat semantics, quoted-identifier casing, GROUP BY strictness, `IGNORE NULLS`, NVL portability, `QUALIFY`, LIMIT/TOP, integer division). **4 SQL** (join-intelligence: cardinality tagging 1:1/1:N/N:M + bridge-table detection + post-exec fan-out sanity; time-intelligence: DOW dialect table + leap-year Feb-29 clamp + ISO vs US week-start + date-dim preference; aggregation-rules: absorbed `COUNT(*) - COUNT(col)` NULL-count pattern; null-handling: trimmed redundant agg section, now semantics-only). **5 visualization** (chart-selection: 5-second rule + dual-axis BAN + pie>5 slices + log-scale >2 orders; dashboard-aesthetics: 5-sec correction + 12-col grid + F-pattern reading + 20-30% whitespace + OkLCH CSS + received theme palettes; color-system: Viridis/Cividis CVD + OkLCH custom ramps + 8% CVD + removed theme palettes; chart-formatting: `Intl.NumberFormat` compact/en-IN lakh + tabular-nums + annotation copy rules; vizql-capabilities: Vega-Lite limitations table + server-side workarounds + renderer mark-count thresholds). **2 agent** (multi-step-planning: schema-link-first decomposition + self-consistency voting N≥3; screenshot-interpretation: confirmed no-op). **1 core** (chromadb-retrieval: fixed embedding-model description + file count, removed re-implemented `detect_domain()` now referencing `behavior_engine.py:193`, added target hybrid BM25+rerank + HyDE warning + contextual retrieval + parent-child chunking as Plan 3 forward-looking). File count: 48 (unchanged). |
 
 ---
 
