@@ -29,6 +29,14 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import './SemanticTagWizard.css';
+import {
+  flattenSchemaColumns,
+  isTemporalColumn,
+  isMeasureColumn,
+  isDimensionColumn,
+  isStringColumn,
+  isNumericColumn,
+} from './lib/columnClassify';
 
 const STEP_KEYS = ['primaryDate', 'revenueMetric', 'primaryDimension', 'entityName', 'timeGrain'];
 
@@ -41,62 +49,20 @@ const TIME_GRAINS = [
 
 const AGGREGATIONS = ['SUM', 'AVG', 'COUNT'];
 
-// Shape-agnostic column extractor. We accept either:
-//   { columns: [...] }
-//   { tables: [{ name, columns: [...] }, ...] }
-// with column fields { name, dtype?, role?, semantic_type?, cardinality?, table? }.
-function flattenColumns(profile) {
-  if (!profile || typeof profile !== 'object') return [];
-  if (Array.isArray(profile.columns)) return profile.columns;
-  if (Array.isArray(profile.tables)) {
-    const out = [];
-    for (const t of profile.tables) {
-      if (!t || !Array.isArray(t.columns)) continue;
-      for (const c of t.columns) {
-        out.push({ ...c, table: c?.table || t.name });
-      }
-    }
-    return out;
-  }
-  return [];
-}
-
-function isTemporal(col) {
-  if (!col) return false;
-  if (col.semantic_type === 'temporal' || col.semanticType === 'temporal') return true;
-  const dtype = String(col.dtype || col.type || '').toLowerCase();
-  return dtype.startsWith('date') || dtype.startsWith('timestamp') || dtype.startsWith('time');
-}
-
-function isMeasure(col) {
-  if (!col) return false;
-  return col.role === 'measure';
-}
-
-function isDimension(col) {
-  if (!col) return false;
-  return col.role === 'dimension';
-}
-
-function isStringLike(col) {
-  if (!col) return false;
-  const dtype = String(col.dtype || col.type || '').toLowerCase();
-  return (
-    dtype.includes('char') ||
-    dtype.includes('text') ||
-    dtype.includes('string') ||
-    dtype === 'varchar' ||
-    dtype === 'str'
-  );
-}
-
 function filterForStep(stepIdx, columns) {
-  if (stepIdx === 0) return columns.filter(isTemporal);
-  if (stepIdx === 1) return columns.filter(isMeasure);
-  if (stepIdx === 2) return columns.filter((c) => isDimension(c) && !isTemporal(c));
+  if (stepIdx === 0) return columns.filter(isTemporalColumn);
+  // Step 1: revenue metric — any measure. Role inferred from `type` when
+  // the backend doesn't emit `role` (which is always the case today for
+  // /schema-profile; see lib/columnClassify.ts).
+  if (stepIdx === 1) return columns.filter(isMeasureColumn);
+  // Step 2: primary dimension — any non-temporal dimension.
+  if (stepIdx === 2)
+    return columns.filter((c) => isDimensionColumn(c) && !isTemporalColumn(c));
+  // Step 3: entity name — string columns; if cardinality is known keep only
+  // the high-cardinality ones (avoid a 2-value boolean posing as an entity).
   if (stepIdx === 3) {
     return columns.filter((c) => {
-      if (!isStringLike(c)) return false;
+      if (!isStringColumn(c)) return false;
       const card = c.cardinality ?? c.distinct_count;
       if (card == null) return true;
       return Number(card) > 10;
@@ -140,12 +106,16 @@ export default function SemanticTagWizard({
   const [tags, setTags] = useState({});
   const [query, setQuery] = useState('');
   const [aggregation, setAggregation] = useState('SUM');
+  // Per-step "Show all fields" toggle — the user may want to override the
+  // heuristic classifier (e.g. pick `ride_id` as an entity even though the
+  // wizard's entity picker normally hides it).
+  const [showAll, setShowAll] = useState(false);
 
   const panelRef = useRef(null);
   const searchInputRef = useRef(null);
   const previousFocusRef = useRef(null);
 
-  const columns = useMemo(() => flattenColumns(schemaProfile), [schemaProfile]);
+  const columns = useMemo(() => flattenSchemaColumns(schemaProfile), [schemaProfile]);
 
   // Reset wizard state whenever a new session opens. We kick the state
   // resets into a microtask so the effect body stays free of synchronous
@@ -172,7 +142,10 @@ export default function SemanticTagWizard({
   // the lint rule on synchronous setState.
   useEffect(() => {
     if (!open) return undefined;
-    queueMicrotask(() => setQuery(''));
+    queueMicrotask(() => {
+      setQuery('');
+      setShowAll(false);
+    });
     const id = window.setTimeout(() => searchInputRef.current?.focus(), 0);
     return () => window.clearTimeout(id);
   }, [open, stepIdx]);
@@ -197,13 +170,23 @@ export default function SemanticTagWizard({
   const currentKey = STEP_KEYS[stepIdx];
   const copy = STEP_COPY[stepIdx];
 
-  const filtered = stepIdx < 4 ? filterForStep(stepIdx, columns) : [];
+  // When `showAll` is on, bypass the step's type heuristic and expose every
+  // column in the connection. The step still applies the text filter. This
+  // is the user's escape hatch when the heuristic misses their mental model
+  // for a given field.
+  const filtered =
+    stepIdx < 4 ? (showAll ? columns : filterForStep(stepIdx, columns)) : [];
+  // A separate pre-computed count so the toggle label can tell the user how
+  // many extra columns they'll see if they flip it on.
+  const heuristicCount = stepIdx < 4 ? filterForStep(stepIdx, columns).length : 0;
+  const totalColumnCount = columns.length;
   const visibleOptions = filtered.filter((c) => {
     if (!query.trim()) return true;
     const q = query.trim().toLowerCase();
     const name = String(c.name || '').toLowerCase();
     const table = String(c.table || '').toLowerCase();
-    return name.includes(q) || table.includes(q);
+    const type = String(c.type || c.dtype || '').toLowerCase();
+    return name.includes(q) || table.includes(q) || type.includes(q);
   });
 
   const currentSelection = tags[currentKey];
@@ -325,9 +308,25 @@ export default function SemanticTagWizard({
               spellCheck={false}
               data-testid={`semantic-wizard-search-${stepIdx}`}
             />
+            <div className="tss-wizard-list-toolbar">
+              <span className="tss-wizard-list-meta">
+                {showAll
+                  ? `Showing all ${totalColumnCount} columns`
+                  : `${heuristicCount} match${heuristicCount === 1 ? '' : 'es'} · ${totalColumnCount} total`}
+              </span>
+              <button
+                type="button"
+                className="tss-wizard-show-all"
+                aria-pressed={showAll}
+                onClick={() => setShowAll((v) => !v)}
+                data-testid="semantic-wizard-show-all"
+              >
+                {showAll ? 'Suggested only' : 'Show all fields'}
+              </button>
+            </div>
             {visibleOptions.length === 0 ? (
               <div className="tss-wizard-empty" data-testid="semantic-wizard-empty">
-                No columns matched. Skip or broaden your search.
+                No columns matched. Skip, try “Show all fields”, or broaden your search.
               </div>
             ) : (
               <ul
@@ -337,15 +336,21 @@ export default function SemanticTagWizard({
               >
                 {visibleOptions.map((col) => {
                   const isSelected = selectedColumnName === col.name;
+                  // Unique option id disambiguates same column name across
+                  // multiple tables in a connection (the autogen still binds
+                  // on `col.name`; this id is UX-only).
+                  const optionId = col.table ? `${col.table}.${col.name}` : col.name;
                   return (
-                    <li key={`${col.table || ''}.${col.name}`}>
+                    <li key={optionId}>
                       <button
                         type="button"
                         className="tss-wizard-option"
                         role="option"
                         aria-selected={isSelected}
                         onClick={() => pickColumn(col)}
-                        data-testid={`semantic-wizard-option-${col.name}`}
+                        data-testid={`semantic-wizard-option-${optionId}`}
+                        data-column={col.name}
+                        data-table={col.table || ''}
                       >
                         <span>
                           {col.table ? (

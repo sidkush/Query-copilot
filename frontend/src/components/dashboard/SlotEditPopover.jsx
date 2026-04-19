@@ -13,6 +13,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../../store';
 import { getSlotDescriptor } from './modes/presets/slots.ts';
+import {
+  flattenSchemaColumns,
+  isMeasureColumn,
+  isDimensionColumn,
+} from './lib/columnClassify';
 import './SlotEditPopover.css';
 
 const AGG_OPTIONS = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX', 'COUNT_DISTINCT'];
@@ -90,16 +95,20 @@ export default function SlotEditPopover({
   }, [open, slotId, binding]);
 
   // ── columns from schema profile ──────────────────────────────
+  // Use the shared column classifier so we accept both the backend's
+  // { tables: [{columns}] } shape and the legacy { columns: [...] } flat
+  // shape, AND infer `role` from SQL type when the backend omits it
+  // (which it does for every production schema-profile response today).
   const allColumns = useMemo(
-    () => (Array.isArray(schemaProfile?.columns) ? schemaProfile.columns : []),
+    () => flattenSchemaColumns(schemaProfile),
     [schemaProfile]
   );
   const measureColumns = useMemo(
-    () => allColumns.filter((c) => c.role === 'measure'),
+    () => allColumns.filter(isMeasureColumn),
     [allColumns]
   );
   const dimensionColumns = useMemo(
-    () => allColumns.filter((c) => c.role === 'dimension'),
+    () => allColumns.filter(isDimensionColumn),
     [allColumns]
   );
 
