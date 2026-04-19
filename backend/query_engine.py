@@ -191,6 +191,55 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
         self._business_rules: List[str] = []
         self._cache: Dict[str, dict] = {}
 
+        # Plan 3: optional skill library + connection-entry stub (set by caller).
+        self._skill_library = None
+        self._skill_collection = None
+        self._connection_entry_stub = None
+
+    def _build_system_blocks(self, question: str):
+        """Plan 3 P3T8: skill-library-aware prompt composition for single-shot flow.
+
+        Flag OFF: returns a single uncached block with a minimal identity.
+        Flag ON: three cached segments per caching-breakpoint-policy.md.
+        Self-contained — does not depend on a pre-existing _build_system_prompt.
+        """
+        from prompt_block import PromptBlock, compose_system_blocks
+        from config import settings
+
+        base_identity = (
+            "You are AskDB, an AI data analyst. "
+            "Generate read-only SELECT queries only. Respect PII masking, "
+            "sql_validator, and two-step flow invariants."
+        )
+
+        if not settings.SKILL_LIBRARY_ENABLED or self._skill_library is None:
+            return [PromptBlock(text=base_identity, ttl=None)]
+
+        from skill_router import SkillRouter
+        router = SkillRouter(library=self._skill_library, chroma_collection=self._skill_collection)
+        conn_stub = self._connection_entry_stub
+        hits = (
+            router.resolve(question, conn_stub, action_type="sql-generation")
+            if conn_stub is not None else router.library.always_on()
+        )
+
+        identity = base_identity + "\n\n" + "".join(
+            f"### Skill: {h.name}\n\n{h.content}\n\n" for h in hits if h.priority == 1
+        )
+        schema = "".join(
+            f"### Skill: {h.name}\n\n{h.content}\n\n"
+            for h in hits if h.source == "deterministic"
+        )
+        retrieved = "".join(
+            f"### Skill: {h.name}\n\n{h.content}\n\n"
+            for h in hits if h.source == "rag"
+        )
+        return compose_system_blocks(
+            identity_core=identity,
+            schema_context=schema,
+            retrieved_skills=retrieved,
+        )
+
     # ── Training ──────────────────────────────────────────────────
 
     def train_schema(self, descriptions: Optional[Dict[str, str]] = None) -> int:
