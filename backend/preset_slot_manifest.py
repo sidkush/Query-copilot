@@ -5,6 +5,12 @@ know which slots each themed preset exposes and what hint to feed the
 LLM when picking a field. **Keep in sync with the frontend file** —
 slot IDs, kinds, and hints are contracts the UI and backend both honour.
 
+Connection-aware rewrite (Plan TSS2 T6): labels are generic — no
+hard-coded industry labels. Label text derives from bound field context
+at render time. Previously-hardcoded chrome regions (kicker / topbar /
+footer / metadata / legend) are now declared here so autogen can fill
+them instead of the JSX baking in placeholder strings.
+
 The Analyst Pro preset intentionally has no slot manifest; its autogen
 reuses the existing DASHBOARD_PROMPT flow, not a fixed slot contract.
 """
@@ -27,10 +33,50 @@ class SlotDescriptor(TypedDict, total=False):
 # ──────────────────────────────────────────────────────────────────
 BOARD_PACK_SLOTS: List[SlotDescriptor] = [
     {
+        "id": "bp.kicker", "kind": "narrative", "label": "Kicker",
+        "hint": (
+            "Short uppercase kicker. Format: \"<DATASET> · BOARD PACK\" using "
+            "the connection or dashboard label."
+        ),
+    },
+    {
+        "id": "bp.topbar-0", "kind": "kpi", "label": "Topbar metric 1",
+        "hint": (
+            "Top-bar compact metric #1 — any primary quantitative measure or "
+            "COUNT(identifier). Label derives from field context."
+        ),
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "bp.topbar-1", "kind": "kpi", "label": "Topbar metric 2",
+        "hint": "Top-bar compact metric #2.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "bp.topbar-2", "kind": "kpi", "label": "Topbar metric 3",
+        "hint": "Top-bar compact metric #3.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "bp.topbar-3", "kind": "kpi", "label": "Topbar metric 4",
+        "hint": "Top-bar compact metric #4.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "bp.topbar-4", "kind": "kpi", "label": "Topbar metric 5",
+        "hint": "Top-bar compact metric #5.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "bp.topbar-5", "kind": "kpi", "label": "Topbar metric 6",
+        "hint": "Top-bar compact metric #6 (may be a COUNT).",
+        "accept": ("quantitative",),
+    },
+    {
         "id": "bp.hero-number", "kind": "kpi", "label": "Hero number",
         "hint": (
-            "Primary headline KPI. A single dominant metric with a sign-aware delta "
-            "(e.g. net new MRR for the quarter)."
+            "Primary headline KPI from the bound connection. A single dominant "
+            "metric with a sign-aware delta."
         ),
         "accept": ("quantitative",),
     },
@@ -43,81 +89,77 @@ BOARD_PACK_SLOTS: List[SlotDescriptor] = [
         ),
     },
     {
-        "id": "bp.kpi-0", "kind": "kpi", "label": "KPI 1 (MRR)",
+        "id": "bp.kpi-0", "kind": "kpi", "label": "KPI 1",
         "hint": (
-            "Monthly recurring revenue — SUM of primary revenue metric over the "
-            "current month."
+            "Primary summary metric from the bound connection. Label derives "
+            "from field."
         ),
         "accept": ("quantitative",),
     },
     {
-        "id": "bp.kpi-1", "kind": "kpi", "label": "KPI 2 (ARR)",
+        "id": "bp.kpi-1", "kind": "kpi", "label": "KPI 2",
+        "hint": "Secondary summary metric. Label derives from field.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "bp.kpi-2", "kind": "kpi", "label": "KPI 3",
         "hint": (
-            "Annual recurring revenue — SUM of revenue metric over the last 12 months."
+            "Tertiary summary metric (often a rate or percent). Label derives "
+            "from field."
         ),
         "accept": ("quantitative",),
     },
     {
-        "id": "bp.kpi-2", "kind": "kpi", "label": "KPI 3 (Churn)",
-        "hint": (
-            "A churn or attrition metric rendered as a percent. Lower = better; "
-            "delta in pp."
-        ),
+        "id": "bp.kpi-3", "kind": "kpi", "label": "KPI 4",
+        "hint": "Ratio or composite metric. Label derives from field.",
         "accept": ("quantitative",),
     },
     {
-        "id": "bp.kpi-3", "kind": "kpi", "label": "KPI 4 (LTV:CAC)",
-        "hint": (
-            "A ratio metric (LTV/CAC, or any ratio you want on this row). Render "
-            "with `×` suffix."
-        ),
+        "id": "bp.kpi-4", "kind": "kpi", "label": "KPI 5",
+        "hint": "Duration or efficiency metric. Label derives from field.",
         "accept": ("quantitative",),
     },
     {
-        "id": "bp.kpi-4", "kind": "kpi", "label": "KPI 5 (Payback)",
+        "id": "bp.trend-chart", "kind": "chart", "label": "Primary trend",
         "hint": (
-            "A duration metric (months to payback or similar). Red delta when "
-            "direction is unfavourable."
-        ),
-        "accept": ("quantitative",),
-    },
-    {
-        "id": "bp.trend-chart", "kind": "chart", "label": "Revenue trend",
-        "hint": (
-            "12-month line trend of the revenue metric with a forecast tail. One "
-            "event dot in-series + one at the latest actual point."
+            "12-period line trend of the primary quantitative metric with an "
+            "optional forecast tail. One event dot in-series + one at the "
+            "latest actual point."
         ),
         "chart_type": "line",
         "accept": ("temporal", "quantitative"),
     },
     {
-        "id": "bp.accounts-list", "kind": "table", "label": "Top accounts",
+        "id": "bp.accounts-list", "kind": "table", "label": "Top entities",
         "hint": (
-            "Top 5 accounts (entity_name) ordered by primary revenue metric desc. "
-            "Show name, value, and delta-vs-prior."
+            "Top 5 entities (primary nominal dimension) ordered by the primary "
+            "quantitative metric desc. Show name, value, and delta-vs-prior."
         ),
         "accept": ("nominal", "quantitative"),
     },
     {
-        "id": "bp.strip-churn", "kind": "chart", "label": "Churn distribution",
+        "id": "bp.strip-churn", "kind": "chart", "label": "Distribution strip",
         "hint": (
-            "Risk-score histogram across the account base, with red bars for the "
-            "top risk bucket."
+            "Histogram over the primary quantitative metric or a risk/score "
+            "column, with the top bucket highlighted."
         ),
         "chart_type": "histogram",
         "accept": ("quantitative",),
     },
     {
-        "id": "bp.strip-cohort", "kind": "chart", "label": "Cohort retention",
-        "hint": "Monthly retention strip for the most recent cohort.",
+        "id": "bp.strip-cohort", "kind": "chart", "label": "Cohort strip",
+        "hint": (
+            "Period-over-period retention or activity strip for the most "
+            "recent cohort."
+        ),
         "chart_type": "bar",
         "accept": ("temporal", "quantitative"),
     },
     {
         "id": "bp.strip-insight", "kind": "narrative", "label": "Bottom-strip insight",
         "hint": (
-            "One-paragraph business insight tying the trend + accounts list + churn "
-            "histogram. End with a recommended next action."
+            "One-paragraph insight tying the trend + top-entities list + "
+            "distribution strip. End with a recommended next action."
         ),
     },
 ]
@@ -127,30 +169,39 @@ BOARD_PACK_SLOTS: List[SlotDescriptor] = [
 # ──────────────────────────────────────────────────────────────────
 OPERATOR_CONSOLE_SLOTS: List[SlotDescriptor] = [
     {
-        "id": "oc.ch1a", "kind": "kpi", "label": "CH.1A — MRR channel",
-        "hint": "Primary revenue metric rendered with unit suffix (M$, K, etc.).",
-        "accept": ("quantitative",),
-    },
-    {
-        "id": "oc.ch1b", "kind": "kpi", "label": "CH.1B — ARR channel",
-        "hint": "Annualised revenue metric.",
-        "accept": ("quantitative",),
-    },
-    {
-        "id": "oc.ch1c", "kind": "kpi", "label": "CH.1C — Churn channel",
-        "hint": "Percent churn / attrition. Negative deltas render amber.",
-        "accept": ("quantitative",),
-    },
-    {
-        "id": "oc.ch1d", "kind": "kpi", "label": "CH.1D — Payback channel",
-        "hint": "A time-to-recovery metric (months). WATCH footer when regressing.",
-        "accept": ("quantitative",),
-    },
-    {
-        "id": "oc.trace", "kind": "chart", "label": "CH.2 — Revenue trace",
+        "id": "oc.ch1a", "kind": "kpi", "label": "CH.1A",
         "hint": (
-            "12-month phosphor-green trace of the revenue metric. Pass "
-            "timeGrain=day/week if available for smooth line."
+            "Primary quantitative metric rendered with unit suffix derived "
+            "from field. Label derives from field."
+        ),
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "oc.ch1b", "kind": "kpi", "label": "CH.1B",
+        "hint": "Secondary quantitative metric. Label derives from field.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "oc.ch1c", "kind": "kpi", "label": "CH.1C",
+        "hint": (
+            "Rate / percent metric. Negative deltas render amber. Label "
+            "derives from field."
+        ),
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "oc.ch1d", "kind": "kpi", "label": "CH.1D",
+        "hint": (
+            "Duration or efficiency metric. WATCH footer when regressing. "
+            "Label derives from field."
+        ),
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "oc.trace", "kind": "chart", "label": "CH.2 — Trace",
+        "hint": (
+            "12-period phosphor-green trace of the primary quantitative "
+            "metric. Pass timeGrain=day/week if available for smooth line."
         ),
         "chart_type": "line",
         "accept": ("temporal", "quantitative"),
@@ -159,16 +210,16 @@ OPERATOR_CONSOLE_SLOTS: List[SlotDescriptor] = [
         "id": "oc.trace-anomaly-callout", "kind": "narrative",
         "label": "Anomaly callout",
         "hint": (
-            "Short red-framed callout tied to the largest week-over-week change "
-            "in the trace. Three lines: \"ANOMALY · T+<delta>\", the sigma value, "
-            "and a correlation hint."
+            "Short red-framed callout tied to the largest period-over-period "
+            "change in the trace. Three lines: \"ANOMALY · T+<delta>\", a "
+            "sigma value, and a correlation hint."
         ),
     },
     {
-        "id": "oc.histogram", "kind": "chart", "label": "CH.3 — Risk histogram",
+        "id": "oc.histogram", "kind": "chart", "label": "CH.3 — Histogram",
         "hint": (
-            "Gradient-green histogram over the 0–95+ risk-score range; top bins "
-            "render red."
+            "Gradient-green histogram over the primary quantitative range; "
+            "top bins render red."
         ),
         "chart_type": "histogram",
         "accept": ("quantitative",),
@@ -176,10 +227,26 @@ OPERATOR_CONSOLE_SLOTS: List[SlotDescriptor] = [
     {
         "id": "oc.event-log", "kind": "table", "label": "CH.4 — Event log",
         "hint": (
-            "Last 8 material events (account expansions, churn warnings, pipeline "
+            "Last 8 material events (entity changes, threshold breaches, "
             "anomalies). Each row must carry one of OK / WARN / ERR."
         ),
         "accept": ("temporal", "nominal"),
+    },
+    {
+        "id": "oc.footer", "kind": "narrative", "label": "Footer",
+        "hint": (
+            "Single compact line at the bottom of the console — status "
+            "string such as \"UPLINK · OK\" and a last-refresh timestamp. "
+            "Derive from runtime state."
+        ),
+    },
+    {
+        "id": "oc.metadata", "kind": "narrative", "label": "Metadata block",
+        "hint": (
+            "Top-right metadata block — rows such as \"CONN · <name>\", "
+            "\"DATASET · <id>\", \"ROWS · <count>\". Derive from the bound "
+            "connection."
+        ),
     },
 ]
 
@@ -188,31 +255,44 @@ OPERATOR_CONSOLE_SLOTS: List[SlotDescriptor] = [
 # ──────────────────────────────────────────────────────────────────
 SIGNAL_SLOTS: List[SlotDescriptor] = [
     {
-        "id": "sg.kpi-0", "kind": "kpi", "label": "KPI 1 (MRR, teal)",
-        "hint": "Primary MRR metric with a teal sparkline tracing the last 12 periods.",
+        "id": "sg.kpi-0", "kind": "kpi", "label": "KPI 1",
+        "hint": (
+            "Primary quantitative metric with a teal sparkline tracing the "
+            "last 12 periods. Label derives from field."
+        ),
         "accept": ("temporal", "quantitative"),
     },
     {
-        "id": "sg.kpi-1", "kind": "kpi", "label": "KPI 2 (ARR, orange)",
-        "hint": "Annualised revenue metric with an orange sparkline.",
+        "id": "sg.kpi-1", "kind": "kpi", "label": "KPI 2",
+        "hint": (
+            "Secondary quantitative metric with an orange sparkline. Label "
+            "derives from field."
+        ),
         "accept": ("temporal", "quantitative"),
     },
     {
-        "id": "sg.kpi-2", "kind": "kpi", "label": "KPI 3 (Churn, rose)",
-        "hint": "Churn percent; rose sparkline; red delta pill.",
+        "id": "sg.kpi-2", "kind": "kpi", "label": "KPI 3",
+        "hint": (
+            "Rate / percent metric; rose sparkline; red delta pill when "
+            "unfavourable. Label derives from field."
+        ),
         "accept": ("temporal", "quantitative"),
     },
     {
-        "id": "sg.kpi-3", "kind": "kpi", "label": "KPI 4 (LTV:CAC, indigo)",
-        "hint": "A ratio metric with an indigo sparkline.",
+        "id": "sg.kpi-3", "kind": "kpi", "label": "KPI 4",
+        "hint": (
+            "Ratio or composite metric with an indigo sparkline. Label "
+            "derives from field."
+        ),
         "accept": ("temporal", "quantitative"),
     },
     {
         "id": "sg.stream-chart", "kind": "chart",
-        "label": "Revenue composition stream",
+        "label": "Composition stream",
         "hint": (
-            "Stacked-area chart of revenue broken down by primary dimension "
-            "(segment/plan/region). 12 months, daily-to-monthly grain as fits."
+            "Stacked-area chart of the primary quantitative metric broken "
+            "down by the primary nominal dimension. 12 periods, "
+            "daily-to-monthly grain as fits."
         ),
         "chart_type": "stacked-area",
         "accept": ("temporal", "quantitative", "nominal"),
@@ -226,12 +306,38 @@ SIGNAL_SLOTS: List[SlotDescriptor] = [
         ),
     },
     {
-        "id": "sg.accounts", "kind": "table", "label": "Top accounts",
+        "id": "sg.accounts", "kind": "table", "label": "Top entities",
         "hint": (
-            "Top 5 accounts by primary revenue metric. Each row has rank, entity "
-            "name, industry/segment subtitle, and value."
+            "Top 5 entities by the primary quantitative metric. Each row has "
+            "rank, entity name, category/segment subtitle, and value."
         ),
         "accept": ("nominal", "quantitative"),
+    },
+    {
+        "id": "sg.legend-0", "kind": "kpi", "label": "Legend 1",
+        "hint": (
+            "Stream-chart legend item #1 — category name + current-period "
+            "value for the first nominal slice."
+        ),
+        "accept": ("quantitative", "nominal"),
+    },
+    {
+        "id": "sg.legend-1", "kind": "kpi", "label": "Legend 2",
+        "hint": "Stream-chart legend item #2.",
+        "accept": ("quantitative", "nominal"),
+    },
+    {
+        "id": "sg.legend-2", "kind": "kpi", "label": "Legend 3",
+        "hint": "Stream-chart legend item #3.",
+        "accept": ("quantitative", "nominal"),
+    },
+    {
+        "id": "sg.legend-3", "kind": "kpi", "label": "Legend 4",
+        "hint": (
+            "Stream-chart legend item #4 — may be an aggregated \"other\" "
+            "bucket."
+        ),
+        "accept": ("quantitative", "nominal"),
     },
 ]
 
@@ -240,63 +346,111 @@ SIGNAL_SLOTS: List[SlotDescriptor] = [
 # ──────────────────────────────────────────────────────────────────
 EDITORIAL_BRIEF_SLOTS: List[SlotDescriptor] = [
     {
+        "id": "eb.kicker", "kind": "narrative", "label": "Kicker",
+        "hint": (
+            "Short uppercase kicker. Format: \"<DATASET> · EDITORIAL BRIEF\" "
+            "using the connection or dashboard label."
+        ),
+    },
+    {
+        "id": "eb.topbar-0", "kind": "kpi", "label": "Topbar metric 1",
+        "hint": "Top-bar compact metric #1. Label derives from field context.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "eb.topbar-1", "kind": "kpi", "label": "Topbar metric 2",
+        "hint": "Top-bar compact metric #2.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "eb.topbar-2", "kind": "kpi", "label": "Topbar metric 3",
+        "hint": "Top-bar compact metric #3.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "eb.topbar-3", "kind": "kpi", "label": "Topbar metric 4",
+        "hint": "Top-bar compact metric #4.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "eb.topbar-4", "kind": "kpi", "label": "Topbar metric 5",
+        "hint": "Top-bar compact metric #5.",
+        "accept": ("quantitative",),
+    },
+    {
+        "id": "eb.topbar-5", "kind": "kpi", "label": "Topbar metric 6",
+        "hint": "Top-bar compact metric #6 (may be a COUNT).",
+        "accept": ("quantitative",),
+    },
+    {
         "id": "eb.headline-topic", "kind": "narrative", "label": "Article headline",
         "hint": (
-            "A quarter-summary headline in the magazine voice. Format: "
-            "\"The Quarter [italic amber phrase] in [Month]\". Italic phrase must "
-            "reference the quarter's dominant story (expansion / retention / acquisition)."
+            "A period-summary headline in the magazine voice. Format: "
+            "\"The [Period] [italic amber phrase] in [Timeframe]\". Italic "
+            "phrase must reference the dominant story derived from the bound "
+            "data (expansion / retention / acquisition / volume / efficiency)."
         ),
     },
     {
         "id": "eb.byline", "kind": "narrative", "label": "Byline",
-        "hint": "Author + reviewer line with a last-refresh timestamp.",
+        "hint": (
+            "Author + reviewer line with a last-refresh timestamp. Derive "
+            "author from connection owner and timestamp from runtime."
+        ),
     },
     {
         "id": "eb.summary", "kind": "narrative", "label": "Summary paragraph",
         "hint": (
-            "Two short paragraphs. First summarises revenue + NRR + GM. Second "
-            "flags risk accounts with amber highlights on every figure."
+            "Two short paragraphs. First summarises the primary quantitative "
+            "metrics. Second flags outliers with amber highlights on every "
+            "figure."
         ),
     },
     {
-        "id": "eb.kpi-0", "kind": "kpi", "label": "KPI 1 (MRR)",
-        "hint": "Primary revenue metric, large serif numeral.",
+        "id": "eb.kpi-0", "kind": "kpi", "label": "KPI 1",
+        "hint": (
+            "Primary quantitative metric, large serif numeral. Label derives "
+            "from field."
+        ),
         "accept": ("quantitative",),
     },
     {
-        "id": "eb.kpi-1", "kind": "kpi", "label": "KPI 2 (ARR)",
-        "hint": "Annualised revenue.",
+        "id": "eb.kpi-1", "kind": "kpi", "label": "KPI 2",
+        "hint": "Secondary quantitative metric. Label derives from field.",
         "accept": ("quantitative",),
     },
     {
-        "id": "eb.kpi-2", "kind": "kpi", "label": "KPI 3 (Gross churn)",
-        "hint": "Gross churn percent.",
+        "id": "eb.kpi-2", "kind": "kpi", "label": "KPI 3",
+        "hint": "Rate / percent metric. Label derives from field.",
         "accept": ("quantitative",),
     },
     {
-        "id": "eb.kpi-3", "kind": "kpi", "label": "KPI 4 (LTV:CAC)",
-        "hint": "Ratio metric.",
+        "id": "eb.kpi-3", "kind": "kpi", "label": "KPI 4",
+        "hint": "Ratio or composite metric. Label derives from field.",
         "accept": ("quantitative",),
     },
     {
-        "id": "eb.trend", "kind": "chart", "label": "Revenue 12-month trace",
+        "id": "eb.trend", "kind": "chart", "label": "Primary trace",
         "hint": (
             "Line chart with amber event markers on the two most notable "
-            "month-over-month changes + a dashed forecast tail."
+            "period-over-period changes + a dashed forecast tail."
         ),
         "chart_type": "line",
         "accept": ("temporal", "quantitative"),
     },
     {
-        "id": "eb.accounts", "kind": "table", "label": "Top accounts table",
-        "hint": "Top 8 accounts by revenue with # / name / MRR / Δ QoQ columns.",
+        "id": "eb.accounts", "kind": "table", "label": "Top entities table",
+        "hint": (
+            "Top 8 entities by the primary quantitative metric with rank / "
+            "name / value / delta columns."
+        ),
         "accept": ("nominal", "quantitative"),
     },
     {
-        "id": "eb.histogram", "kind": "chart", "label": "Churn risk distribution",
+        "id": "eb.histogram", "kind": "chart", "label": "Distribution",
         "hint": (
-            "Near-black histogram across account churn-risk bins, with amber bars "
-            "on the high-risk tail (85+/90+/95+)."
+            "Near-black histogram across the primary quantitative range, "
+            "with amber bars on the high tail."
         ),
         "chart_type": "histogram",
         "accept": ("quantitative",),
@@ -304,10 +458,11 @@ EDITORIAL_BRIEF_SLOTS: List[SlotDescriptor] = [
     {
         "id": "eb.commentary", "kind": "narrative", "label": "Analyst commentary",
         "hint": (
-            "Two magazine-voice paragraphs. First paragraph starts with a drop-cap "
-            "letter and covers the quarter's expansion story with amber inline "
-            "highlights on figures. Second paragraph covers risk. Close with a "
-            "small-caps \"RECOMMENDED NEXT:\" line listing 3 next actions."
+            "Two magazine-voice paragraphs. First paragraph starts with a "
+            "drop-cap letter and covers the dominant story with amber inline "
+            "highlights on figures. Second paragraph covers risk or outliers. "
+            "Close with a small-caps \"RECOMMENDED NEXT:\" line listing 3 "
+            "next actions."
         ),
     },
 ]

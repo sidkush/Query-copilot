@@ -17,10 +17,10 @@ describe('preset slot registry', () => {
   });
 
   it('themed presets carry the expected slot counts', () => {
-    expect(getSlotsForPreset('board-pack')).toHaveLength(12);
-    expect(getSlotsForPreset('operator-console')).toHaveLength(8);
-    expect(getSlotsForPreset('signal')).toHaveLength(7);
-    expect(getSlotsForPreset('editorial-brief')).toHaveLength(11);
+    expect(getSlotsForPreset('board-pack')).toHaveLength(19);
+    expect(getSlotsForPreset('operator-console')).toHaveLength(10);
+    expect(getSlotsForPreset('signal')).toHaveLength(11);
+    expect(getSlotsForPreset('editorial-brief')).toHaveLength(18);
   });
 
   it('every slot descriptor has id / kind / label / hint / fallback', () => {
@@ -44,5 +44,36 @@ describe('preset slot registry', () => {
 
   it('unknown preset falls through to empty', () => {
     expect(getSlotsForPreset('unknown-preset')).toEqual([]);
+  });
+});
+
+describe('slot manifest additions for connection-aware presets', () => {
+  it('board-pack exposes kicker + topbar slots', () => {
+    const ids = getSlotsForPreset('board-pack').map(s => s.id);
+    expect(ids).toContain('bp.kicker');
+    for (const i of [0, 1, 2, 3, 4, 5]) {
+      expect(ids).toContain(`bp.topbar-${i}`);
+    }
+  });
+
+  it('editorial-brief exposes kicker + topbar slots', () => {
+    const ids = getSlotsForPreset('editorial-brief').map(s => s.id);
+    expect(ids).toContain('eb.kicker');
+    for (const i of [0, 1, 2, 3, 4, 5]) {
+      expect(ids).toContain(`eb.topbar-${i}`);
+    }
+  });
+
+  it('operator-console exposes footer + metadata slots', () => {
+    const ids = getSlotsForPreset('operator-console').map(s => s.id);
+    expect(ids).toContain('oc.footer');
+    expect(ids).toContain('oc.metadata');
+  });
+
+  it('signal exposes legend slots', () => {
+    const ids = getSlotsForPreset('signal').map(s => s.id);
+    for (const i of [0, 1, 2, 3]) {
+      expect(ids).toContain(`sg.legend-${i}`);
+    }
   });
 });
