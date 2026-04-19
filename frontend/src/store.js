@@ -701,6 +701,70 @@ export const useStore = create((set, get) => ({
     });
   },
 
+  // ── Typed-Seeking-Spring W3-B — slot edit UX state ──
+  // Per-slot contextual popover + advanced drawer. The popover anchors
+  // to an HTMLElement reference (the slot DOM node) which Slot.jsx
+  // captures on its edit click. The advanced drawer hosts the full
+  // ChartEditor and rides on top of the popover when the user clicks
+  // "Advanced…".
+  slotEditPopoverOpen: false,
+  slotEditPopoverContext: null,   // { presetId, slotId, anchorEl } | null
+  openSlotEditPopover: (slotId, anchorEl, presetId) => set({
+    slotEditPopoverOpen: true,
+    slotEditPopoverContext: { presetId, slotId, anchorEl },
+  }),
+  closeSlotEditPopover: () => set({
+    slotEditPopoverOpen: false,
+    slotEditPopoverContext: null,
+  }),
+
+  advancedEditorOpen: false,
+  advancedEditorContext: null,   // { slotId, binding } | null
+  openAdvancedEditor: (slotId, binding) => set({
+    advancedEditorOpen: true,
+    advancedEditorContext: { slotId, binding },
+  }),
+  closeAdvancedEditor: () => set({
+    advancedEditorOpen: false,
+    advancedEditorContext: null,
+  }),
+
+  /**
+   * setSlotBinding — write a (shallow-merged) binding patch into the
+   * active dashboard's `presetBindings[presetId][slotId]` map. Creates
+   * the sub-maps lazily so callers don't have to seed them.
+   *
+   * TODO(TSS W4): debounce + fire a background api.saveDashboardBinding
+   * call so edits survive a reload.
+   */
+  setSlotBinding: (presetId, slotId, patch) => {
+    const d = get().analystProDashboard;
+    if (!d) return;
+    const current =
+      d.presetBindings?.[presetId]?.[slotId] ??
+      { slotId, kind: 'kpi', isUserPinned: false };
+    const next = { ...current, ...(patch || {}), slotId };
+    set({
+      analystProDashboard: {
+        ...d,
+        presetBindings: {
+          ...(d.presetBindings ?? {}),
+          [presetId]: {
+            ...(d.presetBindings?.[presetId] ?? {}),
+            [slotId]: next,
+          },
+        },
+      },
+    });
+  },
+
+  pinSlot: (presetId, slotId, pinned = true) => {
+    get().setSlotBinding(presetId, slotId, { isUserPinned: !!pinned });
+  },
+  unpinSlot: (presetId, slotId) => {
+    get().pinSlot(presetId, slotId, false);
+  },
+
   // ── Typed-Seeking-Spring W2-C — preset-autogen progress ──
   // Drives the DashboardShell progress chip + the RebuildButton confirm
   // flow. `done` / `total` count preset-mode completion (0-5) and
