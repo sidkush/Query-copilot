@@ -1,10 +1,21 @@
 /**
- * SaveDashboardDialog — TSS W3-A.
+ * SaveDashboardDialog — TSS W3-A / TSS2 T12.
  *
  * Modal shown when the user clicks "+ New Dashboard" in DashboardTopBar.
- * Collects name + connection + smart-build toggle, then dispatches the
- * `saveDashboardAndAutogen` store action which creates the dashboard
- * server-side and (optionally) opens the SemanticTagWizard.
+ * Collects name + connection + a free-text intent prompt, then dispatches
+ * the `saveDashboardAndAutogen` store action which creates the dashboard
+ * server-side and kicks off autogen with the user's intent. The former
+ * 5-step `SemanticTagWizard` stays on disk as an advanced backdoor but is
+ * no longer in the default flow — the user just types what they want in
+ * plain English.
+ *
+ * Props:
+ *   - open, onClose — modal visibility.
+ *   - initialConnId — optional default connection (else active / first).
+ *   - saveDashboardAndAutogen — optional prop override for the store
+ *     action. Tests pass a mock here; production code reads the action
+ *     off the Zustand store.
+ *   - connId — optional prop override for the connection id (tests).
  *
  * Accessibility:
  *   - `role="dialog" aria-modal="true"` on backdrop.
@@ -24,12 +35,23 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useStore } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
+import DashboardIntentStep from './DashboardIntentStep';
 import './SaveDashboardDialog.css';
 
 const NAME_MAX = 40;
 
-export default function SaveDashboardDialog({ open, onClose, initialConnId }) {
-  const { connections, activeConnId, saveDashboardAndAutogen } = useStore(
+export default function SaveDashboardDialog({
+  open,
+  onClose,
+  initialConnId,
+  saveDashboardAndAutogen: saveDashboardAndAutogenProp,
+  connId: connIdProp,
+}) {
+  const {
+    connections,
+    activeConnId,
+    saveDashboardAndAutogen: saveDashboardAndAutogenFromStore,
+  } = useStore(
     useShallow((s) => ({
       connections: s.connections || [],
       activeConnId: s.activeConnId,
@@ -37,11 +59,16 @@ export default function SaveDashboardDialog({ open, onClose, initialConnId }) {
     })),
   );
 
-  const defaultConnId = initialConnId || activeConnId || connections[0]?.conn_id || '';
+  // Prop override wins over the store action (tests inject their own).
+  const saveDashboardAndAutogen =
+    saveDashboardAndAutogenProp || saveDashboardAndAutogenFromStore;
+
+  const defaultConnId =
+    connIdProp || initialConnId || activeConnId || connections[0]?.conn_id || '';
 
   const [name, setName] = useState('');
   const [connId, setConnId] = useState(defaultConnId);
-  const [runSmartBuild, setRunSmartBuild] = useState(true);
+  const [userIntent, setUserIntent] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const nameInputRef = useRef(null);
@@ -55,7 +82,7 @@ export default function SaveDashboardDialog({ open, onClose, initialConnId }) {
       previousFocusRef.current = document.activeElement;
       setName('');
       setConnId(defaultConnId);
-      setRunSmartBuild(true);
+      setUserIntent('');
       setSubmitting(false);
       // Defer focus until the next tick so the input has mounted.
       const id = window.setTimeout(() => nameInputRef.current?.focus(), 0);
@@ -116,15 +143,14 @@ export default function SaveDashboardDialog({ open, onClose, initialConnId }) {
     e?.preventDefault?.();
     if (!canSubmit) return;
     setSubmitting(true);
-    // Close the dialog immediately so the wizard (if smart-build is ON)
-    // can take over. `saveDashboardAndAutogen` runs async afterwards.
+    // Close the dialog immediately so the autogen progress chip can take
+    // over. `saveDashboardAndAutogen` runs async afterwards.
     try {
       onClose?.();
       await saveDashboardAndAutogen?.({
         name: trimmedName,
         connId,
-        runSmartBuild,
-        tags: {},
+        userIntent: (userIntent || '').trim(),
       });
     } catch {
       // Errors are surfaced via `analystProDashboard.bindingAutogenError`
@@ -153,7 +179,7 @@ export default function SaveDashboardDialog({ open, onClose, initialConnId }) {
           New dashboard
         </h2>
         <p className="tss-save-dialog-subtitle">
-          Name it, pick a connection, and we&apos;ll scaffold a smart starter layout.
+          Name it, pick a connection, and tell us what it should show.
         </p>
 
         <div className="tss-save-dialog-field">
@@ -171,7 +197,7 @@ export default function SaveDashboardDialog({ open, onClose, initialConnId }) {
             placeholder="Marketing Dashboard"
             autoComplete="off"
             spellCheck={false}
-            data-testid="save-dashboard-name-input"
+            data-testid="dashboard-name-input"
           />
         </div>
 
@@ -200,25 +226,11 @@ export default function SaveDashboardDialog({ open, onClose, initialConnId }) {
           </select>
         </div>
 
-        <div className="tss-save-dialog-switch-row">
-          <div className="tss-save-dialog-switch-copy">
-            <span className="tss-save-dialog-switch-title">Run smart build on save</span>
-            <span className="tss-save-dialog-switch-hint">
-              We&apos;ll auto-generate starter tiles using your schema + recent queries.
-            </span>
-          </div>
-          <button
-            type="button"
-            className="tss-save-dialog-switch"
-            role="switch"
-            aria-checked={runSmartBuild}
-            aria-label="Run smart build on save"
-            onClick={() => setRunSmartBuild((v) => !v)}
-            data-testid="save-dashboard-smart-build-switch"
-          >
-            <span className="tss-save-dialog-switch-thumb" />
-          </button>
-        </div>
+        <DashboardIntentStep
+          value={userIntent}
+          onChange={setUserIntent}
+          onSubmit={() => handleSubmit()}
+        />
 
         <div className="tss-save-dialog-footer">
           <button

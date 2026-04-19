@@ -959,6 +959,7 @@ export const useStore = create((set, get) => ({
     connId,
     runSmartBuild = true,
     tags = null,
+    userIntent = '',
     dashboardId: dashboardIdIn = null,
   }) => {
     if (!connId) return null;
@@ -1067,6 +1068,7 @@ export const useStore = create((set, get) => ({
       const stream = await api.autogenAllPresets(dashboardId, {
         conn_id: connId,
         semantic_tags: tags || {},
+        user_intent: userIntent || '',
       });
       if (stream) {
         for await (const payload of _parseSSE(stream)) {
