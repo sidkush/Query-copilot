@@ -253,11 +253,14 @@ export default function OperatorConsoleLayout() {
               r={4.5}
             />
 
-            {/* Anomaly in-trace label */}
+            {/* Anomaly in-trace label — anchored END (right edge) and placed
+                to the LEFT of the anomaly dot so it doesn't collide with the
+                ANOMALY callout box sitting in the SVG's upper-right corner. */}
             <text
               className="oc-trace-anomaly-label"
-              x={ANOMALY_X + 10}
-              y={ANOMALY_Y - 6}
+              x={ANOMALY_X - 10}
+              y={ANOMALY_Y - 8}
+              textAnchor="end"
             >
               EVT ▲ BetaAxion <tspan>+$120K</tspan>
             </text>

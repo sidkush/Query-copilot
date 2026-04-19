@@ -43,26 +43,44 @@
   box-sizing: border-box;
 }
 
-/* ── Top bar ───────────────────────────────────────────────────────────── */
+/* ── Top bar ─────────────────────────────────────────────────────────────
+   Two-row masthead at narrow widths (brand/date on row 1, stats strip on
+   row 2); collapses to a single row >1280px where the stats fit inline. */
 .eb-topbar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "brand meta"
+    "stats stats";
   align-items: center;
-  gap: 24px;
-  height: 32px;
+  column-gap: 24px;
+  row-gap: 8px;
+  padding-block: 6px 10px;
   border-bottom: 1px solid var(--eb-border);
   font-family: var(--eb-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
+@media (min-width: 1280px) {
+  .eb-topbar {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "brand stats meta";
+    row-gap: 0;
+    padding-block: 0;
+    height: 34px;
+  }
+}
+
 .eb-topbar__brand {
+  grid-area: brand;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-weight: 700;
   color: var(--eb-fg);
+  white-space: nowrap;
 }
 
 .eb-topbar__glyph {
@@ -73,12 +91,18 @@
 }
 
 .eb-topbar__stats {
+  grid-area: stats;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 4px 12px;
   color: var(--eb-fg-2);
   font-weight: 500;
+  min-width: 0;
+}
+
+.eb-topbar__stat {
+  white-space: nowrap;
 }
 
 .eb-topbar__stat b {
@@ -89,12 +113,15 @@
 
 .eb-topbar__stat-sep {
   color: var(--eb-fg-meta);
+  opacity: 0.55;
 }
 
 .eb-topbar__meta {
+  grid-area: meta;
   color: var(--eb-fg-meta);
   font-weight: 500;
   white-space: nowrap;
+  justify-self: end;
 }
 
 /* ── Kicker ────────────────────────────────────────────────────────────── */
