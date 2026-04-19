@@ -177,6 +177,12 @@ export default function AnalyticsShell() {
       setDashboard(full);
       dashboardIdRef.current = full.id;
       setActiveDashboardId(full.id);
+      // TSS — mirror the fetched dashboard into the Analyst-Pro Zustand
+      // slice so DashboardShell's preset readers (presetBindings,
+      // boundConnId, bindingAutogenState, activePresetId) have the
+      // authoritative payload. Call via getState() so the subscription
+      // isn't tied to render-time closures.
+      useStore.getState().setAnalystProDashboard(full);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -244,6 +250,8 @@ export default function AnalyticsShell() {
       const full = await api.getDashboard(id);
       setDashboard(full);
       dashboardIdRef.current = full.id;
+      // TSS — mirror into the Analyst-Pro store slice (see fetchDashboard).
+      useStore.getState().setAnalystProDashboard(full);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }

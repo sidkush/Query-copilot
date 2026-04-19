@@ -108,9 +108,12 @@ export default function DashboardShell({
   const [mode] = useState(initialMode);
 
   // Wave 3 (Plan A T10): apply active preset's CSS vars + data-active-preset
-  // attribute to <html> so global CSS + test assertions can react.
+  // attribute to <html> so global CSS + test assertions can react. Prefer
+  // the store when the user has explicitly switched; otherwise fall back
+  // to the authoredLayout's saved preset so reloads land on the last view.
+  const storeActivePresetId = useStore((s) => s.analystProDashboard?.activePresetId);
   const activePresetId =
-    useStore((s) => s.analystProDashboard?.activePresetId) ?? "analyst-pro";
+    storeActivePresetId || authoredLayout?.activePresetId || "analyst-pro";
   usePresetTheme(activePresetId);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
@@ -176,9 +179,35 @@ export default function DashboardShell({
   const mismatch = Boolean(boundConnId && activeConnId && activeConnId !== boundConnId);
 
   // TSS W3-B — per-slot edit popover + advanced drawer state.
-  const presetBindings = useStore(
+  // Bindings come from EITHER the Analyst Pro store slice (when a
+  // user saves / edits inline) OR the authoredLayout prop that
+  // AnalyticsShell passes after fetching `/api/v1/dashboards/{id}`.
+  // The authored path is the source of truth after a fresh page load
+  // because AnalyticsShell already holds the full server JSON.
+  const storeBindings = useStore(
     (s) => s.analystProDashboard?.presetBindings?.[activePresetId],
   );
+  const authoredBindings = authoredLayout?.presetBindings?.[activePresetId];
+  const presetBindings = storeBindings || authoredBindings;
+  // Build a tileData map from the bindings themselves. The autogen backend
+  // writes `rows` + `columns` inline on every TileBinding so the layout can
+  // render real values without a separate refresh round-trip. Slots whose
+  // binding is missing a row payload still fall through to the wireframe
+  // fallback inside Slot.jsx.
+  const presetTileData = useMemo(() => {
+    if (!presetBindings || typeof presetBindings !== 'object') return undefined;
+    const out = {};
+    for (const binding of Object.values(presetBindings)) {
+      const tileId = binding?.tileId;
+      if (!tileId) continue;
+      if (!Array.isArray(binding.rows) || binding.rows.length === 0) continue;
+      out[tileId] = {
+        columns: Array.isArray(binding.columns) ? binding.columns : Object.keys(binding.rows[0] || {}),
+        rows: binding.rows,
+      };
+    }
+    return out;
+  }, [presetBindings]);
   const slotEditPopoverOpen = useStore((s) => s.slotEditPopoverOpen);
   const slotEditPopoverContext = useStore((s) => s.slotEditPopoverContext);
   const closeSlotEditPopover = useStore((s) => s.closeSlotEditPopover);
@@ -350,7 +379,7 @@ export default function DashboardShell({
                 authoredLayout={authoredLayout}
                 // TSS W3-B — slot-aware edit wiring.
                 bindings={presetBindings}
-                tileData={undefined}
+                tileData={presetTileData}
                 onSlotEdit={(slotId, anchor) =>
                   openSlotEditPopover(slotId, anchor, activePresetId)
                 }

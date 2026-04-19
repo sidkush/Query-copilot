@@ -348,3 +348,18 @@
 {"event": "view_data", "timestamp": "2026-04-18T06:01:44.153901+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
 {"event": "view_data", "timestamp": "2026-04-18T06:01:44.175157+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
 {"event": "view_data", "timestamp": "2026-04-18T06:01:44.194944+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "filter_applied", "timestamp": "2026-04-19T01:17:04.886479+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-19T01:17:05.037907+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-19T01:17:05.160734+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-19T01:17:05.163339+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-19T01:17:05.271205+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-19T01:17:05.515317+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-19T01:17:24.759606+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-19T01:17:24.782881+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-19T01:17:24.803073+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-19T01:17:24.824812+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-19T01:17:24.845649+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-19T01:17:24.866597+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-19T01:17:24.968060+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-19T01:17:24.992029+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-19T01:17:25.013733+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
