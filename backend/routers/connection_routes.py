@@ -92,6 +92,24 @@ def get_user_connections(email: str) -> dict:
     return app.state.connections.setdefault(email, {})
 
 
+def _wire_skill_library_to_engine(entry, app) -> None:
+    """Plan 4 T6: attach skill library + connection-entry stub to QueryEngine.
+
+    Safe to call even when SKILL_LIBRARY_ENABLED is off — attributes are
+    populated but only consumed in flag-on paths. Called from every
+    ConnectionEntry creation site so QueryEngine._build_system_blocks + the
+    agent's _build_system_payload both have the library handle they need.
+    """
+    lib = getattr(app.state, "skill_library", None)
+    coll = getattr(app.state, "skill_collection", None)
+    engine = getattr(entry, "engine", None)
+    if engine is None:
+        return
+    engine._skill_library = lib
+    engine._skill_collection = coll
+    engine._connection_entry_stub = entry
+
+
 class ConnectRequest(BaseModel):
     db_type: str
     # Common fields
@@ -456,6 +474,7 @@ def connect_database(req: ConnectRequest, user: dict = Depends(get_current_user)
             database_name=database_name,
         )
         user_conns[conn_id] = entry
+        _wire_skill_library_to_engine(entry, request.app)
 
         # Profile schema for Query Intelligence (background — avoids blocking slow DBs)
         import threading as _threading
@@ -709,6 +728,7 @@ def reconnect_from_saved(config_id: str, user: dict = Depends(get_current_user))
             database_name=database_name,
         )
         user_conns[conn_id] = entry
+        _wire_skill_library_to_engine(entry, request.app)
 
         # Profile schema in background so turbo mode and waterfall router can work
         import threading as _threading
