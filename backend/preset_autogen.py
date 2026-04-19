@@ -305,13 +305,32 @@ def _llm_pick_slot_binding(
     response. Returns the tool input dict, or None on failure.
     """
     tone = _load_preset_prompt(preset_id)
+    user_intent = (semantic_tags.get("userIntent") or "").strip()
     system_prompt = (
         "You are the AskDB dashboard autogen orchestrator. You are picking "
         "which schema columns fill a single named slot in a themed dashboard. "
         "You MUST return via the pick_slot_binding tool; you MUST choose "
         "column names from the supplied schema only (no invention).\n\n"
+        "CRITICAL SEMANTIC RULES — these override the preset tone:\n"
+        "1. DO NOT SUM or AVG any column tagged [identifier] — use "
+        "COUNT or COUNT_DISTINCT instead (e.g. ride_id, order_id).\n"
+        "2. DO NOT SUM or AVG any column tagged [geo] — never pick "
+        "latitude/longitude for SUM or AVG; they are coordinates, not "
+        "quantities. If a KPI slot has no safe measure, COUNT the "
+        "identifier column.\n"
+        "3. For activity-style intents (rides, trips, sessions, events, "
+        "visits, orders) the headline KPI is COUNT of the activity "
+        "identifier, NOT a sum of a geo/identifier column.\n"
+        "4. Honor the user intent below — if the user asked about "
+        "rides/trips/events, the primary measure is a COUNT of those "
+        "events unless a clear revenue/quantity column exists.\n"
+        "5. Respect the role tags in the schema listing: [identifier], "
+        "[geo], [temporal], [dimension], [entity_name], [measure]. "
+        "Columns marked 'DO NOT SUM/AVG' are forbidden for those aggs.\n\n"
         f"Preset tone:\n{tone}\n\n"
-        f"Available columns:\n{_schema_digest(schema_profile)}\n\n"
+        f"User intent: {user_intent or '(none supplied)'}\n\n"
+        "Available columns (with role tags; 'DO NOT SUM/AVG' means the "
+        f"column is an identifier or geo coordinate):\n{_schema_digest(schema_profile)}\n\n"
         f"Semantic tags: {json.dumps(semantic_tags)}"
     )
     slot_msg = (
