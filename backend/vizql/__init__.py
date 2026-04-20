@@ -81,6 +81,9 @@ from .cache import (  # noqa: E402,F401
 from .batch import QueryBatch, BatchResult  # noqa: E402,F401
 from .telemetry import QueryCategory  # noqa: E402,F401
 
+# Plan 8a — calc-language AST
+from . import calc_ast as calc_ast  # noqa: E402,F401
+
 __all__ += [
     # Plan 7e
     "AbstractQueryCacheKey", "OrderByKey",
