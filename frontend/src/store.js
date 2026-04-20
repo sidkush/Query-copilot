@@ -1179,7 +1179,7 @@ export const useStore = create((set, get) => ({
   setAnalystProSnapEnabled: (enabled) => set({ analystProSnapEnabled: !!enabled }),
 
   // Plan 6c — tabbed sidebar state
-  analystProSidebarTab: 'dashboard',                 // 'dashboard' | 'layout'
+  analystProSidebarTab: 'dashboard',                 // 'dashboard' | 'layout' | 'analytics'
   analystProSidebarCollapsed: new Set(),             // Set<string> of collapsed section ids
   setSidebarTabAnalystPro: (tab) => {
     if (tab !== 'dashboard' && tab !== 'layout') return;
@@ -1234,6 +1234,232 @@ export const useStore = create((set, get) => ({
         [calcId]: spec,
       },
     })),
+
+  // ──────────────────────────────────────────────────────────────────
+  // Plan 9a T8 — Analytics-pane slot CRUD (reference lines, bands,
+  // distributions, totals). Worksheets live as an ARRAY on the dashboard
+  // keyed by `.id` (dashboardShape.ts). `.analytics` is lazy-initialised
+  // on first write. Each mutation pushes a full-snapshot entry onto the
+  // shared `analystProHistory` via `pushAnalystProHistory(dash, label)` —
+  // mirrors the pattern already used by addActionAnalystPro / addSetAnalystPro
+  // / addParameterAnalystPro.
+  // ──────────────────────────────────────────────────────────────────
+
+  addReferenceLineAnalystPro: (sheetId, spec) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      changed = true;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      return { ...w, analytics: { ...existing, referenceLines: [...existing.referenceLines, spec] } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Add reference line');
+  },
+
+  updateReferenceLineAnalystPro: (sheetId, idx, patch) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      const list = existing.referenceLines;
+      if (idx < 0 || idx >= list.length) return w;
+      changed = true;
+      const next = list.map((v, i) => (i === idx ? { ...v, ...patch } : v));
+      return { ...w, analytics: { ...existing, referenceLines: next } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Update reference line');
+  },
+
+  deleteReferenceLineAnalystPro: (sheetId, idx) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      const list = existing.referenceLines;
+      if (idx < 0 || idx >= list.length) return w;
+      changed = true;
+      const next = [...list.slice(0, idx), ...list.slice(idx + 1)];
+      return { ...w, analytics: { ...existing, referenceLines: next } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Delete reference line');
+  },
+
+  addBandAnalystPro: (sheetId, spec) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      changed = true;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      return { ...w, analytics: { ...existing, referenceBands: [...existing.referenceBands, spec] } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Add reference band');
+  },
+
+  updateBandAnalystPro: (sheetId, idx, patch) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      const list = existing.referenceBands;
+      if (idx < 0 || idx >= list.length) return w;
+      changed = true;
+      const next = list.map((v, i) => (i === idx ? { ...v, ...patch } : v));
+      return { ...w, analytics: { ...existing, referenceBands: next } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Update reference band');
+  },
+
+  deleteBandAnalystPro: (sheetId, idx) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      const list = existing.referenceBands;
+      if (idx < 0 || idx >= list.length) return w;
+      changed = true;
+      const next = [...list.slice(0, idx), ...list.slice(idx + 1)];
+      return { ...w, analytics: { ...existing, referenceBands: next } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Delete reference band');
+  },
+
+  addDistributionAnalystPro: (sheetId, spec) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      changed = true;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      return { ...w, analytics: { ...existing, distributions: [...existing.distributions, spec] } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Add reference distribution');
+  },
+
+  updateDistributionAnalystPro: (sheetId, idx, patch) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      const list = existing.distributions;
+      if (idx < 0 || idx >= list.length) return w;
+      changed = true;
+      const next = list.map((v, i) => (i === idx ? { ...v, ...patch } : v));
+      return { ...w, analytics: { ...existing, distributions: next } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Update reference distribution');
+  },
+
+  deleteDistributionAnalystPro: (sheetId, idx) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      const list = existing.distributions;
+      if (idx < 0 || idx >= list.length) return w;
+      changed = true;
+      const next = [...list.slice(0, idx), ...list.slice(idx + 1)];
+      return { ...w, analytics: { ...existing, distributions: next } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Delete reference distribution');
+  },
+
+  addTotalsAnalystPro: (sheetId, spec) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      changed = true;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      return { ...w, analytics: { ...existing, totals: [...existing.totals, spec] } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Add totals');
+  },
+
+  updateTotalsAnalystPro: (sheetId, idx, patch) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      const list = existing.totals;
+      if (idx < 0 || idx >= list.length) return w;
+      changed = true;
+      const next = list.map((v, i) => (i === idx ? { ...v, ...patch } : v));
+      return { ...w, analytics: { ...existing, totals: next } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Update totals');
+  },
+
+  deleteTotalsAnalystPro: (sheetId, idx) => {
+    const dash = get().analystProDashboard;
+    if (!dash) return;
+    let changed = false;
+    const worksheets = (dash.worksheets || []).map((w) => {
+      if (w.id !== sheetId) return w;
+      const existing = w.analytics || { referenceLines: [], referenceBands: [], distributions: [], totals: [] };
+      const list = existing.totals;
+      if (idx < 0 || idx >= list.length) return w;
+      changed = true;
+      const next = [...list.slice(0, idx), ...list.slice(idx + 1)];
+      return { ...w, analytics: { ...existing, totals: next } };
+    });
+    if (!changed) return;
+    const nextDash = { ...dash, worksheets };
+    set({ analystProDashboard: nextDash });
+    get().pushAnalystProHistory(nextDash, 'Delete totals');
+  },
 
   // Plan 5c: right-click context menu.
   // `items` is computed eagerly by openContextMenuAnalystPro via
