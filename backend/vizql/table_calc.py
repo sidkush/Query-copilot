@@ -99,12 +99,88 @@ _CLIENT_SIDE: frozenset[str] = frozenset({
 })
 
 
+# Mapping canonical Tableau WINDOW_* names -> SQL aggregate.
+_WINDOW_AGG: dict[str, str] = {
+    "WINDOW_SUM":    "SUM",
+    "WINDOW_AVG":    "AVG",
+    "WINDOW_MIN":    "MIN",
+    "WINDOW_MAX":    "MAX",
+    "WINDOW_MEDIAN": "MEDIAN",
+    "WINDOW_STDEV":  "STDDEV",
+    "WINDOW_VAR":    "VARIANCE",
+}
+
+
+def _arg_col(spec: TableCalcSpec, ctx: TableCalcCtx) -> sa.Column:
+    return sa.Column(name=spec.arg_field, table_alias=ctx.table_alias)
+
+
+def _order_by_pairs(spec: TableCalcSpec) -> tuple[tuple[str, bool], ...]:
+    """Return ((field, asc_bool), …) for LogicalOpOver.order_by.
+
+    Default direction = ascending. `spec.sort='desc'` flips every
+    addressing field. (Per-field sort lands in Task 9 UI.)
+    """
+    asc = spec.sort != "desc"
+    return tuple((f, asc) for f in spec.addressing)
+
+
+def _make_over(
+    body: sa.SQLQueryExpression,
+    spec: TableCalcSpec,
+    ctx: TableCalcCtx,
+    *,
+    output_alias: str,
+    frame: Optional[sa.FrameClause] = None,
+) -> ServerSideCalc:
+    plan = LogicalOpOver(
+        input_table=ctx.table_alias,
+        partition_bys=tuple(spec.partitioning),
+        order_by=_order_by_pairs(spec),
+        frame=frame,
+        expressions=((output_alias, body),),
+    )
+    return ServerSideCalc(plan=plan, output_alias=output_alias)
+
+
+def _compile_window_family(spec: TableCalcSpec, ctx: TableCalcCtx) -> ServerSideCalc:
+    if spec.function in _WINDOW_AGG:
+        agg = _WINDOW_AGG[spec.function]
+        body = sa.FnCall(name=agg, args=(_arg_col(spec, ctx),))
+        return _make_over(body, spec, ctx, output_alias=spec.calc_id)
+    if spec.function == "WINDOW_PERCENTILE":
+        if spec.offset is None:
+            raise TableCalcCompileError(
+                "WINDOW_PERCENTILE requires offset (percentile)")
+        body = sa.FnCall(
+            name="PERCENTILE_CONT",
+            args=(sa.Literal(value=spec.offset, data_type="int"),
+                  _arg_col(spec, ctx)),
+        )
+        return _make_over(body, spec, ctx, output_alias=spec.calc_id)
+    if spec.function in ("WINDOW_CORR", "WINDOW_COVAR"):
+        # arg_field carries `<measureA>,<measureB>` pair (UI splits)
+        if "," not in spec.arg_field:
+            raise TableCalcCompileError(
+                f"{spec.function} requires arg_field='<a>,<b>'")
+        a, b = (s.strip() for s in spec.arg_field.split(",", 1))
+        sql_fn = "CORR" if spec.function == "WINDOW_CORR" else "COVAR_SAMP"
+        body = sa.FnCall(
+            name=sql_fn,
+            args=(sa.Column(name=a, table_alias=ctx.table_alias),
+                  sa.Column(name=b, table_alias=ctx.table_alias)),
+        )
+        return _make_over(body, spec, ctx, output_alias=spec.calc_id)
+    raise TableCalcCompileError(f"WINDOW family fallthrough: {spec.function}")
+
+
 def compile_table_calc(spec: TableCalcSpec, ctx: TableCalcCtx) -> CompiledTableCalc:
     fn = spec.function
     if fn in _CLIENT_SIDE:
         return ClientSideCalc(spec=spec)
+    if fn.startswith("WINDOW_"):
+        return _compile_window_family(spec, ctx)
     if fn in _SERVER_SIDE:
-        # Specific server-side compile per family. Patched in T2-T5.
         raise TableCalcCompileError(
             f"server-side compile for {fn!r} not yet implemented")
     raise TableCalcCompileError(f"unknown table-calc {fn!r}")

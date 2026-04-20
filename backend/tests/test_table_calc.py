@@ -29,3 +29,42 @@ def test_dispatch_unknown_function_raises():
                        table_alias="t")
     with pytest.raises(TableCalcCompileError, match="unknown table-calc"):
         compile_table_calc(spec, ctx)
+
+
+from vizql import sql_ast as sa
+from vizql.table_calc import LogicalOpOver
+
+
+def _ctx() -> TableCalcCtx:
+    return TableCalcCtx(viz_granularity=frozenset({"Year", "Region"}),
+                        table_alias="t")
+
+
+@pytest.mark.parametrize("fn,sql_agg", [
+    ("WINDOW_SUM", "SUM"), ("WINDOW_AVG", "AVG"),
+    ("WINDOW_MIN", "MIN"), ("WINDOW_MAX", "MAX"),
+    ("WINDOW_MEDIAN", "MEDIAN"), ("WINDOW_STDEV", "STDDEV"),
+    ("WINDOW_VAR", "VARIANCE"),
+])
+def test_window_family_emits_logical_over(fn, sql_agg):
+    spec = TableCalcSpec(calc_id="c1", function=fn, arg_field="Sales",
+                         addressing=("Year",), partitioning=("Region",),
+                         sort="asc")
+    out = compile_table_calc(spec, _ctx())
+    assert isinstance(out, ServerSideCalc)
+    assert isinstance(out.plan, LogicalOpOver)
+    assert out.plan.partition_bys == ("Region",)
+    # order_by stored as ((field, asc_bool), …)
+    assert out.plan.order_by == (("Year", True),)
+    # the aggregate function name lives in the named expression body
+    assert sql_agg in str(out.plan.expressions)
+
+
+def test_window_percentile_uses_pct_arg():
+    spec = TableCalcSpec(calc_id="c2", function="WINDOW_PERCENTILE",
+                         arg_field="Sales", addressing=("Month",),
+                         offset=95)  # repurpose .offset for pct
+    out = compile_table_calc(spec, _ctx())
+    assert isinstance(out, ServerSideCalc)
+    assert "PERCENTILE_CONT" in str(out.plan.expressions)
+    assert "95" in str(out.plan.expressions)
