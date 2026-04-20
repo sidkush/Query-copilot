@@ -1362,6 +1362,42 @@ export const useStore = create((set, get) => ({
   clearAllSheetFiltersAnalystPro: () =>
     set({ analystProSheetFilters: {} }),
 
+  // Plan 8d T11 — Calc editor dialog state + save action.
+  // Shape: { open: boolean, editingCalcId: string|null, seedFormula: string,
+  //          seedName: string, aiGenerated: boolean } | null.
+  analystProCalcEditor: null,
+
+  openCalcEditorAnalystPro: ({
+    editingCalcId = null,
+    seedFormula = '',
+    seedName = '',
+  } = {}) =>
+    set({
+      analystProCalcEditor: {
+        open: true,
+        editingCalcId,
+        seedFormula,
+        seedName,
+        aiGenerated: false,
+      },
+    }),
+
+  closeCalcEditorAnalystPro: () => set({ analystProCalcEditor: null }),
+
+  saveCalcAnalystPro: (calc) =>
+    set((s) => {
+      const dash = s.analystProDashboard;
+      if (!dash) return s;
+      const calcs = [...(dash.calcs ?? [])];
+      const idx = calcs.findIndex((c) => c.id === calc.id);
+      if (idx >= 0) calcs[idx] = calc;
+      else calcs.push(calc);
+      return {
+        analystProDashboard: { ...dash, calcs },
+        analystProCalcEditor: null,
+      };
+    }),
+
   viewDataDrawer: {
     open: false,
     sheetId: null,

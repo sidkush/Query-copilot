@@ -86,6 +86,26 @@ export default function AnalystProSidebar() {
             <SidebarSection id="sheets"     heading="Sheets"><SheetsInsertPanel /></SidebarSection>
             <SidebarSection id="sets"       heading="Sets"><SetsPanel /></SidebarSection>
             <SidebarSection id="parameters" heading="Parameters"><ParametersPanel /></SidebarSection>
+            <div style={{ padding: '8px 10px' }}>
+              <button
+                type="button"
+                className="analyst-pro-sidebar__button"
+                onClick={() => useStore.getState().openCalcEditorAnalystPro()}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--fg)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 4,
+                }}
+              >
+                New Calculated Field…
+              </button>
+            </div>
           </>
         ) : (
           <>
