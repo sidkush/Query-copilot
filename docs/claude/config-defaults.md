@@ -47,6 +47,12 @@ updated — do not assume `4-5-20250514` without checking the active `.env`.
 | `MAX_CALC_NESTING` | `32` | parser depth cap (ParseError beyond) |
 | `FEATURE_RAWSQL_ENABLED` | `False` | `RAWSQL_*` passthrough gate |
 
+### Calc parser (Plan 8b)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `LOD_WARN_THRESHOLD_ROWS` | `1_000_000` | FIXED LOD cost estimate above this triggers `CalcWarning(kind="expensive_fixed_lod")` via `vizql/lod_analyzer.py`. Observation-only; never blocks. Section XIX.1 anti-pattern #1. |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |
