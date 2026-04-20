@@ -16,6 +16,7 @@ Design rules:
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -35,12 +36,12 @@ AggType = pb.AggType
 @dataclass
 class Field:
     id: str
-    data_type: int = DataType.DATA_TYPE_UNSPECIFIED
-    role: int = FieldRole.FIELD_ROLE_UNSPECIFIED
+    data_type: DataType = DataType.DATA_TYPE_UNSPECIFIED
+    role: FieldRole = FieldRole.FIELD_ROLE_UNSPECIFIED
     semantic_role: str = ""
-    aggregation: int = AggType.AGG_TYPE_UNSPECIFIED
+    aggregation: AggType = AggType.AGG_TYPE_UNSPECIFIED
     is_disagg: bool = False
-    column_class: int = ColumnClass.COLUMN_CLASS_UNSPECIFIED
+    column_class: ColumnClass = ColumnClass.COLUMN_CLASS_UNSPECIFIED
 
     def to_proto(self) -> pb.Field:
         return pb.Field(
@@ -82,7 +83,7 @@ class Calculation:
 
 @dataclass
 class Shelf:
-    kind: int
+    kind: ShelfKind
     fields: list[Field] = field(default_factory=list)
 
     def to_proto(self) -> pb.Shelf:
@@ -96,7 +97,7 @@ class Shelf:
 @dataclass
 class Encoding:
     field_encoding_id: str
-    encoding_type: int
+    encoding_type: EncodingType
     field: Field
     custom_encoding_type_id: str = ""
 
@@ -148,7 +149,7 @@ class RelativeDateFilterProps:
 
 @dataclass
 class FilterSpec:
-    filter_kind: int
+    filter_kind: FilterKind
     field: Field
     categorical: Optional[CategoricalFilterProps] = None
     hierarchical: Optional[HierarchicalFilterProps] = None
@@ -158,7 +159,7 @@ class FilterSpec:
     include_null: bool = False
     is_logical_table_scoped_filter: bool = False
     filter_stage: str = "dimension"
-    filter_properties: dict[str, str] = field(default_factory=dict)
+    filter_properties: dict[str, str] = dataclasses.field(default_factory=dict)
 
     def to_proto(self) -> pb.FilterSpec:
         out = pb.FilterSpec(
@@ -250,7 +251,7 @@ class FilterSpec:
 class Parameter:
     id: str
     name: str
-    data_type: int
+    data_type: DataType
     value: str
     domain_kind: str = "free"
     domain_values: list[str] = field(default_factory=list)
@@ -292,7 +293,7 @@ class LodCalculation:
     lod_kind: str
     lod_dims: list[Field] = field(default_factory=list)
     inner_calculation: Optional[Calculation] = None
-    outer_aggregation: int = AggType.AGG_TYPE_SUM
+    outer_aggregation: AggType = AggType.AGG_TYPE_SUM
 
     def to_proto(self) -> pb.LodCalculation:
         out = pb.LodCalculation(
@@ -360,7 +361,7 @@ class VisualSpec:
     filters: list[FilterSpec] = field(default_factory=list)
     parameters: list[Parameter] = field(default_factory=list)
     lod_calculations: list[LodCalculation] = field(default_factory=list)
-    mark_type: int = MarkType.MARK_TYPE_UNSPECIFIED
+    mark_type: MarkType = MarkType.MARK_TYPE_UNSPECIFIED
     analytics: Analytics = field(default_factory=Analytics)
     is_generative_ai_web_authoring: bool = False
     domain_type: str = "separate"

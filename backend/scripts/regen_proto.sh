@@ -33,4 +33,26 @@ fi
 
 rm -rf "$OUT_DIR/askdb"
 
+# Post-process generated .pyi: grpc_tools/protoc emits bare `_Mapping`
+# (no type parameters) which trips `mypy --strict` with `type-arg`.
+# Parametrise to `_Mapping[_Any, _Any]` and inject `Any as _Any` into
+# the typing import. Drop once upstream stub generator parametrises.
+python - "$OUT_DIR/v1_pb2.pyi" <<'PY'
+import re, sys
+path = sys.argv[1]
+src = open(path, encoding="utf-8").read()
+if "Any as _Any" not in src:
+    src = src.replace(
+        "from typing import ClassVar as _ClassVar,",
+        "from typing import Any as _Any, ClassVar as _ClassVar,",
+        1,
+    )
+src = re.sub(
+    r"(?<!Mapping as )_Mapping(?!\[)",
+    "_Mapping[_Any, _Any]",
+    src,
+)
+open(path, "w", encoding="utf-8").write(src)
+PY
+
 echo "backend/scripts/regen_proto.sh: wrote $OUT_DIR/v1_pb2.py + v1_pb2.pyi"

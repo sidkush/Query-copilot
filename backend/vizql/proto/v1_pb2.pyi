@@ -2,7 +2,7 @@ from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from typing import Any as _Any, ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -288,7 +288,7 @@ class Shelf(_message.Message):
     FIELDS_FIELD_NUMBER: _ClassVar[int]
     kind: ShelfKind
     fields: _containers.RepeatedCompositeFieldContainer[Field]
-    def __init__(self, kind: _Optional[_Union[ShelfKind, str]] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping]]] = ...) -> None: ...
+    def __init__(self, kind: _Optional[_Union[ShelfKind, str]] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ...) -> None: ...
 
 class Encoding(_message.Message):
     __slots__ = ("field_encoding_id", "encoding_type", "custom_encoding_type_id", "field")
@@ -300,7 +300,7 @@ class Encoding(_message.Message):
     encoding_type: EncodingType
     custom_encoding_type_id: str
     field: Field
-    def __init__(self, field_encoding_id: _Optional[str] = ..., encoding_type: _Optional[_Union[EncodingType, str]] = ..., custom_encoding_type_id: _Optional[str] = ..., field: _Optional[_Union[Field, _Mapping]] = ...) -> None: ...
+    def __init__(self, field_encoding_id: _Optional[str] = ..., encoding_type: _Optional[_Union[EncodingType, str]] = ..., custom_encoding_type_id: _Optional[str] = ..., field: _Optional[_Union[Field, _Mapping[_Any, _Any]]] = ...) -> None: ...
 
 class CategoricalFilterProps(_message.Message):
     __slots__ = ("values", "is_exclude_mode", "case_sensitive")
@@ -373,7 +373,7 @@ class FilterSpec(_message.Message):
     is_logical_table_scoped_filter: bool
     filter_stage: str
     filter_properties: _containers.ScalarMap[str, str]
-    def __init__(self, filter_kind: _Optional[_Union[FilterKind, str]] = ..., field: _Optional[_Union[Field, _Mapping]] = ..., categorical: _Optional[_Union[CategoricalFilterProps, _Mapping]] = ..., hierarchical: _Optional[_Union[HierarchicalFilterProps, _Mapping]] = ..., range: _Optional[_Union[RangeFilterProps, _Mapping]] = ..., relative_date: _Optional[_Union[RelativeDateFilterProps, _Mapping]] = ..., has_null: bool = ..., include_null: bool = ..., is_logical_table_scoped_filter: bool = ..., filter_stage: _Optional[str] = ..., filter_properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, filter_kind: _Optional[_Union[FilterKind, str]] = ..., field: _Optional[_Union[Field, _Mapping[_Any, _Any]]] = ..., categorical: _Optional[_Union[CategoricalFilterProps, _Mapping[_Any, _Any]]] = ..., hierarchical: _Optional[_Union[HierarchicalFilterProps, _Mapping[_Any, _Any]]] = ..., range: _Optional[_Union[RangeFilterProps, _Mapping[_Any, _Any]]] = ..., relative_date: _Optional[_Union[RelativeDateFilterProps, _Mapping[_Any, _Any]]] = ..., has_null: bool = ..., include_null: bool = ..., is_logical_table_scoped_filter: bool = ..., filter_stage: _Optional[str] = ..., filter_properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class Parameter(_message.Message):
     __slots__ = ("id", "name", "data_type", "value", "domain_kind", "domain_values", "domain_min", "domain_max", "domain_step")
@@ -409,7 +409,7 @@ class LodCalculation(_message.Message):
     lod_dims: _containers.RepeatedCompositeFieldContainer[Field]
     inner_calculation: Calculation
     outer_aggregation: AggType
-    def __init__(self, id: _Optional[str] = ..., lod_kind: _Optional[str] = ..., lod_dims: _Optional[_Iterable[_Union[Field, _Mapping]]] = ..., inner_calculation: _Optional[_Union[Calculation, _Mapping]] = ..., outer_aggregation: _Optional[_Union[AggType, str]] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ..., lod_kind: _Optional[str] = ..., lod_dims: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ..., inner_calculation: _Optional[_Union[Calculation, _Mapping[_Any, _Any]]] = ..., outer_aggregation: _Optional[_Union[AggType, str]] = ...) -> None: ...
 
 class Analytics(_message.Message):
     __slots__ = ("slots",)
@@ -431,7 +431,7 @@ class Analytics(_message.Message):
         def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
     SLOTS_FIELD_NUMBER: _ClassVar[int]
     slots: _containers.RepeatedCompositeFieldContainer[Analytics.Slot]
-    def __init__(self, slots: _Optional[_Iterable[_Union[Analytics.Slot, _Mapping]]] = ...) -> None: ...
+    def __init__(self, slots: _Optional[_Iterable[_Union[Analytics.Slot, _Mapping[_Any, _Any]]]] = ...) -> None: ...
 
 class VisualSpec(_message.Message):
     __slots__ = ("sheet_id", "fields", "shelves", "encodings", "filters", "parameters", "lod_calculations", "mark_type", "analytics", "is_generative_ai_web_authoring", "domain_type")
@@ -457,4 +457,4 @@ class VisualSpec(_message.Message):
     analytics: Analytics
     is_generative_ai_web_authoring: bool
     domain_type: str
-    def __init__(self, sheet_id: _Optional[str] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping]]] = ..., shelves: _Optional[_Iterable[_Union[Shelf, _Mapping]]] = ..., encodings: _Optional[_Iterable[_Union[Encoding, _Mapping]]] = ..., filters: _Optional[_Iterable[_Union[FilterSpec, _Mapping]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., lod_calculations: _Optional[_Iterable[_Union[LodCalculation, _Mapping]]] = ..., mark_type: _Optional[_Union[MarkType, str]] = ..., analytics: _Optional[_Union[Analytics, _Mapping]] = ..., is_generative_ai_web_authoring: bool = ..., domain_type: _Optional[str] = ...) -> None: ...
+    def __init__(self, sheet_id: _Optional[str] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ..., shelves: _Optional[_Iterable[_Union[Shelf, _Mapping[_Any, _Any]]]] = ..., encodings: _Optional[_Iterable[_Union[Encoding, _Mapping[_Any, _Any]]]] = ..., filters: _Optional[_Iterable[_Union[FilterSpec, _Mapping[_Any, _Any]]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping[_Any, _Any]]]] = ..., lod_calculations: _Optional[_Iterable[_Union[LodCalculation, _Mapping[_Any, _Any]]]] = ..., mark_type: _Optional[_Union[MarkType, str]] = ..., analytics: _Optional[_Union[Analytics, _Mapping[_Any, _Any]]] = ..., is_generative_ai_web_authoring: bool = ..., domain_type: _Optional[str] = ...) -> None: ...
