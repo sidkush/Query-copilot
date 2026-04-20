@@ -678,6 +678,8 @@ doc:
 
 **Task count target:** 8.
 
+**Status:** ✅ Shipped — 2026-04-20. 8 tasks + 1 concurrency follow-up + 1 pytest hygiene commit. New modules: `backend/vizql/cache.py`, `backend/vizql/batch.py`, `backend/vizql/telemetry.py`. New tier wired: `backend/waterfall_router.py :: VizQLTier` between MemoryTier and TurboTier, context isolated via `contextvars.ContextVar`. Config surface: `VIZQL_CACHE_ENABLED`, `VIZQL_INPROCESS_CACHE_BYTES` (64 MiB), `VIZQL_EXTERNAL_CACHE_BYTES` (512 MiB), `VIZQL_CACHE_TTL_SECONDS` (3600), `VIZQL_HISTORY_TRACKING_ENABLED`. Audit events: `log_vizql_cache_event`, `log_vizql_batch_event`. Redis-backed external tier degrades gracefully via existing `redis_client.get_redis()`. Plan doc: `docs/superpowers/plans/2026-04-17-analyst-pro-plan-7e-query-cache-integration.md`.
+
 ---
 
 ## Phase 8 — Calc Fields + LOD + Table Calcs
