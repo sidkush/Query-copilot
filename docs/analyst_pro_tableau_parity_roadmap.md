@@ -713,6 +713,8 @@ doc:
 
 **Task count target:** 10.
 
+**Status:** ✅ Shipped — 2026-04-20. 10 tasks. New modules: `backend/vizql/lod_compiler.py`, `backend/vizql/lod_analyzer.py`, `backend/vizql/context_filter_helper.py`, `backend/vizql/LOD_SEMANTICS.md`. Extended: `backend/vizql/filter_ordering.py` (`place_lod_in_order` + `LodPlacement`), `backend/vizql/calc_to_expression.py` (viz_granularity threading), `backend/vizql/spec.py` (`VisualSpec.join_lod_overrides` + `viz_granularity()` method), `backend/proto/askdb/vizdataservice/v1.proto` (field 15 `join_lod_overrides`). New config: `LOD_WARN_THRESHOLD_ROWS=1_000_000`. Endpoint `POST /api/v1/calcs/validate` response gains `warnings: list[CalcWarning]` (additive). Plan doc: `docs/superpowers/plans/2026-04-20-analyst-pro-plan-8b-lod-semantics.md`.
+
 ---
 
 ### Plan 8c — Table Calculations
