@@ -302,14 +302,65 @@ message TableCalcSpec {
   bool   has_offset   = 9;   // discriminates legitimate 0 from unset
 }
 
-// Analytics pane slots (Build_Tableau XIII). Typed-field in Plan 9.
+// Analytics pane slots (Build_Tableau XIII). Plan 9a introduces typed
+// repeated fields for reference-lines / bands / distributions / totals;
+// legacy `slots` remains for forward-compat with any generic entry.
 message Analytics {
   message Slot {
     string id   = 1;
-    string kind = 2;  // "reference-line"|"reference-band"|"trend"|"forecast"|"cluster"|"box-plot"|"totals"
+    string kind = 2;
     map<string, string> properties = 3;
   }
-  repeated Slot slots = 1;
+  repeated Slot                      slots           = 1;
+  repeated ReferenceLineSpec         reference_lines = 2;
+  repeated ReferenceBandSpec         reference_bands = 3;
+  repeated ReferenceDistributionSpec distributions   = 4;
+  repeated TotalsSpec                totals          = 5;
+}
+
+// Build_Tableau XIII.1 + Appendix C tabdocaxis!ReferenceLineSpecification.
+// Scope maps to Tableau Scope: "entire" = full data, "pane" = per-pane
+// group, "cell" = per-cell (window).
+message ReferenceLineSpec {
+  string axis          = 1;   // "x" | "y"
+  string aggregation   = 2;   // "constant"|"mean"|"median"|"sum"|"min"|"max"|"percentile"
+  double value         = 3;   // used when aggregation=="constant"; else ignored
+  bool   has_value     = 4;   // discriminates legitimate 0 constant from unset
+  int32  percentile    = 5;   // 1..99; used when aggregation=="percentile"
+  string scope         = 6;   // "entire" | "pane" | "cell"
+  string label         = 7;   // "value" | "computation" | "custom" | "none"
+  string custom_label  = 8;
+  string line_style    = 9;   // "solid" | "dashed" | "dotted"
+  string color         = 10;  // "#RRGGBB"
+  bool   show_marker   = 11;
+}
+
+message ReferenceBandSpec {
+  string            axis         = 1;
+  ReferenceLineSpec from_spec    = 2;
+  ReferenceLineSpec to_spec      = 3;
+  string            fill         = 4;   // "#RRGGBB"
+  double            fill_opacity = 5;   // 0..1
+}
+
+message ReferenceDistributionSpec {
+  string         axis        = 1;
+  repeated int32 percentiles = 2;   // ordered
+  string         scope       = 3;   // "entire" | "pane" | "cell"
+  string         style       = 4;   // "confidence" | "quantile" | "stddev"
+  string         color       = 5;
+}
+
+// Per Build_Tableau IV.7 step 9, totals are issued as SEPARATE queries.
+// `should_affect_totals` mirrors Tableau's Filter::ShouldAffectTotals
+// flag at the totals-spec level (individual filters still carry their
+// own placement via FilterSpec.filter_stage).
+message TotalsSpec {
+  string kind                 = 1;  // "grand_total" | "subtotal" | "both"
+  string axis                 = 2;  // "row" | "column" | "both"
+  string aggregation          = 3;  // Appendix A.14 AggType spelling
+  string position             = 4;  // "before" | "after"
+  bool   should_affect_totals = 5;  // true = honor normal filters; false = skip
 }
 
 // ----------------------------------------------------------------------------

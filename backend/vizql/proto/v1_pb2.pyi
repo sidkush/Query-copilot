@@ -411,8 +411,30 @@ class LodCalculation(_message.Message):
     outer_aggregation: AggType
     def __init__(self, id: _Optional[str] = ..., lod_kind: _Optional[str] = ..., lod_dims: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ..., inner_calculation: _Optional[_Union[Calculation, _Mapping[_Any, _Any]]] = ..., outer_aggregation: _Optional[_Union[AggType, str]] = ...) -> None: ...
 
+class TableCalcSpec(_message.Message):
+    __slots__ = ("calc_id", "function", "arg_field", "addressing", "partitioning", "direction", "sort", "offset", "has_offset")
+    CALC_ID_FIELD_NUMBER: _ClassVar[int]
+    FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    ARG_FIELD_FIELD_NUMBER: _ClassVar[int]
+    ADDRESSING_FIELD_NUMBER: _ClassVar[int]
+    PARTITIONING_FIELD_NUMBER: _ClassVar[int]
+    DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    SORT_FIELD_NUMBER: _ClassVar[int]
+    OFFSET_FIELD_NUMBER: _ClassVar[int]
+    HAS_OFFSET_FIELD_NUMBER: _ClassVar[int]
+    calc_id: str
+    function: str
+    arg_field: str
+    addressing: _containers.RepeatedScalarFieldContainer[str]
+    partitioning: _containers.RepeatedScalarFieldContainer[str]
+    direction: str
+    sort: str
+    offset: int
+    has_offset: bool
+    def __init__(self, calc_id: _Optional[str] = ..., function: _Optional[str] = ..., arg_field: _Optional[str] = ..., addressing: _Optional[_Iterable[str]] = ..., partitioning: _Optional[_Iterable[str]] = ..., direction: _Optional[str] = ..., sort: _Optional[str] = ..., offset: _Optional[int] = ..., has_offset: bool = ...) -> None: ...
+
 class Analytics(_message.Message):
-    __slots__ = ("slots",)
+    __slots__ = ("slots", "reference_lines", "reference_bands", "distributions", "totals")
     class Slot(_message.Message):
         __slots__ = ("id", "kind", "properties")
         class PropertiesEntry(_message.Message):
@@ -430,11 +452,87 @@ class Analytics(_message.Message):
         properties: _containers.ScalarMap[str, str]
         def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
     SLOTS_FIELD_NUMBER: _ClassVar[int]
+    REFERENCE_LINES_FIELD_NUMBER: _ClassVar[int]
+    REFERENCE_BANDS_FIELD_NUMBER: _ClassVar[int]
+    DISTRIBUTIONS_FIELD_NUMBER: _ClassVar[int]
+    TOTALS_FIELD_NUMBER: _ClassVar[int]
     slots: _containers.RepeatedCompositeFieldContainer[Analytics.Slot]
-    def __init__(self, slots: _Optional[_Iterable[_Union[Analytics.Slot, _Mapping[_Any, _Any]]]] = ...) -> None: ...
+    reference_lines: _containers.RepeatedCompositeFieldContainer[ReferenceLineSpec]
+    reference_bands: _containers.RepeatedCompositeFieldContainer[ReferenceBandSpec]
+    distributions: _containers.RepeatedCompositeFieldContainer[ReferenceDistributionSpec]
+    totals: _containers.RepeatedCompositeFieldContainer[TotalsSpec]
+    def __init__(self, slots: _Optional[_Iterable[_Union[Analytics.Slot, _Mapping[_Any, _Any]]]] = ..., reference_lines: _Optional[_Iterable[_Union[ReferenceLineSpec, _Mapping[_Any, _Any]]]] = ..., reference_bands: _Optional[_Iterable[_Union[ReferenceBandSpec, _Mapping[_Any, _Any]]]] = ..., distributions: _Optional[_Iterable[_Union[ReferenceDistributionSpec, _Mapping[_Any, _Any]]]] = ..., totals: _Optional[_Iterable[_Union[TotalsSpec, _Mapping[_Any, _Any]]]] = ...) -> None: ...
+
+class ReferenceLineSpec(_message.Message):
+    __slots__ = ("axis", "aggregation", "value", "has_value", "percentile", "scope", "label", "custom_label", "line_style", "color", "show_marker")
+    AXIS_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATION_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    HAS_VALUE_FIELD_NUMBER: _ClassVar[int]
+    PERCENTILE_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    CUSTOM_LABEL_FIELD_NUMBER: _ClassVar[int]
+    LINE_STYLE_FIELD_NUMBER: _ClassVar[int]
+    COLOR_FIELD_NUMBER: _ClassVar[int]
+    SHOW_MARKER_FIELD_NUMBER: _ClassVar[int]
+    axis: str
+    aggregation: str
+    value: float
+    has_value: bool
+    percentile: int
+    scope: str
+    label: str
+    custom_label: str
+    line_style: str
+    color: str
+    show_marker: bool
+    def __init__(self, axis: _Optional[str] = ..., aggregation: _Optional[str] = ..., value: _Optional[float] = ..., has_value: bool = ..., percentile: _Optional[int] = ..., scope: _Optional[str] = ..., label: _Optional[str] = ..., custom_label: _Optional[str] = ..., line_style: _Optional[str] = ..., color: _Optional[str] = ..., show_marker: bool = ...) -> None: ...
+
+class ReferenceBandSpec(_message.Message):
+    __slots__ = ("axis", "from_spec", "to_spec", "fill", "fill_opacity")
+    AXIS_FIELD_NUMBER: _ClassVar[int]
+    FROM_SPEC_FIELD_NUMBER: _ClassVar[int]
+    TO_SPEC_FIELD_NUMBER: _ClassVar[int]
+    FILL_FIELD_NUMBER: _ClassVar[int]
+    FILL_OPACITY_FIELD_NUMBER: _ClassVar[int]
+    axis: str
+    from_spec: ReferenceLineSpec
+    to_spec: ReferenceLineSpec
+    fill: str
+    fill_opacity: float
+    def __init__(self, axis: _Optional[str] = ..., from_spec: _Optional[_Union[ReferenceLineSpec, _Mapping[_Any, _Any]]] = ..., to_spec: _Optional[_Union[ReferenceLineSpec, _Mapping[_Any, _Any]]] = ..., fill: _Optional[str] = ..., fill_opacity: _Optional[float] = ...) -> None: ...
+
+class ReferenceDistributionSpec(_message.Message):
+    __slots__ = ("axis", "percentiles", "scope", "style", "color")
+    AXIS_FIELD_NUMBER: _ClassVar[int]
+    PERCENTILES_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
+    STYLE_FIELD_NUMBER: _ClassVar[int]
+    COLOR_FIELD_NUMBER: _ClassVar[int]
+    axis: str
+    percentiles: _containers.RepeatedScalarFieldContainer[int]
+    scope: str
+    style: str
+    color: str
+    def __init__(self, axis: _Optional[str] = ..., percentiles: _Optional[_Iterable[int]] = ..., scope: _Optional[str] = ..., style: _Optional[str] = ..., color: _Optional[str] = ...) -> None: ...
+
+class TotalsSpec(_message.Message):
+    __slots__ = ("kind", "axis", "aggregation", "position", "should_affect_totals")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    AXIS_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATION_FIELD_NUMBER: _ClassVar[int]
+    POSITION_FIELD_NUMBER: _ClassVar[int]
+    SHOULD_AFFECT_TOTALS_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    axis: str
+    aggregation: str
+    position: str
+    should_affect_totals: bool
+    def __init__(self, kind: _Optional[str] = ..., axis: _Optional[str] = ..., aggregation: _Optional[str] = ..., position: _Optional[str] = ..., should_affect_totals: bool = ...) -> None: ...
 
 class VisualSpec(_message.Message):
-    __slots__ = ("sheet_id", "fields", "shelves", "encodings", "filters", "parameters", "lod_calculations", "mark_type", "analytics", "is_generative_ai_web_authoring", "domain_type", "join_lod_overrides")
+    __slots__ = ("sheet_id", "fields", "shelves", "encodings", "filters", "parameters", "lod_calculations", "mark_type", "analytics", "is_generative_ai_web_authoring", "domain_type", "join_lod_overrides", "table_calc_specs")
     SHEET_ID_FIELD_NUMBER: _ClassVar[int]
     FIELDS_FIELD_NUMBER: _ClassVar[int]
     SHELVES_FIELD_NUMBER: _ClassVar[int]
@@ -447,6 +545,7 @@ class VisualSpec(_message.Message):
     IS_GENERATIVE_AI_WEB_AUTHORING_FIELD_NUMBER: _ClassVar[int]
     DOMAIN_TYPE_FIELD_NUMBER: _ClassVar[int]
     JOIN_LOD_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
+    TABLE_CALC_SPECS_FIELD_NUMBER: _ClassVar[int]
     sheet_id: str
     fields: _containers.RepeatedCompositeFieldContainer[Field]
     shelves: _containers.RepeatedCompositeFieldContainer[Shelf]
@@ -459,4 +558,5 @@ class VisualSpec(_message.Message):
     is_generative_ai_web_authoring: bool
     domain_type: str
     join_lod_overrides: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, sheet_id: _Optional[str] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ..., shelves: _Optional[_Iterable[_Union[Shelf, _Mapping[_Any, _Any]]]] = ..., encodings: _Optional[_Iterable[_Union[Encoding, _Mapping[_Any, _Any]]]] = ..., filters: _Optional[_Iterable[_Union[FilterSpec, _Mapping[_Any, _Any]]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping[_Any, _Any]]]] = ..., lod_calculations: _Optional[_Iterable[_Union[LodCalculation, _Mapping[_Any, _Any]]]] = ..., mark_type: _Optional[_Union[MarkType, str]] = ..., analytics: _Optional[_Union[Analytics, _Mapping[_Any, _Any]]] = ..., is_generative_ai_web_authoring: bool = ..., domain_type: _Optional[str] = ..., join_lod_overrides: _Optional[_Iterable[str]] = ...) -> None: ...
+    table_calc_specs: _containers.RepeatedCompositeFieldContainer[TableCalcSpec]
+    def __init__(self, sheet_id: _Optional[str] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ..., shelves: _Optional[_Iterable[_Union[Shelf, _Mapping[_Any, _Any]]]] = ..., encodings: _Optional[_Iterable[_Union[Encoding, _Mapping[_Any, _Any]]]] = ..., filters: _Optional[_Iterable[_Union[FilterSpec, _Mapping[_Any, _Any]]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping[_Any, _Any]]]] = ..., lod_calculations: _Optional[_Iterable[_Union[LodCalculation, _Mapping[_Any, _Any]]]] = ..., mark_type: _Optional[_Union[MarkType, str]] = ..., analytics: _Optional[_Union[Analytics, _Mapping[_Any, _Any]]] = ..., is_generative_ai_web_authoring: bool = ..., domain_type: _Optional[str] = ..., join_lod_overrides: _Optional[_Iterable[str]] = ..., table_calc_specs: _Optional[_Iterable[_Union[TableCalcSpec, _Mapping[_Any, _Any]]]] = ...) -> None: ...

@@ -436,6 +436,8 @@ export enum ShelfKind {
   SHELF_KIND_PATH = 8,
   SHELF_KIND_ANGLE = 9,
   SHELF_KIND_TOOLTIP = 10,
+  SHELF_KIND_PAGES = 11,
+  SHELF_KIND_FILTER = 12,
 }
 
 export function shelfKindFromJSON(object: any): ShelfKind {
@@ -473,6 +475,12 @@ export function shelfKindFromJSON(object: any): ShelfKind {
     case 10:
     case "SHELF_KIND_TOOLTIP":
       return ShelfKind.SHELF_KIND_TOOLTIP;
+    case 11:
+    case "SHELF_KIND_PAGES":
+      return ShelfKind.SHELF_KIND_PAGES;
+    case 12:
+    case "SHELF_KIND_FILTER":
+      return ShelfKind.SHELF_KIND_FILTER;
     default:
       throw new globalThis.Error("Unrecognized enum value " + object + " for enum ShelfKind");
   }
@@ -502,6 +510,10 @@ export function shelfKindToJSON(object: ShelfKind): string {
       return "SHELF_KIND_ANGLE";
     case ShelfKind.SHELF_KIND_TOOLTIP:
       return "SHELF_KIND_TOOLTIP";
+    case ShelfKind.SHELF_KIND_PAGES:
+      return "SHELF_KIND_PAGES";
+    case ShelfKind.SHELF_KIND_FILTER:
+      return "SHELF_KIND_FILTER";
     default:
       throw new globalThis.Error("Unrecognized enum value " + object + " for enum ShelfKind");
   }
@@ -949,14 +961,45 @@ export interface LodCalculation {
   outerAggregation: AggType;
 }
 
-/** Analytics pane slots (Build_Tableau XIII). Typed-field in Plan 9. */
+/**
+ * Plan 8c §V.1/§V.3 — table calculation spec. Per-viz list lives at
+ * VisualSpec.table_calc_specs (field 16). Server-side (RUNNING_*, WINDOW_*,
+ * RANK_*, INDEX, FIRST, LAST, SIZE, TOTAL, PCT_TOTAL) lower to LogicalOpOver
+ * at compile time. Client-side (LOOKUP, PREVIOUS_VALUE, DIFF, IS_DISTINCT,
+ * IS_STACKED) flow through to the frontend evaluator post-fetch.
+ */
+export interface TableCalcSpec {
+  calcId: string;
+  /** canonical Tableau spelling */
+  function: string;
+  argField: string;
+  addressing: string[];
+  partitioning: string[];
+  /** "across" | "down" | "table" | "pane" | "pane_down" | "specific" */
+  direction: string;
+  /** "" | "asc" | "desc" */
+  sort: string;
+  /** 0 if unset (LOOKUP/DIFF/PREVIOUS_VALUE/PERCENTILE) */
+  offset: number;
+  /** discriminates legitimate 0 from unset */
+  hasOffset: boolean;
+}
+
+/**
+ * Analytics pane slots (Build_Tableau XIII). Plan 9a introduces typed
+ * repeated fields for reference-lines / bands / distributions / totals;
+ * legacy `slots` remains for forward-compat with any generic entry.
+ */
 export interface Analytics {
   slots: Analytics_Slot[];
+  referenceLines: ReferenceLineSpec[];
+  referenceBands: ReferenceBandSpec[];
+  distributions: ReferenceDistributionSpec[];
+  totals: TotalsSpec[];
 }
 
 export interface Analytics_Slot {
   id: string;
-  /** "reference-line"|"reference-band"|"trend"|"forecast"|"cluster"|"box-plot"|"totals" */
   kind: string;
   properties: { [key: string]: string };
 }
@@ -964,6 +1007,76 @@ export interface Analytics_Slot {
 export interface Analytics_Slot_PropertiesEntry {
   key: string;
   value: string;
+}
+
+/**
+ * Build_Tableau XIII.1 + Appendix C tabdocaxis!ReferenceLineSpecification.
+ * Scope maps to Tableau Scope: "entire" = full data, "pane" = per-pane
+ * group, "cell" = per-cell (window).
+ */
+export interface ReferenceLineSpec {
+  /** "x" | "y" */
+  axis: string;
+  /** "constant"|"mean"|"median"|"sum"|"min"|"max"|"percentile" */
+  aggregation: string;
+  /** used when aggregation=="constant"; else ignored */
+  value: number;
+  /** discriminates legitimate 0 constant from unset */
+  hasValue: boolean;
+  /** 1..99; used when aggregation=="percentile" */
+  percentile: number;
+  /** "entire" | "pane" | "cell" */
+  scope: string;
+  /** "value" | "computation" | "custom" | "none" */
+  label: string;
+  customLabel: string;
+  /** "solid" | "dashed" | "dotted" */
+  lineStyle: string;
+  /** "#RRGGBB" */
+  color: string;
+  showMarker: boolean;
+}
+
+export interface ReferenceBandSpec {
+  axis: string;
+  fromSpec?: ReferenceLineSpec | undefined;
+  toSpec?:
+    | ReferenceLineSpec
+    | undefined;
+  /** "#RRGGBB" */
+  fill: string;
+  /** 0..1 */
+  fillOpacity: number;
+}
+
+export interface ReferenceDistributionSpec {
+  axis: string;
+  /** ordered */
+  percentiles: number[];
+  /** "entire" | "pane" | "cell" */
+  scope: string;
+  /** "confidence" | "quantile" | "stddev" */
+  style: string;
+  color: string;
+}
+
+/**
+ * Per Build_Tableau IV.7 step 9, totals are issued as SEPARATE queries.
+ * `should_affect_totals` mirrors Tableau's Filter::ShouldAffectTotals
+ * flag at the totals-spec level (individual filters still carry their
+ * own placement via FilterSpec.filter_stage).
+ */
+export interface TotalsSpec {
+  /** "grand_total" | "subtotal" | "both" */
+  kind: string;
+  /** "row" | "column" | "both" */
+  axis: string;
+  /** Appendix A.14 AggType spelling */
+  aggregation: string;
+  /** "before" | "after" */
+  position: string;
+  /** true = honor normal filters; false = skip */
+  shouldAffectTotals: boolean;
 }
 
 /** VisualSpec - the canonical IR. */
@@ -993,6 +1106,16 @@ export interface VisualSpec {
    * user's manual choice is preserved.
    */
   joinLodOverrides: string[];
+  /**
+   * Plan 8c §V.1/§V.3 — per-viz table-calc specs attached to this viz.
+   * Resolution split per spec.function:
+   *   server-side (RUNNING_*, WINDOW_*, RANK_*, INDEX, FIRST, LAST, SIZE,
+   *                TOTAL, PCT_TOTAL): lowered to LogicalOpOver by
+   *                table_calc.compile_table_calc.
+   *   client-side (LOOKUP, PREVIOUS_VALUE, DIFF, IS_DISTINCT, IS_STACKED):
+   *                forwarded to frontend evaluator post-fetch.
+   */
+  tableCalcSpecs: TableCalcSpec[];
 }
 
 function createBaseField(): Field {
@@ -1623,14 +1746,107 @@ export const LodCalculation: MessageFns<LodCalculation> = {
   },
 };
 
+function createBaseTableCalcSpec(): TableCalcSpec {
+  return {
+    calcId: "",
+    function: "",
+    argField: "",
+    addressing: [],
+    partitioning: [],
+    direction: "",
+    sort: "",
+    offset: 0,
+    hasOffset: false,
+  };
+}
+
+export const TableCalcSpec: MessageFns<TableCalcSpec> = {
+  fromJSON(object: any): TableCalcSpec {
+    return {
+      calcId: isSet(object.calcId) ? globalThis.String(object.calcId) : "",
+      function: isSet(object.function) ? globalThis.String(object.function) : "",
+      argField: isSet(object.argField) ? globalThis.String(object.argField) : "",
+      addressing: globalThis.Array.isArray(object?.addressing)
+        ? object.addressing.map((e: any) => globalThis.String(e))
+        : [],
+      partitioning: globalThis.Array.isArray(object?.partitioning)
+        ? object.partitioning.map((e: any) => globalThis.String(e))
+        : [],
+      direction: isSet(object.direction) ? globalThis.String(object.direction) : "",
+      sort: isSet(object.sort) ? globalThis.String(object.sort) : "",
+      offset: isSet(object.offset) ? globalThis.Number(object.offset) : 0,
+      hasOffset: isSet(object.hasOffset) ? globalThis.Boolean(object.hasOffset) : false,
+    };
+  },
+
+  toJSON(message: TableCalcSpec): unknown {
+    const obj: any = {};
+    if (message.calcId !== "") {
+      obj.calcId = message.calcId;
+    }
+    if (message.function !== "") {
+      obj.function = message.function;
+    }
+    if (message.argField !== "") {
+      obj.argField = message.argField;
+    }
+    if (message.addressing?.length) {
+      obj.addressing = message.addressing;
+    }
+    if (message.partitioning?.length) {
+      obj.partitioning = message.partitioning;
+    }
+    if (message.direction !== "") {
+      obj.direction = message.direction;
+    }
+    if (message.sort !== "") {
+      obj.sort = message.sort;
+    }
+    if (message.offset !== 0) {
+      obj.offset = Math.round(message.offset);
+    }
+    if (message.hasOffset !== false) {
+      obj.hasOffset = message.hasOffset;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TableCalcSpec>, I>>(base?: I): TableCalcSpec {
+    return TableCalcSpec.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TableCalcSpec>, I>>(object: I): TableCalcSpec {
+    const message = createBaseTableCalcSpec();
+    message.calcId = object.calcId ?? "";
+    message.function = object.function ?? "";
+    message.argField = object.argField ?? "";
+    message.addressing = object.addressing?.map((e) => e) || [];
+    message.partitioning = object.partitioning?.map((e) => e) || [];
+    message.direction = object.direction ?? "";
+    message.sort = object.sort ?? "";
+    message.offset = object.offset ?? 0;
+    message.hasOffset = object.hasOffset ?? false;
+    return message;
+  },
+};
+
 function createBaseAnalytics(): Analytics {
-  return { slots: [] };
+  return { slots: [], referenceLines: [], referenceBands: [], distributions: [], totals: [] };
 }
 
 export const Analytics: MessageFns<Analytics> = {
   fromJSON(object: any): Analytics {
     return {
       slots: globalThis.Array.isArray(object?.slots) ? object.slots.map((e: any) => Analytics_Slot.fromJSON(e)) : [],
+      referenceLines: globalThis.Array.isArray(object?.referenceLines)
+        ? object.referenceLines.map((e: any) => ReferenceLineSpec.fromJSON(e))
+        : [],
+      referenceBands: globalThis.Array.isArray(object?.referenceBands)
+        ? object.referenceBands.map((e: any) => ReferenceBandSpec.fromJSON(e))
+        : [],
+      distributions: globalThis.Array.isArray(object?.distributions)
+        ? object.distributions.map((e: any) => ReferenceDistributionSpec.fromJSON(e))
+        : [],
+      totals: globalThis.Array.isArray(object?.totals) ? object.totals.map((e: any) => TotalsSpec.fromJSON(e)) : [],
     };
   },
 
@@ -1638,6 +1854,18 @@ export const Analytics: MessageFns<Analytics> = {
     const obj: any = {};
     if (message.slots?.length) {
       obj.slots = message.slots.map((e) => Analytics_Slot.toJSON(e));
+    }
+    if (message.referenceLines?.length) {
+      obj.referenceLines = message.referenceLines.map((e) => ReferenceLineSpec.toJSON(e));
+    }
+    if (message.referenceBands?.length) {
+      obj.referenceBands = message.referenceBands.map((e) => ReferenceBandSpec.toJSON(e));
+    }
+    if (message.distributions?.length) {
+      obj.distributions = message.distributions.map((e) => ReferenceDistributionSpec.toJSON(e));
+    }
+    if (message.totals?.length) {
+      obj.totals = message.totals.map((e) => TotalsSpec.toJSON(e));
     }
     return obj;
   },
@@ -1648,6 +1876,10 @@ export const Analytics: MessageFns<Analytics> = {
   fromPartial<I extends Exact<DeepPartial<Analytics>, I>>(object: I): Analytics {
     const message = createBaseAnalytics();
     message.slots = object.slots?.map((e) => Analytics_Slot.fromPartial(e)) || [];
+    message.referenceLines = object.referenceLines?.map((e) => ReferenceLineSpec.fromPartial(e)) || [];
+    message.referenceBands = object.referenceBands?.map((e) => ReferenceBandSpec.fromPartial(e)) || [];
+    message.distributions = object.distributions?.map((e) => ReferenceDistributionSpec.fromPartial(e)) || [];
+    message.totals = object.totals?.map((e) => TotalsSpec.fromPartial(e)) || [];
     return message;
   },
 };
@@ -1746,6 +1978,250 @@ export const Analytics_Slot_PropertiesEntry: MessageFns<Analytics_Slot_Propertie
   },
 };
 
+function createBaseReferenceLineSpec(): ReferenceLineSpec {
+  return {
+    axis: "",
+    aggregation: "",
+    value: 0,
+    hasValue: false,
+    percentile: 0,
+    scope: "",
+    label: "",
+    customLabel: "",
+    lineStyle: "",
+    color: "",
+    showMarker: false,
+  };
+}
+
+export const ReferenceLineSpec: MessageFns<ReferenceLineSpec> = {
+  fromJSON(object: any): ReferenceLineSpec {
+    return {
+      axis: isSet(object.axis) ? globalThis.String(object.axis) : "",
+      aggregation: isSet(object.aggregation) ? globalThis.String(object.aggregation) : "",
+      value: isSet(object.value) ? globalThis.Number(object.value) : 0,
+      hasValue: isSet(object.hasValue) ? globalThis.Boolean(object.hasValue) : false,
+      percentile: isSet(object.percentile) ? globalThis.Number(object.percentile) : 0,
+      scope: isSet(object.scope) ? globalThis.String(object.scope) : "",
+      label: isSet(object.label) ? globalThis.String(object.label) : "",
+      customLabel: isSet(object.customLabel) ? globalThis.String(object.customLabel) : "",
+      lineStyle: isSet(object.lineStyle) ? globalThis.String(object.lineStyle) : "",
+      color: isSet(object.color) ? globalThis.String(object.color) : "",
+      showMarker: isSet(object.showMarker) ? globalThis.Boolean(object.showMarker) : false,
+    };
+  },
+
+  toJSON(message: ReferenceLineSpec): unknown {
+    const obj: any = {};
+    if (message.axis !== "") {
+      obj.axis = message.axis;
+    }
+    if (message.aggregation !== "") {
+      obj.aggregation = message.aggregation;
+    }
+    if (message.value !== 0) {
+      obj.value = message.value;
+    }
+    if (message.hasValue !== false) {
+      obj.hasValue = message.hasValue;
+    }
+    if (message.percentile !== 0) {
+      obj.percentile = Math.round(message.percentile);
+    }
+    if (message.scope !== "") {
+      obj.scope = message.scope;
+    }
+    if (message.label !== "") {
+      obj.label = message.label;
+    }
+    if (message.customLabel !== "") {
+      obj.customLabel = message.customLabel;
+    }
+    if (message.lineStyle !== "") {
+      obj.lineStyle = message.lineStyle;
+    }
+    if (message.color !== "") {
+      obj.color = message.color;
+    }
+    if (message.showMarker !== false) {
+      obj.showMarker = message.showMarker;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReferenceLineSpec>, I>>(base?: I): ReferenceLineSpec {
+    return ReferenceLineSpec.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReferenceLineSpec>, I>>(object: I): ReferenceLineSpec {
+    const message = createBaseReferenceLineSpec();
+    message.axis = object.axis ?? "";
+    message.aggregation = object.aggregation ?? "";
+    message.value = object.value ?? 0;
+    message.hasValue = object.hasValue ?? false;
+    message.percentile = object.percentile ?? 0;
+    message.scope = object.scope ?? "";
+    message.label = object.label ?? "";
+    message.customLabel = object.customLabel ?? "";
+    message.lineStyle = object.lineStyle ?? "";
+    message.color = object.color ?? "";
+    message.showMarker = object.showMarker ?? false;
+    return message;
+  },
+};
+
+function createBaseReferenceBandSpec(): ReferenceBandSpec {
+  return { axis: "", fromSpec: undefined, toSpec: undefined, fill: "", fillOpacity: 0 };
+}
+
+export const ReferenceBandSpec: MessageFns<ReferenceBandSpec> = {
+  fromJSON(object: any): ReferenceBandSpec {
+    return {
+      axis: isSet(object.axis) ? globalThis.String(object.axis) : "",
+      fromSpec: isSet(object.fromSpec) ? ReferenceLineSpec.fromJSON(object.fromSpec) : undefined,
+      toSpec: isSet(object.toSpec) ? ReferenceLineSpec.fromJSON(object.toSpec) : undefined,
+      fill: isSet(object.fill) ? globalThis.String(object.fill) : "",
+      fillOpacity: isSet(object.fillOpacity) ? globalThis.Number(object.fillOpacity) : 0,
+    };
+  },
+
+  toJSON(message: ReferenceBandSpec): unknown {
+    const obj: any = {};
+    if (message.axis !== "") {
+      obj.axis = message.axis;
+    }
+    if (message.fromSpec !== undefined) {
+      obj.fromSpec = ReferenceLineSpec.toJSON(message.fromSpec);
+    }
+    if (message.toSpec !== undefined) {
+      obj.toSpec = ReferenceLineSpec.toJSON(message.toSpec);
+    }
+    if (message.fill !== "") {
+      obj.fill = message.fill;
+    }
+    if (message.fillOpacity !== 0) {
+      obj.fillOpacity = message.fillOpacity;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReferenceBandSpec>, I>>(base?: I): ReferenceBandSpec {
+    return ReferenceBandSpec.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReferenceBandSpec>, I>>(object: I): ReferenceBandSpec {
+    const message = createBaseReferenceBandSpec();
+    message.axis = object.axis ?? "";
+    message.fromSpec = (object.fromSpec !== undefined && object.fromSpec !== null)
+      ? ReferenceLineSpec.fromPartial(object.fromSpec)
+      : undefined;
+    message.toSpec = (object.toSpec !== undefined && object.toSpec !== null)
+      ? ReferenceLineSpec.fromPartial(object.toSpec)
+      : undefined;
+    message.fill = object.fill ?? "";
+    message.fillOpacity = object.fillOpacity ?? 0;
+    return message;
+  },
+};
+
+function createBaseReferenceDistributionSpec(): ReferenceDistributionSpec {
+  return { axis: "", percentiles: [], scope: "", style: "", color: "" };
+}
+
+export const ReferenceDistributionSpec: MessageFns<ReferenceDistributionSpec> = {
+  fromJSON(object: any): ReferenceDistributionSpec {
+    return {
+      axis: isSet(object.axis) ? globalThis.String(object.axis) : "",
+      percentiles: globalThis.Array.isArray(object?.percentiles)
+        ? object.percentiles.map((e: any) => globalThis.Number(e))
+        : [],
+      scope: isSet(object.scope) ? globalThis.String(object.scope) : "",
+      style: isSet(object.style) ? globalThis.String(object.style) : "",
+      color: isSet(object.color) ? globalThis.String(object.color) : "",
+    };
+  },
+
+  toJSON(message: ReferenceDistributionSpec): unknown {
+    const obj: any = {};
+    if (message.axis !== "") {
+      obj.axis = message.axis;
+    }
+    if (message.percentiles?.length) {
+      obj.percentiles = message.percentiles.map((e) => Math.round(e));
+    }
+    if (message.scope !== "") {
+      obj.scope = message.scope;
+    }
+    if (message.style !== "") {
+      obj.style = message.style;
+    }
+    if (message.color !== "") {
+      obj.color = message.color;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReferenceDistributionSpec>, I>>(base?: I): ReferenceDistributionSpec {
+    return ReferenceDistributionSpec.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReferenceDistributionSpec>, I>>(object: I): ReferenceDistributionSpec {
+    const message = createBaseReferenceDistributionSpec();
+    message.axis = object.axis ?? "";
+    message.percentiles = object.percentiles?.map((e) => e) || [];
+    message.scope = object.scope ?? "";
+    message.style = object.style ?? "";
+    message.color = object.color ?? "";
+    return message;
+  },
+};
+
+function createBaseTotalsSpec(): TotalsSpec {
+  return { kind: "", axis: "", aggregation: "", position: "", shouldAffectTotals: false };
+}
+
+export const TotalsSpec: MessageFns<TotalsSpec> = {
+  fromJSON(object: any): TotalsSpec {
+    return {
+      kind: isSet(object.kind) ? globalThis.String(object.kind) : "",
+      axis: isSet(object.axis) ? globalThis.String(object.axis) : "",
+      aggregation: isSet(object.aggregation) ? globalThis.String(object.aggregation) : "",
+      position: isSet(object.position) ? globalThis.String(object.position) : "",
+      shouldAffectTotals: isSet(object.shouldAffectTotals) ? globalThis.Boolean(object.shouldAffectTotals) : false,
+    };
+  },
+
+  toJSON(message: TotalsSpec): unknown {
+    const obj: any = {};
+    if (message.kind !== "") {
+      obj.kind = message.kind;
+    }
+    if (message.axis !== "") {
+      obj.axis = message.axis;
+    }
+    if (message.aggregation !== "") {
+      obj.aggregation = message.aggregation;
+    }
+    if (message.position !== "") {
+      obj.position = message.position;
+    }
+    if (message.shouldAffectTotals !== false) {
+      obj.shouldAffectTotals = message.shouldAffectTotals;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TotalsSpec>, I>>(base?: I): TotalsSpec {
+    return TotalsSpec.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TotalsSpec>, I>>(object: I): TotalsSpec {
+    const message = createBaseTotalsSpec();
+    message.kind = object.kind ?? "";
+    message.axis = object.axis ?? "";
+    message.aggregation = object.aggregation ?? "";
+    message.position = object.position ?? "";
+    message.shouldAffectTotals = object.shouldAffectTotals ?? false;
+    return message;
+  },
+};
+
 function createBaseVisualSpec(): VisualSpec {
   return {
     sheetId: "",
@@ -1760,6 +2236,7 @@ function createBaseVisualSpec(): VisualSpec {
     isGenerativeAiWebAuthoring: false,
     domainType: "",
     joinLodOverrides: [],
+    tableCalcSpecs: [],
   };
 }
 
@@ -1789,6 +2266,9 @@ export const VisualSpec: MessageFns<VisualSpec> = {
       domainType: isSet(object.domainType) ? globalThis.String(object.domainType) : "",
       joinLodOverrides: globalThis.Array.isArray(object?.joinLodOverrides)
         ? object.joinLodOverrides.map((e: any) => globalThis.String(e))
+        : [],
+      tableCalcSpecs: globalThis.Array.isArray(object?.tableCalcSpecs)
+        ? object.tableCalcSpecs.map((e: any) => TableCalcSpec.fromJSON(e))
         : [],
     };
   },
@@ -1831,6 +2311,9 @@ export const VisualSpec: MessageFns<VisualSpec> = {
     if (message.joinLodOverrides?.length) {
       obj.joinLodOverrides = message.joinLodOverrides;
     }
+    if (message.tableCalcSpecs?.length) {
+      obj.tableCalcSpecs = message.tableCalcSpecs.map((e) => TableCalcSpec.toJSON(e));
+    }
     return obj;
   },
 
@@ -1853,6 +2336,7 @@ export const VisualSpec: MessageFns<VisualSpec> = {
     message.isGenerativeAiWebAuthoring = object.isGenerativeAiWebAuthoring ?? false;
     message.domainType = object.domainType ?? "";
     message.joinLodOverrides = object.joinLodOverrides?.map((e) => e) || [];
+    message.tableCalcSpecs = object.tableCalcSpecs?.map((e) => TableCalcSpec.fromPartial(e)) || [];
     return message;
   },
 };
