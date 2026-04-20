@@ -210,3 +210,36 @@ def test_logical_op_filter_measure_stage_default():
                     right=Literal(value=1000, data_type="int"))
     f = LogicalOpFilter(input=base, predicate=pred)
     assert f.filter_stage == "measure"
+
+
+def test_logical_op_aggregate_carries_group_bys_and_aggregations():
+    from vizql.logical import (
+        AggExp, Column, Field, LogicalOpAggregate, LogicalOpRelation,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    region = Field(id="orders.region", data_type="string", role="dimension",
+                   aggregation="none", semantic_role="", is_disagg=False)
+    total_sum = AggExp(name="total_sum", agg="sum",
+                        expr=Column(field_id="orders.total"))
+    agg = LogicalOpAggregate(
+        input=base,
+        group_bys=(region,),
+        aggregations=(total_sum,),
+    )
+    assert agg.group_bys == (region,)
+    assert agg.aggregations[0].agg == "sum"
+
+
+def test_logical_op_aggregate_empty_group_bys_allowed():
+    """SELECT SUM(...) FROM orders  — no GROUP BY."""
+    from vizql.logical import (
+        AggExp, Column, LogicalOpAggregate, LogicalOpRelation,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    agg = LogicalOpAggregate(
+        input=base,
+        group_bys=(),
+        aggregations=(AggExp(name="total", agg="sum",
+                             expr=Column(field_id="orders.total")),),
+    )
+    assert agg.group_bys == ()

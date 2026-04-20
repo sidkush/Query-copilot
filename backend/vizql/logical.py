@@ -207,11 +207,20 @@ class LogicalOpFilter:
             )
 
 
+@dataclass(frozen=True, slots=True)
+class LogicalOpAggregate:
+    """Build_Tableau.md §IV.2 — GROUP BY + aggregation."""
+    input: "LogicalOp"
+    group_bys: tuple[Field, ...]
+    aggregations: tuple[AggExp, ...]
+
+
 LogicalOp = Union[
     "LogicalOpRelation",
     "LogicalOpProject",
     "LogicalOpSelect",
     "LogicalOpFilter",
+    "LogicalOpAggregate",
 ]  # extended in subsequent tasks
 
 
@@ -224,4 +233,5 @@ __all__ = [
     "AggExp",
     "LogicalOpRelation", "LogicalOpProject",
     "LogicalOpSelect", "LogicalOpFilter",
+    "LogicalOpAggregate",
 ]
