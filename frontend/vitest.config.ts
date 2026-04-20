@@ -24,6 +24,7 @@ export default defineConfig({
       'src/components/dashboard/freeform/__tests__/**/*.test.tsx',
       'src/components/dashboard/freeform/lib/__tests__/**/*.test.ts',
       'src/components/dashboard/freeform/lib/__tests__/**/*.test.tsx',
+      'src/components/dashboard/freeform/panels/__tests__/**/*.test.jsx',
       'src/components/editor/renderers/__tests__/**/*.test.ts',
       'src/components/editor/renderers/__tests__/**/*.test.tsx',
       'src/components/dashboard/presets/__tests__/**/*.test.ts',
