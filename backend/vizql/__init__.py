@@ -87,10 +87,21 @@ from . import calc_ast as calc_ast  # noqa: E402,F401
 # Plan 8b — LOD compiler (FIXED/INCLUDE/EXCLUDE → sa.Subquery / sa.Window)
 from . import lod_compiler as lod_compiler  # noqa: E402,F401
 
+# Plan 8c — table-calc compiler
+from .table_calc import (  # noqa: E402,F401
+    TableCalcSpec, TableCalcCtx, TableCalcCompileError,
+    ServerSideCalc, ClientSideCalc, CompiledTableCalc,
+    compile_table_calc,
+)
+
 __all__ += [
     # Plan 7e
     "AbstractQueryCacheKey", "OrderByKey",
     "LRUQueryCachePolicy", "InProcessLogicalQueryCache",
     "ExternalLogicalQueryCache", "HistoryTrackingCache", "InvalidationRecord",
     "QueryBatch", "BatchResult", "QueryCategory",
+    # Plan 8c
+    "TableCalcSpec", "TableCalcCtx", "TableCalcCompileError",
+    "ServerSideCalc", "ClientSideCalc", "CompiledTableCalc",
+    "compile_table_calc",
 ]
