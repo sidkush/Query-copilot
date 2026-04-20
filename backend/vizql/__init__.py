@@ -23,10 +23,47 @@ from vizql.filter_ordering import (  # noqa: E402,F401
 )
 from vizql import sql_ast  # noqa: E402,F401
 
+# Plan 7d — dialect emitters + validator gate
+from config import DBType  # noqa: E402
+from sql_validator import SQLValidator  # noqa: E402
+
+from .dialect_base import BaseDialect  # noqa: E402,F401
+from .dialects import get_dialect  # noqa: E402,F401
+
+
+class DialectValidationError(RuntimeError):
+    """Raised when the emitted SQL fails SQLValidator.validate().
+
+    This is a security invariant — never catch-and-run this."""
+
+
+_VALIDATORS: dict[str, SQLValidator] = {}
+
+
+def _validator(db_type: DBType) -> SQLValidator:
+    key = db_type.value
+    v = _VALIDATORS.get(key)
+    if v is None:
+        v = SQLValidator(dialect=key)
+        _VALIDATORS[key] = v
+    return v
+
+
+def emit_validated(db_type: DBType, qf: sql_ast.SQLQueryFunction) -> str:
+    sql = get_dialect(db_type).emit(qf)
+    ok, _cleaned, message = _validator(db_type).validate(sql)
+    if not ok:
+        raise DialectValidationError(
+            f"VizQL {db_type.value} emission failed sql_validator: {message}")
+    return sql
+
+
 __all__ = [
     # Plan 7a/7b (pre-existing)
     "spec", "logical", "compiler", "validator",
     # Plan 7c
     "sql_ast", "compile_logical_to_sql", "optimize", "OptimizerContext",
     "apply_filters_in_order", "StagedFilter", "FILTER_STAGES",
+    # Plan 7d
+    "BaseDialect", "get_dialect", "emit_validated", "DialectValidationError",
 ]
