@@ -269,19 +269,41 @@ class LogicalOpValuestoColumns:
     agg_col: Expression
 
 
+@dataclass(frozen=True, slots=True)
+class LogicalOpDomain:
+    """Build_Tableau.md §IV.3 — Snowflake | Separate.
+
+    ``SNOWFLAKE`` materialises the cartesian product of row x column
+    dimension values (empty cells for missing combos) — the "Show Empty
+    Rows/Columns" toggle. ``SEPARATE`` emits per-pane sub-queries.
+    """
+    input: "LogicalOp"
+    domain: DomainType = DomainType.SEPARATE
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalOpUnion:
+    """Build_Tableau.md §IV.2 — set union."""
+    left: "LogicalOp"
+    right: "LogicalOp"
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalOpIntersect:
+    """Build_Tableau.md §IV.2 — set intersect."""
+    left: "LogicalOp"
+    right: "LogicalOp"
+
+
 LogicalOp = Union[
-    "LogicalOpRelation",
-    "LogicalOpProject",
-    "LogicalOpSelect",
-    "LogicalOpFilter",
+    "LogicalOpRelation", "LogicalOpProject",
+    "LogicalOpSelect", "LogicalOpFilter",
     "LogicalOpAggregate",
-    "LogicalOpOrder",
-    "LogicalOpTop",
-    "LogicalOpOver",
-    "LogicalOpLookup",
-    "LogicalOpUnpivot",
-    "LogicalOpValuestoColumns",
-]  # extended in subsequent tasks
+    "LogicalOpOrder", "LogicalOpTop",
+    "LogicalOpOver", "LogicalOpLookup",
+    "LogicalOpUnpivot", "LogicalOpValuestoColumns",
+    "LogicalOpDomain", "LogicalOpUnion", "LogicalOpIntersect",
+]
 
 
 __all__ = [
@@ -297,4 +319,5 @@ __all__ = [
     "LogicalOpOrder", "LogicalOpTop",
     "LogicalOpOver", "LogicalOpLookup",
     "LogicalOpUnpivot", "LogicalOpValuestoColumns",
+    "LogicalOpDomain", "LogicalOpUnion", "LogicalOpIntersect",
 ]

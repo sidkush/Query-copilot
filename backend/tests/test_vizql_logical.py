@@ -346,3 +346,46 @@ def test_logical_op_values_to_columns_rows_to_columns():
         agg_col=Column(field_id="orders.total"),
     )
     assert op.pivot_col == Column(field_id="orders.region")
+
+
+def test_logical_op_domain_snowflake_default_separate():
+    from vizql.logical import DomainType, LogicalOpDomain, LogicalOpRelation
+    base = LogicalOpRelation(table="orders", schema="public")
+
+    sep = LogicalOpDomain(input=base, domain=DomainType.SEPARATE)
+    snow = LogicalOpDomain(input=base, domain=DomainType.SNOWFLAKE)
+    assert sep.domain == DomainType.SEPARATE
+    assert snow.domain == DomainType.SNOWFLAKE
+
+
+def test_logical_op_union_binary():
+    from vizql.logical import LogicalOpRelation, LogicalOpUnion
+    a = LogicalOpRelation(table="orders_2024", schema="public")
+    b = LogicalOpRelation(table="orders_2025", schema="public")
+    u = LogicalOpUnion(left=a, right=b)
+    assert u.left is a
+    assert u.right is b
+
+
+def test_logical_op_intersect_binary():
+    from vizql.logical import LogicalOpIntersect, LogicalOpRelation
+    a = LogicalOpRelation(table="orders_east", schema="public")
+    b = LogicalOpRelation(table="orders_west", schema="public")
+    i = LogicalOpIntersect(left=a, right=b)
+    assert i.left is a
+    assert i.right is b
+
+
+def test_canonical_operator_names_match_build_tableau_iv2():
+    """Pin against Build_Tableau.md §IV.2 operator table (14 ops)."""
+    from vizql import logical
+    expected = {
+        "LogicalOpRelation", "LogicalOpProject", "LogicalOpSelect",
+        "LogicalOpAggregate", "LogicalOpOrder", "LogicalOpTop",
+        "LogicalOpOver", "LogicalOpLookup", "LogicalOpUnpivot",
+        "LogicalOpValuestoColumns", "LogicalOpDomain", "LogicalOpUnion",
+        "LogicalOpIntersect", "LogicalOpFilter",
+    }
+    for name in expected:
+        assert hasattr(logical, name), f"missing canonical operator {name}"
+    assert len(expected) == 14
