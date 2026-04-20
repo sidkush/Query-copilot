@@ -1286,6 +1286,60 @@ class _CalcValidateRequest(BaseModel):
     formula: str
     schema_ref: dict[str, str] = Field(default_factory=dict)
     params: dict[str, dict] = Field(default_factory=dict)
+    # Plan 8b — caller may attach {field_name: distinct_count} so the
+    # validator can cost-analyse FIXED LODs. Absent => no warnings emitted.
+    schema_stats: dict[str, int] = Field(default_factory=dict)
+
+
+class _DictSchemaStats:
+    """Adapter that makes a `{field: distinct_count}` dict match the
+    `lod_analyzer.SchemaStats` protocol."""
+
+    def __init__(self, d: dict[str, int]) -> None:
+        self._d = d
+
+    def distinct_count(self, field_name: str) -> int:
+        return self._d.get(field_name, 0)
+
+
+def _find_lods(expr):  # type: ignore[no-untyped-def]
+    """Walk the calc AST, yielding every `LodExpr` (including nested)."""
+    from vizql import calc_ast as ca
+
+    if isinstance(expr, ca.LodExpr):
+        yield expr
+        yield from _find_lods(expr.body)
+        return
+    if isinstance(expr, ca.FnCall):
+        for a in expr.args:
+            yield from _find_lods(a)
+        return
+    if isinstance(expr, ca.BinaryOp):
+        yield from _find_lods(expr.lhs)
+        yield from _find_lods(expr.rhs)
+        return
+    if isinstance(expr, ca.UnaryOp):
+        yield from _find_lods(expr.operand)
+        return
+    if isinstance(expr, ca.IfExpr):
+        yield from _find_lods(expr.cond)
+        yield from _find_lods(expr.then_)
+        for c, b in expr.elifs:
+            yield from _find_lods(c)
+            yield from _find_lods(b)
+        if expr.else_ is not None:
+            yield from _find_lods(expr.else_)
+        return
+    if isinstance(expr, ca.CaseExpr):
+        if expr.scrutinee is not None:
+            yield from _find_lods(expr.scrutinee)
+        for c, b in expr.whens:
+            yield from _find_lods(c)
+            yield from _find_lods(b)
+        if expr.else_ is not None:
+            yield from _find_lods(expr.else_)
+        return
+    # Literal / FieldRef / ParamRef: no nested LOD.
 
 
 _calcs_router = APIRouter(prefix="/api/v1/calcs", tags=["calcs"])
@@ -1307,6 +1361,7 @@ async def validate_calc(
 
     from vizql.calc_parser import parse, ParseError, LexError
     from vizql.calc_typecheck import typecheck, TypeError as CalcTypeError
+    from vizql.lod_analyzer import analyze_fixed_lod
 
     try:
         ast = parse(req.formula, max_depth=settings.MAX_CALC_NESTING)
@@ -1316,11 +1371,27 @@ async def validate_calc(
     except CalcTypeError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    # Plan 8b — FIXED LOD cost analysis (observation-only).
+    warnings_out: list[dict] = []
+    if req.schema_stats:
+        stats = _DictSchemaStats(req.schema_stats)
+        for lod in _find_lods(ast):
+            for w in analyze_fixed_lod(
+                lod, stats, threshold=settings.LOD_WARN_THRESHOLD_ROWS,
+            ):
+                warnings_out.append({
+                    "kind": w.kind,
+                    "estimate": w.estimate,
+                    "suggestion": w.suggestion,
+                    "details": w.details,
+                })
+
     return {
         "valid": True,
         "inferredType": inferred.kind.value,
         "isAggregate": inferred.is_aggregate,
         "errors": [],
+        "warnings": warnings_out,
     }
 
 

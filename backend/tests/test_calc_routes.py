@@ -114,3 +114,45 @@ def test_validate_injection_attempt_rejected_or_safe(client):
     if r.status_code == 200:
         # Must not appear unescaped anywhere in the response.
         assert "DROP TABLE" not in r.text
+
+
+# ── Plan 8b T9 — LOD cardinality warnings surfaced in validate response ──
+
+
+def test_validate_calc_returns_warnings_for_expensive_fixed_lod(client, monkeypatch):
+    """FIXED on high-cardinality dim → response includes expensive_fixed_lod warning."""
+    monkeypatch.setattr(settings, "LOD_WARN_THRESHOLD_ROWS", 100)
+
+    body = {
+        "formula": "{FIXED [City] : SUM([Sales])}",
+        "schema_ref": {"City": "string", "Sales": "number"},
+        # Plan 8b extension — caller may attach schema_stats for cost estimate.
+        "schema_stats": {"City": 10000, "Sales": 0},
+    }
+    r = client.post("/api/v1/calcs/validate", json=body)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["valid"] is True
+    warns = out["warnings"]
+    assert len(warns) == 1
+    assert warns[0]["kind"] == "expensive_fixed_lod"
+    assert warns[0]["estimate"] == 10_000
+
+
+def test_validate_calc_returns_empty_warnings_when_schema_stats_missing(client):
+    body = {
+        "formula": "{FIXED [Region] : SUM([Sales])}",
+        "schema_ref": {"Region": "string", "Sales": "number"},
+    }
+    r = client.post("/api/v1/calcs/validate", json=body)
+    assert r.status_code == 200, r.text
+    assert r.json()["warnings"] == []
+
+
+def test_validate_calc_response_shape_backwards_compatible(client):
+    """The `warnings` field must be additive — existing `valid`, `inferredType`,
+    `isAggregate`, `errors` fields are untouched."""
+    body = {"formula": "SUM([Sales])", "schema_ref": {"Sales": "number"}}
+    r = client.post("/api/v1/calcs/validate", json=body)
+    out = r.json()
+    assert set(out.keys()) >= {"valid", "inferredType", "isAggregate", "errors", "warnings"}
