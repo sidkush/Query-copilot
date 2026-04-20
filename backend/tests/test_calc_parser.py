@@ -78,3 +78,48 @@ def test_lexer_rejects_unterminated_string():
 
     with pytest.raises(LexError):
         list(CalcLexer('"open').tokens())
+
+
+# ------------------------------------------------------------------
+# Task 3 — Parser core (literals, refs, function calls)
+# ------------------------------------------------------------------
+
+
+def test_parse_literal_and_field_ref():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    assert parse("123") == ca.Literal(123, "integer", pos=ca.Position(1, 1))
+    assert parse("'hi'").value == "hi"
+    assert parse("[Sales]").field_name == "Sales"
+    assert parse("[Order Date]").field_name == "Order Date"  # bracketed names with spaces
+
+
+def test_parse_param_ref_both_grammars():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    angle = parse("<Parameters.Region>")
+    assert isinstance(angle, ca.ParamRef) and angle.param_name == "Region"
+
+    bracketed = parse("[Parameters].[Region]")
+    assert isinstance(bracketed, ca.ParamRef) and bracketed.param_name == "Region"
+
+
+def test_parse_function_call_with_multiple_args():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("DATEDIFF('day', [Start], [End])")
+    assert isinstance(expr, ca.FnCall) and expr.name == "DATEDIFF"
+    assert len(expr.args) == 3
+    assert expr.args[0].value == "day"
+    assert expr.args[1].field_name == "Start"
+
+
+def test_parse_error_includes_position():
+    from vizql.calc_parser import parse, ParseError
+
+    with pytest.raises(ParseError) as excinfo:
+        parse("SUM(")
+    assert "line 1" in str(excinfo.value) and "expected" in str(excinfo.value).lower()

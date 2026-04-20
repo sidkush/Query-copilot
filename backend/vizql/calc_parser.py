@@ -196,3 +196,155 @@ class CalcLexer:
             return Token(TokenKind.OP, two, start_line, start_col)
         self._advance(1)
         return Token(TokenKind.OP, "<", start_line, start_col)
+
+
+class ParseError(ValueError):
+    def __init__(self, msg: str, line: int, column: int):
+        super().__init__(f"{msg} at line {line} col {column}")
+        self.line = line
+        self.column = column
+
+
+class CalcParser:
+    """Recursive-descent parser. One pass over the token stream."""
+
+    def __init__(self, src: str, max_depth: int = 32) -> None:
+        self.tokens: list[Token] = list(CalcLexer(src).tokens())
+        self.pos = 0
+        self.max_depth = max_depth
+        self.depth = 0
+
+    def parse(self) -> ca.CalcExpr:
+        expr = self._parse_expr()
+        self._expect(TokenKind.EOF)
+        return expr
+
+    # ---- precedence climbing ----
+    def _parse_expr(self) -> ca.CalcExpr:
+        # Full expression entry — Task 4 wires precedence; for T3 stub via primary.
+        return self._parse_primary()
+
+    def _parse_primary(self) -> ca.CalcExpr:
+        if self.depth >= self.max_depth:
+            t = self._peek()
+            raise ParseError("max calc nesting depth exceeded", t.line, t.column)
+        self.depth += 1
+        try:
+            return self._parse_primary_inner()
+        finally:
+            self.depth -= 1
+
+    def _parse_primary_inner(self) -> ca.CalcExpr:
+        t = self._peek()
+        pos = ca.Position(t.line, t.column)
+
+        if t.kind == TokenKind.NUMBER:
+            self._next()
+            kind = "integer" if isinstance(t.value, int) else "real"
+            return ca.Literal(t.value, kind, pos=pos)
+
+        if t.kind == TokenKind.STRING:
+            self._next()
+            return ca.Literal(t.value, "string", pos=pos)
+
+        if t.kind == TokenKind.KEYWORD and t.value in ("TRUE", "FALSE"):
+            self._next()
+            return ca.Literal(t.value == "TRUE", "boolean", pos=pos)
+
+        if t.kind == TokenKind.KEYWORD and t.value == "NULL":
+            self._next()
+            return ca.Literal(None, "null", pos=pos)
+
+        if t.kind == TokenKind.LBRACKET:
+            return self._parse_bracketed_ref(pos)
+
+        if t.kind == TokenKind.LANGLE_PARAM:
+            return self._parse_angle_param(pos)
+
+        if t.kind == TokenKind.IDENT:
+            return self._parse_ident_or_call(pos)
+
+        if t.kind == TokenKind.LPAREN:
+            self._next()
+            inner = self._parse_expr()
+            self._expect(TokenKind.RPAREN)
+            return inner
+
+        raise ParseError(f"unexpected token {t.kind.value} {t.value!r}", t.line, t.column)
+
+    def _parse_bracketed_ref(self, pos: ca.Position) -> ca.CalcExpr:
+        # Two grammars share `[`:
+        #   [Field Name]              -> FieldRef
+        #   [Parameters].[ParamName]  -> ParamRef
+        # Inside brackets, any IDENT/KEYWORD/NUMBER/etc. is part of the name.
+        self._expect(TokenKind.LBRACKET)
+        name_parts: list[str] = []
+        while self._peek().kind != TokenKind.RBRACKET:
+            tok = self._next()
+            if tok.kind == TokenKind.EOF:
+                raise ParseError("unterminated bracketed name", tok.line, tok.column)
+            name_parts.append(str(tok.value))
+        if not name_parts:
+            t = self._peek()
+            raise ParseError("empty bracketed name", t.line, t.column)
+        self._expect(TokenKind.RBRACKET)
+        name = " ".join(name_parts)
+        if name == "Parameters" and self._peek().kind == TokenKind.DOT:
+            self._next()
+            self._expect(TokenKind.LBRACKET)
+            param_parts: list[str] = []
+            while self._peek().kind != TokenKind.RBRACKET:
+                tok = self._next()
+                if tok.kind == TokenKind.EOF:
+                    raise ParseError("unterminated bracketed param name", tok.line, tok.column)
+                param_parts.append(str(tok.value))
+            self._expect(TokenKind.RBRACKET)
+            return ca.ParamRef(param_name=" ".join(param_parts), pos=pos)
+        return ca.FieldRef(field_name=name, pos=pos)
+
+    def _parse_angle_param(self, pos: ca.Position) -> ca.CalcExpr:
+        self._expect(TokenKind.LANGLE_PARAM)
+        ident = self._expect(TokenKind.IDENT)
+        # Closer is the operator-style `>` token emitted by the lexer.
+        closer = self._next()
+        if not (closer.kind == TokenKind.OP and closer.value == ">"):
+            raise ParseError("expected '>' to close <Parameters.…>", closer.line, closer.column)
+        return ca.ParamRef(param_name=str(ident.value), pos=pos)
+
+    def _parse_ident_or_call(self, pos: ca.Position) -> ca.CalcExpr:
+        ident = self._next()
+        name = str(ident.value).upper()
+        if self._peek().kind != TokenKind.LPAREN:
+            # Bare identifier — treat as field ref shorthand for autocomplete-friendly syntax.
+            return ca.FieldRef(field_name=str(ident.value), pos=pos)
+        self._expect(TokenKind.LPAREN)
+        args: list[ca.CalcExpr] = []
+        if self._peek().kind != TokenKind.RPAREN:
+            args.append(self._parse_expr())
+            while self._peek().kind == TokenKind.COMMA:
+                self._next()
+                args.append(self._parse_expr())
+        self._expect(TokenKind.RPAREN)
+        return ca.FnCall(name=name, args=tuple(args), pos=pos)
+
+    # ---- token stream helpers ----
+    def _peek(self) -> Token:
+        return self.tokens[self.pos]
+
+    def _next(self) -> Token:
+        t = self.tokens[self.pos]
+        self.pos += 1
+        return t
+
+    def _expect(self, kind: TokenKind) -> Token:
+        t = self._peek()
+        if t.kind != kind:
+            raise ParseError(f"expected {kind.value} got {t.kind.value}", t.line, t.column)
+        return self._next()
+
+
+def parse(formula: str, max_depth: int = 32) -> ca.CalcExpr:
+    return CalcParser(formula, max_depth=max_depth).parse()
+
+
+__all__ = ["CalcLexer", "CalcParser", "Token", "TokenKind", "LexError", "ParseError", "parse"]
