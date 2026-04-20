@@ -269,6 +269,13 @@ class Settings(BaseSettings):
     # Plan 8b Section XIX.1 — warn on FIXED LOD with estimated Cartesian > this
     LOD_WARN_THRESHOLD_ROWS: int = 1_000_000
 
+    # Plan 8d — Monaco calc editor live eval + LLM suggest
+    CALC_EVAL_TIMEOUT_SECONDS: float = 1.0          # max wall time for single-row eval
+    CALC_EVAL_CACHE_TTL_SECONDS: int = 60           # (formula_hash, row_hash) result cache
+    FEATURE_CALC_LLM_SUGGEST: bool = True           # gates /api/v1/calcs/suggest
+    CALC_SUGGEST_RATE_LIMIT_PER_60S: int = 5        # per-user LLM suggest cap (60s sliding)
+    CALC_SUGGEST_MAX_DESCRIPTION_LEN: int = 1000    # reject oversized NL descriptions (413)
+
     # Sub-project A — new chart editor + ChartSpec IR cutover (Phase 4b).
     # Phase 4c+2: default flipped to True. /analytics now always renders
     # the new DashboardShell + ChartEditor path (legacy DashboardBuilder

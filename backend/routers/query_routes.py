@@ -1402,6 +1402,48 @@ async def validate_calc(
     }
 
 
+# ── Plan 8d T7 — /api/v1/calcs/evaluate ───────────────────────────────
+class _CalcEvaluateRequest(BaseModel):
+    formula: str
+    row: dict[str, object] = Field(default_factory=dict)
+    schema_ref: dict[str, str] = Field(default_factory=dict)
+    trace: bool = False
+
+
+@_calcs_router.post("/evaluate")
+async def evaluate_calc(
+    req: _CalcEvaluateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    if not settings.FEATURE_ANALYST_PRO:
+        raise HTTPException(status_code=404, detail="calc evaluate disabled")
+    if len(req.formula) > settings.MAX_CALC_FORMULA_LEN:
+        raise HTTPException(status_code=413, detail="formula too long")
+    email = current_user.get("email") or current_user.get("sub", "")
+    _enforce_calc_rate_limit(email)
+
+    from vizql.calc_evaluate import evaluate_formula
+
+    try:
+        res = evaluate_formula(
+            formula=req.formula,
+            row=req.row,
+            schema_ref=req.schema_ref,
+            trace=req.trace,
+        )
+    except TimeoutError as exc:
+        raise HTTPException(status_code=504, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "value": res.value,
+        "type": res.type,
+        "error": res.error,
+        "trace": res.trace,
+    }
+
+
 # Splice the calcs routes onto the existing query_routes.router so main.py's
 # app.include_router(query_routes.router) picks them up at /api/v1/calcs/*
 # without needing an extra mount line in main.py.
