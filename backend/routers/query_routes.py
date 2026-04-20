@@ -171,6 +171,15 @@ class _AdditionalFilter(BaseModel):
     values: Optional[list[object]] = None
 
 
+class AnalyticsPayload(BaseModel):
+    """Plan 9a T5: analytics bundle attached to /queries/execute.
+    Each list contains raw dict-shaped specs (see backend/vizql/analytics_types.py)."""
+    reference_lines: list[dict] = Field(default_factory=list)
+    reference_bands: list[dict] = Field(default_factory=list)
+    distributions: list[dict] = Field(default_factory=list)
+    totals: list[dict] = Field(default_factory=list)
+
+
 class ExecuteRequest(BaseModel):
     sql: str
     question: str = ""
@@ -186,6 +195,15 @@ class ExecuteRequest(BaseModel):
     # Phase 9 via the VizQL waterfall.
     table_calc_specs: list[dict] = Field(default_factory=list)
     table_calc_filters: list[dict] = Field(default_factory=list)
+    # Plan 9a T5: analytics pane (reference lines/bands/distributions/totals).
+    # When present, `base_plan_hint` MUST also be supplied (C8) — the backend
+    # does not reflect base-plan structure from the raw SQL string.
+    analytics: Optional[AnalyticsPayload] = None
+    measure_alias: Optional[str] = None
+    pane_dims: list[str] = Field(default_factory=list)
+    row_dims: list[str] = Field(default_factory=list)
+    column_dims: list[str] = Field(default_factory=list)
+    base_plan_hint: Optional[dict] = None
 
 
 class FeedbackRequest(BaseModel):
@@ -267,11 +285,261 @@ def generate_sql_stream(question: str = Query(...), conn_id: Optional[str] = Non
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+def _build_base_plan_from_hint(hint: dict):
+    """Plan 9a T5 / C8 — construct a minimal LogicalOpAggregate from the
+    `base_plan_hint` dict sent by the client. We deliberately do NOT reflect
+    base-plan structure from the raw SQL string; the hint IS the contract.
+
+    Hint shape:
+        {
+          "table": "orders",
+          "schema": null,
+          "group_bys": ["region"],
+          "measure": {"alias": "sum_sales", "agg": "sum", "expr_field": "sales"}
+        }
+    """
+    from vizql import logical as lg
+
+    if not isinstance(hint, dict):
+        raise HTTPException(status_code=422,
+                            detail="base_plan_hint_required_for_analytics")
+    try:
+        table = hint["table"]
+        group_bys_ids = hint.get("group_bys", [])
+        measure = hint["measure"]
+        alias = measure["alias"]
+        agg = measure["agg"]
+        expr_field = measure["expr_field"]
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"base_plan_hint_required_for_analytics: missing key {exc}",
+        )
+
+    schema = hint.get("schema") or ""
+    rel = lg.LogicalOpRelation(table=table, schema=schema)
+
+    def _dim_field(fid: str) -> lg.Field:
+        return lg.Field(
+            id=fid, data_type="string", role="dimension",
+            aggregation="none", semantic_role="", is_disagg=False,
+        )
+
+    group_bys = tuple(_dim_field(str(d)) for d in group_bys_ids)
+    aggregations = (lg.AggExp(
+        name=alias, agg=agg,
+        expr=lg.Column(field_id=expr_field),
+    ),)
+    return lg.LogicalOpAggregate(
+        input=rel, group_bys=group_bys, aggregations=aggregations,
+    )
+
+
+def _extract_scalar(df, col: str):
+    """Safely pull a single column's first-row value from a DataFrame-like
+    result, coercing to float. Returns None if empty or column missing."""
+    if df is None:
+        return None
+    try:
+        if hasattr(df, "empty") and df.empty:
+            return None
+        if hasattr(df, "columns") and col not in list(df.columns):
+            return None
+        val = df.iloc[0][col]
+    except Exception:
+        return None
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def _run_analytics(req: "ExecuteRequest", entry, base_plan) -> list[dict]:
+    """Plan 9a T5 — compile + execute every analytics spec, return wire-format
+    entries. Every generated SQL is re-validated via SQLValidator before the
+    engine runs it (security invariant)."""
+    from vizql import analytics_compiler as ac
+    from vizql import analytics_types as at
+    from sql_validator import SQLValidator
+
+    if not req.analytics or not req.measure_alias:
+        return []
+
+    validator = SQLValidator()
+    out: list[dict] = []
+
+    pane_dims = tuple(req.pane_dims or [])
+    row_dims = tuple(req.row_dims or [])
+    column_dims = tuple(req.column_dims or [])
+
+    def _emit_and_exec(fn, tag: str):
+        sql = fn.to_sql_generic()
+        ok, clean, err = validator.validate(sql)
+        if not ok:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Analytics SQL validation failed: {err}",
+            )
+        result = entry.engine.execute_sql(clean, tag)
+        if getattr(result, "error", None):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Analytics execution failed: {result.error}",
+            )
+        return getattr(result, "data", None)
+
+    # ── reference_lines ──────────────────────────────────────────────
+    for raw in req.analytics.reference_lines:
+        spec = at.ReferenceLineSpec(**raw)
+        spec.validate()
+        if spec.aggregation == "constant":
+            # C7 — constant literal travels back verbatim; no SQL.
+            out.append({
+                "kind": "reference_line",
+                "axis": spec.axis,
+                "aggregation": "constant",
+                "scope": spec.scope,
+                "percentile": None,
+                "value": spec.value,
+                "label": spec.label,
+                "custom_label": spec.custom_label,
+                "line_style": spec.line_style,
+                "color": spec.color,
+                "show_marker": spec.show_marker,
+            })
+            continue
+        fn = ac.compile_reference_line(
+            spec=spec, base_plan=base_plan,
+            measure_alias=req.measure_alias, pane_dims=pane_dims,
+        )
+        df = _emit_and_exec(fn, "reference_line")
+        value = _extract_scalar(df, "__reference_value__")
+        out.append({
+            "kind": "reference_line",
+            "axis": spec.axis,
+            "aggregation": spec.aggregation,
+            "scope": spec.scope,
+            "percentile": spec.percentile,
+            "value": value,
+            "label": spec.label,
+            "custom_label": spec.custom_label,
+            "line_style": spec.line_style,
+            "color": spec.color,
+            "show_marker": spec.show_marker,
+        })
+
+    # ── reference_bands ──────────────────────────────────────────────
+    for raw in req.analytics.reference_bands:
+        band = at.ReferenceBandSpec(
+            axis=raw["axis"],
+            from_spec=at.ReferenceLineSpec(**raw["from_spec"]),
+            to_spec=at.ReferenceLineSpec(**raw["to_spec"]),
+            fill=raw["fill"],
+            fill_opacity=raw["fill_opacity"],
+        )
+        band.validate()
+        fns = ac.compile_reference_band(
+            spec=band, base_plan=base_plan,
+            measure_alias=req.measure_alias, pane_dims=pane_dims,
+        )
+        # Either side may be a constant — short-circuit per side (C7).
+        sides = (band.from_spec, band.to_spec)
+        values: list[Optional[float]] = []
+        for side_spec, fn in zip(sides, fns):
+            if side_spec.aggregation == "constant":
+                values.append(side_spec.value)
+                continue
+            df = _emit_and_exec(fn, "reference_band")
+            values.append(_extract_scalar(df, "__reference_value__"))
+        out.append({
+            "kind": "reference_band",
+            "axis": band.axis,
+            "from_value": values[0],
+            "to_value": values[1],
+            "fill": band.fill,
+            "fill_opacity": band.fill_opacity,
+        })
+
+    # ── distributions ────────────────────────────────────────────────
+    for raw in req.analytics.distributions:
+        dist = at.ReferenceDistributionSpec(**raw)
+        dist.validate()
+        fns = ac.compile_reference_distribution(
+            spec=dist, base_plan=base_plan,
+            measure_alias=req.measure_alias, pane_dims=pane_dims,
+        )
+        vals: list[Optional[float]] = []
+        for fn in fns:
+            df = _emit_and_exec(fn, "reference_distribution")
+            vals.append(_extract_scalar(df, "__reference_value__"))
+        out.append({
+            "kind": "reference_distribution",
+            "axis": dist.axis,
+            "scope": dist.scope,
+            "style": dist.style,
+            "percentiles": list(dist.percentiles),
+            "values": vals,
+            "color": dist.color,
+        })
+
+    # ── totals ───────────────────────────────────────────────────────
+    for raw in req.analytics.totals:
+        tot = at.TotalsSpec(**raw)
+        tot.validate()
+        fns = ac.compile_totals(
+            spec=tot, base_plan=base_plan,
+            measure_alias=req.measure_alias,
+            pane_dims=pane_dims,
+            row_dims=row_dims,
+            column_dims=column_dims,
+        )
+        # compile_totals emits grand first (when kind in {grand_total, both}),
+        # followed by one subtotal query per target dim.
+        emits_grand = tot.kind in {"grand_total", "both"}
+        for i, fn in enumerate(fns):
+            tag = "totals"
+            if emits_grand and i == 0:
+                df = _emit_and_exec(fn, tag)
+                out.append({
+                    "kind": "grand_total",
+                    "value": _extract_scalar(df, "__total_value__"),
+                    "aggregation": tot.aggregation,
+                    "position": tot.position,
+                    "axis": tot.axis,
+                })
+            else:
+                df = _emit_and_exec(fn, tag)
+                if df is None:
+                    records: list[dict] = []
+                else:
+                    try:
+                        records = df.to_dict("records")
+                    except Exception:
+                        records = []
+                out.append({
+                    "kind": "subtotal",
+                    "rows": records,
+                    "aggregation": tot.aggregation,
+                    "position": tot.position,
+                    "axis": tot.axis,
+                })
+
+    return out
+
+
 @router.post("/execute")
 def execute_sql(req: ExecuteRequest, user: dict = Depends(get_current_user)):
     """Step 2: Execute user-approved SQL against the database."""
     from main import app
     email = user["email"]
+
+    # Plan 9a T5 — validate analytics contract BEFORE running the base SQL
+    # so we fail fast with a 422 instead of wasting an engine round-trip.
+    if req.analytics is not None and req.base_plan_hint is None:
+        raise HTTPException(
+            status_code=422,
+            detail="base_plan_hint_required_for_analytics",
+        )
 
     # Plan 4c: token substitution for Analyst Pro parameters. Runs before
     # filter injection + validator so the validator sees the final string.
@@ -443,6 +711,14 @@ def execute_sql(req: ExecuteRequest, user: dict = Depends(get_current_user)):
             result_dict["anomalies"] = anomalies
     except Exception:
         pass
+
+    # Plan 9a T5 — attach analytics rows. The base query's rows have already
+    # been masked by engine.execute_sql → mask_dataframe; analytics rows are
+    # aggregates (scalars + dim/value tuples) of that same base data, so no
+    # additional masking is required here.
+    if req.analytics is not None:
+        base_plan = _build_base_plan_from_hint(req.base_plan_hint)
+        result_dict["analytics_rows"] = _run_analytics(req, entry, base_plan)
 
     return result_dict
 
