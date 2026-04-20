@@ -31,9 +31,11 @@ from typing import Iterable
 
 from vizql import spec
 from vizql.logical import (
-    AggExp, BinaryOp, Column, DomainType, Field as LField, FnCall, Literal,
-    LogicalOp, LogicalOpAggregate, LogicalOpDomain, LogicalOpFilter,
-    LogicalOpProject, LogicalOpRelation, LogicalOpSelect, NamedExps,
+    AggExp, BinaryOp, Column, DomainType, Expression, Field as LField, FnCall,
+    FrameEnd, FrameSpec, FrameStart, Literal, LogicalOp, LogicalOpAggregate,
+    LogicalOpDomain, LogicalOpFilter, LogicalOpLookup, LogicalOpOver,
+    LogicalOpProject, LogicalOpRelation, LogicalOpSelect, NamedExps, OrderBy,
+    PartitionBys, WindowFrameType,
 )
 
 
@@ -118,6 +120,9 @@ def compile_visual_spec(v: spec.VisualSpec) -> LogicalOp:
             filter_stage=_valid_stage(fs.filter_stage, default="measure"),
         )
 
+    if v.lod_calculations:
+        body = _apply_lod(body, grain, v.lod_calculations)
+
     if v.domain_type == "snowflake":
         body = LogicalOpDomain(input=body, domain=DomainType.SNOWFLAKE)
 
@@ -200,7 +205,7 @@ def _valid_stage(stage: str, *, default: str) -> str:
     return stage if stage in (_DIM_FILTER_STAGES | _MEASURE_FILTER_STAGES) else default
 
 
-def _lower_filter_predicate(f: spec.FilterSpec):
+def _lower_filter_predicate(f: spec.FilterSpec) -> Expression:
     col = Column(field_id=f.field.id)
     if f.categorical is not None:
         args: list[object] = [col]
@@ -269,17 +274,17 @@ def _to_agg_exp(m: spec.Field) -> AggExp:
 
 
 def _data_type_name(dt: int) -> str:
-    mapping = {
-        spec.DataType.DATA_TYPE_STRING: "string",
-        spec.DataType.DATA_TYPE_NUMBER: "number",
-        spec.DataType.DATA_TYPE_INT: "int",
-        spec.DataType.DATA_TYPE_FLOAT: "float",
-        spec.DataType.DATA_TYPE_BOOL: "bool",
-        spec.DataType.DATA_TYPE_DATE: "date",
-        spec.DataType.DATA_TYPE_DATE_TIME: "date-time",
-        spec.DataType.DATA_TYPE_SPATIAL: "spatial",
+    mapping: dict[int, str] = {
+        int(spec.DataType.DATA_TYPE_STRING): "string",
+        int(spec.DataType.DATA_TYPE_NUMBER): "number",
+        int(spec.DataType.DATA_TYPE_INT): "int",
+        int(spec.DataType.DATA_TYPE_FLOAT): "float",
+        int(spec.DataType.DATA_TYPE_BOOL): "bool",
+        int(spec.DataType.DATA_TYPE_DATE): "date",
+        int(spec.DataType.DATA_TYPE_DATE_TIME): "date-time",
+        int(spec.DataType.DATA_TYPE_SPATIAL): "spatial",
     }
-    return mapping.get(dt, "unknown")
+    return mapping.get(int(dt), "unknown")
 
 
 def _role_name(r: int) -> str:
@@ -288,6 +293,113 @@ def _role_name(r: int) -> str:
     if r == spec.FieldRole.FIELD_ROLE_MEASURE:
         return "measure"
     return "unknown"
+
+
+# ---- LOD lowering (Build_Tableau.md §V.2) ---------------------------
+
+
+def _apply_lod(
+    body: LogicalOp,
+    grain_fields: list[spec.Field],
+    lods: list[spec.LodCalculation],
+) -> LogicalOp:
+    for lod in lods:
+        kind = (lod.lod_kind or "").lower()
+        if kind == "fixed":
+            body = _lower_fixed_lod(body, lod)
+        elif kind == "include":
+            body = _lower_include_lod(body, grain_fields, lod)
+        elif kind == "exclude":
+            body = _lower_exclude_lod(body, grain_fields, lod)
+        # unknown kinds silently skipped; Plan 8a will enforce.
+    return body
+
+
+def _lower_fixed_lod(body: LogicalOp, lod: spec.LodCalculation) -> LogicalOp:
+    inner_grain = tuple(_to_lfield(f) for f in lod.lod_dims)
+    inner_agg_name = _AGG_NAMES.get(lod.outer_aggregation, "sum")
+    inner_aggs = (AggExp(
+        name=f"{lod.id}__inner",
+        agg=inner_agg_name,
+        expr=Column(field_id=lod.inner_calculation.id
+                    if lod.inner_calculation is not None else lod.id),
+    ),)
+    inner = LogicalOpAggregate(
+        input=_leaf_relation(body),
+        group_bys=inner_grain,
+        aggregations=inner_aggs,
+    )
+    return LogicalOpLookup(
+        input=inner,
+        lookup_field=Column(field_id=f"{lod.id}__inner"),
+        offset=0,
+    )
+
+
+def _lower_include_lod(
+    body: LogicalOp,
+    grain_fields: list[spec.Field],
+    lod: spec.LodCalculation,
+) -> LogicalOp:
+    extra = [_to_lfield(f) for f in lod.lod_dims]
+    grain = [_to_lfield(f) for f in grain_fields]
+    seen: dict[str, LField] = {f.id: f for f in grain}
+    for f in extra:
+        seen.setdefault(f.id, f)
+    return _build_over(body, tuple(seen.values()), lod)
+
+
+def _lower_exclude_lod(
+    body: LogicalOp,
+    grain_fields: list[spec.Field],
+    lod: spec.LodCalculation,
+) -> LogicalOp:
+    excluded = {f.id for f in lod.lod_dims}
+    remaining = tuple(_to_lfield(f) for f in grain_fields if f.id not in excluded)
+    return _build_over(body, remaining, lod)
+
+
+def _build_over(
+    body: LogicalOp,
+    partition_fields: tuple[LField, ...],
+    lod: spec.LodCalculation,
+) -> LogicalOp:
+    frame = FrameSpec(
+        frame_type=WindowFrameType.ROWS,
+        start=FrameStart(kind="unbounded_preceding"),
+        end=FrameEnd(kind="unbounded_following"),
+    )
+    agg = _AGG_NAMES.get(lod.outer_aggregation, "sum")
+    exprs = NamedExps(entries=((
+        lod.id,
+        FnCall(name=agg.upper(), args=(
+            Column(field_id=lod.inner_calculation.id
+                   if lod.inner_calculation is not None else lod.id),
+        )),
+    ),))
+    return LogicalOpOver(
+        input=body,
+        partition_bys=PartitionBys(fields=partition_fields),
+        order_by=(),
+        frame=frame,
+        expressions=exprs,
+    )
+
+
+def _leaf_relation(body: LogicalOp) -> LogicalOp:
+    """Walk down ``input`` chain to the LogicalOpRelation leaf.
+
+    FIXED-LOD inner subquery references the base table independently of
+    the outer filter stack - consistent with §IV.7 stage 4 (AFTER
+    Context, BEFORE Dim). Plan 7c will also thread Extract/DS/Context
+    filters through the inner.
+    """
+    cur: object = body
+    while True:
+        inp = getattr(cur, "input", None)
+        if inp is None:
+            return cur  # type: ignore[return-value]
+        cur = inp
 
 
 __all__ = ["compile_visual_spec"]

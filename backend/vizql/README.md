@@ -132,6 +132,28 @@ const v = bridgeToVisualSpec({
 });
 ```
 
+## Logical plan (Plan 7b)
+
+- `backend/vizql/logical.py` — 14 `LogicalOp*` dataclasses + expression AST (`Column`, `Literal`, `BinaryOp`, `FnCall`) + supporting types (`Field`, `OrderBy`, `PartitionBys`, `FrameSpec`, `AggExp`, `NamedExps`) + enums (`DomainType`, `WindowFrameType`, `WindowFrameExclusion`, `SqlSetType`).
+- `backend/vizql/compiler.py` — `compile_visual_spec(spec) -> LogicalOp` lowers a `VisualSpec` into a logical-plan tree. Derives viz grain (§V.4), splits dim/measure, attaches filters with `filter_stage` annotation (§IV.7), handles mark-aware aggregation, Measure Names / Measure Values synthesis, dual-axis, Snowflake domain, and LOD lowering (`FIXED`/`INCLUDE`/`EXCLUDE`).
+- `backend/vizql/validator.py` — `validate_logical_plan(plan)` catches cycles, missing inputs, and malformed aggregates.
+
+Filter-stage convention (Build_Tableau.md §IV.7):
+
+| Stage | On | Meaning |
+|---|---|---|
+| `"extract"` | `LogicalOpSelect` | Baked into `.hyper` at extract build. |
+| `"datasource"` | `LogicalOpSelect` | WHERE on every query against the DS. |
+| `"context"` | `LogicalOpSelect` | Context filter; CTE / `#Tableau_Temp_`. |
+| `"fixed_lod"` | `LogicalOpSelect` | AFTER context, BEFORE dim. |
+| `"dimension"` | `LogicalOpSelect` | `WHERE` from Filters-shelf dim pills. |
+| `"include_exclude_lod"` | `LogicalOpSelect` | AFTER dim, BEFORE measure. |
+| `"measure"` | `LogicalOpFilter` | `HAVING`. |
+| `"table_calc"` | `LogicalOpFilter` | Client-side, post-fetch (Plan 7c). |
+| `"totals"` | `LogicalOpFilter` | Totals-only; skippable via `ShouldAffectTotals`. |
+
+Plan 7b records the stage; Plan 7c enforces ordering.
+
 ## References
 
 - `docs/Build_Tableau.md` Sections I.1-I.5 (wire-format invariants),

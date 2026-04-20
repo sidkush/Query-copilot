@@ -14,8 +14,6 @@ Deeper type/schema derivation is Plan 7c's responsibility.
 
 from __future__ import annotations
 
-from typing import cast
-
 from vizql.logical import (
     LogicalOp, LogicalOpAggregate, LogicalOpDomain, LogicalOpFilter,
     LogicalOpIntersect, LogicalOpLookup, LogicalOpOrder, LogicalOpOver,
@@ -79,5 +77,4 @@ def _check_aggregate(node: LogicalOpAggregate) -> None:
         raise LogicalPlanError(
             "LogicalOpAggregate with empty group_bys and no aggregations is invalid"
         )
-    # Cast kept explicit so mypy --strict accepts the narrowing site.
-    _ = cast(LogicalOpAggregate, node)
+    # node already typed as LogicalOpAggregate by caller.

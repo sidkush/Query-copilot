@@ -9,7 +9,8 @@ from vizql.compiler import compile_visual_spec
 from vizql.logical import (
     BinaryOp, Column, DomainType, FnCall, Literal,
     LogicalOpAggregate, LogicalOpDomain, LogicalOpFilter,
-    LogicalOpProject, LogicalOpRelation, LogicalOpSelect,
+    LogicalOpLookup, LogicalOpOver, LogicalOpProject, LogicalOpRelation,
+    LogicalOpSelect, PartitionBys,
 )
 
 # NOTE: validate_logical_plan lands in T9 (parallel worktree plan7b-t9).
@@ -391,3 +392,112 @@ def test_compile_separate_domain_does_not_wrap():
     plan = compile_visual_spec(s)
     # Default: no LogicalOpDomain wrap.
     assert not isinstance(plan, LogicalOpDomain)
+
+
+def test_compile_fixed_lod_emits_lookup_over_inner_aggregate():
+    region = _dim("orders.region")
+    country = _dim("orders.country")
+    total = _measure("orders.total")
+    lod = spec.LodCalculation(
+        id="country_total_fixed",
+        lod_kind="fixed",
+        lod_dims=[country],
+        inner_calculation=spec.Calculation(id="inner_sum",
+                                          formula="SUM([orders.total])"),
+        outer_aggregation=spec.AggType.AGG_TYPE_SUM,
+    )
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, country, total],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[region]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+        lod_calculations=[lod],
+    )
+    plan = compile_visual_spec(s)
+    # Walk down from the root aggregate; there must be a Lookup somewhere
+    # whose input is an inner Aggregate grouping on country.
+    found = _find_first(plan, LogicalOpLookup)
+    assert found is not None, "expected LogicalOpLookup from FIXED LOD"
+    inner = found.input
+    assert isinstance(inner, LogicalOpAggregate)
+    inner_ids = {f.id for f in inner.group_bys}
+    assert inner_ids == {"orders.country"}
+
+
+def test_compile_include_lod_emits_over_with_grain_plus_dim():
+    region = _dim("orders.region")
+    segment = _dim("orders.segment")
+    total = _measure("orders.total")
+    lod = spec.LodCalculation(
+        id="segment_include",
+        lod_kind="include",
+        lod_dims=[segment],
+        inner_calculation=spec.Calculation(id="inner",
+                                          formula="SUM([orders.total])"),
+        outer_aggregation=spec.AggType.AGG_TYPE_AVG,
+    )
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, segment, total],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[region]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+        lod_calculations=[lod],
+    )
+    plan = compile_visual_spec(s)
+    over = _find_first(plan, LogicalOpOver)
+    assert over is not None
+    ids = {f.id for f in over.partition_bys.fields}
+    # viz_grain = {region}; INCLUDE adds segment.
+    assert ids == {"orders.region", "orders.segment"}
+
+
+def test_compile_exclude_lod_removes_dim_from_partition():
+    region = _dim("orders.region")
+    segment = _dim("orders.segment")
+    total = _measure("orders.total")
+    lod = spec.LodCalculation(
+        id="exclude_region",
+        lod_kind="exclude",
+        lod_dims=[region],
+        inner_calculation=spec.Calculation(id="inner",
+                                          formula="SUM([orders.total])"),
+        outer_aggregation=spec.AggType.AGG_TYPE_SUM,
+    )
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, segment, total],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN,
+                       fields=[region, segment]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+        lod_calculations=[lod],
+    )
+    plan = compile_visual_spec(s)
+    over = _find_first(plan, LogicalOpOver)
+    assert over is not None
+    ids = {f.id for f in over.partition_bys.fields}
+    # viz_grain = {region, segment}; EXCLUDE removes region.
+    assert ids == {"orders.segment"}
+
+
+def _find_first(node, target_type):
+    """DFS: return first subtree instance of target_type, else None."""
+    from collections import deque
+    q = deque([node])
+    while q:
+        cur = q.popleft()
+        if isinstance(cur, target_type):
+            return cur
+        for attr in ("input", "left", "right"):
+            child = getattr(cur, attr, None)
+            if child is not None and not isinstance(child, (str, int, float, bool, tuple)):
+                q.append(child)
+    return None

@@ -611,6 +611,8 @@
 
 **Task count target:** 12.
 
+**Status:** ✅ Shipped 2026-04-20. 12 tasks. Plan doc: docs/superpowers/plans/2026-04-17-analyst-pro-plan-7b-minerva-logical-plan.md.
+
 ---
 
 ### Plan 7c — SQL AST + Optimizer Passes
