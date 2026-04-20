@@ -695,6 +695,8 @@ doc:
 
 **Task count target:** 12.
 
+**Status:** ✅ Shipped — 2026-04-20. 12 tasks. New modules: `backend/vizql/calc_ast.py`, `backend/vizql/calc_parser.py`, `backend/vizql/calc_functions.py`, `backend/vizql/calc_typecheck.py`, `backend/vizql/calc_to_expression.py`, `backend/vizql/CALC_LANGUAGE.md`. New endpoint: `POST /api/v1/calcs/validate` (FEATURE_ANALYST_PRO-gated, 10/30s per user). New config: `FEATURE_RAWSQL_ENABLED` (default False), `CALC_RATE_LIMIT_PER_30S=10`, `MAX_CALC_FORMULA_LEN=10000`, `MAX_CALC_NESTING=32`. Public helper: `param_substitution.format_as_literal()`. Plan doc: `docs/superpowers/plans/2026-04-20-analyst-pro-plan-8a-calc-parser-function-catalogue.md`.
+
 ---
 
 ### Plan 8b — LOD Semantics (FIXED / INCLUDE / EXCLUDE)
