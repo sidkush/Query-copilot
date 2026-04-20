@@ -84,6 +84,9 @@ from .telemetry import QueryCategory  # noqa: E402,F401
 # Plan 8a — calc-language AST
 from . import calc_ast as calc_ast  # noqa: E402,F401
 
+# Plan 8b — LOD compiler (FIXED/INCLUDE/EXCLUDE → sa.Subquery / sa.Window)
+from . import lod_compiler as lod_compiler  # noqa: E402,F401
+
 __all__ += [
     # Plan 7e
     "AbstractQueryCacheKey", "OrderByKey",
