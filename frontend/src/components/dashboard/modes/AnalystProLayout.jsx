@@ -17,6 +17,7 @@ import ZoneFrame from '../freeform/ZoneFrame';
 import useAnalystProAutosave from '../freeform/hooks/useAnalystProAutosave';
 import ContextMenu from '../freeform/ContextMenu';
 import ViewDataDrawer from '../freeform/ViewDataDrawer';
+import { CalcEditorDialog } from '../freeform/panels/CalcEditorDialog';
 import { useActionRuntime } from '../freeform/hooks/useActionRuntime';
 import { useStore } from '../../../store';
 import { legacyTilesToDashboard, classifyTile } from './legacyTilesToDashboard';
@@ -336,7 +337,33 @@ export default function AnalystProLayout({
 
       {/* Plan 6e T10: View Data drawer (480px right-side, Summary/Underlying tabs). */}
       <ViewDataDrawer />
+
+      {/* Plan 8d T11 mount: render CalcEditorDialog when store slice is open. */}
+      <AnalystProCalcEditorMount />
     </div>
+  );
+}
+
+function AnalystProCalcEditorMount() {
+  const state = useStore((s) => s.analystProCalcEditor);
+  const dashboard = useStore((s) => s.analystProDashboard);
+  const connId = useStore((s) => s.activeConnId);
+  if (!state || !state.open) return null;
+  const calcs = dashboard?.calcs ?? [];
+  const initial = state.editingCalcId
+    ? calcs.find((c) => c.id === state.editingCalcId) ?? { name: state.seedName, formula: state.seedFormula }
+    : { name: state.seedName, formula: state.seedFormula };
+  return (
+    <CalcEditorDialog
+      connId={connId}
+      schemaFields={dashboard?.schemaFields ?? []}
+      parameters={dashboard?.parameters ?? []}
+      sets={dashboard?.sets ?? []}
+      existingCalcs={calcs}
+      initialCalc={initial}
+      onSave={(calc) => useStore.getState().saveCalcAnalystPro(calc)}
+      onClose={() => useStore.getState().closeCalcEditorAnalystPro()}
+    />
   );
 }
 
