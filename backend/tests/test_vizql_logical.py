@@ -170,3 +170,43 @@ def test_logical_op_project_carries_calculated_columns():
     assert proj.calculated_column[0][0] == "profit_margin"
     # unused expr reference (no-op assertion — keeps Literal in scope for future calc shapes)
     assert Literal(value=0, data_type="int").value == 0
+
+
+FILTER_STAGES = {
+    "extract", "datasource", "context", "fixed_lod", "dimension",
+    "include_exclude_lod", "measure", "table_calc", "totals",
+}
+
+
+def test_logical_op_select_carries_predicate_and_stage():
+    from vizql.logical import (
+        BinaryOp, Column, Literal, LogicalOpRelation, LogicalOpSelect,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    pred = BinaryOp(op=">", left=Column(field_id="orders.total"),
+                    right=Literal(value=100, data_type="int"))
+    sel = LogicalOpSelect(input=base, predicate=pred, filter_stage="dimension")
+    assert sel.predicate.op == ">"
+    assert sel.filter_stage == "dimension"
+
+
+def test_logical_op_select_rejects_unknown_stage():
+    from vizql.logical import (
+        Column, Literal, LogicalOpRelation, LogicalOpSelect, BinaryOp,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    pred = BinaryOp(op="=", left=Column(field_id="orders.id"),
+                    right=Literal(value=1, data_type="int"))
+    with pytest.raises(ValueError, match="filter_stage"):
+        LogicalOpSelect(input=base, predicate=pred, filter_stage="bogus_stage")
+
+
+def test_logical_op_filter_measure_stage_default():
+    from vizql.logical import (
+        BinaryOp, Column, Literal, LogicalOpFilter, LogicalOpRelation,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    pred = BinaryOp(op=">", left=Column(field_id="total_sum"),
+                    right=Literal(value=1000, data_type="int"))
+    f = LogicalOpFilter(input=base, predicate=pred)
+    assert f.filter_stage == "measure"

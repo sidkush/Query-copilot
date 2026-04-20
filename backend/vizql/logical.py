@@ -168,9 +168,50 @@ class LogicalOpProject:
     calculated_column: tuple[tuple[str, Expression], ...]
 
 
+_VALID_FILTER_STAGES = frozenset({
+    "extract", "datasource", "context", "fixed_lod", "dimension",
+    "include_exclude_lod", "measure", "table_calc", "totals",
+})
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalOpSelect:
+    """Build_Tableau.md §IV.2 — WHERE filter (dim filter stage by default).
+
+    ``filter_stage`` annotates §IV.7 position so Plan 7c can decide
+    WHERE vs CTE vs correlated-subquery placement. Plan 7b records
+    only; it does not enforce order.
+    """
+    input: "LogicalOp"
+    predicate: Expression
+    filter_stage: str = "dimension"
+
+    def __post_init__(self) -> None:
+        if self.filter_stage not in _VALID_FILTER_STAGES:
+            raise ValueError(
+                f"filter_stage={self.filter_stage!r} not in {sorted(_VALID_FILTER_STAGES)}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalOpFilter:
+    """Build_Tableau.md §IV.2 — measure-level filter (HAVING)."""
+    input: "LogicalOp"
+    predicate: Expression
+    filter_stage: str = "measure"
+
+    def __post_init__(self) -> None:
+        if self.filter_stage not in _VALID_FILTER_STAGES:
+            raise ValueError(
+                f"filter_stage={self.filter_stage!r} not in {sorted(_VALID_FILTER_STAGES)}"
+            )
+
+
 LogicalOp = Union[
     "LogicalOpRelation",
     "LogicalOpProject",
+    "LogicalOpSelect",
+    "LogicalOpFilter",
 ]  # extended in subsequent tasks
 
 
@@ -182,4 +223,5 @@ __all__ = [
     "FrameStart", "FrameEnd", "FrameSpec",
     "AggExp",
     "LogicalOpRelation", "LogicalOpProject",
+    "LogicalOpSelect", "LogicalOpFilter",
 ]
