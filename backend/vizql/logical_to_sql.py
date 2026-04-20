@@ -107,8 +107,27 @@ class _Compiler:
         return _with(inner, projections=tuple(new_projs))
 
     def _compile_LogicalOpLookup(self, op: lg.LogicalOpLookup) -> sa.SQLQueryFunction:
-        # LOOKUP = LAG/LEAD with offset — emit as Window of LAG
         inner = self._compile(op.input)
+        if op.offset == 0:
+            # FIXED LOD: correlated subquery. The inner is already a
+            # GROUP-BY'd aggregate over the fixed dims. Wrap as Subquery
+            # with correlation on the fixed-dim keys.
+            correl: tuple[tuple[str, str], ...] = tuple(
+                (f.id, f.id) for f in _fixed_group_keys(op.input))
+            sub = sa.Subquery(query=inner, correlated_on=correl)
+            alias = self._alias()
+            outer = sa.SQLQueryFunction(
+                projections=(sa.Projection(
+                    alias="fixed_total",
+                    expression=sub),),
+                from_=sa.TableRef(name="__fixed_outer", alias=alias),
+                diagnostics=(
+                    f"fixed_lod: correlated on {[c for c, _ in correl]}",
+                    "fixed_lod: WARNING expensive on high-cardinality dims",
+                ),
+            )
+            return outer
+        # offset != 0 → LAG/LEAD (Task 3 behaviour)
         fn = sa.FnCall(name="LAG" if op.offset > 0 else "LEAD",
                        args=(self._expr(op.lookup_field),
                              sa.Literal(value=abs(op.offset), data_type="int")))
@@ -195,6 +214,14 @@ def _and(a: Optional[sa.SQLQueryExpression],
     if b is None:
         return a
     return sa.BinaryOp(op="AND", left=a, right=b)
+
+
+def _fixed_group_keys(op: Any) -> tuple[lg.Field, ...]:
+    if isinstance(op, lg.LogicalOpAggregate):
+        return op.group_bys
+    if hasattr(op, "input"):
+        return _fixed_group_keys(op.input)
+    return ()
 
 
 __all__ = ["compile_logical_to_sql"]
