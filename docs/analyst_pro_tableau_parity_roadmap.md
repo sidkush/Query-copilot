@@ -631,6 +631,19 @@
 
 **Task count target:** 10.
 
+**Status:** ✅ Shipped 2026-04-19. 10 tasks. Commits `1137de7..78712bb`
+(T1 `1137de7`, T2 `311a1bc`, T3 `297e2f6`, T4 `3b840b8`, T5 `bf436a0`,
+T6 `a542daf`, T7 `6fed546`, T8 `6fc4f36`, T9 `78712bb`, T10 = this
+commit). New modules: `backend/vizql/sql_ast.py`, `generic_sql.py`,
+`logical_to_sql.py`, `filter_ordering.py`, `optimizer.py`, `passes/`
+(7 passes). Security gate: every emitted query passes `sql_validator`
+(injection-rejection test in `test_vizql_security_gate.py`). Filter
+ordering enforces §IV.7's nine stages at plan-build time. mypy --strict
+passes on every new Plan 7c module (17 pre-existing errors in
+`vizql/spec.py` + `vizql/proto/*` are carried Plan 7a baseline). Plan
+doc:
+`docs/superpowers/plans/2026-04-17-analyst-pro-plan-7c-sql-ast-optimizer.md`.
+
 ---
 
 ### Plan 7d — Dialect Emitters
