@@ -7,10 +7,12 @@ import SetsPanel from './SetsPanel';
 import ParametersPanel from './ParametersPanel';
 import LayoutTreePanel from './LayoutTreePanel';
 import SelectedItemMini from './SelectedItemMini';
+import AnalyticsPanel from './AnalyticsPanel';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'layout',    label: 'Layout' },
+  { id: 'analytics', label: 'Analytics' },
 ];
 
 /**
@@ -80,7 +82,7 @@ export default function AnalystProSidebar() {
         aria-labelledby={tabId(active)}
         style={{ flex: 1, minHeight: 0, overflow: 'auto' }}
       >
-        {active === 'dashboard' ? (
+        {active === 'dashboard' && (
           <>
             <SidebarSection id="objects"    heading="Objects"><ObjectLibraryPanel /></SidebarSection>
             <SidebarSection id="sheets"     heading="Sheets"><SheetsInsertPanel /></SidebarSection>
@@ -107,11 +109,15 @@ export default function AnalystProSidebar() {
               </button>
             </div>
           </>
-        ) : (
+        )}
+        {active === 'layout' && (
           <>
             <SidebarSection id="hierarchy" heading="Item Hierarchy"><LayoutTreePanel /></SidebarSection>
             <SidebarSection id="selected"  heading="Selected Item"><SelectedItemMini /></SidebarSection>
           </>
+        )}
+        {active === 'analytics' && (
+          <AnalyticsPanel />
         )}
       </div>
     </div>

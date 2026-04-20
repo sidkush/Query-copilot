@@ -22,12 +22,12 @@ describe('Plan 6c — AnalystProSidebar', () => {
     });
   });
 
-  it('tablist has exactly two tabs with role=tab', () => {
+  it('tablist has three tabs with role=tab (Plan 9a T9 added Analytics)', () => {
     render(<AnalystProSidebar />);
     const list = screen.getByRole('tablist');
     const tabs = within(list).getAllByRole('tab');
-    expect(tabs).toHaveLength(2);
-    expect(tabs.map((t) => t.textContent)).toEqual(['Dashboard', 'Layout']);
+    expect(tabs).toHaveLength(3);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Dashboard', 'Layout', 'Analytics']);
   });
 
   it('Dashboard tab aria-selected=true by default, Layout aria-selected=false', () => {
