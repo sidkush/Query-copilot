@@ -7,10 +7,11 @@ are wired in as placeholders so the routing table is established now.
 
 Phase map
 ---------
-  Phase 1  (current)  — SchemaTier   : structural/metadata questions
-  Phase 2  (future)   — MemoryTier   : recent-query answer cache
-  Phase 3  (future)   — TurboTier    : pre-computed aggregate cache
-  Phase 4  (future)   — LiveTier     : full LLM + SQL execution
+  Phase 1  (shipped)  — SchemaTier   : structural/metadata questions
+  Phase 2  (shipped)  — MemoryTier   : recent-query answer cache (ChromaDB RAG)
+  Phase 3  (shipped)  — VizQLTier    : 2-tier LRU cache on VisualSpec plans
+  Phase 4  (shipped)  — TurboTier    : pre-computed aggregate cache (DuckDB twin)
+  Phase 5  (shipped)  — LiveTier     : full LLM + SQL execution
 
 Invariants
 ----------
@@ -541,6 +542,185 @@ class TurboTier(BaseTier):
 
 
 # ---------------------------------------------------------------------------
+# VizQLTier  (Plan 7e — 2-tier query cache between Memory and Turbo)
+# ---------------------------------------------------------------------------
+
+from dataclasses import dataclass as _vq_dataclass
+from typing import Any as _VQAny
+
+from vizql.cache import (
+    AbstractQueryCacheKey,
+    ExternalLogicalQueryCache,
+    HistoryTrackingCache,
+    InProcessLogicalQueryCache,
+    LRUQueryCachePolicy,
+)
+
+
+@_vq_dataclass
+class VizQLContext:
+    """Per-request VizQL plumbing supplied by the agent layer.
+
+    Populated when the user's input was compiled through the VisualSpec ->
+    LogicalPlan -> SQL pipeline (Plans 7a-7d). Free-text NL questions leave
+    ``cache_key`` as ``None`` and the tier is skipped.
+    """
+    cache_key: Optional[AbstractQueryCacheKey]
+    qf: Optional[_VQAny]
+    dialect: str
+
+
+class VizQLTier(BaseTier):
+    """Tier 3: Tableau-style 2-tier query cache.
+
+    Returns a hit from either the in-process or the external (Redis) cache
+    without executing SQL. On miss, returns ``hit=False`` so the router
+    falls through to ``TurboTier`` / ``LiveTier``.
+    """
+
+    def __init__(
+        self,
+        cache: Optional[HistoryTrackingCache] = None,
+        external: Optional[ExternalLogicalQueryCache] = None,
+    ) -> None:
+        from config import settings
+        if cache is None:
+            inproc = InProcessLogicalQueryCache(
+                LRUQueryCachePolicy(max_bytes=settings.VIZQL_INPROCESS_CACHE_BYTES),
+            )
+            cache = HistoryTrackingCache(inproc)
+        if external is None:
+            external = ExternalLogicalQueryCache(
+                policy=LRUQueryCachePolicy(max_bytes=settings.VIZQL_EXTERNAL_CACHE_BYTES),
+                ttl_seconds=settings.VIZQL_CACHE_TTL_SECONDS,
+            )
+        self._cache = cache
+        self._external = external
+        self._ctx: Optional[VizQLContext] = None
+
+    @property
+    def name(self) -> str:
+        return "vizql"
+
+    def set_context(self, ctx: VizQLContext) -> None:
+        self._ctx = ctx
+
+    def clear_context(self) -> None:
+        self._ctx = None
+
+    async def can_answer(
+        self,
+        question: str,
+        schema_profile: SchemaProfile,
+        conn_id: str,
+    ) -> bool:
+        from config import settings
+        if not settings.VIZQL_CACHE_ENABLED:
+            return False
+        if self._ctx is None or self._ctx.cache_key is None:
+            return False
+        return True
+
+    async def _answer(
+        self,
+        question: str,
+        schema_profile: SchemaProfile,
+        conn_id: str,
+    ) -> TierResult:
+        from audit_trail import log_vizql_cache_event
+        assert self._ctx is not None and self._ctx.cache_key is not None
+        key = self._ctx.cache_key
+        key_hash = key.content_hash()
+
+        # --- Tier A: in-process ---------------------------------------------
+        v = self._cache.get(key)
+        if v is not None:
+            log_vizql_cache_event(
+                conn_id=conn_id,
+                event_type="hit_inprocess",
+                key_hash=key_hash,
+                tier="in_process",
+                reason="exact key match",
+            )
+            return _vizql_hit_result(v, key_hash, schema_profile.schema_hash,
+                                    source="vizql_cache", age=0)
+
+        # --- Tier B: external (Redis) ---------------------------------------
+        v = self._external.get(key)
+        if v is not None:
+            self._cache.put(key, v)
+            log_vizql_cache_event(
+                conn_id=conn_id,
+                event_type="hit_external",
+                key_hash=key_hash,
+                tier="external",
+                reason="Redis hit, promoted to in-process",
+            )
+            return _vizql_hit_result(v, key_hash, schema_profile.schema_hash,
+                                    source="vizql_cache_external", age=None)
+
+        log_vizql_cache_event(
+            conn_id=conn_id,
+            event_type="miss",
+            key_hash=key_hash,
+            tier="both",
+            reason="neither tier returned a value",
+        )
+        return TierResult(
+            hit=False,
+            tier_name="vizql",
+            metadata={"tiers_checked": ["vizql"], "time_ms": 0,
+                      "schema_hash": schema_profile.schema_hash,
+                      "vizql_key_hash": key_hash},
+        )
+
+    def publish_result(
+        self,
+        key: AbstractQueryCacheKey,
+        value: _VQAny,
+        size_bytes: Optional[int] = None,
+    ) -> None:
+        """Called by TurboTier/LiveTier after successful exec."""
+        self._cache.put(key, value, size_bytes=size_bytes)
+        self._external.put(key, value, size_bytes=size_bytes)
+
+    @property
+    def cache(self) -> HistoryTrackingCache:
+        return self._cache
+
+
+def _vizql_hit_result(
+    value: _VQAny,
+    key_hash: str,
+    schema_hash: str,
+    source: str,
+    age: Optional[int],
+) -> TierResult:
+    rows = value.get("rows", []) if isinstance(value, dict) else []
+    columns = value.get("columns", []) if isinstance(value, dict) else []
+    return TierResult(
+        hit=True,
+        tier_name="vizql",
+        data={
+            "answer": "VizQL cache hit",
+            "confidence": 0.99,
+            "source": source,
+            "cache_age_seconds": age if age is not None else 0,
+            "columns": columns,
+            "rows": rows,
+        },
+        metadata={
+            "tiers_checked": ["vizql"],
+            "time_ms": 0,
+            "schema_hash": schema_hash,
+            "vizql_key_hash": key_hash,
+        },
+        cache_age_seconds=age,
+        is_stale=False,
+    )
+
+
+# ---------------------------------------------------------------------------
 # LiveTier  (Phase 4 — final fallback, always answers)
 # ---------------------------------------------------------------------------
 
@@ -776,6 +956,20 @@ class WaterfallRouter:
             "WaterfallRouter initialised with tiers: %s",
             [t.name for t in tiers],
         )
+
+    @classmethod
+    def default(cls) -> "WaterfallRouter":
+        """Canonical 5-tier construction (Plan 7e).
+
+        Order: schema -> memory -> vizql -> turbo -> live.
+        """
+        return cls(tiers=[
+            SchemaTier(),
+            MemoryTier(),
+            VizQLTier(),
+            TurboTier(),
+            LiveTier(),
+        ])
 
     def emit_vizql_sql(self, qf, db_type) -> str:
         """Emit dialect-specific SQL for ``qf`` given the connection's
@@ -1196,17 +1390,19 @@ class WaterfallRouter:
 
 def build_default_router() -> WaterfallRouter:
     """
-    Return a WaterfallRouter wired with the canonical Phase 1 tier order.
+    Return a WaterfallRouter wired with the canonical 5-tier order (Plan 7e).
 
     Tier order (matches the Phase roadmap):
-      1. SchemaTier  — structural metadata (live, Phase 1)
-      2. MemoryTier  — recent-query cache  (placeholder, Phase 2)
-      3. TurboTier   — aggregate cache     (placeholder, Phase 3)
-      4. LiveTier    — LLM + SQL execution (placeholder, Phase 4)
+      1. SchemaTier  — structural metadata
+      2. MemoryTier  — recent-query cache (ChromaDB RAG)
+      3. VizQLTier   — 2-tier LRU cache on VisualSpec plans (Plan 7e)
+      4. TurboTier   — aggregate cache (DuckDB twin)
+      5. LiveTier    — LLM + SQL execution
     """
     return WaterfallRouter(tiers=[
         SchemaTier(),
         MemoryTier(),
+        VizQLTier(),
         TurboTier(),
         LiveTier(),
     ])
