@@ -153,4 +153,97 @@ def _show(e: sa.SQLQueryExpression) -> str:
     return repr(e)
 
 
-__all__ = ["FILTER_STAGES", "StagedFilter", "apply_filters_in_order"]
+# ---------------------------------------------------------------------------
+# Plan 8b §V.2 — LOD placement on the 9-stage filter pipeline.
+#
+# FIXED LOD lands at stage 4 (`fixed_lod`), so it is NOT filtered by stage-5
+# dim filters — matching §IV.7 semantics. INCLUDE/EXCLUDE lands at stage 6
+# (`include_exclude_lod`), running after measure-aggregation on the outer
+# WHERE. JoinLODOverrides (§V.2) is a per-viz opt-out list: any LOD id in
+# `overrides` is treated as already-hand-placed by the user's .twb edit and
+# auto-placement steps over it.
+# ---------------------------------------------------------------------------
+
+_LOD_STAGES: frozenset[str] = frozenset({"fixed_lod", "include_exclude_lod"})
+
+
+@dataclass(frozen=True, slots=True)
+class LodPlacement:
+    """One LOD calc compiled + placed in the filter stream.
+
+    Attributes
+    ----------
+    lod_id:
+        The ``VisualSpec.lod_calculations[i].id`` this placement represents.
+        Used for override matching against ``VisualSpec.join_lod_overrides``.
+    stage:
+        One of ``"fixed_lod"`` (§IV.7 stage 4) or ``"include_exclude_lod"``
+        (§IV.7 stage 6).
+    predicate:
+        The compiled LOD predicate / marker expression that the downstream
+        emitter (Plan 7d) turns into a correlated subquery or window.
+    """
+
+    lod_id: str
+    stage: str
+    predicate: sa.SQLQueryExpression
+
+    def __post_init__(self) -> None:
+        if self.stage not in _LOD_STAGES:
+            raise ValueError(
+                "LodPlacement.stage must be one of "
+                f"{sorted(_LOD_STAGES)!r}, got {self.stage!r}"
+            )
+
+
+def place_lod_in_order(
+    plan: sa.SQLQueryFunction,
+    lod_placements: Sequence[LodPlacement],
+    overrides: Sequence[str] = (),
+) -> sa.SQLQueryFunction:
+    """Append each LOD placement to the canonical StagedFilter stream.
+
+    §IV.7: FIXED at step 4, INCLUDE/EXCLUDE at step 6. The existing
+    ``apply_filters_in_order`` machinery encodes stage 4 as a diagnostic
+    marker (the FIXED correlated subquery is emitted by Plan 7d) and stage
+    6 as a window-layer marker — we reuse both unchanged.
+
+    Parameters
+    ----------
+    plan:
+        The plan to fold LOD placements onto.
+    lod_placements:
+        The LOD placements, each tagged with ``lod_id``, ``stage``, and a
+        compiled predicate.
+    overrides:
+        ``VisualSpec.join_lod_overrides`` — LOD IDs whose placement was
+        hand-edited in the source .twb XML. Any placement whose ``lod_id``
+        appears here is skipped; the caller is responsible for having
+        already spliced the hand-edited version into ``plan`` so auto-
+        placement never clobbers a user override (Plan 8b §V.2).
+    """
+    override_set: frozenset[str] = frozenset(overrides)
+    staged: list[StagedFilter] = []
+    for p in lod_placements:
+        if p.lod_id in override_set:
+            # User hand-overrode in the .twb — caller is responsible for
+            # having already spliced it in; auto-placement is a no-op.
+            continue
+        staged.append(
+            StagedFilter(
+                stage=p.stage,
+                predicate=p.predicate,
+                case_sensitive=True,
+                should_affect_totals=True,
+            )
+        )
+    return apply_filters_in_order(plan, staged)
+
+
+__all__ = [
+    "FILTER_STAGES",
+    "StagedFilter",
+    "apply_filters_in_order",
+    "LodPlacement",
+    "place_lod_in_order",
+]

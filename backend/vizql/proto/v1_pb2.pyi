@@ -434,7 +434,7 @@ class Analytics(_message.Message):
     def __init__(self, slots: _Optional[_Iterable[_Union[Analytics.Slot, _Mapping[_Any, _Any]]]] = ...) -> None: ...
 
 class VisualSpec(_message.Message):
-    __slots__ = ("sheet_id", "fields", "shelves", "encodings", "filters", "parameters", "lod_calculations", "mark_type", "analytics", "is_generative_ai_web_authoring", "domain_type")
+    __slots__ = ("sheet_id", "fields", "shelves", "encodings", "filters", "parameters", "lod_calculations", "mark_type", "analytics", "is_generative_ai_web_authoring", "domain_type", "join_lod_overrides")
     SHEET_ID_FIELD_NUMBER: _ClassVar[int]
     FIELDS_FIELD_NUMBER: _ClassVar[int]
     SHELVES_FIELD_NUMBER: _ClassVar[int]
@@ -446,6 +446,7 @@ class VisualSpec(_message.Message):
     ANALYTICS_FIELD_NUMBER: _ClassVar[int]
     IS_GENERATIVE_AI_WEB_AUTHORING_FIELD_NUMBER: _ClassVar[int]
     DOMAIN_TYPE_FIELD_NUMBER: _ClassVar[int]
+    JOIN_LOD_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
     sheet_id: str
     fields: _containers.RepeatedCompositeFieldContainer[Field]
     shelves: _containers.RepeatedCompositeFieldContainer[Shelf]
@@ -457,4 +458,5 @@ class VisualSpec(_message.Message):
     analytics: Analytics
     is_generative_ai_web_authoring: bool
     domain_type: str
-    def __init__(self, sheet_id: _Optional[str] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ..., shelves: _Optional[_Iterable[_Union[Shelf, _Mapping[_Any, _Any]]]] = ..., encodings: _Optional[_Iterable[_Union[Encoding, _Mapping[_Any, _Any]]]] = ..., filters: _Optional[_Iterable[_Union[FilterSpec, _Mapping[_Any, _Any]]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping[_Any, _Any]]]] = ..., lod_calculations: _Optional[_Iterable[_Union[LodCalculation, _Mapping[_Any, _Any]]]] = ..., mark_type: _Optional[_Union[MarkType, str]] = ..., analytics: _Optional[_Union[Analytics, _Mapping[_Any, _Any]]] = ..., is_generative_ai_web_authoring: bool = ..., domain_type: _Optional[str] = ...) -> None: ...
+    join_lod_overrides: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, sheet_id: _Optional[str] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ..., shelves: _Optional[_Iterable[_Union[Shelf, _Mapping[_Any, _Any]]]] = ..., encodings: _Optional[_Iterable[_Union[Encoding, _Mapping[_Any, _Any]]]] = ..., filters: _Optional[_Iterable[_Union[FilterSpec, _Mapping[_Any, _Any]]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping[_Any, _Any]]]] = ..., lod_calculations: _Optional[_Iterable[_Union[LodCalculation, _Mapping[_Any, _Any]]]] = ..., mark_type: _Optional[_Union[MarkType, str]] = ..., analytics: _Optional[_Union[Analytics, _Mapping[_Any, _Any]]] = ..., is_generative_ai_web_authoring: bool = ..., domain_type: _Optional[str] = ..., join_lod_overrides: _Optional[_Iterable[str]] = ...) -> None: ...
