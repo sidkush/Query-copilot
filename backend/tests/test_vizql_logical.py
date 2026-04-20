@@ -115,3 +115,58 @@ def test_named_exps_is_mapping_like():
     from vizql.logical import Column, NamedExps
     n = NamedExps(entries=(("total", Column(field_id="orders.total")),))
     assert dict(n.entries)["total"] == Column(field_id="orders.total")
+
+
+def test_logical_op_relation_construction():
+    from vizql.logical import LogicalOpRelation
+    r = LogicalOpRelation(table="orders", schema="public")
+    assert r.table == "orders"
+    assert r.schema == "public"
+
+
+def test_logical_op_relation_is_hashable():
+    from vizql.logical import LogicalOpRelation
+    a = LogicalOpRelation(table="orders", schema="public")
+    b = LogicalOpRelation(table="orders", schema="public")
+    assert a == b
+    assert hash(a) == hash(b)
+    assert {a, b} == {a}  # deduped via hash
+
+
+def test_logical_op_project_renames_and_expressions():
+    from vizql.logical import (
+        Column, LogicalOpProject, LogicalOpRelation, NamedExps,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    proj = LogicalOpProject(
+        input=base,
+        renames=(("orders.total", "total"),),
+        expressions=NamedExps(entries=(
+            ("total", Column(field_id="orders.total")),
+        )),
+        calculated_column=(),
+    )
+    assert proj.input is base
+    assert proj.renames == (("orders.total", "total"),)
+    assert proj.expressions.entries[0][0] == "total"
+
+
+def test_logical_op_project_carries_calculated_columns():
+    from vizql.logical import (
+        BinaryOp, Column, Literal, LogicalOpProject, LogicalOpRelation, NamedExps,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    calc = ("profit_margin", BinaryOp(
+        op="/",
+        left=Column(field_id="orders.profit"),
+        right=Column(field_id="orders.revenue"),
+    ))
+    proj = LogicalOpProject(
+        input=base,
+        renames=(),
+        expressions=NamedExps(entries=()),
+        calculated_column=(calc,),
+    )
+    assert proj.calculated_column[0][0] == "profit_margin"
+    # unused expr reference (no-op assertion — keeps Literal in scope for future calc shapes)
+    assert Literal(value=0, data_type="int").value == 0

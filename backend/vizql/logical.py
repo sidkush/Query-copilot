@@ -146,6 +146,34 @@ class AggExp:
     expr: Expression
 
 
+@dataclass(frozen=True, slots=True)
+class LogicalOpRelation:
+    """Build_Tableau.md §IV.2 — base table reference."""
+    table: str
+    schema: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalOpProject:
+    """Build_Tableau.md §IV.2 — SELECT projection (rename / drop / add).
+
+    ``renames``      : tuple of (source_field_id, new_name) pairs.
+    ``expressions``  : NamedExps of output-column expressions.
+    ``calculated_column`` : tuple of (output_name, Expression) pairs —
+                            calculated fields attached at projection time.
+    """
+    input: "LogicalOp"
+    renames: tuple[tuple[str, str], ...]
+    expressions: NamedExps
+    calculated_column: tuple[tuple[str, Expression], ...]
+
+
+LogicalOp = Union[
+    "LogicalOpRelation",
+    "LogicalOpProject",
+]  # extended in subsequent tasks
+
+
 __all__ = [
     "DomainType", "WindowFrameType", "WindowFrameExclusion", "SqlSetType",
     "Field",
@@ -153,4 +181,5 @@ __all__ = [
     "NamedExps", "OrderBy", "PartitionBys",
     "FrameStart", "FrameEnd", "FrameSpec",
     "AggExp",
+    "LogicalOpRelation", "LogicalOpProject",
 ]
