@@ -322,4 +322,10 @@ message VisualSpec {
   // Reserved for dual-axis metadata (Plan 7b).
   reserved 12, 13, 14;
   reserved "dual_axis", "shared_axis", "combined_axis";
+
+  // Plan 8b §V.2 — per-viz LOD placement overrides. Each entry is a
+  // LodCalculation.id whose compiled partition_by was hand-edited in the
+  // .twb XML; auto-placement in `place_lod_in_order` skips these so the
+  // user's manual choice is preserved.
+  repeated string join_lod_overrides = 15;
 }

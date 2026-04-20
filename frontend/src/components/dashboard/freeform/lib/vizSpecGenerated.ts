@@ -986,6 +986,13 @@ export interface VisualSpec {
    * "snowflake" | "separate". Default "separate".
    */
   domainType: string;
+  /**
+   * Plan 8b §V.2 — per-viz LOD placement overrides. Each entry is a
+   * LodCalculation.id whose compiled partition_by was hand-edited in the
+   * .twb XML; auto-placement in `place_lod_in_order` skips these so the
+   * user's manual choice is preserved.
+   */
+  joinLodOverrides: string[];
 }
 
 function createBaseField(): Field {
@@ -1752,6 +1759,7 @@ function createBaseVisualSpec(): VisualSpec {
     analytics: undefined,
     isGenerativeAiWebAuthoring: false,
     domainType: "",
+    joinLodOverrides: [],
   };
 }
 
@@ -1779,6 +1787,9 @@ export const VisualSpec: MessageFns<VisualSpec> = {
         ? globalThis.Boolean(object.isGenerativeAiWebAuthoring)
         : false,
       domainType: isSet(object.domainType) ? globalThis.String(object.domainType) : "",
+      joinLodOverrides: globalThis.Array.isArray(object?.joinLodOverrides)
+        ? object.joinLodOverrides.map((e: any) => globalThis.String(e))
+        : [],
     };
   },
 
@@ -1817,6 +1828,9 @@ export const VisualSpec: MessageFns<VisualSpec> = {
     if (message.domainType !== "") {
       obj.domainType = message.domainType;
     }
+    if (message.joinLodOverrides?.length) {
+      obj.joinLodOverrides = message.joinLodOverrides;
+    }
     return obj;
   },
 
@@ -1838,6 +1852,7 @@ export const VisualSpec: MessageFns<VisualSpec> = {
       : undefined;
     message.isGenerativeAiWebAuthoring = object.isGenerativeAiWebAuthoring ?? false;
     message.domainType = object.domainType ?? "";
+    message.joinLodOverrides = object.joinLodOverrides?.map((e) => e) || [];
     return message;
   },
 };

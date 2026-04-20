@@ -365,6 +365,36 @@ class VisualSpec:
     analytics: Analytics = field(default_factory=Analytics)
     is_generative_ai_web_authoring: bool = False
     domain_type: str = "separate"
+    # Plan 8b §V.2 — JoinLODOverrides: per-viz list of LodCalculation IDs
+    # whose placement was hand-edited in the .twb XML. `place_lod_in_order`
+    # skips these so the user's manual choice is preserved.
+    join_lod_overrides: list[str] = field(default_factory=list)
+
+    def viz_granularity(self) -> frozenset[str]:
+        """Plan 8b §V.4 — union of dimension pills on Rows, Columns, Detail,
+        Path, and Pages shelves. Measure pills are excluded; the Filters
+        shelf is excluded (its pills narrow data, they do not define
+        granularity).
+
+        The returned set holds `Field.id` values (the stable column
+        identifier) and can be compared directly with a FIXED LOD's
+        declared dims to decide whether the FIXED subquery is redundant.
+        """
+        granularity_shelves: frozenset[int] = frozenset({
+            ShelfKind.SHELF_KIND_ROW,
+            ShelfKind.SHELF_KIND_COLUMN,
+            ShelfKind.SHELF_KIND_DETAIL,
+            ShelfKind.SHELF_KIND_PATH,
+            ShelfKind.SHELF_KIND_PAGES,
+        })
+        out: set[str] = set()
+        for shelf in self.shelves:
+            if shelf.kind not in granularity_shelves:
+                continue
+            for f in shelf.fields:
+                if f.role == FieldRole.FIELD_ROLE_DIMENSION:
+                    out.add(f.id)
+        return frozenset(out)
 
     def to_proto(self) -> pb.VisualSpec:
         return pb.VisualSpec(
@@ -379,6 +409,7 @@ class VisualSpec:
             analytics=self.analytics.to_proto(),
             is_generative_ai_web_authoring=self.is_generative_ai_web_authoring,
             domain_type=self.domain_type,
+            join_lod_overrides=list(self.join_lod_overrides),
         )
 
     @classmethod
@@ -395,6 +426,7 @@ class VisualSpec:
             analytics=Analytics.from_proto(m.analytics),
             is_generative_ai_web_authoring=m.is_generative_ai_web_authoring,
             domain_type=m.domain_type or "separate",
+            join_lod_overrides=list(m.join_lod_overrides),
         )
 
     def serialize(self) -> bytes:
