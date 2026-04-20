@@ -113,6 +113,22 @@ class BaseDialect(ABC):
         return self.format_string_literal(str(v))
 
     def _emit_fncall(self, f: sa.FnCall) -> str:
+        # Special-case SQL constructs that aren't ordinary function calls.
+        if f.name.upper() == "IN":
+            left = self._emit_expr(f.args[0])
+            rhs = ", ".join(self._emit_expr(a) for a in f.args[1:])
+            return f"{left} IN ({rhs})"
+        if f.name.upper() == "INTERVAL" and len(f.args) == 2:
+            part = f.args[0]
+            n = f.args[1]
+            assert isinstance(part, sa.Literal) and isinstance(n, sa.Literal)
+            return self.format_interval(str(part.value), int(n.value))  # type: ignore[arg-type]
+        if f.name.upper() == "CURRENT_TIMESTAMP" and not f.args:
+            return self.format_current_timestamp()
+        if f.name.upper() == "DATE_TRUNC" and len(f.args) == 2:
+            part = f.args[0]
+            assert isinstance(part, sa.Literal)
+            return self.format_date_trunc(str(part.value), self._emit_expr(f.args[1]))
         AGGS = {"SUM","AVG","COUNT","COUNTD","MIN","MAX","MEDIAN","STDEV",
                 "STDEVP","VAR","VARP","PERCENTILE","ATTR","COLLECT"}
         if f.name.upper() in AGGS:
