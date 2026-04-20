@@ -939,6 +939,30 @@ export const api = {
   health: () => request("/health"),
 };
 
+// Plan 8d T6 — sample rows for calc editor "Test Values" panel.
+// Fetches up to `limit` rows from the first table of a connection via
+// the read-only /queries/sample endpoint. Used by CalcTestValues.
+export async function fetchSampleRows(connId, { limit = 10 } = {}) {
+  const token = localStorage.getItem("token");
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const url = `${API_BASE}/queries/sample?conn_id=${encodeURIComponent(connId)}&limit=${limit}`;
+  let res;
+  try {
+    res = await fetch(url, { headers });
+  } catch {
+    throw new Error("Cannot connect to server. Please ensure the backend is running.");
+  }
+  const text = await res.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Server error (${res.status})`);
+  }
+  if (!res.ok) throw new Error(data.detail || res.statusText || "Request failed");
+  return data;
+}
+
 // ── Admin API (separate auth token) ─────────────────────────
 
 function adminHeaders() {
