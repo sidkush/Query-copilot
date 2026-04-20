@@ -755,7 +755,7 @@ doc:
 
 ## Phase 9 — Analytics Pane
 
-### Plan 9a — Reference Lines / Bands / Distributions + Totals
+### Plan 9a — Reference Lines / Bands / Distributions + Totals — ✅ Shipped 2026-04-20
 
 ### Plan 9b — Trend Line (linear/log/exp/power/polynomial)
 
