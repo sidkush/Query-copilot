@@ -164,3 +164,77 @@ def test_fixed_lod_preserves_body_aggregate_name():
     agg = inner.projections[0].expression
     assert isinstance(agg, sa.FnCall)
     assert agg.name == "AVG"
+
+
+# ---------------------------------------------------------------------------
+# Task 3 — INCLUDE LOD -> window (partition = viz UNION include_dims)
+# ---------------------------------------------------------------------------
+
+
+def _include(dims, body_field: str = "Profit", body_fn: str = "AVG"):
+    from vizql import calc_ast as ca
+
+    return ca.LodExpr(
+        kind="INCLUDE",
+        dims=tuple(ca.FieldRef(field_name=d) for d in dims),
+        body=ca.FnCall(name=body_fn, args=(ca.FieldRef(field_name=body_field),)),
+    )
+
+
+def test_include_lod_emits_window_with_viz_plus_include_dims():
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _include(("Product",))
+    ctx = _ctx(frozenset({"Region"}))
+    out = lc.compile_lod(expr, ctx)
+
+    assert out.kind == "INCLUDE"
+    assert out.stage == "include_exclude_lod"
+    assert isinstance(out.expr, sa.Window)
+    part_names = {p.name for p in out.expr.partition_by if isinstance(p, sa.Column)}
+    assert part_names == {"Region", "Product"}
+
+
+def test_include_lod_partition_keys_deterministic_order():
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _include(("Product", "Subcategory"))
+    # rebuild schema with extra Subcategory
+    ctx = lc.LodCompileCtx(
+        dialect=lc.Dialect.DUCKDB,
+        schema={
+            "Sales": "number", "Region": "string", "City": "string",
+            "Segment": "string", "Product": "string", "Profit": "number",
+            "Subcategory": "string",
+        },
+        table_alias="t",
+        viz_granularity=frozenset({"Region", "City"}),
+    )
+    out = lc.compile_lod(expr, ctx)
+    names = [p.name for p in out.expr.partition_by if isinstance(p, sa.Column)]
+    # viz dims come first, sorted; then include_dims in source order
+    assert names == ["City", "Region", "Product", "Subcategory"]
+
+
+def test_include_lod_rejects_unknown_dim():
+    from vizql import lod_compiler as lc
+
+    expr = _include(("UnknownCol",))
+    ctx = _ctx(frozenset({"Region"}))
+    with pytest.raises(lc.LodCompileError) as exc:
+        lc.compile_lod(expr, ctx)
+    assert "UnknownCol" in str(exc.value)
+
+
+def test_include_lod_body_carried_to_window_expr():
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _include(("Product",), body_field="Profit", body_fn="AVG")
+    ctx = _ctx(frozenset({"Region"}))
+    out = lc.compile_lod(expr, ctx)
+    assert isinstance(out.expr, sa.Window)
+    assert isinstance(out.expr.expr, sa.FnCall)
+    assert out.expr.expr.name == "AVG"

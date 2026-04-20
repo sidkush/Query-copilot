@@ -172,6 +172,80 @@ def _compile_fixed(expr: ca.LodExpr, ctx: LodCompileCtx) -> CompiledLod:
 
 
 # ---------------------------------------------------------------------------
+# Partition helper (INCLUDE / EXCLUDE)
+# ---------------------------------------------------------------------------
+
+
+def _partition_for(
+    viz: frozenset[FieldId],
+    delta: tuple[FieldId, ...],
+    op: _Lit["union", "difference"],
+    table_alias: str,
+) -> tuple[sa.SQLQueryExpression, ...]:
+    """Build partition_by columns.
+
+    op="union":      viz UNION delta  (sorted viz, then delta in source order)
+    op="difference": viz \\ delta      (sorted viz, excluded keys removed)
+    Both orderings are deterministic so SQL output is stable.
+    """
+    if op == "union":
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for n in sorted(viz):
+            if n not in seen:
+                seen.add(n)
+                ordered.append(n)
+        for n in delta:
+            if n not in seen:
+                seen.add(n)
+                ordered.append(n)
+        names = ordered
+    elif op == "difference":
+        excl = set(delta)
+        names = sorted(n for n in viz if n not in excl)
+    else:  # pragma: no cover
+        raise LodCompileError(f"partition op {op!r} unknown")
+
+    return tuple(sa.Column(name=n, table_alias=table_alias) for n in names)
+
+
+# ---------------------------------------------------------------------------
+# INCLUDE -> window (partition = viz UNION include_dims)
+# ---------------------------------------------------------------------------
+
+
+def _compile_include(expr: ca.LodExpr, ctx: LodCompileCtx) -> CompiledLod:
+    for d in expr.dims:
+        if d.field_name not in ctx.schema:
+            raise LodCompileError(
+                f"INCLUDE LOD references field {d.field_name!r} "
+                "not in data source schema"
+            )
+
+    body_expr = _compile_body(expr.body, ctx)
+
+    partition_by = _partition_for(
+        viz=ctx.viz_granularity,
+        delta=tuple(d.field_name for d in expr.dims),
+        op="union",
+        table_alias=ctx.table_alias,
+    )
+
+    window = sa.Window(
+        expr=body_expr,
+        partition_by=partition_by,
+        order_by=(),
+        frame=None,
+    )
+    return CompiledLod(
+        expr=window,
+        kind="INCLUDE",
+        stage="include_exclude_lod",
+        warnings=(),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
 
@@ -185,7 +259,7 @@ def compile_lod(expr: ca.CalcExpr, ctx: LodCompileCtx) -> CompiledLod:
     if expr.kind == "FIXED":
         return _compile_fixed(expr, ctx)
     if expr.kind == "INCLUDE":
-        raise LodCompileError("INCLUDE LOD compilation not yet implemented (Task 3)")
+        return _compile_include(expr, ctx)
     if expr.kind == "EXCLUDE":
         raise LodCompileError("EXCLUDE LOD compilation not yet implemented (Task 4)")
 
