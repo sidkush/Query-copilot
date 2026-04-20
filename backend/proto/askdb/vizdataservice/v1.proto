@@ -285,6 +285,23 @@ message LodCalculation {
   AggType        outer_aggregation = 5;
 }
 
+// Plan 8c §V.1/§V.3 — table calculation spec. Per-viz list lives at
+// VisualSpec.table_calc_specs (field 16). Server-side (RUNNING_*, WINDOW_*,
+// RANK_*, INDEX, FIRST, LAST, SIZE, TOTAL, PCT_TOTAL) lower to LogicalOpOver
+// at compile time. Client-side (LOOKUP, PREVIOUS_VALUE, DIFF, IS_DISTINCT,
+// IS_STACKED) flow through to the frontend evaluator post-fetch.
+message TableCalcSpec {
+  string calc_id      = 1;
+  string function     = 2;   // canonical Tableau spelling
+  string arg_field    = 3;
+  repeated string addressing   = 4;
+  repeated string partitioning = 5;
+  string direction    = 6;   // "across" | "down" | "table" | "pane" | "pane_down" | "specific"
+  string sort         = 7;   // "" | "asc" | "desc"
+  int32  offset       = 8;   // 0 if unset (LOOKUP/DIFF/PREVIOUS_VALUE/PERCENTILE)
+  bool   has_offset   = 9;   // discriminates legitimate 0 from unset
+}
+
 // Analytics pane slots (Build_Tableau XIII). Typed-field in Plan 9.
 message Analytics {
   message Slot {
@@ -328,4 +345,13 @@ message VisualSpec {
   // .twb XML; auto-placement in `place_lod_in_order` skips these so the
   // user's manual choice is preserved.
   repeated string join_lod_overrides = 15;
+
+  // Plan 8c §V.1/§V.3 — per-viz table-calc specs attached to this viz.
+  // Resolution split per spec.function:
+  //   server-side (RUNNING_*, WINDOW_*, RANK_*, INDEX, FIRST, LAST, SIZE,
+  //                TOTAL, PCT_TOTAL): lowered to LogicalOpOver by
+  //                table_calc.compile_table_calc.
+  //   client-side (LOOKUP, PREVIOUS_VALUE, DIFF, IS_DISTINCT, IS_STACKED):
+  //                forwarded to frontend evaluator post-fetch.
+  repeated TableCalcSpec table_calc_specs = 16;
 }

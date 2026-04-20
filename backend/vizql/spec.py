@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from vizql.proto import v1_pb2 as pb
+from .table_calc import TableCalcSpec
 
 # Re-export enums so callers get a stable import path.
 DataType = pb.DataType
@@ -369,6 +370,20 @@ class VisualSpec:
     # whose placement was hand-edited in the .twb XML. `place_lod_in_order`
     # skips these so the user's manual choice is preserved.
     join_lod_overrides: list[str] = field(default_factory=list)
+    # Plan 8c §V.3 — table-calc specs attached to this viz; resolution
+    # is split per spec.function:
+    #   server-side: lowered to LogicalOpOver by table_calc.compile_table_calc
+    #   client-side: forwarded to frontend evaluator post-fetch
+    #
+    # NOTE: This field is intentionally Python-only. The matching proto
+    # `TableCalcSpec` message + `repeated TableCalcSpec table_calc_specs = 16`
+    # are declared in `backend/proto/askdb/vizdataservice/v1.proto` but the
+    # generated `v1_pb2.py` was not regenerated in this scaffolding pass
+    # (Plan 8c T8) because protoc was not available in the worktree
+    # environment. `to_proto`/`from_proto` therefore skip the field; an
+    # integration agent should run `bash backend/scripts/regen_proto.sh`
+    # and then wire the proto round-trip following the pattern below.
+    table_calc_specs: list["TableCalcSpec"] = field(default_factory=list)
 
     def viz_granularity(self) -> frozenset[str]:
         """Plan 8b §V.4 — union of dimension pills on Rows, Columns, Detail,
