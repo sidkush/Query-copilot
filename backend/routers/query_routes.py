@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from auth import get_current_user
 from config import settings
@@ -1245,3 +1245,86 @@ def underlying_rows(req: UnderlyingRequest, user: dict = Depends(get_current_use
         "mark_selection": req.mark_selection or {},
         "row_count": len(rows),
     }
+
+
+# ---- Plan 8a: calc validation endpoint ----
+# query_routes.router is mounted with prefix="/api/v1/queries"; the endpoint
+# needs an absolute path of /api/v1/calcs/validate. We can't modify main.py,
+# so we declare a separate APIRouter with the desired prefix and splice its
+# routes onto the existing router's .routes list — APIRoute objects carry
+# their fully-resolved path, so FastAPI mounts them verbatim when
+# app.include_router(query_routes.router) runs in main.py.
+
+import collections as _collections  # noqa: E402
+from threading import Lock as _Lock  # noqa: E402
+
+_CALC_RL_LOCK = _Lock()
+_CALC_RL_TIMESTAMPS: dict[str, list[float]] = _collections.defaultdict(list)
+
+
+def _enforce_calc_rate_limit(email: str) -> None:
+    """Per-user sliding-window rate limit for calc validation.
+
+    Cap sourced from settings.CALC_RATE_LIMIT_PER_30S each call so
+    monkeypatch / env overrides apply without module reload.
+    """
+    now = time.time()
+    window = 30.0
+    cap = settings.CALC_RATE_LIMIT_PER_30S
+    with _CALC_RL_LOCK:
+        ts = [t for t in _CALC_RL_TIMESTAMPS[email] if t > now - window]
+        if len(ts) >= cap:
+            raise HTTPException(
+                status_code=429,
+                detail=f"calc validation rate limit: max {cap} per 30s",
+            )
+        ts.append(now)
+        _CALC_RL_TIMESTAMPS[email] = ts
+
+
+class _CalcValidateRequest(BaseModel):
+    formula: str
+    schema_ref: dict[str, str] = Field(default_factory=dict)
+    params: dict[str, dict] = Field(default_factory=dict)
+
+
+_calcs_router = APIRouter(prefix="/api/v1/calcs", tags=["calcs"])
+
+
+@_calcs_router.post("/validate")
+async def validate_calc(
+    req: _CalcValidateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    if not settings.FEATURE_ANALYST_PRO:
+        raise HTTPException(status_code=404, detail="calc validation disabled")
+
+    if len(req.formula) > settings.MAX_CALC_FORMULA_LEN:
+        raise HTTPException(status_code=413, detail="formula too long")
+
+    email = current_user.get("email") or current_user.get("sub", "")
+    _enforce_calc_rate_limit(email)
+
+    from vizql.calc_parser import parse, ParseError, LexError
+    from vizql.calc_typecheck import typecheck, TypeError as CalcTypeError
+
+    try:
+        ast = parse(req.formula, max_depth=settings.MAX_CALC_NESTING)
+        inferred = typecheck(ast, req.schema_ref)
+    except (ParseError, LexError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except CalcTypeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "valid": True,
+        "inferredType": inferred.kind.value,
+        "isAggregate": inferred.is_aggregate,
+        "errors": [],
+    }
+
+
+# Splice the calcs routes onto the existing query_routes.router so main.py's
+# app.include_router(query_routes.router) picks them up at /api/v1/calcs/*
+# without needing an extra mount line in main.py.
+router.routes.extend(_calcs_router.routes)
