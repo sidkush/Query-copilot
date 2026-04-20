@@ -85,3 +85,39 @@ def test_running_family_uses_unbounded_preceding_frame(fn, sql_agg):
     assert out.plan.frame.start == ("UNBOUNDED", 0)
     assert out.plan.frame.end == ("CURRENT_ROW", 0)
     assert sql_agg in str(out.plan.expressions)
+
+
+@pytest.mark.parametrize("fn,sql_fn", [
+    ("RANK", "RANK"),                  # ties skip
+    ("RANK_DENSE", "DENSE_RANK"),       # ties no-skip
+    ("RANK_MODIFIED", "RANK"),          # alias of RANK in SQL; UI offset diff
+    ("RANK_UNIQUE", "ROW_NUMBER"),      # always unique
+    ("RANK_PERCENTILE", "PERCENT_RANK"),
+])
+def test_rank_family_emits_correct_sql_fn(fn, sql_fn):
+    spec = TableCalcSpec(calc_id="c1", function=fn, arg_field="Sales",
+                         addressing=("Sales",), sort="desc")
+    out = compile_table_calc(spec, _ctx())
+    assert isinstance(out, ServerSideCalc)
+    assert sql_fn in str(out.plan.expressions)
+    # rank uses arg_field as ORDER BY column, descending
+    assert out.plan.order_by == (("Sales", False),)
+
+
+def test_index_emits_row_number():
+    spec = TableCalcSpec(calc_id="c1", function="INDEX", arg_field="",
+                         addressing=("Year",))
+    out = compile_table_calc(spec, _ctx())
+    assert isinstance(out, ServerSideCalc)
+    assert "ROW_NUMBER" in str(out.plan.expressions)
+
+
+def test_first_last_size_use_dedicated_sql():
+    f = compile_table_calc(TableCalcSpec(calc_id="c", function="FIRST",
+                                         arg_field="", addressing=("Year",)),
+                           _ctx())
+    assert "ROW_NUMBER" in str(f.plan.expressions)
+    s = compile_table_calc(TableCalcSpec(calc_id="c", function="SIZE",
+                                         arg_field="", addressing=("Year",)),
+                           _ctx())
+    assert "COUNT" in str(s.plan.expressions)

@@ -191,12 +191,71 @@ def _compile_running_family(spec: TableCalcSpec, ctx: TableCalcCtx) -> ServerSid
     return _make_over(body, spec, ctx, output_alias=spec.calc_id, frame=frame)
 
 
+_RANK_SQL: dict[str, str] = {
+    "RANK":            "RANK",
+    "RANK_DENSE":      "DENSE_RANK",
+    "RANK_MODIFIED":   "RANK",
+    "RANK_UNIQUE":     "ROW_NUMBER",
+    "RANK_PERCENTILE": "PERCENT_RANK",
+}
+
+
+def _compile_rank_family(spec: TableCalcSpec, ctx: TableCalcCtx) -> ServerSideCalc:
+    sql_fn = _RANK_SQL[spec.function]
+    # RANK family takes no measure-arg in the call body; the measure is the
+    # ORDER BY column. Spec.sort defaults desc=True for RANK per Tableau UX.
+    body = sa.FnCall(name=sql_fn, args=())
+    # Force the order_by to the measure (arg_field) when the user hasn't
+    # picked an explicit addressing — matches Tableau's "rank by the measure
+    # this is computing" default.
+    if not spec.addressing and spec.arg_field:
+        spec = TableCalcSpec(
+            calc_id=spec.calc_id, function=spec.function,
+            arg_field=spec.arg_field, addressing=(spec.arg_field,),
+            partitioning=spec.partitioning,
+            direction=spec.direction, sort=spec.sort or "desc",
+            offset=spec.offset,
+        )
+    return _make_over(body, spec, ctx, output_alias=spec.calc_id)
+
+
+def _compile_index_first_last_size(spec: TableCalcSpec, ctx: TableCalcCtx) -> ServerSideCalc:
+    fn = spec.function
+    if fn == "INDEX":
+        body = sa.FnCall(name="ROW_NUMBER", args=())
+    elif fn == "FIRST":
+        # FIRST() = 1 - ROW_NUMBER() OVER(...)  — distance-from-first.
+        body = sa.BinaryOp(
+            op="-",
+            left=sa.Literal(value=1, data_type="int"),
+            right=sa.FnCall(name="ROW_NUMBER", args=()),
+        )
+    elif fn == "LAST":
+        # LAST() = COUNT(*) OVER(...) - ROW_NUMBER() OVER(...)
+        body = sa.BinaryOp(
+            op="-",
+            left=sa.FnCall(name="COUNT",
+                           args=(sa.Literal(value="*", data_type="string"),)),
+            right=sa.FnCall(name="ROW_NUMBER", args=()),
+        )
+    elif fn == "SIZE":
+        body = sa.FnCall(name="COUNT",
+                         args=(sa.Literal(value="*", data_type="string"),))
+    else:  # pragma: no cover
+        raise TableCalcCompileError(f"unhandled INDEX/FIRST/LAST/SIZE: {fn}")
+    return _make_over(body, spec, ctx, output_alias=spec.calc_id)
+
+
 def compile_table_calc(spec: TableCalcSpec, ctx: TableCalcCtx) -> CompiledTableCalc:
     fn = spec.function
     if fn in _CLIENT_SIDE:
         return ClientSideCalc(spec=spec)
     if fn in _RUNNING_AGG:
         return _compile_running_family(spec, ctx)
+    if fn in _RANK_SQL:
+        return _compile_rank_family(spec, ctx)
+    if fn in ("INDEX", "FIRST", "LAST", "SIZE"):
+        return _compile_index_first_last_size(spec, ctx)
     if fn.startswith("WINDOW_"):
         return _compile_window_family(spec, ctx)
     if fn in _SERVER_SIDE:
