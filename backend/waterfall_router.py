@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional
 from audit_trail import log_tier_decision, log_memory_event
 from query_memory import QueryMemory
 from schema_intelligence import SchemaProfile
+from vizql import emit_validated  # Plan 7d T9
 
 logger = logging.getLogger(__name__)
 
@@ -775,6 +776,15 @@ class WaterfallRouter:
             "WaterfallRouter initialised with tiers: %s",
             [t.name for t in tiers],
         )
+
+    def emit_vizql_sql(self, qf, db_type) -> str:
+        """Emit dialect-specific SQL for ``qf`` given the connection's
+        DBType. Uses Plan 7d dialect registry + sql_validator gating.
+
+        Unknown DBType falls back to DuckDB dialect with a logged warning
+        (see backend/vizql/dialects/registry.py).
+        """
+        return emit_validated(db_type, qf)
 
     async def route(
         self,
