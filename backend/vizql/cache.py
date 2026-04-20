@@ -73,3 +73,128 @@ class AbstractQueryCacheKey:
     def to_canonical_str(self) -> str:
         """Human-readable namespaced key — used in audit log and Redis keyspace."""
         return f"vizql:{self.dialect}:{self.ds_id}:{self.content_hash()}"
+
+
+# ---------------------------------------------------------------------------
+# Plan 7e T2 — LRUQueryCachePolicy + InProcessLogicalQueryCache
+# ---------------------------------------------------------------------------
+
+import logging
+import threading
+from collections import OrderedDict
+from typing import Any, Callable, Dict, Optional
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_INPROCESS_BYTES = 64 * 1024 * 1024   # 64 MiB
+_DEFAULT_EXTERNAL_BYTES = 512 * 1024 * 1024   # 512 MiB
+
+
+class LRUQueryCachePolicy:
+    """Byte-budget LRU policy.
+
+    Tableau's ``LRUQueryCachePolicy(maxSize)`` evicts by bytes, not entries,
+    because query results vary by 4+ orders of magnitude in size.
+    """
+
+    def __init__(self, max_bytes: int) -> None:
+        if max_bytes <= 0:
+            raise ValueError("max_bytes must be positive")
+        self.max_bytes = int(max_bytes)
+
+    @staticmethod
+    def size_estimator(value: Any) -> int:
+        """Conservative size estimate. Caller should prefer the true byte
+        length when available. Uses pickle only to measure serialized size
+        of in-process cache entries — nothing is ever unpickled.
+        """
+        import pickle as _pk
+        if isinstance(value, (bytes, bytearray)):
+            return len(value)
+        try:
+            return len(_pk.dumps(value, protocol=5))
+        except Exception:
+            return 1024
+
+
+class InProcessLogicalQueryCache:
+    """Thread-safe byte-budget LRU cache.
+
+    OrderedDict preserves insertion order; ``move_to_end`` on ``get`` implements
+    LRU promotion. All state is guarded by a single ``RLock``.
+    """
+
+    def __init__(self, policy: LRUQueryCachePolicy) -> None:
+        self._policy = policy
+        self._store: "OrderedDict[AbstractQueryCacheKey, tuple[Any, int]]" = OrderedDict()
+        self._lock = threading.RLock()
+        self._bytes = 0
+        self._hits = 0
+        self._misses = 0
+        self._per_ds: Dict[str, Dict[str, int]] = {}
+
+    def get(self, key: AbstractQueryCacheKey) -> Optional[Any]:
+        with self._lock:
+            hit = self._store.get(key)
+            if hit is None:
+                self._misses += 1
+                self._bump(key.ds_id, "misses")
+                return None
+            self._store.move_to_end(key)
+            self._hits += 1
+            self._bump(key.ds_id, "hits")
+            return hit[0]
+
+    def put(self, key: AbstractQueryCacheKey, value: Any, size_bytes: Optional[int] = None) -> None:
+        if size_bytes is None:
+            size_bytes = LRUQueryCachePolicy.size_estimator(value)
+        with self._lock:
+            existing = self._store.pop(key, None)
+            if existing is not None:
+                self._bytes -= existing[1]
+            self._store[key] = (value, size_bytes)
+            self._bytes += size_bytes
+            self._evict_until_fits()
+
+    def invalidate(self, key: AbstractQueryCacheKey) -> bool:
+        with self._lock:
+            existing = self._store.pop(key, None)
+            if existing is None:
+                return False
+            self._bytes -= existing[1]
+            return True
+
+    def invalidate_by_predicate(self, predicate: Callable[[AbstractQueryCacheKey], bool]) -> int:
+        with self._lock:
+            victims = [k for k in self._store if predicate(k)]
+            for k in victims:
+                self._bytes -= self._store.pop(k)[1]
+            return len(victims)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._store.clear()
+            self._bytes = 0
+
+    def current_bytes(self) -> int:
+        with self._lock:
+            return self._bytes
+
+    def stats(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "hits": self._hits,
+                "misses": self._misses,
+                "bytes": self._bytes,
+                "entries": len(self._store),
+                "per_ds": {ds: dict(counts) for ds, counts in self._per_ds.items()},
+            }
+
+    def _evict_until_fits(self) -> None:
+        while self._bytes > self._policy.max_bytes and self._store:
+            _, (_, size) = self._store.popitem(last=False)
+            self._bytes -= size
+
+    def _bump(self, ds_id: str, bucket: str) -> None:
+        d = self._per_ds.setdefault(ds_id, {"hits": 0, "misses": 0})
+        d[bucket] = d.get(bucket, 0) + 1
