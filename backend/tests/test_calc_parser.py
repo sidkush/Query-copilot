@@ -168,3 +168,51 @@ def test_parse_in_expression():
     assert isinstance(expr, ca.BinaryOp) and expr.op == "IN"
     assert isinstance(expr.rhs, ca.FnCall) and expr.rhs.name == "__TUPLE__"
     assert len(expr.rhs.args) == 2
+
+
+# ------------------------------------------------------------------
+# Task 5 — IF / CASE
+# ------------------------------------------------------------------
+
+
+def test_parse_if_then_elseif_else_end():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("IF [a] > 0 THEN 'pos' ELSEIF [a] = 0 THEN 'zero' ELSE 'neg' END")
+    assert isinstance(expr, ca.IfExpr)
+    assert isinstance(expr.cond, ca.BinaryOp) and expr.cond.op == ">"
+    assert expr.then_.value == "pos"
+    assert len(expr.elifs) == 1
+    assert expr.elifs[0][1].value == "zero"
+    assert expr.else_.value == "neg"
+
+
+def test_parse_searched_case():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("CASE WHEN [a] > 0 THEN 1 WHEN [a] < 0 THEN -1 ELSE 0 END")
+    assert isinstance(expr, ca.CaseExpr) and expr.scrutinee is None
+    assert len(expr.whens) == 2
+    assert expr.else_.value == 0
+
+
+def test_parse_simple_case():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("CASE [Region] WHEN 'N' THEN 1 WHEN 'S' THEN 2 END")
+    assert isinstance(expr, ca.CaseExpr)
+    assert isinstance(expr.scrutinee, ca.FieldRef) and expr.scrutinee.field_name == "Region"
+    assert len(expr.whens) == 2 and expr.else_ is None
+
+
+def test_parse_nested_if_in_case_branch():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("CASE WHEN [a] > 0 THEN IF [b] = 1 THEN 'x' ELSE 'y' END END")
+    assert isinstance(expr, ca.CaseExpr)
+    inner = expr.whens[0][1]
+    assert isinstance(inner, ca.IfExpr) and inner.then_.value == "x"

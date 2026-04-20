@@ -327,6 +327,12 @@ class CalcParser:
         if t.kind == TokenKind.LANGLE_PARAM:
             return self._parse_angle_param(pos)
 
+        if t.kind == TokenKind.KEYWORD and t.value == "IF":
+            return self._parse_if(pos)
+
+        if t.kind == TokenKind.KEYWORD and t.value == "CASE":
+            return self._parse_case(pos)
+
         if t.kind == TokenKind.IDENT:
             return self._parse_ident_or_call(pos)
 
@@ -376,6 +382,55 @@ class CalcParser:
         if not (closer.kind == TokenKind.OP and closer.value == ">"):
             raise ParseError("expected '>' to close <Parameters.…>", closer.line, closer.column)
         return ca.ParamRef(param_name=str(ident.value), pos=pos)
+
+    def _parse_if(self, pos: ca.Position) -> ca.CalcExpr:
+        self._expect_keyword("IF")
+        cond = self._parse_expr()
+        self._expect_keyword("THEN")
+        then_ = self._parse_expr()
+        elifs: list[tuple[ca.CalcExpr, ca.CalcExpr]] = []
+        while self._peek_keyword("ELSEIF"):
+            self._next()
+            ec = self._parse_expr()
+            self._expect_keyword("THEN")
+            eb = self._parse_expr()
+            elifs.append((ec, eb))
+        else_: Optional[ca.CalcExpr] = None
+        if self._peek_keyword("ELSE"):
+            self._next()
+            else_ = self._parse_expr()
+        self._expect_keyword("END")
+        return ca.IfExpr(cond=cond, then_=then_, elifs=tuple(elifs), else_=else_, pos=pos)
+
+    def _parse_case(self, pos: ca.Position) -> ca.CalcExpr:
+        self._expect_keyword("CASE")
+        # Scrutinee absent => searched CASE; else simple CASE.
+        scrutinee: Optional[ca.CalcExpr] = None
+        if not self._peek_keyword("WHEN"):
+            scrutinee = self._parse_expr()
+        whens: list[tuple[ca.CalcExpr, ca.CalcExpr]] = []
+        while self._peek_keyword("WHEN"):
+            self._next()
+            wcond = self._parse_expr()
+            self._expect_keyword("THEN")
+            wbranch = self._parse_expr()
+            whens.append((wcond, wbranch))
+        else_: Optional[ca.CalcExpr] = None
+        if self._peek_keyword("ELSE"):
+            self._next()
+            else_ = self._parse_expr()
+        self._expect_keyword("END")
+        return ca.CaseExpr(scrutinee=scrutinee, whens=tuple(whens), else_=else_, pos=pos)
+
+    def _peek_keyword(self, kw: str) -> bool:
+        t = self._peek()
+        return t.kind == TokenKind.KEYWORD and t.value == kw
+
+    def _expect_keyword(self, kw: str) -> Token:
+        t = self._peek()
+        if not (t.kind == TokenKind.KEYWORD and t.value == kw):
+            raise ParseError(f"expected keyword {kw} got {t.value!r}", t.line, t.column)
+        return self._next()
 
     def _parse_ident_or_call(self, pos: ca.Position) -> ca.CalcExpr:
         ident = self._next()
