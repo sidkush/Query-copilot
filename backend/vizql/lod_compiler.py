@@ -11,6 +11,7 @@ through sql_validator.py at execution time via Plan 7d's pipeline.
 """
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Literal as _Lit, Mapping
 
@@ -52,6 +53,129 @@ class CompiledLod:
     warnings: tuple[str, ...]  # observation-only; never fatal
 
 
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _rebind_columns(
+    e: sa.SQLQueryExpression, new_alias: str
+) -> sa.SQLQueryExpression:
+    """Rewrite every Column.table_alias -> new_alias.
+
+    Leaves literals + nested subqueries untouched so the inner projection's
+    aggregate body binds to the inner scope while the outer query joins via
+    correlated_on.
+    """
+    if isinstance(e, sa.Column):
+        return dataclasses.replace(e, table_alias=new_alias)
+    if isinstance(e, sa.BinaryOp):
+        return dataclasses.replace(
+            e,
+            left=_rebind_columns(e.left, new_alias),
+            right=_rebind_columns(e.right, new_alias),
+        )
+    if isinstance(e, sa.FnCall):
+        return dataclasses.replace(
+            e,
+            args=tuple(_rebind_columns(a, new_alias) for a in e.args),
+        )
+    if isinstance(e, sa.Case):
+        whens = tuple(
+            (_rebind_columns(c, new_alias), _rebind_columns(b, new_alias))
+            for c, b in e.whens
+        )
+        else_ = (
+            _rebind_columns(e.else_, new_alias) if e.else_ is not None else None
+        )
+        return dataclasses.replace(e, whens=whens, else_=else_)
+    if isinstance(e, sa.Cast):
+        return dataclasses.replace(e, expr=_rebind_columns(e.expr, new_alias))
+    if isinstance(e, sa.Window):
+        return dataclasses.replace(
+            e,
+            expr=_rebind_columns(e.expr, new_alias),
+            partition_by=tuple(
+                _rebind_columns(p, new_alias) for p in e.partition_by
+            ),
+        )
+    # Literal / nested Subquery: leave as-is.
+    return e
+
+
+def _compile_body(expr: ca.CalcExpr, ctx: LodCompileCtx) -> sa.SQLQueryExpression:
+    """Compile the LOD body expression by delegating to calc_to_expression.
+
+    Local import to avoid circular import (calc_to_expression imports this
+    module in its LodExpr branch).
+    """
+    from .calc_to_expression import compile_calc as _compile_calc_expr
+
+    return _compile_calc_expr(
+        expr,
+        dialect=ctx.dialect,
+        schema=ctx.schema,
+        table_alias=ctx.table_alias,
+    )
+
+
+# ---------------------------------------------------------------------------
+# FIXED  -> correlated subquery
+# ---------------------------------------------------------------------------
+
+
+def _compile_fixed(expr: ca.LodExpr, ctx: LodCompileCtx) -> CompiledLod:
+    # Validate every fixed dim is in the schema.
+    for d in expr.dims:
+        if d.field_name not in ctx.schema:
+            raise LodCompileError(
+                f"FIXED LOD references field {d.field_name!r} "
+                "not in data source schema"
+            )
+
+    body_expr = _compile_body(expr.body, ctx)
+
+    inner_alias = f"{ctx.table_alias}_lod_inner"
+    group_bys: tuple[sa.SQLQueryExpression, ...] = tuple(
+        sa.Column(name=d.field_name, table_alias=inner_alias)
+        for d in expr.dims
+    )
+    body_inner = _rebind_columns(body_expr, new_alias=inner_alias)
+    projections: tuple[sa.Projection, ...] = (
+        sa.Projection(alias="_lod_val", expression=body_inner),
+    )
+    inner = sa.SQLQueryFunction(
+        projections=projections,
+        from_=sa.TableRef(name=ctx.table_alias, alias=inner_alias),
+        where=None,
+        group_by=group_bys,
+        having=None,
+        order_by=(),
+        limit=None,
+    )
+
+    # Correlation: only fixed dims that also appear in viz_granularity.
+    # Preserve expr.dims order -> deterministic SQL, easier test asserts.
+    correlated_on: tuple[tuple[str, str], ...] = tuple(
+        (d.field_name, d.field_name)
+        for d in expr.dims
+        if d.field_name in ctx.viz_granularity
+    )
+
+    subquery = sa.Subquery(query=inner, correlated_on=correlated_on)
+    return CompiledLod(
+        expr=subquery,
+        kind="FIXED",
+        stage="fixed_lod",
+        warnings=(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dispatcher
+# ---------------------------------------------------------------------------
+
+
 def compile_lod(expr: ca.CalcExpr, ctx: LodCompileCtx) -> CompiledLod:
     if not isinstance(expr, ca.LodExpr):
         raise LodCompileError(
@@ -59,7 +183,7 @@ def compile_lod(expr: ca.CalcExpr, ctx: LodCompileCtx) -> CompiledLod:
         )
 
     if expr.kind == "FIXED":
-        raise LodCompileError("FIXED LOD compilation not yet implemented (Task 2)")
+        return _compile_fixed(expr, ctx)
     if expr.kind == "INCLUDE":
         raise LodCompileError("INCLUDE LOD compilation not yet implemented (Task 3)")
     if expr.kind == "EXCLUDE":
