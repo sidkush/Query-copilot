@@ -1,29 +1,38 @@
-from ..dialect_base import BaseDialect
+"""BigQuery dialect — argument-swapped DATE_TRUNC, backtick idents,
+SAFE_CAST, TIMESTAMP_DIFF. Mirrors BigQuerySQLDialect (§IV.5)."""
+from __future__ import annotations
 
-class BigQueryDialect(BaseDialect):
+from ..dialect_base import BaseDialect
+from .. import sql_ast as sa
+from .duckdb import DuckDBDialect
+
+
+class BigQueryDialect(DuckDBDialect):
     name = "bigquery"
-    # All format_* bodies land in Task 6; this stub keeps the import live.
-    def format_select(self, qf): raise NotImplementedError
-    def format_join(self, j): raise NotImplementedError
-    def format_case(self, c): raise NotImplementedError
-    def format_simple_case(self, c): raise NotImplementedError
-    def format_aggregate(self, f): raise NotImplementedError
-    def format_window(self, w): raise NotImplementedError
-    def format_cast(self, c): raise NotImplementedError
-    def format_drop_column(self, table, column): raise NotImplementedError
-    def format_table_dee(self): raise NotImplementedError
-    def format_default_from_clause(self): raise NotImplementedError
-    def format_set_isolation_level(self, level): raise NotImplementedError
-    def format_boolean_attribute(self, v): raise NotImplementedError
-    def format_float_attribute(self, v): raise NotImplementedError
-    def format_integer_attribute(self, v): raise NotImplementedError
-    def format_int64_attribute(self, v): raise NotImplementedError
-    def format_top_clause(self, n): raise NotImplementedError
-    def format_offset_clause(self, n): raise NotImplementedError
-    def format_string_literal(self, v): raise NotImplementedError
-    def format_identifier(self, ident): raise NotImplementedError
-    def format_date_trunc(self, part, expr): raise NotImplementedError
-    def format_datediff(self, part, a, b): raise NotImplementedError
-    def format_extract(self, part, expr): raise NotImplementedError
-    def format_current_timestamp(self): raise NotImplementedError
-    def format_interval(self, part, n): raise NotImplementedError
+
+    def format_identifier(self, ident: str) -> str:
+        if ident == "*":
+            return "*"
+        return "`" + ident.replace("`", "``") + "`"
+
+    def format_cast(self, c: sa.Cast) -> str:
+        return f"SAFE_CAST({self._emit_expr(c.expr)} AS {c.target_type.upper()})"
+
+    def format_int64_attribute(self, v: int) -> str:
+        return f"CAST({int(v)} AS INT64)"
+
+    def format_date_trunc(self, part: str, expr: str) -> str:
+        return f"DATE_TRUNC({expr}, {part.upper()})"
+
+    def format_datediff(self, part: str, a: str, b: str) -> str:
+        return f"TIMESTAMP_DIFF({b}, {a}, {part.upper()})"
+
+    def format_current_timestamp(self) -> str:
+        return "CURRENT_TIMESTAMP()"
+
+    def format_interval(self, part: str, n: int) -> str:
+        return f"INTERVAL {int(n)} {part.upper()}"
+
+    def format_set_isolation_level(self, level: str) -> str:
+        # BigQuery has no session isolation — comment out.
+        return f"-- BIGQUERY IGNORES ISOLATION LEVEL {level}"

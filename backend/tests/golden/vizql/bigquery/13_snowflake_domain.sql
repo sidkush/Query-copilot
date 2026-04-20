@@ -1,0 +1,1 @@
+SELECT `d`.`region` AS `region`, SUM(`s`.`revenue`) AS `rev` FROM (SELECT `d`.`region` AS `region` FROM `dim_region` `d`) `d` LEFT JOIN `sales` `s` ON (`d`.`region` = `s`.`region`) GROUP BY `d`.`region`

@@ -1,0 +1,1 @@
+SELECT COUNT(1) AS `c` FROM `sales` `t` WHERE (`t`.`order_date` >= (DATE_TRUNC(CURRENT_TIMESTAMP(), MONTH) - INTERVAL 6 MONTH))
