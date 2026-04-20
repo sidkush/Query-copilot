@@ -38,6 +38,15 @@ updated — do not assume `4-5-20250514` without checking the active `.env`.
 | `_SAFE_JWT_ALGORITHMS` | `{HS256, HS384, HS512}` | Allowlist enforced at startup; unsafe values (incl. `none`) forced to `HS256`. |
 | `JWT_ALGORITHM` default | `HS256` | |
 
+### Calc parser (Plan 8a)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `CALC_RATE_LIMIT_PER_30S` | `10` | per-user `/api/v1/calcs/validate` cap |
+| `MAX_CALC_FORMULA_LEN` | `10_000` | reject oversized formula bodies (413) |
+| `MAX_CALC_NESTING` | `32` | parser depth cap (ParseError beyond) |
+| `FEATURE_RAWSQL_ENABLED` | `False` | `RAWSQL_*` passthrough gate |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |
