@@ -1,0 +1,156 @@
+"""Minerva logical operator IR.
+
+Plan 7b (Build_Tableau.md §IV.1 stage 2) lowers a VisualSpec into a tree
+of LogicalOp* nodes. Plan 7c will translate that tree into a dialect-
+agnostic SQL AST.
+
+Design rules:
+
+* Every dataclass is ``frozen=True, slots=True`` so nodes are hashable,
+  cheap to equality-compare, and safe to use as cache keys in Plan 7e.
+* Every sequence field is ``tuple[T, ...]`` (mutable list on a frozen
+  dataclass is a silent-mutation bug; tuples participate in hashing).
+* Enum values are short lowercase strings, not ints — the logical IR is
+  human-readable in test fixtures and does not cross a wire boundary.
+* This module imports nothing from ``vizql.proto``; the logical plan is
+  deliberately wire-format-agnostic.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import Union
+
+
+class DomainType(Enum):
+    """Build_Tableau.md Appendix A.15."""
+    SNOWFLAKE = "snowflake"
+    SEPARATE = "separate"
+
+
+class WindowFrameType(Enum):
+    """Build_Tableau.md §IV.2 supporting types / §IV.6 frame clause."""
+    ROWS = "rows"
+    RANGE = "range"
+
+
+class WindowFrameExclusion(Enum):
+    """Build_Tableau.md §IV.6 frame clause exclusion."""
+    NO_OTHERS = "no_others"
+    CURRENT_ROW = "current_row"
+    GROUP = "group"
+    TIES = "ties"
+
+
+class SqlSetType(Enum):
+    """Build_Tableau.md §IV.2 supporting types."""
+    UNION = "union"
+    INTERSECT = "intersect"
+    EXCEPT = "except"
+
+
+@dataclass(frozen=True, slots=True)
+class Field:
+    """Logical-plan field descriptor. Mirrors spec.Field but string-typed.
+
+    ``role`` values: ``"dimension" | "measure" | "unknown"`` (§A.2).
+    ``data_type`` values: see §A.1.
+    ``aggregation`` values: see §A.14 (lowercased, ``"none"`` when unagg).
+    ``is_disagg`` mirrors spec.Field.is_disagg (§VIII.2).
+    """
+    id: str
+    data_type: str
+    role: str
+    aggregation: str
+    semantic_role: str
+    is_disagg: bool
+
+
+@dataclass(frozen=True, slots=True)
+class Column:
+    """Expression node: reference a Field by id."""
+    field_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class Literal:
+    """Expression node: scalar literal with type tag."""
+    value: object
+    data_type: str
+
+
+@dataclass(frozen=True, slots=True)
+class BinaryOp:
+    """Expression node: binary operator (comparison / arithmetic / logical)."""
+    op: str
+    left: "Expression"
+    right: "Expression"
+
+
+@dataclass(frozen=True, slots=True)
+class FnCall:
+    """Expression node: scalar / aggregate / table function call."""
+    name: str
+    args: tuple["Expression", ...]
+
+
+Expression = Union[Column, Literal, BinaryOp, FnCall]
+
+
+@dataclass(frozen=True, slots=True)
+class NamedExps:
+    """Ordered { name -> expression } map. Tuple of pairs preserves order + hashability."""
+    entries: tuple[tuple[str, Expression], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class OrderBy:
+    """Build_Tableau.md §IV.2 supporting type."""
+    identifier_exp: Expression
+    is_ascending: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PartitionBys:
+    """Build_Tableau.md §IV.2 supporting type - OVER partition."""
+    fields: tuple[Field, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class FrameStart:
+    kind: str
+    offset: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class FrameEnd:
+    kind: str
+    offset: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class FrameSpec:
+    """ROWS/RANGE frame clause."""
+    frame_type: WindowFrameType
+    start: FrameStart
+    end: FrameEnd
+    exclusion: WindowFrameExclusion = WindowFrameExclusion.NO_OTHERS
+
+
+@dataclass(frozen=True, slots=True)
+class AggExp:
+    """Named aggregation expression used by LogicalOpAggregate."""
+    name: str
+    agg: str
+    expr: Expression
+
+
+__all__ = [
+    "DomainType", "WindowFrameType", "WindowFrameExclusion", "SqlSetType",
+    "Field",
+    "Column", "Literal", "BinaryOp", "FnCall", "Expression",
+    "NamedExps", "OrderBy", "PartitionBys",
+    "FrameStart", "FrameEnd", "FrameSpec",
+    "AggExp",
+]
