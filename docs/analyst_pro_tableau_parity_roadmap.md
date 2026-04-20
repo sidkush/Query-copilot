@@ -728,6 +728,10 @@ doc:
 
 **Task count target:** 10.
 
+**Status:** Shipped — 2026-04-20. 10 tasks. New modules: `backend/vizql/table_calc.py`, `frontend/src/components/dashboard/freeform/lib/tableCalcEvaluator.ts`, `frontend/src/components/dashboard/freeform/panels/ComputeUsingDialog.jsx`, `docs/TABLE_CALC_GUIDE.md`. Extended: `backend/vizql/filter_ordering.py` (`place_table_calc_filter`), `backend/vizql/spec.py` (`VisualSpec.table_calc_specs`), `backend/proto/askdb/vizdataservice/v1.proto` (.proto source updated with field 16 `table_calc_specs` + new `TableCalcSpec` message — NOTE: the generated `backend/vizql/proto/v1_pb2.py` has NOT yet been regenerated because `protoc` was unavailable in the integration environment; the `VisualSpec.table_calc_specs` dataclass field is Python-only until `protoc` is installed and `VisualSpec.to_proto`/`from_proto` are wired per plan Step 8.5. `backend/routers/query_routes.py` (`/queries/execute` accepts + echoes `table_calc_specs` + `table_calc_filters`), `frontend/src/store.js` (`setTableCalcComputeUsingAnalystPro`). Plan doc: `docs/superpowers/plans/2026-04-20-analyst-pro-plan-8c-table-calculations.md`.
+
+- Known debt: run `bash backend/scripts/regen_proto.sh` + update `VisualSpec.to_proto`/`from_proto` per plan Step 8.5 once protoc is installed.
+
 ---
 
 ### Plan 8d — Monaco Calc Editor

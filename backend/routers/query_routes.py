@@ -181,6 +181,11 @@ class ExecuteRequest(BaseModel):
     # Plan 4c: Analyst Pro parameter token map. Accepts either a list of
     # parameter dicts or a dict keyed by name. Shape-normalised downstream.
     parameters: Optional[object] = None
+    # Plan 8c: table-calc wire-format passthrough. Server treats opaque today;
+    # client-side evaluator consumes them. Full server-side compile lands in
+    # Phase 9 via the VizQL waterfall.
+    table_calc_specs: list[dict] = Field(default_factory=list)
+    table_calc_filters: list[dict] = Field(default_factory=list)
 
 
 class FeedbackRequest(BaseModel):
@@ -424,6 +429,8 @@ def execute_sql(req: ExecuteRequest, user: dict = Depends(get_current_user)):
     result_dict["is_big_data"] = entry.connector.is_big_data_engine()
     result_dict["estimated_ms"] = estimated_ms
     result_dict["daily_usage"] = get_daily_usage(email)
+    result_dict["table_calc_specs"] = req.table_calc_specs
+    result_dict["table_calc_filters"] = req.table_calc_filters
 
     # Proactive anomaly detection (#7)
     try:
