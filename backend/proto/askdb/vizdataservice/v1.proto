@@ -107,6 +107,8 @@ enum ShelfKind {
   SHELF_KIND_PATH        = 8;
   SHELF_KIND_ANGLE       = 9;
   SHELF_KIND_TOOLTIP     = 10;
+  SHELF_KIND_PAGES       = 11;
+  SHELF_KIND_FILTER      = 12;
 }
 
 // A.8 FilterType - 4 kinds, discriminator for FilterSpec.

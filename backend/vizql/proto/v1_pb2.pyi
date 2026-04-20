@@ -86,6 +86,8 @@ class ShelfKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SHELF_KIND_PATH: _ClassVar[ShelfKind]
     SHELF_KIND_ANGLE: _ClassVar[ShelfKind]
     SHELF_KIND_TOOLTIP: _ClassVar[ShelfKind]
+    SHELF_KIND_PAGES: _ClassVar[ShelfKind]
+    SHELF_KIND_FILTER: _ClassVar[ShelfKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -202,6 +204,8 @@ SHELF_KIND_LABEL: ShelfKind
 SHELF_KIND_PATH: ShelfKind
 SHELF_KIND_ANGLE: ShelfKind
 SHELF_KIND_TOOLTIP: ShelfKind
+SHELF_KIND_PAGES: ShelfKind
+SHELF_KIND_FILTER: ShelfKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_CATEGORICAL: FilterKind
 FILTER_KIND_HIERARCHICAL: FilterKind

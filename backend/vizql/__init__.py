@@ -13,3 +13,4 @@ from vizql.logical import (  # noqa: E402,F401
     AggExp,
 )
 from vizql.validator import LogicalPlanError, validate_logical_plan  # noqa: E402,F401
+from vizql.compiler import compile_visual_spec  # noqa: E402,F401
