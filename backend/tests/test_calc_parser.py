@@ -123,3 +123,48 @@ def test_parse_error_includes_position():
     with pytest.raises(ParseError) as excinfo:
         parse("SUM(")
     assert "line 1" in str(excinfo.value) and "expected" in str(excinfo.value).lower()
+
+
+# ------------------------------------------------------------------
+# Task 4 — Precedence + binary/unary + AND/OR/NOT/IN
+# ------------------------------------------------------------------
+
+
+def test_parse_arithmetic_precedence():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("1 + 2 * 3")
+    assert isinstance(expr, ca.BinaryOp) and expr.op == "+"
+    assert isinstance(expr.rhs, ca.BinaryOp) and expr.rhs.op == "*"
+
+
+def test_parse_comparison_and_boolean():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("[a] = 1 AND NOT [b] <> 2 OR [c] >= 3")
+    assert isinstance(expr, ca.BinaryOp) and expr.op == "OR"
+    left = expr.lhs
+    assert isinstance(left, ca.BinaryOp) and left.op == "AND"
+    not_node = left.rhs
+    assert isinstance(not_node, ca.UnaryOp) and not_node.op == "NOT"
+
+
+def test_parse_unary_minus():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("-[Sales] + 1")
+    assert isinstance(expr, ca.BinaryOp) and expr.op == "+"
+    assert isinstance(expr.lhs, ca.UnaryOp) and expr.lhs.op == "-"
+
+
+def test_parse_in_expression():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("[Region] IN ('North', 'South')")
+    assert isinstance(expr, ca.BinaryOp) and expr.op == "IN"
+    assert isinstance(expr.rhs, ca.FnCall) and expr.rhs.name == "__TUPLE__"
+    assert len(expr.rhs.args) == 2

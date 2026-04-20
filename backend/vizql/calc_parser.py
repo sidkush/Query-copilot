@@ -103,10 +103,11 @@ class CalcLexer:
                 yield self._read_op_or_param_open()
             elif ch == ">":
                 # `>` could close a <Parameters.X> form. The parser disambiguates.
-                # Lex as RANGLE_PARAM only if a previous LANGLE_PARAM is unclosed —
-                # tracked by the parser. Here we always emit `OP`; the parser
-                # treats `>` after `<Parameters.X` as the closer.
-                yield self._emit(TokenKind.OP, ">"); self._advance(1)
+                # Also handle `>=` multi-char op before single `>`.
+                if self._peek(1) == "=":
+                    yield self._emit(TokenKind.OP, ">="); self._advance(2)
+                else:
+                    yield self._emit(TokenKind.OP, ">"); self._advance(1)
             elif ch in self._SINGLE_OPS:
                 # Try multi-char first.
                 two = self.src[self.i:self.i + 2]
@@ -220,9 +221,74 @@ class CalcParser:
         return expr
 
     # ---- precedence climbing ----
-    def _parse_expr(self) -> ca.CalcExpr:
-        # Full expression entry — Task 4 wires precedence; for T3 stub via primary.
+    # Precedence table (low -> high). Right-associative entries set assoc="right".
+    _PRECEDENCE: dict[str, tuple[int, str]] = {
+        "OR":  (1, "left"),
+        "AND": (2, "left"),
+        "IN":  (3, "left"),
+        "=":   (4, "left"),
+        "<>":  (4, "left"),
+        "<":   (4, "left"),
+        "<=":  (4, "left"),
+        ">":   (4, "left"),
+        ">=":  (4, "left"),
+        "+":   (5, "left"),
+        "-":   (5, "left"),
+        "*":   (6, "left"),
+        "/":   (6, "left"),
+    }
+
+    def _parse_expr(self, min_prec: int = 0) -> ca.CalcExpr:
+        lhs = self._parse_unary()
+        while True:
+            op = self._peek_binop()
+            if op is None:
+                break
+            prec, assoc = self._PRECEDENCE[op]
+            if prec < min_prec:
+                break
+            op_tok = self._next()
+            next_min = prec + (1 if assoc == "left" else 0)
+            if op == "IN":
+                rhs = self._parse_in_tuple(op_tok)
+            else:
+                rhs = self._parse_expr(next_min)
+            lhs = ca.BinaryOp(op=op, lhs=lhs, rhs=rhs, pos=ca.Position(op_tok.line, op_tok.column))
+        return lhs
+
+    def _peek_binop(self) -> Optional[str]:
+        t = self._peek()
+        if t.kind == TokenKind.OP and t.value in self._PRECEDENCE:
+            return str(t.value)
+        if t.kind == TokenKind.KEYWORD and t.value in ("AND", "OR", "IN"):
+            return str(t.value)
+        return None
+
+    def _parse_unary(self) -> ca.CalcExpr:
+        t = self._peek()
+        if t.kind == TokenKind.OP and t.value == "-":
+            self._next()
+            operand = self._parse_unary()
+            return ca.UnaryOp(op="-", operand=operand, pos=ca.Position(t.line, t.column))
+        if t.kind == TokenKind.KEYWORD and t.value == "NOT":
+            self._next()
+            # NOT binds looser than comparison (=, <>, <, >, etc.) but tighter
+            # than AND/OR. Parse operand at min_prec = IN+1 = 3 so `NOT x <> y`
+            # groups as `NOT (x <> y)` per Tableau semantics.
+            operand = self._parse_expr(3)
+            return ca.UnaryOp(op="NOT", operand=operand, pos=ca.Position(t.line, t.column))
         return self._parse_primary()
+
+    def _parse_in_tuple(self, op_tok: Token) -> ca.CalcExpr:
+        # IN expects a parenthesised list. Represented as FnCall("__TUPLE__", args=…).
+        self._expect(TokenKind.LPAREN)
+        items: list[ca.CalcExpr] = [self._parse_expr()]
+        while self._peek().kind == TokenKind.COMMA:
+            self._next()
+            items.append(self._parse_expr())
+        self._expect(TokenKind.RPAREN)
+        return ca.FnCall(name="__TUPLE__", args=tuple(items),
+                         pos=ca.Position(op_tok.line, op_tok.column))
 
     def _parse_primary(self) -> ca.CalcExpr:
         if self.depth >= self.max_depth:
