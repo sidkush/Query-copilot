@@ -25,6 +25,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules/regl')) return 'vendor-vizql';
+          if (id.includes('monaco-editor') || id.includes('@monaco-editor/react')) return 'monaco';
           if (id.includes('node_modules/framer-motion')) return 'vendor-motion';
           if (id.includes('node_modules/html2canvas') || id.includes('node_modules/jspdf')) return 'vendor-export';
           if (id.includes('node_modules/three') || id.includes('@react-three')) return 'vendor-three';
