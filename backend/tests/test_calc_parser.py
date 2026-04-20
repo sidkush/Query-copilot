@@ -35,3 +35,46 @@ def test_calc_ast_module_imports():
         dims=(ca.FieldRef("Region"),),
         body=ca.FnCall("SUM", (ca.FieldRef("Sales"),)),
     ).kind == "FIXED"
+
+
+# ------------------------------------------------------------------
+# Task 2 — Lexer
+# ------------------------------------------------------------------
+
+
+def test_lexer_tokenises_literals_and_idents():
+    from vizql.calc_parser import CalcLexer, TokenKind
+
+    toks = list(CalcLexer("SUM([Sales]) + 1.5").tokens())
+    kinds = [t.kind for t in toks]
+    assert kinds == [
+        TokenKind.IDENT, TokenKind.LPAREN, TokenKind.LBRACKET,
+        TokenKind.IDENT, TokenKind.RBRACKET, TokenKind.RPAREN,
+        TokenKind.OP, TokenKind.NUMBER, TokenKind.EOF,
+    ]
+
+
+def test_lexer_handles_string_escapes_and_comments():
+    from vizql.calc_parser import CalcLexer, TokenKind
+
+    src = """// header
+    "hello \\"world\\"" -- trailing
+    'single'"""
+    toks = [t for t in CalcLexer(src).tokens() if t.kind != TokenKind.EOF]
+    assert toks[0].kind == TokenKind.STRING and toks[0].value == 'hello "world"'
+    assert toks[1].kind == TokenKind.STRING and toks[1].value == "single"
+
+
+def test_lexer_recognises_keywords_case_insensitive():
+    from vizql.calc_parser import CalcLexer, TokenKind
+
+    toks = list(CalcLexer("if x THEN 1 elseif y then 2 else 3 end").tokens())
+    keyword_values = [t.value for t in toks if t.kind == TokenKind.KEYWORD]
+    assert keyword_values == ["IF", "THEN", "ELSEIF", "THEN", "ELSE", "END"]
+
+
+def test_lexer_rejects_unterminated_string():
+    from vizql.calc_parser import CalcLexer, LexError
+
+    with pytest.raises(LexError):
+        list(CalcLexer('"open').tokens())
