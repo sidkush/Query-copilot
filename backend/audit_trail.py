@@ -342,3 +342,70 @@ def get_recent_decisions(
 
     # Return the last *limit* entries in reverse-chronological order.
     return list(reversed(parsed[-limit:]))
+
+
+# ---------------------------------------------------------------------------
+# Plan 7e — VizQL cache + batch audit events
+# ---------------------------------------------------------------------------
+
+_VALID_VIZQL_CACHE_EVENT_TYPES = frozenset({
+    "hit_inprocess",
+    "hit_external",
+    "miss",
+    "compiled_stored",
+    "evicted",
+    "invalidated",
+})
+
+_VALID_VIZQL_CACHE_TIERS = frozenset({"in_process", "external", "both"})
+
+
+def log_vizql_cache_event(
+    conn_id: str,
+    event_type: str,
+    key_hash: str,
+    tier: str,
+    reason: str,
+) -> None:
+    """Record a VizQL cache hit/miss/invalidation."""
+    if event_type not in _VALID_VIZQL_CACHE_EVENT_TYPES:
+        logger.warning(
+            "audit_trail.log_vizql_cache_event: unknown event_type %r - logging anyway",
+            event_type,
+        )
+    if tier not in _VALID_VIZQL_CACHE_TIERS:
+        logger.warning(
+            "audit_trail.log_vizql_cache_event: unknown tier %r - logging anyway",
+            tier,
+        )
+    entry = {
+        "timestamp": _utc_now_iso(),
+        "conn_id": conn_id,
+        "event_type": event_type,
+        "key_hash": key_hash,
+        "tier": tier,
+        "reason": reason,
+    }
+    _append_entry(entry)
+
+
+def log_vizql_batch_event(
+    conn_id: str,
+    total: int,
+    hits: int,
+    misses: int,
+    distinct_misses: int,
+    total_ms: float,
+) -> None:
+    """Record a dashboard ``QueryBatch`` probe outcome."""
+    entry = {
+        "timestamp": _utc_now_iso(),
+        "conn_id": conn_id,
+        "event_type": "vizql_batch",
+        "total": int(total),
+        "hits": int(hits),
+        "misses": int(misses),
+        "distinct_misses": int(distinct_misses),
+        "total_ms": float(total_ms),
+    }
+    _append_entry(entry)

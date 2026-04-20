@@ -164,6 +164,13 @@ class Settings(BaseSettings):
     TURBO_TWIN_REFRESH_HOURS: int = Field(default=4)
     TURBO_TWIN_WARN_UNENCRYPTED: bool = Field(default=True)  # Log warning when twins enabled without disk encryption
 
+    # ---- VizQL query cache (Plan 7e, Build_Tableau §IV.10) -----------
+    VIZQL_CACHE_ENABLED: bool = Field(default=True)
+    VIZQL_INPROCESS_CACHE_BYTES: int = Field(default=67_108_864)     # 64 MiB
+    VIZQL_EXTERNAL_CACHE_BYTES: int = Field(default=536_870_912)     # 512 MiB
+    VIZQL_CACHE_TTL_SECONDS: int = Field(default=3600)
+    VIZQL_HISTORY_TRACKING_ENABLED: bool = Field(default=True)
+
     # Smart Twin (Phase 3 — Global Comp)
     SMART_TWIN_FULL_COPY_THRESHOLD: int = Field(default=50_000, description="Tables below this row count are fully copied, not sampled")
     SMART_TWIN_AGGREGATE_ENABLED: bool = Field(default=True, description="Auto-generate aggregate tables in twin during sync")

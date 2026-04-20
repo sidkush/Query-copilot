@@ -67,3 +67,24 @@ __all__ = [
     # Plan 7d
     "BaseDialect", "get_dialect", "emit_validated", "DialectValidationError",
 ]
+
+# Plan 7e — query cache + batch + telemetry
+from .cache import (  # noqa: E402,F401
+    AbstractQueryCacheKey,
+    OrderByKey,
+    LRUQueryCachePolicy,
+    InProcessLogicalQueryCache,
+    ExternalLogicalQueryCache,
+    HistoryTrackingCache,
+    InvalidationRecord,
+)
+from .batch import QueryBatch, BatchResult  # noqa: E402,F401
+from .telemetry import QueryCategory  # noqa: E402,F401
+
+__all__ += [
+    # Plan 7e
+    "AbstractQueryCacheKey", "OrderByKey",
+    "LRUQueryCachePolicy", "InProcessLogicalQueryCache",
+    "ExternalLogicalQueryCache", "HistoryTrackingCache", "InvalidationRecord",
+    "QueryBatch", "BatchResult", "QueryCategory",
+]

@@ -75,6 +75,11 @@ updated — do not assume `4-5-20250514` without checking the active `.env`.
 | `STREAMING_PROGRESS_INTERVAL_MS` | `1000` |
 | `WATERFALL_CAN_ANSWER_BUDGET_MS` | `200` (min `10`) |
 | `WATERFALL_ANSWER_BUDGET_MS` | `1000` (min `50`) |
+| `VIZQL_CACHE_ENABLED` | `True` |
+| `VIZQL_INPROCESS_CACHE_BYTES` | `67_108_864` (64 MiB) |
+| `VIZQL_EXTERNAL_CACHE_BYTES` | `536_870_912` (512 MiB) |
+| `VIZQL_CACHE_TTL_SECONDS` | `3600` (1 h) |
+| `VIZQL_HISTORY_TRACKING_ENABLED` | `True` |
 
 ### Dual-response + behaviour
 
