@@ -198,3 +198,93 @@ class InProcessLogicalQueryCache:
     def _bump(self, ds_id: str, bucket: str) -> None:
         d = self._per_ds.setdefault(ds_id, {"hits": 0, "misses": 0})
         d[bucket] = d.get(bucket, 0) + 1
+
+
+# ---------------------------------------------------------------------------
+# Plan 7e T3 — ExternalLogicalQueryCache (Redis)
+# ---------------------------------------------------------------------------
+
+import pickle
+import time
+
+from redis_client import get_redis  # noqa: E402
+
+_REDIS_WARN_INTERVAL_S = 30.0
+
+
+class ExternalLogicalQueryCache:
+    """Redis-backed logical-query cache.
+
+    Graceful degradation rules
+    --------------------------
+    - If ``get_redis()`` returns ``None``, every op is a no-op / miss.
+    - Any runtime Redis error is swallowed after logging. The upstream
+      request path keeps running.
+    - Warning log rate-limited to one per ``_REDIS_WARN_INTERVAL_S`` per
+      instance to avoid log-spam storms during Redis outages.
+
+    Serialisation is ``pickle.dumps(..., protocol=5)`` - Python-only consumer,
+    as specified by the Plan 7e task brief. TTL enforced by ``SETEX``.
+    """
+
+    def __init__(
+        self,
+        policy: LRUQueryCachePolicy,
+        ttl_seconds: int,
+    ) -> None:
+        self._policy = policy
+        self._ttl = int(ttl_seconds)
+        self._last_warn_ts = 0.0
+
+    def _redis_key(self, key: AbstractQueryCacheKey) -> str:
+        return f"askdb:vizql:cache:{key.ds_id}:{key.content_hash()}"
+
+    def get(self, key: AbstractQueryCacheKey) -> Optional[Any]:
+        client = get_redis()  # type: ignore[no-untyped-call]
+        if client is None:
+            self._warn_once("Redis unavailable - vizql external cache skipping GET")
+            return None
+        try:
+            raw = client.get(self._redis_key(key))
+            if raw is None:
+                return None
+            return pickle.loads(raw)
+        except Exception as exc:
+            self._warn_once(f"Redis GET failed: {exc}")
+            return None
+
+    def put(self, key: AbstractQueryCacheKey, value: Any, size_bytes: Optional[int] = None) -> None:
+        client = get_redis()  # type: ignore[no-untyped-call]
+        if client is None:
+            self._warn_once("Redis unavailable - vizql external cache skipping PUT")
+            return
+        try:
+            blob = pickle.dumps(value, protocol=5)
+            if size_bytes is None:
+                size_bytes = len(blob)
+            if size_bytes > self._policy.max_bytes:
+                logger.info(
+                    "vizql external cache: skipping %d-byte value > budget %d",
+                    size_bytes, self._policy.max_bytes,
+                )
+                return
+            client.setex(self._redis_key(key), self._ttl, blob)
+        except Exception as exc:
+            self._warn_once(f"Redis PUT failed: {exc}")
+
+    def invalidate(self, key: AbstractQueryCacheKey) -> bool:
+        client = get_redis()  # type: ignore[no-untyped-call]
+        if client is None:
+            return False
+        try:
+            return bool(client.delete(self._redis_key(key)))
+        except Exception as exc:
+            self._warn_once(f"Redis DEL failed: {exc}")
+            return False
+
+    def _warn_once(self, msg: str) -> None:
+        now = time.monotonic()
+        if now - self._last_warn_ts < _REDIS_WARN_INTERVAL_S:
+            return
+        self._last_warn_ts = now
+        logger.warning(msg)
