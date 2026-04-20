@@ -1002,6 +1002,32 @@ export async function evaluateCalc({ formula, row, schema_ref = {}, trace = fals
   return res.json();
 }
 
+// Plan 8d T11 — POST /api/v1/calcs/suggest for LLM-grounded formula suggestion.
+// Mirrors the getHeaders() auth pattern used by validateCalc/evaluateCalc.
+// Throws Error with `.status` + `.detail` on non-2xx so callers can surface
+// rate-limit (429), oversized (413), or feature-gated (403) errors distinctly.
+export async function suggestCalc({
+  description,
+  schema_ref,
+  parameters = [],
+  sets = [],
+  existing_calcs = [],
+}) {
+  const res = await fetch(`${API_BASE}/calcs/suggest`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ description, schema_ref, parameters, sets, existing_calcs }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw Object.assign(new Error(body.detail || res.statusText), {
+      status: res.status,
+      detail: body.detail,
+    });
+  }
+  return res.json();
+}
+
 // ── Admin API (separate auth token) ─────────────────────────
 
 function adminHeaders() {
