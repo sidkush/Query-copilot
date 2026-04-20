@@ -258,6 +258,175 @@ for name, ret_kind, sql in (
     ))
 
 
+# ---- String (§V.1) ----
+def _str(name: str, n: int, ret: TypeConstraint, sql: str) -> None:
+    _register(FunctionDef(
+        name=name, category=Category.STRING,
+        arg_types=tuple(TypeConstraint.any_() for _ in range(max(n, 1))),
+        min_args=n, max_args=n if n >= 0 else -1,
+        return_type=ret, sql_template={d: sql for d in Dialect},
+    ))
+
+
+_str("LEN", 1, TypeConstraint.integer(), "LENGTH({args[0]})")
+_str("LEFT", 2, TypeConstraint.string(), "LEFT({args[0]}, {args[1]})")
+_str("RIGHT", 2, TypeConstraint.string(), "RIGHT({args[0]}, {args[1]})")
+_str("MID", 3, TypeConstraint.string(), "SUBSTRING({args[0]}, {args[1]}, {args[2]})")
+_str("REPLACE", 3, TypeConstraint.string(), "REPLACE({args[0]}, {args[1]}, {args[2]})")
+_str("UPPER", 1, TypeConstraint.string(), "UPPER({args[0]})")
+_str("LOWER", 1, TypeConstraint.string(), "LOWER({args[0]})")
+_str("LTRIM", 1, TypeConstraint.string(), "LTRIM({args[0]})")
+_str("RTRIM", 1, TypeConstraint.string(), "RTRIM({args[0]})")
+_str("TRIM", 1, TypeConstraint.string(), "TRIM({args[0]})")
+_str("STARTSWITH", 2, TypeConstraint.boolean(), "({args[0]} LIKE {args[1]} || '%')")
+_str("ENDSWITH", 2, TypeConstraint.boolean(), "({args[0]} LIKE '%' || {args[1]})")
+_str("CONTAINS", 2, TypeConstraint.boolean(), "(POSITION({args[1]} IN {args[0]}) > 0)")
+_str("SPLIT", 3, TypeConstraint.string(), "SPLIT_PART({args[0]}, {args[1]}, {args[2]})")
+_str("FIND", 2, TypeConstraint.integer(), "POSITION({args[1]} IN {args[0]})")
+_str("REGEXP_EXTRACT", 2, TypeConstraint.string(), "REGEXP_EXTRACT({args[0]}, {args[1]})")
+_str("REGEXP_MATCH", 2, TypeConstraint.boolean(), "REGEXP_MATCHES({args[0]}, {args[1]})")
+_str("REGEXP_REPLACE", 3, TypeConstraint.string(), "REGEXP_REPLACE({args[0]}, {args[1]}, {args[2]})")
+
+
+# ---- Date (§V.1) ----
+def _date(name: str, n_min: int, n_max: int, ret: TypeConstraint, sql: str) -> None:
+    _register(FunctionDef(
+        name=name, category=Category.DATE,
+        arg_types=tuple(TypeConstraint.any_() for _ in range(max(n_min, 1))),
+        min_args=n_min, max_args=n_max,
+        return_type=ret, sql_template={d: sql for d in Dialect},
+    ))
+
+
+_date("DATEDIFF", 3, 4, TypeConstraint.integer(), "DATE_DIFF({args[0]}, {args[1]}, {args[2]})")
+_date("DATETRUNC", 2, 3, TypeConstraint.datetime(), "DATE_TRUNC({args[0]}, {args[1]})")
+_date("DATEPART", 2, 3, TypeConstraint.integer(), "DATE_PART({args[0]}, {args[1]})")
+_date("DATEADD", 3, 3, TypeConstraint.datetime(), "DATE_ADD({args[1]}, INTERVAL ({args[1]}) {args[0]})")
+_date("DATENAME", 2, 3, TypeConstraint.string(), "TO_CHAR({args[1]}, {args[0]})")
+_date("MAKEDATE", 3, 3, TypeConstraint.date(), "MAKE_DATE({args[0]}, {args[1]}, {args[2]})")
+_date("MAKEDATETIME", 2, 2, TypeConstraint.datetime(), "({args[0]} + {args[1]})")
+_date("MAKETIME", 3, 3, TypeConstraint.datetime(), "MAKE_TIME({args[0]}, {args[1]}, {args[2]})")
+_date("NOW", 0, 0, TypeConstraint.datetime(), "NOW()")
+_date("TODAY", 0, 0, TypeConstraint.date(), "CURRENT_DATE")
+_date("YEAR", 1, 1, TypeConstraint.integer(), "EXTRACT(YEAR FROM {args[0]})")
+_date("QUARTER", 1, 1, TypeConstraint.integer(), "EXTRACT(QUARTER FROM {args[0]})")
+_date("MONTH", 1, 1, TypeConstraint.integer(), "EXTRACT(MONTH FROM {args[0]})")
+_date("WEEK", 1, 1, TypeConstraint.integer(), "EXTRACT(WEEK FROM {args[0]})")
+_date("DAY", 1, 1, TypeConstraint.integer(), "EXTRACT(DAY FROM {args[0]})")
+_date("HOUR", 1, 1, TypeConstraint.integer(), "EXTRACT(HOUR FROM {args[0]})")
+_date("MINUTE", 1, 1, TypeConstraint.integer(), "EXTRACT(MINUTE FROM {args[0]})")
+_date("SECOND", 1, 1, TypeConstraint.integer(), "EXTRACT(SECOND FROM {args[0]})")
+_date("WEEKDAY", 1, 1, TypeConstraint.integer(), "EXTRACT(DOW FROM {args[0]})")
+
+
+# ---- User (§V.1) ----
+def _user(name: str, ret: TypeConstraint, sql: str) -> None:
+    _register(FunctionDef(
+        name=name, category=Category.USER,
+        arg_types=(), min_args=0, max_args=0,
+        return_type=ret, sql_template={d: sql for d in Dialect},
+    ))
+
+
+_user("USERNAME", TypeConstraint.string(), "{user_name}")
+_user("FULLNAME", TypeConstraint.string(), "{user_full_name}")
+_user("USERDOMAIN", TypeConstraint.string(), "{user_domain}")
+_user("USER", TypeConstraint.string(), "{user_name}")  # Tableau alias
+_register(FunctionDef(
+    name="ISFULLNAME", category=Category.USER,
+    arg_types=(TypeConstraint.string(),), min_args=1, max_args=1,
+    return_type=TypeConstraint.boolean(),
+    sql_template={d: "({args[0]} = {user_full_name})" for d in Dialect},
+))
+_register(FunctionDef(
+    name="ISUSERNAME", category=Category.USER,
+    arg_types=(TypeConstraint.string(),), min_args=1, max_args=1,
+    return_type=TypeConstraint.boolean(),
+    sql_template={d: "({args[0]} = {user_name})" for d in Dialect},
+))
+_register(FunctionDef(
+    name="ISMEMBEROF", category=Category.USER,
+    arg_types=(TypeConstraint.string(),), min_args=1, max_args=1,
+    return_type=TypeConstraint.boolean(),
+    sql_template={d: "({args[0]} = ANY({user_groups}))" for d in Dialect},
+))
+
+
+# ---- Spatial (§V.1) ----
+def _sp(name: str, n: int, ret: TypeConstraint, sql: str,
+        arg: TypeConstraint = TypeConstraint.spatial()) -> None:
+    _register(FunctionDef(
+        name=name, category=Category.SPATIAL,
+        arg_types=tuple(arg for _ in range(n)), min_args=n, max_args=n,
+        return_type=ret, sql_template={d: sql for d in Dialect},
+    ))
+
+
+_sp("MAKEPOINT", 2, TypeConstraint.spatial(), "ST_POINT({args[0]}, {args[1]})", arg=TypeConstraint.number())
+_sp("MAKELINE", 2, TypeConstraint.spatial(), "ST_MAKELINE({args[0]}, {args[1]})")
+_sp("DISTANCE", 3, TypeConstraint.number(), "ST_DISTANCE({args[0]}, {args[1]})")
+_sp("BUFFER", 3, TypeConstraint.spatial(), "ST_BUFFER({args[0]}, {args[1]})")
+_sp("AREA", 2, TypeConstraint.number(), "ST_AREA({args[0]})")
+_sp("INTERSECTS", 2, TypeConstraint.boolean(), "ST_INTERSECTS({args[0]}, {args[1]})")
+_sp("OVERLAPS", 2, TypeConstraint.boolean(), "ST_OVERLAPS({args[0]}, {args[1]})")
+_sp("DIFFERENCE", 2, TypeConstraint.spatial(), "ST_DIFFERENCE({args[0]}, {args[1]})")
+_sp("UNION", 2, TypeConstraint.spatial(), "ST_UNION({args[0]}, {args[1]})")
+
+
+# ---- Passthrough RAWSQL_* (§V.1) — feature-flagged ----
+def _rawsql(suffix: str, ret: TypeConstraint) -> None:
+    _register(FunctionDef(
+        name=f"RAWSQL_{suffix}", category=Category.PASSTHROUGH,
+        arg_types=(TypeConstraint.string(),), min_args=1, max_args=-1,
+        return_type=ret,
+        sql_template={d: "{rawsql}" for d in Dialect},
+        docstring="dialect-specific literal — gated on FEATURE_RAWSQL_ENABLED",
+    ))
+
+
+_rawsql("BOOL", TypeConstraint.boolean())
+_rawsql("INT", TypeConstraint.integer())
+_rawsql("REAL", TypeConstraint.number())
+_rawsql("STR", TypeConstraint.string())
+_rawsql("DATE", TypeConstraint.date())
+_rawsql("DATETIME", TypeConstraint.datetime())
+
+
+# ---- Analytics extension stubs (§V.1) — Phase 12 wires the bridge ----
+for _suffix, _ret in (("REAL", TypeConstraint.number()),
+                      ("STR", TypeConstraint.string()),
+                      ("INT", TypeConstraint.integer()),
+                      ("BOOL", TypeConstraint.boolean())):
+    _register(FunctionDef(
+        name=f"SCRIPT_{_suffix}", category=Category.ANALYTICS_EXT,
+        arg_types=(TypeConstraint.string(),), min_args=1, max_args=-1,
+        return_type=_ret,
+        sql_template={d: "" for d in Dialect},  # not emittable until Phase 12
+        docstring="external Python/R analytics — Phase 12",
+    ))
+
+
+# ---- Table-calc names (§V.1) — full semantics in Plan 8c ----
+_TABLE_CALCS = (
+    "RUNNING_SUM", "RUNNING_AVG", "RUNNING_MIN", "RUNNING_MAX", "RUNNING_COUNT",
+    "WINDOW_SUM", "WINDOW_AVG", "WINDOW_MIN", "WINDOW_MAX", "WINDOW_MEDIAN",
+    "WINDOW_STDEV", "WINDOW_VAR", "WINDOW_PERCENTILE", "WINDOW_CORR", "WINDOW_COVAR",
+    "INDEX", "FIRST", "LAST", "SIZE", "LOOKUP", "PREVIOUS_VALUE",
+    "RANK", "RANK_DENSE", "RANK_MODIFIED", "RANK_UNIQUE", "RANK_PERCENTILE",
+    "TOTAL", "PCT_TOTAL", "DIFF", "IS_DISTINCT", "IS_STACKED",
+)
+for _name in _TABLE_CALCS:
+    _register(FunctionDef(
+        name=_name, category=Category.TABLE_CALC,
+        arg_types=(TypeConstraint.any_(),),
+        min_args=0, max_args=-1,
+        return_type=TypeConstraint.any_(),
+        sql_template={d: "" for d in Dialect},  # Plan 8c emits via window fn lowering
+        is_table_calc=True,
+        docstring="table calculation — semantics in Plan 8c",
+    ))
+
+
 __all__ = [
     "TypeKind", "Category", "TypeConstraint", "ReturnType",
     "FunctionDef", "FUNCTIONS", "Dialect",
