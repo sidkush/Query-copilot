@@ -109,3 +109,34 @@ def test_vizql_disabled_flag_skips_tier(monkeypatch):
     from waterfall_router import VizQLContext
     tier.set_context(VizQLContext(cache_key=_key(), qf=None, dialect="duckdb"))
     assert asyncio.run(tier.can_answer("q", _fake_schema_profile(), "conn_a")) is False
+
+
+def test_context_is_isolated_across_async_tasks():
+    """Two concurrent asyncio tasks with different contexts must not see each other's."""
+    import asyncio as _asyncio
+    from waterfall_router import VizQLContext
+    tier = VizQLTier(
+        cache=HistoryTrackingCache(InProcessLogicalQueryCache(LRUQueryCachePolicy(1024))),
+    )
+
+    async def scenario(marker: str):
+        key = AbstractQueryCacheKey(
+            ds_id=marker, relation_tree_hash=f"rel_{marker}", predicate_hash="p",
+            projection=("a",), group_bys=(), order_by=(OrderByKey(column="a"),),
+            agg_types=("SUM",), dialect="duckdb",
+        )
+        tier.set_context(VizQLContext(cache_key=key, qf=None, dialect="duckdb"))
+        await _asyncio.sleep(0)
+        # If ContextVar isolation is broken, another task's set_context clobbers this one.
+        can = await tier.can_answer("q", _fake_schema_profile(), marker)
+        assert can is True
+        result = await tier.answer("q", _fake_schema_profile(), marker)
+        # Miss is fine; what matters is that the tier processes THIS task's key hash.
+        assert result.metadata["vizql_key_hash"] == key.content_hash()
+        return marker
+
+    async def driver():
+        return await _asyncio.gather(scenario("ds_A"), scenario("ds_B"))
+
+    markers = asyncio.run(driver())
+    assert markers == ["ds_A", "ds_B"]

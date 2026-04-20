@@ -545,6 +545,7 @@ class TurboTier(BaseTier):
 # VizQLTier  (Plan 7e — 2-tier query cache between Memory and Turbo)
 # ---------------------------------------------------------------------------
 
+from contextvars import ContextVar
 from dataclasses import dataclass as _vq_dataclass
 from typing import Any as _VQAny
 
@@ -568,6 +569,15 @@ class VizQLContext:
     cache_key: Optional[AbstractQueryCacheKey]
     qf: Optional[_VQAny]
     dialect: str
+
+
+# ContextVar ensures per-request (per asyncio task / per thread) isolation
+# even though WaterfallRouter is a process-wide singleton in agent_routes.py.
+# Without this, set_context() from one request would overwrite another's
+# cache_key mid-_answer(), cross-contaminating results across users.
+_VIZQL_CURRENT_CTX: ContextVar[Optional[VizQLContext]] = ContextVar(
+    "askdb_vizql_request_ctx", default=None,
+)
 
 
 class VizQLTier(BaseTier):
@@ -596,17 +606,22 @@ class VizQLTier(BaseTier):
             )
         self._cache = cache
         self._external = external
-        self._ctx: Optional[VizQLContext] = None
 
     @property
     def name(self) -> str:
         return "vizql"
 
     def set_context(self, ctx: VizQLContext) -> None:
-        self._ctx = ctx
+        """Store per-request VizQL context in a ContextVar.
+
+        Using ContextVar (not self) prevents cross-request contamination when
+        the router is a process-wide singleton (agent_routes.py waterfall).
+        Each asyncio task / thread sees its own value.
+        """
+        _VIZQL_CURRENT_CTX.set(ctx)
 
     def clear_context(self) -> None:
-        self._ctx = None
+        _VIZQL_CURRENT_CTX.set(None)
 
     async def can_answer(
         self,
@@ -617,7 +632,8 @@ class VizQLTier(BaseTier):
         from config import settings
         if not settings.VIZQL_CACHE_ENABLED:
             return False
-        if self._ctx is None or self._ctx.cache_key is None:
+        ctx = _VIZQL_CURRENT_CTX.get()
+        if ctx is None or ctx.cache_key is None:
             return False
         return True
 
@@ -628,8 +644,9 @@ class VizQLTier(BaseTier):
         conn_id: str,
     ) -> TierResult:
         from audit_trail import log_vizql_cache_event
-        assert self._ctx is not None and self._ctx.cache_key is not None
-        key = self._ctx.cache_key
+        ctx = _VIZQL_CURRENT_CTX.get()
+        assert ctx is not None and ctx.cache_key is not None
+        key = ctx.cache_key
         key_hash = key.content_hash()
 
         # --- Tier A: in-process ---------------------------------------------
