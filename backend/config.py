@@ -261,6 +261,7 @@ class Settings(BaseSettings):
     # ── Analyst Pro archetype (Tableau-parity freeform workbook) ──
     # Plan 1 ships read-only rendering. Plan 2+ add drag/resize/actions/sets.
     FEATURE_ANALYST_PRO: bool = False
+    FEATURE_RAWSQL_ENABLED: bool = False
 
     # Sub-project A — new chart editor + ChartSpec IR cutover (Phase 4b).
     # Phase 4c+2: default flipped to True. /analytics now always renders
