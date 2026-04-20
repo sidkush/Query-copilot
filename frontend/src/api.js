@@ -963,6 +963,26 @@ export async function fetchSampleRows(connId, { limit = 10 } = {}) {
   return data;
 }
 
+// Plan 8d T5 — POST /api/v1/calcs/validate for Monaco diagnostics.
+// Returns { valid, inferredType?, isAggregate?, errors?, warnings? }.
+// Throws Error with `.status` + `.detail` populated on non-2xx so the
+// caller (calcDiagnostics.parseBackendError) can map to a marker.
+export async function validateCalc({ formula, schema_ref = {}, params = {}, schema_stats = {} }) {
+  const res = await fetch(`${API_BASE}/calcs/validate`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ formula, schema_ref, params, schema_stats }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw Object.assign(new Error(body.detail || res.statusText), {
+      status: res.status,
+      detail: body.detail,
+    });
+  }
+  return res.json();
+}
+
 // ── Admin API (separate auth token) ─────────────────────────
 
 function adminHeaders() {
