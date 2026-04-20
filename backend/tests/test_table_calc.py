@@ -68,3 +68,20 @@ def test_window_percentile_uses_pct_arg():
     assert isinstance(out, ServerSideCalc)
     assert "PERCENTILE_CONT" in str(out.plan.expressions)
     assert "95" in str(out.plan.expressions)
+
+
+@pytest.mark.parametrize("fn,sql_agg", [
+    ("RUNNING_SUM", "SUM"), ("RUNNING_AVG", "AVG"),
+    ("RUNNING_MIN", "MIN"), ("RUNNING_MAX", "MAX"),
+    ("RUNNING_COUNT", "COUNT"),
+])
+def test_running_family_uses_unbounded_preceding_frame(fn, sql_agg):
+    spec = TableCalcSpec(calc_id="c1", function=fn, arg_field="Sales",
+                         addressing=("Year",), partitioning=())
+    out = compile_table_calc(spec, _ctx())
+    assert isinstance(out, ServerSideCalc)
+    assert out.plan.frame is not None
+    assert out.plan.frame.kind == "ROWS"
+    assert out.plan.frame.start == ("UNBOUNDED", 0)
+    assert out.plan.frame.end == ("CURRENT_ROW", 0)
+    assert sql_agg in str(out.plan.expressions)

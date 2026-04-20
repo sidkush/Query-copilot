@@ -174,10 +174,29 @@ def _compile_window_family(spec: TableCalcSpec, ctx: TableCalcCtx) -> ServerSide
     raise TableCalcCompileError(f"WINDOW family fallthrough: {spec.function}")
 
 
+_RUNNING_AGG: dict[str, str] = {
+    "RUNNING_SUM": "SUM", "RUNNING_AVG": "AVG", "RUNNING_MIN": "MIN",
+    "RUNNING_MAX": "MAX", "RUNNING_COUNT": "COUNT",
+}
+
+
+def _compile_running_family(spec: TableCalcSpec, ctx: TableCalcCtx) -> ServerSideCalc:
+    agg = _RUNNING_AGG[spec.function]
+    body = sa.FnCall(name=agg, args=(_arg_col(spec, ctx),))
+    frame = sa.FrameClause(
+        kind="ROWS",
+        start=("UNBOUNDED", 0),
+        end=("CURRENT_ROW", 0),
+    )
+    return _make_over(body, spec, ctx, output_alias=spec.calc_id, frame=frame)
+
+
 def compile_table_calc(spec: TableCalcSpec, ctx: TableCalcCtx) -> CompiledTableCalc:
     fn = spec.function
     if fn in _CLIENT_SIDE:
         return ClientSideCalc(spec=spec)
+    if fn in _RUNNING_AGG:
+        return _compile_running_family(spec, ctx)
     if fn.startswith("WINDOW_"):
         return _compile_window_family(spec, ctx)
     if fn in _SERVER_SIDE:
