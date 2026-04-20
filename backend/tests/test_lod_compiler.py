@@ -319,3 +319,57 @@ def test_exclude_lod_rejects_unknown_dim():
     with pytest.raises(lc.LodCompileError) as exc:
         lc.compile_lod(expr, ctx)
     assert "NotAColumn" in str(exc.value)
+
+
+# ---------------------------------------------------------------------------
+# Task 5 — wire lod_compiler into calc_to_expression.compile_calc
+# ---------------------------------------------------------------------------
+
+
+def test_compile_calc_integrates_lod_compiler_for_fixed():
+    from vizql import calc_to_expression as c2e
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _fixed(("Region",))
+    out = c2e.compile_calc(
+        expr,
+        dialect=lc.Dialect.DUCKDB,
+        schema={"Sales": "number", "Region": "string"},
+        viz_granularity=frozenset({"Region"}),
+    )
+    assert isinstance(out, sa.Subquery)
+    assert out.correlated_on == (("Region", "Region"),)
+
+
+def test_compile_calc_integrates_lod_compiler_for_include():
+    from vizql import calc_to_expression as c2e
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _include(("Product",))
+    out = c2e.compile_calc(
+        expr,
+        dialect=lc.Dialect.DUCKDB,
+        schema={"Profit": "number", "Region": "string", "Product": "string"},
+        viz_granularity=frozenset({"Region"}),
+    )
+    assert isinstance(out, sa.Window)
+    part_names = {p.name for p in out.partition_by if isinstance(p, sa.Column)}
+    assert part_names == {"Region", "Product"}
+
+
+def test_compile_calc_defaults_empty_granularity_for_backcompat():
+    from vizql import calc_to_expression as c2e
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _include(("Product",))
+    out = c2e.compile_calc(
+        expr,
+        dialect=lc.Dialect.DUCKDB,
+        schema={"Profit": "number", "Product": "string"},
+    )
+    assert isinstance(out, sa.Window)
+    names = {p.name for p in out.partition_by if isinstance(p, sa.Column)}
+    assert names == {"Product"}

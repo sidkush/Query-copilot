@@ -46,6 +46,7 @@ class _Ctx:
     table_alias: str
     params: Mapping[str, Mapping[str, Any]]
     rawsql: bool
+    viz_granularity: frozenset[str] = frozenset()  # Plan 8b
 
 
 def compile_calc(
@@ -56,6 +57,7 @@ def compile_calc(
     table_alias: str = "t",
     params: Optional[Mapping[str, Mapping[str, Any]]] = None,
     feature_rawsql_enabled: bool = False,
+    viz_granularity: Optional[frozenset[str]] = None,
 ) -> sa.SQLQueryExpression:
     """Compile a calc AST to a sql_ast expression.
 
@@ -63,6 +65,9 @@ def compile_calc(
     used for substituting <Parameters.Name> via format_as_literal.
     ``feature_rawsql_enabled``: Plan 11 endpoint passes
     ``settings.FEATURE_RAWSQL_ENABLED``.
+    ``viz_granularity``: Plan 8b — union(Rows-dims, Cols-dims, Detail,
+    Path, Pages). Empty default preserves Plan 8a caller behaviour
+    (e.g. /api/v1/calcs/validate, which has no viz context).
     """
     ctx = _Ctx(
         dialect=dialect,
@@ -70,6 +75,9 @@ def compile_calc(
         table_alias=table_alias,
         params=params or {},
         rawsql=feature_rawsql_enabled,
+        viz_granularity=(
+            viz_granularity if viz_granularity is not None else frozenset()
+        ),
     )
     return _walk(expr, ctx)
 
@@ -157,16 +165,21 @@ def _walk(expr: ca.CalcExpr, ctx: _Ctx) -> sa.SQLQueryExpression:
         return sa.Case(whens=tuple(whens2), else_=else2)
 
     if isinstance(expr, ca.LodExpr):
-        # Plan 8b finalises FIXED → correlated subquery.
-        #   FIXED  → raise (deferred)
-        #   INCLUDE / EXCLUDE → Window over aggregate body.
-        if expr.kind == "FIXED":
-            raise CompileError(
-                "FIXED LOD compilation is owned by Plan 8b; Plan 8a only parses + typechecks it"
-            )
-        body = _walk(expr.body, ctx)
-        partitions = tuple(_walk(d, ctx) for d in expr.dims)
-        return sa.Window(expr=body, partition_by=partitions, order_by=())
+        # Plan 8b delegates all three LOD kinds to lod_compiler, which
+        # threads viz_granularity through to produce the correct partition
+        # set per §V.2 semantics (FIXED → Subquery, INCLUDE/EXCLUDE → Window).
+        from .lod_compiler import LodCompileCtx, compile_lod
+
+        lod_ctx = LodCompileCtx(
+            dialect=ctx.dialect,
+            schema=ctx.schema,
+            table_alias=ctx.table_alias,
+            viz_granularity=ctx.viz_granularity,
+        )
+        compiled = compile_lod(expr, lod_ctx)
+        # Warnings surface via separate /api/v1/calcs/validate response path
+        # (Plan 8b T9) — compile_calc only returns the SQL AST expression.
+        return compiled.expr
 
     if isinstance(expr, ca.FnCall):
         return _compile_fn(expr, ctx)

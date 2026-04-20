@@ -84,9 +84,32 @@ def test_compile_lod_emits_window_marker():
         parse("{ INCLUDE [Region] : SUM([Sales]) }"),
         Dialect.DUCKDB, _schema(), table_alias="t0",
     )
-    # LOD lowering for INCLUDE → Window over SUM. Plan 8b finalises FIXED;
-    # here we expect a Window node with PARTITION BY [Region].
+    # LOD lowering for INCLUDE → Window over SUM. Plan 8b finalised FIXED;
+    # INCLUDE partition = viz_granularity ∪ include_dims. With no viz passed
+    # (default empty frozenset), partition = {Region} only.
     assert isinstance(out, sa.Window)
+    names = {p.name for p in out.partition_by if isinstance(p, sa.Column)}
+    assert names == {"Region"}
+
+
+def test_compile_fixed_lod_emits_subquery():
+    """Plan 8b T5 — FIXED LOD now compiles (was deferred in Plan 8a)."""
+    from vizql import calc_ast as ca
+    from vizql import calc_to_expression as c2e
+    from vizql import sql_ast as sa
+    from vizql.calc_functions import Dialect
+
+    expr = ca.LodExpr(
+        kind="FIXED",
+        dims=(ca.FieldRef(field_name="Region"),),
+        body=ca.FnCall(name="SUM", args=(ca.FieldRef(field_name="Sales"),)),
+    )
+    out = c2e.compile_calc(
+        expr,
+        dialect=Dialect.DUCKDB,
+        schema={"Sales": "number", "Region": "string"},
+    )
+    assert isinstance(out, sa.Subquery)
 
 
 def test_format_as_literal_quotes_string_safely():
