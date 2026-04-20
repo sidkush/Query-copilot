@@ -1,29 +1,47 @@
-from ..dialect_base import BaseDialect
+"""Snowflake dialect — case-sensitive quoted idents, unquoted datediff part."""
+from __future__ import annotations
 
-class SnowflakeDialect(BaseDialect):
+import logging
+
+from ..dialect_base import BaseDialect
+from .. import sql_ast as sa
+from .duckdb import DuckDBDialect
+
+
+_log = logging.getLogger(__name__)
+_warned_idents: set[str] = set()
+
+
+class SnowflakeDialect(DuckDBDialect):
     name = "snowflake"
-    # All format_* bodies land in Task 7; this stub keeps the import live.
-    def format_select(self, qf): raise NotImplementedError
-    def format_join(self, j): raise NotImplementedError
-    def format_case(self, c): raise NotImplementedError
-    def format_simple_case(self, c): raise NotImplementedError
-    def format_aggregate(self, f): raise NotImplementedError
-    def format_window(self, w): raise NotImplementedError
-    def format_cast(self, c): raise NotImplementedError
-    def format_drop_column(self, table, column): raise NotImplementedError
-    def format_table_dee(self): raise NotImplementedError
-    def format_default_from_clause(self): raise NotImplementedError
-    def format_set_isolation_level(self, level): raise NotImplementedError
-    def format_boolean_attribute(self, v): raise NotImplementedError
-    def format_float_attribute(self, v): raise NotImplementedError
-    def format_integer_attribute(self, v): raise NotImplementedError
-    def format_int64_attribute(self, v): raise NotImplementedError
-    def format_top_clause(self, n): raise NotImplementedError
-    def format_offset_clause(self, n): raise NotImplementedError
-    def format_string_literal(self, v): raise NotImplementedError
-    def format_identifier(self, ident): raise NotImplementedError
-    def format_date_trunc(self, part, expr): raise NotImplementedError
-    def format_datediff(self, part, a, b): raise NotImplementedError
-    def format_extract(self, part, expr): raise NotImplementedError
-    def format_current_timestamp(self): raise NotImplementedError
-    def format_interval(self, part, n): raise NotImplementedError
+
+    def format_identifier(self, ident: str) -> str:
+        if ident == "*":
+            return "*"
+        if ident.islower() and ident not in _warned_idents:
+            _log.warning(
+                "Snowflake identifier %r is all-lowercase; Snowflake quotes are "
+                "case-sensitive — callers must match the exact casing.", ident)
+            _warned_idents.add(ident)
+        return '"' + ident.replace('"', '""') + '"'
+
+    def format_cast(self, c: sa.Cast) -> str:
+        return f"{self._emit_expr(c.expr)}::{c.target_type.upper()}"
+
+    def format_int64_attribute(self, v: int) -> str:
+        return f"{int(v)}::NUMBER(38,0)"
+
+    def format_date_trunc(self, part: str, expr: str) -> str:
+        return f"DATE_TRUNC('{part.upper()}', {expr})"
+
+    def format_datediff(self, part: str, a: str, b: str) -> str:
+        return f"DATEDIFF({part.upper()}, {a}, {b})"
+
+    def format_current_timestamp(self) -> str:
+        return "CURRENT_TIMESTAMP"
+
+    def format_interval(self, part: str, n: int) -> str:
+        return f"INTERVAL '{int(n)} {part.upper()}'"
+
+    def format_set_isolation_level(self, level: str) -> str:
+        return f"-- SNOWFLAKE SESSION ISOLATION IS FIXED — {level}"
