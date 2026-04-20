@@ -319,3 +319,30 @@ def test_logical_op_lookup_cross_row_reference():
         offset=-1,
     )
     assert look.offset == -1
+
+
+def test_logical_op_unpivot_columns_to_rows():
+    from vizql.logical import LogicalOpRelation, LogicalOpUnpivot
+    base = LogicalOpRelation(table="sales_wide", schema="public")
+    op = LogicalOpUnpivot(
+        input=base,
+        pivot_cols=("q1", "q2", "q3", "q4"),
+        value_col="revenue",
+        name_col="quarter",
+    )
+    assert op.pivot_cols == ("q1", "q2", "q3", "q4")
+    assert op.value_col == "revenue"
+    assert op.name_col == "quarter"
+
+
+def test_logical_op_values_to_columns_rows_to_columns():
+    from vizql.logical import (
+        Column, LogicalOpRelation, LogicalOpValuestoColumns,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    op = LogicalOpValuestoColumns(
+        input=base,
+        pivot_col=Column(field_id="orders.region"),
+        agg_col=Column(field_id="orders.total"),
+    )
+    assert op.pivot_col == Column(field_id="orders.region")

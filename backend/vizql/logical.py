@@ -252,6 +252,23 @@ class LogicalOpLookup:
     offset: int
 
 
+@dataclass(frozen=True, slots=True)
+class LogicalOpUnpivot:
+    """Build_Tableau.md §IV.2 — columns → rows."""
+    input: "LogicalOp"
+    pivot_cols: tuple[str, ...]
+    value_col: str
+    name_col: str
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalOpValuestoColumns:
+    """Build_Tableau.md §IV.2 — rows → columns (PIVOT)."""
+    input: "LogicalOp"
+    pivot_col: Expression
+    agg_col: Expression
+
+
 LogicalOp = Union[
     "LogicalOpRelation",
     "LogicalOpProject",
@@ -262,6 +279,8 @@ LogicalOp = Union[
     "LogicalOpTop",
     "LogicalOpOver",
     "LogicalOpLookup",
+    "LogicalOpUnpivot",
+    "LogicalOpValuestoColumns",
 ]  # extended in subsequent tasks
 
 
@@ -277,4 +296,5 @@ __all__ = [
     "LogicalOpAggregate",
     "LogicalOpOrder", "LogicalOpTop",
     "LogicalOpOver", "LogicalOpLookup",
+    "LogicalOpUnpivot", "LogicalOpValuestoColumns",
 ]
