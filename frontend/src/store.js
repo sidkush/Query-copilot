@@ -1225,6 +1225,16 @@ export const useStore = create((set, get) => ({
   setAnalystProHoveredZoneId: (id) =>
     set({ analystProHoveredZoneId: id == null ? null : String(id) }),
 
+  // Plan 8c T9: Compute Using table-calc spec overrides per calcId.
+  analystProTableCalcSpecs: {},  // calcId -> TableCalcSpec
+  setTableCalcComputeUsingAnalystPro: (calcId, spec) =>
+    set(state => ({
+      analystProTableCalcSpecs: {
+        ...state.analystProTableCalcSpecs,
+        [calcId]: spec,
+      },
+    })),
+
   // Plan 5c: right-click context menu.
   // `items` is computed eagerly by openContextMenuAnalystPro via
   // buildContextMenu(zone, dashboard, selection) — kept in state so
