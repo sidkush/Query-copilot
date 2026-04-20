@@ -234,6 +234,24 @@ class LogicalOpTop:
             raise ValueError(f"LogicalOpTop.limit must be >= 0 (got {self.limit})")
 
 
+@dataclass(frozen=True, slots=True)
+class LogicalOpOver:
+    """Build_Tableau.md §IV.2 — OVER (windowed expression)."""
+    input: "LogicalOp"
+    partition_bys: PartitionBys
+    order_by: tuple[OrderBy, ...]
+    frame: FrameSpec
+    expressions: NamedExps
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalOpLookup:
+    """Build_Tableau.md §IV.2 — cross-row reference (LOOKUP)."""
+    input: "LogicalOp"
+    lookup_field: Expression
+    offset: int
+
+
 LogicalOp = Union[
     "LogicalOpRelation",
     "LogicalOpProject",
@@ -242,6 +260,8 @@ LogicalOp = Union[
     "LogicalOpAggregate",
     "LogicalOpOrder",
     "LogicalOpTop",
+    "LogicalOpOver",
+    "LogicalOpLookup",
 ]  # extended in subsequent tasks
 
 
@@ -256,4 +276,5 @@ __all__ = [
     "LogicalOpSelect", "LogicalOpFilter",
     "LogicalOpAggregate",
     "LogicalOpOrder", "LogicalOpTop",
+    "LogicalOpOver", "LogicalOpLookup",
 ]

@@ -278,3 +278,44 @@ def test_logical_op_top_rejects_negative_limit():
     base = LogicalOpRelation(table="orders", schema="public")
     with pytest.raises(ValueError, match="limit"):
         LogicalOpTop(input=base, limit=-1, is_percentage=False)
+
+
+def test_logical_op_over_window_expression():
+    from vizql.logical import (
+        Column, Field, FrameEnd, FrameSpec, FrameStart,
+        LogicalOpOver, LogicalOpRelation, NamedExps, OrderBy, PartitionBys,
+        WindowFrameType,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    region = Field(id="orders.region", data_type="string", role="dimension",
+                   aggregation="none", semantic_role="", is_disagg=False)
+    frame = FrameSpec(
+        frame_type=WindowFrameType.ROWS,
+        start=FrameStart(kind="unbounded_preceding"),
+        end=FrameEnd(kind="current_row"),
+    )
+    over = LogicalOpOver(
+        input=base,
+        partition_bys=PartitionBys(fields=(region,)),
+        order_by=(OrderBy(identifier_exp=Column(field_id="orders.date"),
+                          is_ascending=True),),
+        frame=frame,
+        expressions=NamedExps(entries=(
+            ("running_total", Column(field_id="orders.total")),
+        )),
+    )
+    assert over.partition_bys.fields == (region,)
+    assert over.frame.frame_type == WindowFrameType.ROWS
+
+
+def test_logical_op_lookup_cross_row_reference():
+    from vizql.logical import (
+        Column, LogicalOpLookup, LogicalOpRelation,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    look = LogicalOpLookup(
+        input=base,
+        lookup_field=Column(field_id="orders.total"),
+        offset=-1,
+    )
+    assert look.offset == -1
