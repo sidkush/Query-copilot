@@ -3,6 +3,8 @@ from vizql import sql_ast as sa
 from vizql.passes.input_schema_prover import InputSchemaProverPass, InputSchemaError
 from vizql.passes.logical_op_schema_and_type_deriver import SchemaAndTypeDeriverPass
 from vizql.passes.data_type_resolver import DataTypeResolverPass
+from vizql.passes.join_tree_virtualizer import JoinTreeVirtualizerPass
+from vizql.passes.equality_prover import EqualityProverPass
 
 
 def _qf_with_missing_column() -> sa.SQLQueryFunction:
@@ -68,3 +70,61 @@ def test_data_type_resolver_rejects_cast_to_unknown_source():
     with pytest.raises(Exception, match=r"(?i)unknown"):
         DataTypeResolverPass(strict=True).run(
             SchemaAndTypeDeriverPass(schemas).run(qf))
+
+
+def _qf_three_tables() -> sa.SQLQueryFunction:
+    a = sa.TableRef(name="a", alias="a")
+    b = sa.TableRef(name="b", alias="b")
+    c = sa.TableRef(name="c", alias="c")
+    j1 = sa.JoinNode(kind="INNER", left=a, right=b,
+                     on=sa.BinaryOp(op="=",
+                                     left=sa.Column(name="id", table_alias="a"),
+                                     right=sa.Column(name="a_id", table_alias="b")))
+    j2 = sa.JoinNode(kind="INNER", left=j1, right=c,
+                     on=sa.BinaryOp(op="=",
+                                     left=sa.Column(name="id", table_alias="b"),
+                                     right=sa.Column(name="b_id", table_alias="c")))
+    return sa.SQLQueryFunction(
+        projections=(sa.Projection(alias="x",
+                                     expression=sa.Column(name="x", table_alias="a")),),
+        from_=j2,
+    )
+
+
+def test_join_virtualizer_drops_unreferenced_table():
+    qf = _qf_three_tables()
+    out = JoinTreeVirtualizerPass(referenced_tables={"a"}).run(qf)
+    # only 'a' is referenced; joins to b and c should collapse to base TableRef
+    assert isinstance(out.from_, sa.TableRef)
+    assert out.from_.name == "a"
+
+
+def test_join_virtualizer_keeps_referenced_joins():
+    qf = _qf_three_tables()
+    out = JoinTreeVirtualizerPass(referenced_tables={"a", "b"}).run(qf)
+    assert isinstance(out.from_, sa.JoinNode)
+
+
+def test_equality_prover_collects_asserted_equalities():
+    qf = sa.SQLQueryFunction(
+        projections=(sa.Projection(alias="x",
+                                     expression=sa.Column(name="x", table_alias="t")),),
+        from_=sa.TableRef(name="t", alias="t"),
+        where=sa.BinaryOp(op="=",
+                           left=sa.Column(name="x", table_alias="t"),
+                           right=sa.Literal(value=1, data_type="int")),
+    )
+    prover = EqualityProverPass()
+    prover.run(qf)
+    eq = prover.assertions_for_scope("root")
+    assert ("t.x", "1") in eq.equalities
+
+
+def test_equality_prover_is_idempotent():
+    qf = sa.SQLQueryFunction(
+        projections=(sa.Projection(alias="x",
+                                     expression=sa.Column(name="x", table_alias="t")),),
+        from_=sa.TableRef(name="t", alias="t"),
+    )
+    p = EqualityProverPass()
+    assert p.run(p.run(qf)) == p.run(qf)
