@@ -12,3 +12,4 @@ from vizql.logical import (  # noqa: E402,F401
     FrameStart, FrameEnd, FrameSpec,
     AggExp,
 )
+from vizql.validator import LogicalPlanError, validate_logical_plan  # noqa: E402,F401
