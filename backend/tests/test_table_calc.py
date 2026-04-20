@@ -121,3 +121,32 @@ def test_first_last_size_use_dedicated_sql():
                                          arg_field="", addressing=("Year",)),
                            _ctx())
     assert "COUNT" in str(s.plan.expressions)
+
+
+def test_total_uses_unbounded_to_unbounded_frame():
+    spec = TableCalcSpec(calc_id="c1", function="TOTAL", arg_field="Sales",
+                         addressing=("Year",))
+    out = compile_table_calc(spec, _ctx())
+    assert isinstance(out, ServerSideCalc)
+    assert out.plan.frame is not None
+    assert out.plan.frame.start == ("UNBOUNDED", 0)
+    assert out.plan.frame.end == ("UNBOUNDED", 0)
+    assert "SUM" in str(out.plan.expressions)
+
+
+def test_pct_total_divides_by_window_sum():
+    spec = TableCalcSpec(calc_id="c1", function="PCT_TOTAL", arg_field="Sales",
+                         addressing=("Year",))
+    out = compile_table_calc(spec, _ctx())
+    body = str(out.plan.expressions)
+    assert "/" in body and "SUM" in body
+
+
+@pytest.mark.parametrize("fn", ["LOOKUP", "PREVIOUS_VALUE", "DIFF",
+                                "IS_DISTINCT", "IS_STACKED"])
+def test_client_side_routes_return_clientsidecalc(fn):
+    spec = TableCalcSpec(calc_id="c1", function=fn, arg_field="Sales",
+                         offset=-1)
+    out = compile_table_calc(spec, _ctx())
+    assert isinstance(out, ClientSideCalc)
+    assert out.spec.function == fn

@@ -246,6 +246,25 @@ def _compile_index_first_last_size(spec: TableCalcSpec, ctx: TableCalcCtx) -> Se
     return _make_over(body, spec, ctx, output_alias=spec.calc_id)
 
 
+def _compile_total_family(spec: TableCalcSpec, ctx: TableCalcCtx) -> ServerSideCalc:
+    sum_body = sa.FnCall(name="SUM", args=(_arg_col(spec, ctx),))
+    frame = sa.FrameClause(
+        kind="ROWS",
+        start=("UNBOUNDED", 0),
+        end=("UNBOUNDED", 0),
+    )
+    if spec.function == "TOTAL":
+        return _make_over(sum_body, spec, ctx, output_alias=spec.calc_id,
+                          frame=frame)
+    # PCT_TOTAL = arg_field / SUM(arg_field) OVER(...)
+    body = sa.BinaryOp(
+        op="/",
+        left=_arg_col(spec, ctx),
+        right=sum_body,
+    )
+    return _make_over(body, spec, ctx, output_alias=spec.calc_id, frame=frame)
+
+
 def compile_table_calc(spec: TableCalcSpec, ctx: TableCalcCtx) -> CompiledTableCalc:
     fn = spec.function
     if fn in _CLIENT_SIDE:
@@ -256,6 +275,8 @@ def compile_table_calc(spec: TableCalcSpec, ctx: TableCalcCtx) -> CompiledTableC
         return _compile_rank_family(spec, ctx)
     if fn in ("INDEX", "FIRST", "LAST", "SIZE"):
         return _compile_index_first_last_size(spec, ctx)
+    if fn in ("TOTAL", "PCT_TOTAL"):
+        return _compile_total_family(spec, ctx)
     if fn.startswith("WINDOW_"):
         return _compile_window_family(spec, ctx)
     if fn in _SERVER_SIDE:
