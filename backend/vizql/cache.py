@@ -288,3 +288,80 @@ class ExternalLogicalQueryCache:
             return
         self._last_warn_ts = now
         logger.warning(msg)
+
+
+# ---------------------------------------------------------------------------
+# Plan 7e T4 — HistoryTrackingCache
+# ---------------------------------------------------------------------------
+
+from collections import deque
+from dataclasses import dataclass as _dataclass
+from datetime import datetime, timezone
+
+_VALID_INVALIDATION_REASONS = frozenset(
+    {"param_change", "extract_refresh", "manual", "ttl", "schema_drift"}
+)
+
+
+@_dataclass(frozen=True)
+class InvalidationRecord:
+    """Why a cache entry was invalidated — for perf-debug UI."""
+    timestamp: str
+    ds_id: str
+    key_hash: str
+    reason: str
+
+
+class HistoryTrackingCache:
+    """Wraps an in-process or external cache, recording invalidation reasons.
+
+    Ring-buffer per ds_id (FIFO eviction at ``history_max_per_ds``).
+    """
+
+    def __init__(
+        self,
+        inner: Any,
+        history_max_per_ds: int = 10_000,
+    ) -> None:
+        self._inner = inner
+        self._history_max = int(history_max_per_ds)
+        self._history: Dict[str, "deque[InvalidationRecord]"] = {}
+        self._lock = threading.RLock()
+
+    def get(self, key: AbstractQueryCacheKey) -> Optional[Any]:
+        return self._inner.get(key)
+
+    def put(self, key: AbstractQueryCacheKey, value: Any, size_bytes: Optional[int] = None) -> None:
+        self._inner.put(key, value, size_bytes)
+
+    def invalidate(self, key: AbstractQueryCacheKey, reason: str) -> bool:
+        if reason not in _VALID_INVALIDATION_REASONS:
+            raise ValueError(
+                f"invalid invalidation reason {reason!r}; allowed: "
+                f"{sorted(_VALID_INVALIDATION_REASONS)}"
+            )
+        removed = bool(self._inner.invalidate(key))
+        record = InvalidationRecord(
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            ds_id=key.ds_id,
+            key_hash=key.content_hash(),
+            reason=reason,
+        )
+        with self._lock:
+            buf = self._history.get(key.ds_id)
+            if buf is None:
+                buf = deque(maxlen=self._history_max)
+                self._history[key.ds_id] = buf
+            buf.append(record)
+        return removed
+
+    def get_invalidation_history(self, ds_id: str) -> list[InvalidationRecord]:
+        with self._lock:
+            return list(self._history.get(ds_id, ()))
+
+    def clear_history(self, ds_id: Optional[str] = None) -> None:
+        with self._lock:
+            if ds_id is None:
+                self._history.clear()
+            else:
+                self._history.pop(ds_id, None)
