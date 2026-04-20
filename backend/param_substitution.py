@@ -152,3 +152,21 @@ def substitute_param_tokens(
             f"Substituted SQL exceeds {MAX_SUBSTITUTED_SQL_LEN} chars"
         )
     return replaced
+
+
+def format_as_literal(value: Any, ptype: str) -> str:
+    """Public wrapper around `_render_literal`. The single source of truth for
+    SQL literal formatting in calc-expression compilation (Plan 8a).
+    NEVER interpolate user values without going through this helper.
+
+    Normalises calc-catalogue type names onto `_render_literal`'s vocabulary:
+      - ``integer``/``real``/``float`` → ``number``
+      - ``datetime`` → ``date`` (ISO-8601 string)
+    Other types pass through untouched.
+    """
+    # Normalise calc-AST type vocabulary onto _render_literal's vocabulary.
+    if ptype in ("integer", "real", "float"):
+        ptype = "number"
+    elif ptype == "datetime":
+        ptype = "date"
+    return _render_literal({"type": ptype, "value": value})
