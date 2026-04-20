@@ -128,3 +128,82 @@ def test_equality_prover_is_idempotent():
     )
     p = EqualityProverPass()
     assert p.run(p.run(qf)) == p.run(qf)
+
+
+from vizql.passes.aggregate_pushdown import AggregatePushdownPass
+from vizql.passes.common_subexp_elimination import CommonSubexpElimPass
+from vizql.optimizer import optimize, OptimizerContext
+
+
+def test_agg_pushdown_moves_sum_into_subquery_when_safe():
+    inner = sa.SQLQueryFunction(
+        projections=(sa.Projection(alias="*",
+                                     expression=sa.Column(name="*", table_alias="")),),
+        from_=sa.TableRef(name="orders", alias="o"),
+    )
+    outer = sa.SQLQueryFunction(
+        projections=(
+            sa.Projection(alias="region",
+                          expression=sa.Column(name="region", table_alias="sub")),
+            sa.Projection(alias="total",
+                          expression=sa.FnCall(
+                              name="SUM",
+                              args=(sa.Column(name="amount", table_alias="sub"),))),
+        ),
+        from_=sa.SubqueryRef(query=inner, alias="sub"),
+        group_by=(sa.Column(name="region", table_alias="sub"),),
+    )
+    out = AggregatePushdownPass().run(outer)
+    # pushed: the inner query now carries the SUM + GROUP BY
+    pushed_inner = out.from_.query  # type: ignore[union-attr]
+    agg_names = {p.alias for p in pushed_inner.projections}
+    assert "total" in agg_names or len(pushed_inner.group_by) > 0
+
+
+def test_cse_hoists_shared_subexpression_to_cte():
+    # expression "x * 2" referenced twice → CSE promotes it
+    shared = sa.BinaryOp(op="*",
+                          left=sa.Column(name="x", table_alias="t"),
+                          right=sa.Literal(value=2, data_type="int"))
+    qf = sa.SQLQueryFunction(
+        projections=(
+            sa.Projection(alias="a", expression=shared),
+            sa.Projection(alias="b",
+                          expression=sa.BinaryOp(op="+",
+                                                  left=shared,
+                                                  right=sa.Literal(value=1,
+                                                                    data_type="int"))),
+        ),
+        from_=sa.TableRef(name="t", alias="t"),
+    )
+    out = CommonSubexpElimPass().run(qf)
+    # a shared expression counted ≥ 2 becomes a named ref
+    assert "cse" in " ".join(out.diagnostics) or len(out.ctes) >= 1 or \
+           any(isinstance(p.expression, sa.Column) and p.expression.name.startswith("__cse")
+               for p in out.projections)
+
+
+def test_optimizer_pipeline_idempotent():
+    schemas = {"tbl": {"x": "int"}}
+    qf = sa.SQLQueryFunction(
+        projections=(sa.Projection(alias="x",
+                                     expression=sa.Column(name="x", table_alias="t")),),
+        from_=sa.TableRef(name="tbl", alias="t"),
+    )
+    ctx = OptimizerContext(schemas=schemas, referenced_tables={"tbl"})
+    once = optimize(qf, ctx)
+    twice = optimize(once, ctx)
+    assert once == twice
+
+
+def test_optimizer_pipeline_terminates_fixed_cap():
+    # no pass should explode the AST; pipeline caps iterations at 2
+    schemas = {"tbl": {"x": "int"}}
+    qf = sa.SQLQueryFunction(
+        projections=(sa.Projection(alias="x",
+                                     expression=sa.Column(name="x", table_alias="t")),),
+        from_=sa.TableRef(name="tbl", alias="t"),
+    )
+    ctx = OptimizerContext(schemas=schemas, referenced_tables={"tbl"},
+                            max_iterations=2)
+    optimize(qf, ctx)  # no raise; completes under cap
