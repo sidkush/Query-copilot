@@ -1,0 +1,13 @@
+[
+  {
+    "mark": { "type": "rule", "strokeDash": [4, 4], "color": "#4C78A8", "size": 2 },
+    "encoding": { "y": { "datum": 42.5, "type": "quantitative" } }
+  },
+  {
+    "mark": { "type": "text", "align": "left", "dx": 4, "dy": -4, "color": "#4C78A8" },
+    "encoding": {
+      "y": { "datum": 42.5, "type": "quantitative" },
+      "text": { "value": "Average 42.5" }
+    }
+  }
+]

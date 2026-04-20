@@ -1,0 +1,9 @@
+[
+  {
+    "mark": { "type": "rect", "color": "#cccccc", "opacity": 0.25 },
+    "encoding": {
+      "y":  { "datum": 10, "type": "quantitative" },
+      "y2": { "datum": 90 }
+    }
+  }
+]

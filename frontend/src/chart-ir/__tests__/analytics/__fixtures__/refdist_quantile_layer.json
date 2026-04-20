@@ -1,0 +1,14 @@
+[
+  {
+    "mark": { "type": "rule", "color": "#888888", "opacity": 0.4, "size": 1 },
+    "encoding": { "y": { "datum": 12, "type": "quantitative" } }
+  },
+  {
+    "mark": { "type": "rule", "color": "#888888", "opacity": 0.7, "size": 1 },
+    "encoding": { "y": { "datum": 50, "type": "quantitative" } }
+  },
+  {
+    "mark": { "type": "rule", "color": "#888888", "opacity": 0.4, "size": 1 },
+    "encoding": { "y": { "datum": 100, "type": "quantitative" } }
+  }
+]
