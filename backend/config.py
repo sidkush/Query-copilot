@@ -266,6 +266,9 @@ class Settings(BaseSettings):
     MAX_CALC_FORMULA_LEN: int = 10_000
     MAX_CALC_NESTING: int = 32
 
+    # Plan 8b Section XIX.1 — warn on FIXED LOD with estimated Cartesian > this
+    LOD_WARN_THRESHOLD_ROWS: int = 1_000_000
+
     # Sub-project A — new chart editor + ChartSpec IR cutover (Phase 4b).
     # Phase 4c+2: default flipped to True. /analytics now always renders
     # the new DashboardShell + ChartEditor path (legacy DashboardBuilder
