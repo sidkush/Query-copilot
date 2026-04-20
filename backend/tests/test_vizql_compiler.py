@@ -7,7 +7,9 @@ import pytest
 from vizql import spec
 from vizql.compiler import compile_visual_spec
 from vizql.logical import (
-    LogicalOpAggregate, LogicalOpRelation, LogicalOpSelect,
+    BinaryOp, Column, DomainType, FnCall, Literal,
+    LogicalOpAggregate, LogicalOpDomain, LogicalOpFilter,
+    LogicalOpProject, LogicalOpRelation, LogicalOpSelect,
 )
 
 # NOTE: validate_logical_plan lands in T9 (parallel worktree plan7b-t9).
@@ -136,3 +138,256 @@ def test_compile_empty_filters_produces_no_select_nodes():
     while not isinstance(node, LogicalOpRelation):
         assert not isinstance(node, LogicalOpSelect)
         node = getattr(node, "input")
+
+
+# ---- Plan 7b T11: filter lowering + mark-aware agg + MN/MV + dual axis + domain
+
+
+def _categorical_filter(field_id: str, values: list[str],
+                         stage: str = "dimension") -> spec.FilterSpec:
+    f = spec.Field(
+        id=field_id,
+        data_type=spec.DataType.DATA_TYPE_STRING,
+        role=spec.FieldRole.FIELD_ROLE_DIMENSION,
+    )
+    return spec.FilterSpec(
+        filter_kind=spec.FilterKind.FILTER_KIND_CATEGORICAL,
+        field=f,
+        categorical=spec.CategoricalFilterProps(values=values),
+        filter_stage=stage,
+    )
+
+
+def test_compile_attaches_categorical_dim_filter_as_select():
+    region = _dim("orders.region")
+    total = _measure("orders.total")
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, total],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[region]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        filters=[_categorical_filter("orders.region", ["East", "West"])],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+    )
+    plan = compile_visual_spec(s)
+    # Drill through Aggregate.input to find the Select.
+    node = plan.input  # type: ignore[attr-defined]
+    assert isinstance(node, LogicalOpSelect)
+    assert node.filter_stage == "dimension"
+    assert isinstance(node.predicate, FnCall)
+    assert node.predicate.name == "IN"
+
+
+def test_compile_attaches_range_filter_as_binary_op():
+    region = _dim("orders.region")
+    total = _measure("orders.total")
+    price = spec.Field(
+        id="orders.price",
+        data_type=spec.DataType.DATA_TYPE_NUMBER,
+        role=spec.FieldRole.FIELD_ROLE_DIMENSION,
+    )
+    rf = spec.FilterSpec(
+        filter_kind=spec.FilterKind.FILTER_KIND_RANGE,
+        field=price,
+        range=spec.RangeFilterProps(min=0.0, max=100.0),
+        filter_stage="dimension",
+    )
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, total, price],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[region]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        filters=[rf],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+    )
+    plan = compile_visual_spec(s)
+    node = plan.input  # type: ignore[attr-defined]
+    assert isinstance(node, LogicalOpSelect)
+    # BETWEEN lowered as AND of two comparisons.
+    assert isinstance(node.predicate, BinaryOp)
+    assert node.predicate.op == "AND"
+
+
+def test_compile_relative_date_filter_lowers_to_fncall():
+    date = spec.Field(
+        id="orders.date",
+        data_type=spec.DataType.DATA_TYPE_DATE,
+        role=spec.FieldRole.FIELD_ROLE_DIMENSION,
+    )
+    total = _measure("orders.total")
+    rd = spec.FilterSpec(
+        filter_kind=spec.FilterKind.FILTER_KIND_RELATIVE_DATE,
+        field=date,
+        relative_date=spec.RelativeDateFilterProps(
+            anchor_date="2026-01-01", period_type="month",
+            date_range_type="last_n", range_n=3,
+        ),
+        filter_stage="dimension",
+    )
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[date, total],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[date]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        filters=[rd],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+    )
+    plan = compile_visual_spec(s)
+    node = plan.input  # type: ignore[attr-defined]
+    assert isinstance(node, LogicalOpSelect)
+    assert isinstance(node.predicate, FnCall)
+    assert node.predicate.name == "RELATIVE_DATE"
+
+
+def test_compile_context_filter_marker_preserved():
+    region = _dim("orders.region")
+    total = _measure("orders.total")
+    cf = _categorical_filter("orders.region", ["East"], stage="context")
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, total],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[region]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        filters=[cf],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+    )
+    plan = compile_visual_spec(s)
+    node = plan.input  # type: ignore[attr-defined]
+    assert isinstance(node, LogicalOpSelect)
+    assert node.filter_stage == "context"
+
+
+def test_compile_measure_filter_becomes_logical_op_filter():
+    region = _dim("orders.region")
+    total = _measure("orders.total")
+    # Measure filter: HAVING SUM(total) > 1000.
+    mf = spec.FilterSpec(
+        filter_kind=spec.FilterKind.FILTER_KIND_RANGE,
+        field=total,
+        range=spec.RangeFilterProps(min=1000.0, max=1e18),
+        filter_stage="measure",
+    )
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, total],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[region]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        filters=[mf],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+    )
+    plan = compile_visual_spec(s)
+    # Measure filter sits above the aggregate.
+    assert isinstance(plan, LogicalOpFilter)
+    assert plan.filter_stage == "measure"
+
+
+def test_compile_scatter_disaggregates():
+    x = _measure("orders.price")
+    y = _measure("orders.profit")
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[x, y],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[x]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[y]),
+        ],
+        mark_type=spec.MarkType.MARK_TYPE_CIRCLE,  # scatter default
+    )
+    plan = compile_visual_spec(s)
+    # No aggregate wrapper; Project instead.
+    assert isinstance(plan, LogicalOpProject)
+    names = [n for n, _ in plan.expressions.entries]
+    assert "orders.price" in names and "orders.profit" in names
+
+
+def test_compile_dual_axis_produces_two_aggregations():
+    region = _dim("orders.region")
+    sales = _measure("orders.sales")
+    profit = _measure("orders.profit")
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, sales, profit],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[region]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[sales, profit]),
+        ],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+    )
+    plan = compile_visual_spec(s)
+    assert isinstance(plan, LogicalOpAggregate)
+    names = {a.name for a in plan.aggregations}
+    assert {"orders.sales__sum", "orders.profit__sum"} <= names
+
+
+def test_compile_measure_names_values_synthetic():
+    region = _dim("orders.region")
+    sales = _measure("orders.sales")
+    profit = _measure("orders.profit")
+    mn = spec.Field(
+        id="__measure_names__",
+        data_type=spec.DataType.DATA_TYPE_STRING,
+        role=spec.FieldRole.FIELD_ROLE_DIMENSION,
+        column_class=spec.ColumnClass.COLUMN_CLASS_VISUAL_DATA,
+    )
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, sales, profit, mn],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN,
+                       fields=[region, mn]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW,
+                       fields=[sales, profit]),
+        ],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+    )
+    plan = compile_visual_spec(s)
+    assert isinstance(plan, LogicalOpAggregate)
+    grain_ids = {f.id for f in plan.group_bys}
+    assert "__measure_names__" in grain_ids
+    assert len(plan.aggregations) == 2
+
+
+def test_compile_snowflake_domain_wraps_in_logical_op_domain():
+    region = _dim("orders.region")
+    total = _measure("orders.total")
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, total],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[region]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+        domain_type="snowflake",
+    )
+    plan = compile_visual_spec(s)
+    assert isinstance(plan, LogicalOpDomain)
+    assert plan.domain == DomainType.SNOWFLAKE
+
+
+def test_compile_separate_domain_does_not_wrap():
+    region = _dim("orders.region")
+    total = _measure("orders.total")
+    s = spec.VisualSpec(
+        sheet_id="orders",
+        fields=[region, total],
+        shelves=[
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_COLUMN, fields=[region]),
+            spec.Shelf(kind=spec.ShelfKind.SHELF_KIND_ROW, fields=[total]),
+        ],
+        mark_type=spec.MarkType.MARK_TYPE_BAR,
+        domain_type="separate",
+    )
+    plan = compile_visual_spec(s)
+    # Default: no LogicalOpDomain wrap.
+    assert not isinstance(plan, LogicalOpDomain)
