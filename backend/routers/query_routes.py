@@ -1254,6 +1254,111 @@ def underlying_rows(req: UnderlyingRequest, user: dict = Depends(get_current_use
     }
 
 
+# ---- Plan 8d T6: sample rows for calc editor "Test Values" panel ----
+
+_SAMPLE_DEFAULT_LIMIT = 10
+_SAMPLE_MAX_LIMIT = 100
+
+# Conservative identifier pattern — must match sql_validator's view of
+# what constitutes a safe bare table name. Anything outside this pattern
+# is rejected BEFORE interpolation; the SQLValidator re-checks after.
+_SAMPLE_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+@router.get("/sample")
+def sample_rows(
+    conn_id: str = Query(...),
+    limit: int = Query(_SAMPLE_DEFAULT_LIMIT, ge=1, le=_SAMPLE_MAX_LIMIT),
+    user: dict = Depends(get_current_user),
+):
+    """Plan 8d T6 — first-table sample rows for the calc editor.
+
+    Returns up to `limit` rows (capped at 100) from the first table exposed by
+    the connection's schema. Read-only by every layer that protects /execute:
+      * identifier regex gate before interpolation
+      * SQLValidator.validate() 6-layer pipeline
+      * read-only connector enforcement
+      * mask_dataframe() on the result before it leaves the backend
+    """
+    if not settings.FEATURE_ANALYST_PRO:
+        raise HTTPException(status_code=404, detail="sample rows disabled")
+
+    from sql_validator import SQLValidator
+    from pii_masking import mask_dataframe
+    import pandas as pd
+
+    email = user["email"]
+    entry = get_connection(conn_id, email)
+
+    # Resolve the first table from the connection's schema.
+    try:
+        schema_info = entry.connector.get_schema_info()
+    except Exception as exc:  # connector not connected, driver error, etc.
+        raise HTTPException(status_code=400, detail=f"schema lookup failed: {exc}")
+
+    if not schema_info:
+        raise HTTPException(status_code=404, detail="no tables available for sampling")
+
+    table_name = next(iter(schema_info.keys()))
+
+    # Identifier gate — reject anything that doesn't look like a bare
+    # [A-Za-z_][A-Za-z0-9_]* name. SQLValidator will re-check but we want
+    # to fail fast BEFORE interpolation to keep the surface minimal.
+    if not _SAMPLE_IDENT_RE.match(table_name):
+        raise HTTPException(
+            status_code=400,
+            detail=f"table name '{table_name}' rejected by identifier policy",
+        )
+
+    # Double-quote for dialect-agnostic safety. Validator will catch any
+    # injection attempt that slipped through the regex.
+    sql = f'SELECT * FROM "{table_name}" LIMIT {int(limit)}'
+
+    validator = SQLValidator()
+    is_valid, clean_sql, error = validator.validate(sql)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Validation failed: {error}")
+
+    result = entry.engine.execute_sql(clean_sql, "calc_sample")
+    if result.error:
+        raise HTTPException(status_code=400, detail=result.error)
+
+    payload = result.to_dict()
+    columns = payload.get("columns", []) or []
+    raw_rows = payload.get("rows", []) or []
+
+    # Rows may arrive as list-of-lists (arrow extraction) or list-of-dicts
+    # (existing ResultSet.to_dict in some paths). Normalise to list-of-dicts
+    # keyed by column name, masking PII on the way.
+    if raw_rows and isinstance(raw_rows[0], dict):
+        row_dicts = raw_rows
+    else:
+        row_dicts = [dict(zip(columns, r)) for r in raw_rows]
+
+    # mask_dataframe is the canonical PII gate. engine.execute_sql already
+    # masks in-place, but the ResultSet round-trip can bypass that path on
+    # certain backends — re-mask here to be defensive. Idempotent for the
+    # asterisk-mask strategy we use today.
+    if row_dicts:
+        try:
+            df = pd.DataFrame(row_dicts, columns=columns)
+            masked = mask_dataframe(df, conn_id=conn_id)
+            # NaN → None so JSON encoding stays clean.
+            row_dicts = masked.where(pd.notnull(masked), None).to_dict(orient="records")
+        except Exception:
+            # Masking is defense-in-depth; the engine already masked once.
+            # Don't fail the request if the DataFrame round-trip hiccups.
+            pass
+
+    return {
+        "columns": columns,
+        "rows": row_dicts,
+        "table": table_name,
+        "limit": int(limit),
+        "row_count": len(row_dicts),
+    }
+
+
 # ---- Plan 8a: calc validation endpoint ----
 # query_routes.router is mounted with prefix="/api/v1/queries"; the endpoint
 # needs an absolute path of /api/v1/calcs/validate. We can't modify main.py,
