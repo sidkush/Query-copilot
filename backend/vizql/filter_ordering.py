@@ -246,4 +246,25 @@ __all__ = [
     "apply_filters_in_order",
     "LodPlacement",
     "place_lod_in_order",
+    "place_table_calc_filter",
 ]
+
+
+def place_table_calc_filter(
+    predicate: sa.SQLQueryExpression,
+    *,
+    case_sensitive: bool = True,
+    should_affect_totals: bool = True,
+) -> StagedFilter:
+    """Plan 8c — wrap a table-calc filter predicate as a stage-8
+    `StagedFilter`. Stage 8 lives in the client-side bucket per
+    Build_Tableau.md §IV.7 step 8: the predicate never reaches SQL —
+    `apply_filters_in_order` parks it in `client_side_filters` so the
+    frontend evaluator can apply it post-fetch.
+    """
+    return StagedFilter(
+        stage="table_calc",
+        predicate=predicate,
+        case_sensitive=case_sensitive,
+        should_affect_totals=should_affect_totals,
+    )
