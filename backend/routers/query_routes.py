@@ -1444,6 +1444,54 @@ async def evaluate_calc(
     }
 
 
+# ── Plan 8d T10 — /api/v1/calcs/suggest ───────────────────────────────
+class _CalcSuggestRequest(BaseModel):
+    description: str
+    schema_ref: dict[str, str] = Field(default_factory=dict)
+    parameters: list[dict] = Field(default_factory=list)
+    sets: list[dict] = Field(default_factory=list)
+    existing_calcs: list[dict] = Field(default_factory=list)
+
+
+@_calcs_router.post("/suggest")
+async def suggest_calc_endpoint(
+    req: _CalcSuggestRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    if not settings.FEATURE_ANALYST_PRO:
+        raise HTTPException(status_code=404, detail="calc suggest disabled")
+    if not settings.FEATURE_CALC_LLM_SUGGEST:
+        raise HTTPException(status_code=404, detail="calc LLM suggest disabled")
+    if len(req.description) > settings.CALC_SUGGEST_MAX_DESCRIPTION_LEN:
+        raise HTTPException(status_code=413, detail="description too long")
+
+    email = current_user.get("email") or current_user.get("sub", "")
+    from vizql.calc_suggest import suggest_calc
+
+    try:
+        result = suggest_calc(
+            email=email,
+            description=req.description,
+            schema_ref=req.schema_ref,
+            parameters=req.parameters,
+            sets=req.sets,
+            existing_calcs=req.existing_calcs,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=429, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    return {
+        "formula": result.formula,
+        "explanation": result.explanation,
+        "confidence": result.confidence,
+        "is_generative_ai_web_authoring": True,
+    }
+
+
 # Splice the calcs routes onto the existing query_routes.router so main.py's
 # app.include_router(query_routes.router) picks them up at /api/v1/calcs/*
 # without needing an extra mount line in main.py.

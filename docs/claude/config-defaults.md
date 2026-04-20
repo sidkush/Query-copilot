@@ -53,6 +53,16 @@ updated — do not assume `4-5-20250514` without checking the active `.env`.
 |---|---|---|
 | `LOD_WARN_THRESHOLD_ROWS` | `1_000_000` | FIXED LOD cost estimate above this triggers `CalcWarning(kind="expensive_fixed_lod")` via `vizql/lod_analyzer.py`. Observation-only; never blocks. Section XIX.1 anti-pattern #1. |
 
+### Calc editor (Plan 8d)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `CALC_EVAL_TIMEOUT_SECONDS` | `1.0` | Single-row DuckDB eval wall-clock cap (504 if exceeded). |
+| `CALC_EVAL_CACHE_TTL_SECONDS` | `60` | `(formula_hash, row_hash)` result cache TTL for `/api/v1/calcs/evaluate`. |
+| `FEATURE_CALC_LLM_SUGGEST` | `True` | Gates `/api/v1/calcs/suggest` LLM endpoint. Free-plan ops can force `False` without code change. |
+| `CALC_SUGGEST_RATE_LIMIT_PER_60S` | `5` | Per-user LLM suggestion cap (60s sliding window). 429 when exceeded. |
+| `CALC_SUGGEST_MAX_DESCRIPTION_LEN` | `1000` | Reject oversized NL descriptions (413). |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |
