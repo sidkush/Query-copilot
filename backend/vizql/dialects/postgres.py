@@ -1,29 +1,37 @@
-from ..dialect_base import BaseDialect
+"""Postgres dialect — canonical SQL. Postgres-family DBs (CockroachDB,
+Redshift) also route here (see registry.py)."""
+from __future__ import annotations
 
-class PostgresDialect(BaseDialect):
+from ..dialect_base import BaseDialect
+from .. import sql_ast as sa
+from .duckdb import DuckDBDialect
+
+
+class PostgresDialect(DuckDBDialect):
+    """Inherit generic-SQL overrides from DuckDB, change the pieces that
+    actually differ from Postgres: cast syntax, int64 literals, DATE_DIFF,
+    DROP COLUMN syntax."""
     name = "postgres"
-    # All format_* bodies land in Task 5; this stub keeps the import live.
-    def format_select(self, qf): raise NotImplementedError
-    def format_join(self, j): raise NotImplementedError
-    def format_case(self, c): raise NotImplementedError
-    def format_simple_case(self, c): raise NotImplementedError
-    def format_aggregate(self, f): raise NotImplementedError
-    def format_window(self, w): raise NotImplementedError
-    def format_cast(self, c): raise NotImplementedError
-    def format_drop_column(self, table, column): raise NotImplementedError
-    def format_table_dee(self): raise NotImplementedError
-    def format_default_from_clause(self): raise NotImplementedError
-    def format_set_isolation_level(self, level): raise NotImplementedError
-    def format_boolean_attribute(self, v): raise NotImplementedError
-    def format_float_attribute(self, v): raise NotImplementedError
-    def format_integer_attribute(self, v): raise NotImplementedError
-    def format_int64_attribute(self, v): raise NotImplementedError
-    def format_top_clause(self, n): raise NotImplementedError
-    def format_offset_clause(self, n): raise NotImplementedError
-    def format_string_literal(self, v): raise NotImplementedError
-    def format_identifier(self, ident): raise NotImplementedError
-    def format_date_trunc(self, part, expr): raise NotImplementedError
-    def format_datediff(self, part, a, b): raise NotImplementedError
-    def format_extract(self, part, expr): raise NotImplementedError
-    def format_current_timestamp(self): raise NotImplementedError
-    def format_interval(self, part, n): raise NotImplementedError
+
+    def format_cast(self, c: sa.Cast) -> str:
+        return f"({self._emit_expr(c.expr)})::{c.target_type.upper()}"
+
+    def format_int64_attribute(self, v: int) -> str:
+        return f"{int(v)}::BIGINT"
+
+    def format_datediff(self, part: str, a: str, b: str) -> str:
+        # Postgres: AGE(b, a) → interval, or EXTRACT(EPOCH FROM ...)/86400.
+        return f"(EXTRACT('{part}' FROM {b}) - EXTRACT('{part}' FROM {a}))"
+
+    def format_top_clause(self, n: int) -> str:
+        return f"LIMIT {int(n)}"
+
+    def format_interval(self, part: str, n: int) -> str:
+        return f"INTERVAL '{int(n)} {part.lower()}'"
+
+    def format_drop_column(self, table: str, column: str) -> str:
+        return (f"ALTER TABLE {self.format_identifier(table)} "
+                f"DROP COLUMN {self.format_identifier(column)}")
+
+    def format_set_isolation_level(self, level: str) -> str:
+        return f"SET TRANSACTION ISOLATION LEVEL {level.upper()}"

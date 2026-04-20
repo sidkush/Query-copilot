@@ -1,0 +1,1 @@
+(SELECT "t"."category" AS "category", SUM("t"."revenue") AS "rev" FROM "sales" "t" GROUP BY "t"."category") UNION ALL (SELECT "t"."category" AS "category", SUM("t"."revenue") AS "rev" FROM "sales_archive" "t" GROUP BY "t"."category")
