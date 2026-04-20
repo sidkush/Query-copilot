@@ -238,3 +238,84 @@ def test_include_lod_body_carried_to_window_expr():
     assert isinstance(out.expr, sa.Window)
     assert isinstance(out.expr.expr, sa.FnCall)
     assert out.expr.expr.name == "AVG"
+
+
+# ---------------------------------------------------------------------------
+# Task 4 — EXCLUDE LOD -> window (partition = viz \ exclude_dims) + no-op warn
+# ---------------------------------------------------------------------------
+
+
+def _exclude(dims, body_field: str = "Sales", body_fn: str = "SUM"):
+    from vizql import calc_ast as ca
+
+    return ca.LodExpr(
+        kind="EXCLUDE",
+        dims=tuple(ca.FieldRef(field_name=d) for d in dims),
+        body=ca.FnCall(name=body_fn, args=(ca.FieldRef(field_name=body_field),)),
+    )
+
+
+def test_exclude_lod_removes_excluded_dims_from_viz_partition():
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _exclude(("Region",))
+    ctx = _ctx(frozenset({"Region", "City"}))
+    out = lc.compile_lod(expr, ctx)
+
+    assert out.kind == "EXCLUDE"
+    assert out.stage == "include_exclude_lod"
+    assert isinstance(out.expr, sa.Window)
+    part_names = {p.name for p in out.expr.partition_by if isinstance(p, sa.Column)}
+    assert part_names == {"City"}
+    assert out.warnings == ()
+
+
+def test_exclude_lod_warns_when_nothing_to_exclude():
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _exclude(("Region",))
+    ctx = _ctx(frozenset({"City"}))
+    out = lc.compile_lod(expr, ctx)
+
+    assert isinstance(out.expr, sa.Window)
+    part_names = {p.name for p in out.expr.partition_by if isinstance(p, sa.Column)}
+    assert part_names == {"City"}
+    assert any(
+        "no-op" in w.lower() or "nothing to exclude" in w.lower()
+        for w in out.warnings
+    )
+
+
+def test_exclude_lod_multiple_dims_partial_overlap():
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _exclude(("Region", "Product"))
+    ctx = _ctx(frozenset({"Region", "City", "Segment"}))
+    out = lc.compile_lod(expr, ctx)
+    part_names = {p.name for p in out.expr.partition_by if isinstance(p, sa.Column)}
+    assert part_names == {"City", "Segment"}
+    assert out.warnings == ()
+
+
+def test_exclude_lod_all_viz_dims_excluded_yields_empty_partition():
+    from vizql import lod_compiler as lc
+    from vizql import sql_ast as sa
+
+    expr = _exclude(("Region",))
+    ctx = _ctx(frozenset({"Region"}))
+    out = lc.compile_lod(expr, ctx)
+    assert isinstance(out.expr, sa.Window)
+    assert out.expr.partition_by == ()
+
+
+def test_exclude_lod_rejects_unknown_dim():
+    from vizql import lod_compiler as lc
+
+    expr = _exclude(("NotAColumn",))
+    ctx = _ctx(frozenset({"Region"}))
+    with pytest.raises(lc.LodCompileError) as exc:
+        lc.compile_lod(expr, ctx)
+    assert "NotAColumn" in str(exc.value)

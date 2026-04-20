@@ -246,6 +246,52 @@ def _compile_include(expr: ca.LodExpr, ctx: LodCompileCtx) -> CompiledLod:
 
 
 # ---------------------------------------------------------------------------
+# EXCLUDE -> window (partition = viz \ exclude_dims) + no-op warn
+# ---------------------------------------------------------------------------
+
+
+def _compile_exclude(expr: ca.LodExpr, ctx: LodCompileCtx) -> CompiledLod:
+    for d in expr.dims:
+        if d.field_name not in ctx.schema:
+            raise LodCompileError(
+                f"EXCLUDE LOD references field {d.field_name!r} "
+                "not in data source schema"
+            )
+
+    body_expr = _compile_body(expr.body, ctx)
+
+    exclude_names = tuple(d.field_name for d in expr.dims)
+    overlap = ctx.viz_granularity & set(exclude_names)
+    warnings: tuple[str, ...] = ()
+    if not overlap:
+        warnings = (
+            f"EXCLUDE LOD is a no-op -- none of {list(exclude_names)} appear in "
+            f"viz granularity {sorted(ctx.viz_granularity)}. "
+            "Drop the EXCLUDE or change viz dims.",
+        )
+
+    partition_by = _partition_for(
+        viz=ctx.viz_granularity,
+        delta=exclude_names,
+        op="difference",
+        table_alias=ctx.table_alias,
+    )
+
+    window = sa.Window(
+        expr=body_expr,
+        partition_by=partition_by,
+        order_by=(),
+        frame=None,
+    )
+    return CompiledLod(
+        expr=window,
+        kind="EXCLUDE",
+        stage="include_exclude_lod",
+        warnings=warnings,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
 
@@ -261,7 +307,7 @@ def compile_lod(expr: ca.CalcExpr, ctx: LodCompileCtx) -> CompiledLod:
     if expr.kind == "INCLUDE":
         return _compile_include(expr, ctx)
     if expr.kind == "EXCLUDE":
-        raise LodCompileError("EXCLUDE LOD compilation not yet implemented (Task 4)")
+        return _compile_exclude(expr, ctx)
 
     raise LodCompileError(f"unknown LOD kind {expr.kind!r}")
 
