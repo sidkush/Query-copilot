@@ -215,12 +215,33 @@ class LogicalOpAggregate:
     aggregations: tuple[AggExp, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class LogicalOpOrder:
+    """Build_Tableau.md §IV.2 — ORDER BY."""
+    input: "LogicalOp"
+    order_by: tuple[OrderBy, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalOpTop:
+    """Build_Tableau.md §IV.2 — TOP / LIMIT."""
+    input: "LogicalOp"
+    limit: int
+    is_percentage: bool = False
+
+    def __post_init__(self) -> None:
+        if self.limit < 0:
+            raise ValueError(f"LogicalOpTop.limit must be >= 0 (got {self.limit})")
+
+
 LogicalOp = Union[
     "LogicalOpRelation",
     "LogicalOpProject",
     "LogicalOpSelect",
     "LogicalOpFilter",
     "LogicalOpAggregate",
+    "LogicalOpOrder",
+    "LogicalOpTop",
 ]  # extended in subsequent tasks
 
 
@@ -234,4 +255,5 @@ __all__ = [
     "LogicalOpRelation", "LogicalOpProject",
     "LogicalOpSelect", "LogicalOpFilter",
     "LogicalOpAggregate",
+    "LogicalOpOrder", "LogicalOpTop",
 ]

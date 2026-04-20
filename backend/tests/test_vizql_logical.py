@@ -243,3 +243,38 @@ def test_logical_op_aggregate_empty_group_bys_allowed():
                              expr=Column(field_id="orders.total")),),
     )
     assert agg.group_bys == ()
+
+
+def test_logical_op_order_preserves_tuple_order():
+    from vizql.logical import (
+        Column, LogicalOpOrder, LogicalOpRelation, OrderBy,
+    )
+    base = LogicalOpRelation(table="orders", schema="public")
+    order = LogicalOpOrder(
+        input=base,
+        order_by=(
+            OrderBy(identifier_exp=Column(field_id="orders.total"), is_ascending=False),
+            OrderBy(identifier_exp=Column(field_id="orders.region"), is_ascending=True),
+        ),
+    )
+    assert len(order.order_by) == 2
+    assert order.order_by[0].is_ascending is False
+    assert order.order_by[1].is_ascending is True
+
+
+def test_logical_op_top_limit_and_percentage_flag():
+    from vizql.logical import LogicalOpRelation, LogicalOpTop
+    base = LogicalOpRelation(table="orders", schema="public")
+    top = LogicalOpTop(input=base, limit=10, is_percentage=False)
+    assert top.limit == 10
+    assert top.is_percentage is False
+
+    pct = LogicalOpTop(input=base, limit=5, is_percentage=True)
+    assert pct.is_percentage is True
+
+
+def test_logical_op_top_rejects_negative_limit():
+    from vizql.logical import LogicalOpRelation, LogicalOpTop
+    base = LogicalOpRelation(table="orders", schema="public")
+    with pytest.raises(ValueError, match="limit"):
+        LogicalOpTop(input=base, limit=-1, is_percentage=False)
