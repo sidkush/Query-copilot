@@ -1182,7 +1182,7 @@ export const useStore = create((set, get) => ({
   analystProSidebarTab: 'dashboard',                 // 'dashboard' | 'layout' | 'analytics'
   analystProSidebarCollapsed: new Set(),             // Set<string> of collapsed section ids
   setSidebarTabAnalystPro: (tab) => {
-    if (tab !== 'dashboard' && tab !== 'layout') return;
+    if (tab !== 'dashboard' && tab !== 'layout' && tab !== 'analytics') return;
     if (get().analystProSidebarTab === tab) return;
     set({ analystProSidebarTab: tab });
   },
@@ -1587,6 +1587,12 @@ export const useStore = create((set, get) => ({
 
   clearAllSheetFiltersAnalystPro: () =>
     set({ analystProSheetFilters: {} }),
+
+  // Plan 9a T9 — Reference line dialog state + opener.
+  // Shape: { sheetId: string, kind: string, preset?: object } | null.
+  analystProReferenceLineDialog: null,
+  openReferenceLineDialogAnalystPro: (payload) =>
+    set({ analystProReferenceLineDialog: payload ?? null }),
 
   // Plan 8d T11 — Calc editor dialog state + save action.
   // Shape: { open: boolean, editingCalcId: string|null, seedFormula: string,
