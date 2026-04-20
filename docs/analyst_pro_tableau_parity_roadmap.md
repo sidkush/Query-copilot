@@ -23,7 +23,7 @@
 | 5 | Fluidity Pass | 5a–5e | Zone chrome, context menu, property inspector, restructure, float toggle. Makes canvas feel like Tableau. |
 | 6 | Canvas Power Controls | 6a ✅ (2026-04-17) / 6b ✅ (2026-04-17) / 6c ✅ (2026-04-18) / 6d ✅ (2026-04-17) / 6e ✅ (2026-04-18) | Zoom/pan/rulers, undo UI, tabbed sidebar, mark interactions, tooltip UX. |
 | 7 | VizQL Engine | 7a–7e | Own 3-stage compilation pipeline matching Tableau's `minerva` → SQL AST → dialect emit. |
-| 8 | Calc Fields + LOD + Table Calcs | 8a–8d | Expression parser, full function catalogue, FIXED/INCLUDE/EXCLUDE, Monaco editor. |
+| 8 | Calc Fields + LOD + Table Calcs | 8a ✅ / 8b ✅ / 8c ✅ / 8d ✅ (2026-04-20) | Expression parser, full function catalogue, FIXED/INCLUDE/EXCLUDE, Monaco editor. |
 | 9 | Analytics Pane | 9a–9e | Reference lines, trend, forecast, cluster, box plots, totals. |
 | 10 | Formatting System | 10a–10e | Precedence chain, number/date grammar, rich text, theme, conditional. |
 | 11 | Data + Extracts + RLS | 11a–11d | DuckDB extracts, incremental refresh, Virtual Connection equivalent, data policies. |
@@ -747,7 +747,9 @@ doc:
 4. LLM suggest button — generate calc from NL description (Claude Haiku). Grounded strictly on schema + function catalogue.
 5. Multi-line debug — step through test values.
 
-**Task count target:** 10.
+**Task count target:** 12.
+
+**Status:** ✅ Shipped — 2026-04-20. 12 tasks. New modules: `frontend/src/components/dashboard/freeform/lib/{calcLanguage,calcMonarch,calcFunctionCatalogue,calcCompletionProvider,calcSignatureProvider,calcHoverProvider,calcDiagnostics}.ts`, `frontend/src/components/dashboard/freeform/panels/{CalcEditorDialog,CalcTestValues,CalcResultPreview,CalcDebugPanel,CalcSuggestDialog}.jsx`, `backend/vizql/{calc_evaluate,calc_suggest}.py`. New endpoints: `POST /api/v1/calcs/evaluate` (DuckDB single-row eval, 1s timeout, 6-layer validator), `POST /api/v1/calcs/suggest` (Haiku grounded on schema + Plan 8a catalogue, ground-checked for hallucinated fields/params/functions, `is_generative_ai_web_authoring=true` stamped per §I.5). New config: `FEATURE_CALC_LLM_SUGGEST=true`, `CALC_SUGGEST_RATE_LIMIT_PER_60S=5`, `CALC_SUGGEST_MAX_DESCRIPTION_LEN=1000`, `CALC_EVAL_TIMEOUT_SECONDS=1.0`, `CALC_EVAL_CACHE_TTL_SECONDS=60`. Dependencies: `@monaco-editor/react@^4.7.0`, `monaco-editor@^0.52.2` (chunk-split). Plan doc: `docs/superpowers/plans/2026-04-20-analyst-pro-plan-8d-monaco-calc-editor.md`.
 
 ---
 
