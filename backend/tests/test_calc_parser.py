@@ -216,3 +216,47 @@ def test_parse_nested_if_in_case_branch():
     assert isinstance(expr, ca.CaseExpr)
     inner = expr.whens[0][1]
     assert isinstance(inner, ca.IfExpr) and inner.then_.value == "x"
+
+
+# ------------------------------------------------------------------
+# Task 6 — LOD expressions
+# ------------------------------------------------------------------
+
+
+def test_parse_fixed_lod_single_dim():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("{ FIXED [Region] : SUM([Sales]) }")
+    assert isinstance(expr, ca.LodExpr) and expr.kind == "FIXED"
+    assert len(expr.dims) == 1 and expr.dims[0].field_name == "Region"
+    assert isinstance(expr.body, ca.FnCall) and expr.body.name == "SUM"
+
+
+def test_parse_include_and_exclude_lod():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    inc = parse("{ INCLUDE [Product] : AVG([Profit]) }")
+    exc = parse("{ EXCLUDE [State] : COUNTD([Customer]) }")
+    assert inc.kind == "INCLUDE" and inc.body.name == "AVG"
+    assert exc.kind == "EXCLUDE" and exc.body.name == "COUNTD"
+
+
+def test_parse_lod_with_no_dims_is_legal_only_for_fixed_constant():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    # `{ FIXED : SUM([Sales]) }` — table-grand-total LOD. Allowed by parser
+    # (typechecker enforces that INCLUDE/EXCLUDE require >=1 dim).
+    expr = parse("{ FIXED : SUM([Sales]) }")
+    assert isinstance(expr, ca.LodExpr) and expr.dims == ()
+
+
+def test_parse_nested_lod():
+    from vizql.calc_parser import parse
+    from vizql import calc_ast as ca
+
+    expr = parse("{ FIXED [Region] : { FIXED [Segment] : SUM([Sales]) } }")
+    assert isinstance(expr, ca.LodExpr)
+    assert isinstance(expr.body, ca.LodExpr) and expr.body.kind == "FIXED"

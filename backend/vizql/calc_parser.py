@@ -327,6 +327,9 @@ class CalcParser:
         if t.kind == TokenKind.LANGLE_PARAM:
             return self._parse_angle_param(pos)
 
+        if t.kind == TokenKind.LBRACE:
+            return self._parse_lod(pos)
+
         if t.kind == TokenKind.KEYWORD and t.value == "IF":
             return self._parse_if(pos)
 
@@ -382,6 +385,32 @@ class CalcParser:
         if not (closer.kind == TokenKind.OP and closer.value == ">"):
             raise ParseError("expected '>' to close <Parameters.…>", closer.line, closer.column)
         return ca.ParamRef(param_name=str(ident.value), pos=pos)
+
+    def _parse_lod(self, pos: ca.Position) -> ca.CalcExpr:
+        self._expect(TokenKind.LBRACE)
+        kw = self._peek()
+        if not (kw.kind == TokenKind.KEYWORD and kw.value in ("FIXED", "INCLUDE", "EXCLUDE")):
+            raise ParseError("LOD must start with FIXED|INCLUDE|EXCLUDE", kw.line, kw.column)
+        kind_value = kw.value
+        assert kind_value in ("FIXED", "INCLUDE", "EXCLUDE")
+        self._next()
+        dims: list[ca.FieldRef] = []
+        if self._peek().kind != TokenKind.COLON:
+            dims.append(self._parse_lod_dim())
+            while self._peek().kind == TokenKind.COMMA:
+                self._next()
+                dims.append(self._parse_lod_dim())
+        self._expect(TokenKind.COLON)
+        body = self._parse_expr()
+        self._expect(TokenKind.RBRACE)
+        return ca.LodExpr(kind=kind_value, dims=tuple(dims), body=body, pos=pos)
+
+    def _parse_lod_dim(self) -> ca.FieldRef:
+        t = self._peek()
+        node = self._parse_primary()
+        if not isinstance(node, ca.FieldRef):
+            raise ParseError("LOD dim must be a [FieldRef]", t.line, t.column)
+        return node
 
     def _parse_if(self, pos: ca.Position) -> ca.CalcExpr:
         self._expect_keyword("IF")
