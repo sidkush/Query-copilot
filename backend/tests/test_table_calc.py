@@ -150,3 +150,36 @@ def test_client_side_routes_return_clientsidecalc(fn):
     out = compile_table_calc(spec, _ctx())
     assert isinstance(out, ClientSideCalc)
     assert out.spec.function == fn
+
+
+def test_visualspec_table_calc_specs_round_trip():
+    """T8 — VisualSpec.table_calc_specs is a Python-only field (proto
+    regeneration deferred — protoc not available in this environment).
+    Verifies dataclass-level round-trip: build, copy via dataclass replace,
+    fields preserved. Real proto round-trip lands when integration agent
+    runs `bash backend/scripts/regen_proto.sh`.
+    """
+    import dataclasses as _dc
+    from vizql.spec import VisualSpec
+    ts = TableCalcSpec(calc_id="rs1", function="RUNNING_SUM",
+                       arg_field="Sales", addressing=("Year",),
+                       partitioning=("Region",), direction="specific",
+                       sort="asc", offset=None)
+    vs = VisualSpec(sheet_id="s1", table_calc_specs=[ts])
+    # Dataclass-level copy round-trips the new field.
+    vs2 = _dc.replace(vs, table_calc_specs=list(vs.table_calc_specs))
+    assert len(vs2.table_calc_specs) == 1
+    rs = vs2.table_calc_specs[0]
+    assert rs.calc_id == "rs1"
+    assert rs.function == "RUNNING_SUM"
+    assert rs.arg_field == "Sales"
+    assert rs.addressing == ("Year",)
+    assert rs.partitioning == ("Region",)
+    assert rs.sort == "asc"
+    # Proto serialization path drops the new field (descriptor not yet
+    # regenerated). Confirm the existing pre-Plan-8c fields still round-trip.
+    blob = vs.serialize()
+    restored = VisualSpec.deserialize(blob)
+    assert restored.sheet_id == "s1"
+    # Python-only field: starts empty after proto-only deserialize.
+    assert restored.table_calc_specs == []
