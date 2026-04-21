@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "k": "auto", "k_min": 2, "k_max": 6,
+    "variables": ["x", "y"],
+    "disaggregate": false, "standardize": true, "seed": 42,
+    "showCentroids": false, "showDistance": true
+  },
+  "result": {
+    "optimal_k": 2,
+    "assignments": [0, 1],
+    "centroids": [[0, 0], [10, 10]],
+    "calinski_harabasz_score": 50, "f_statistic": 25,
+    "inertia": 2, "total_ssq": 200, "between_group_ssq": 198,
+    "candidates": [], "per_cluster_feature_means": [], "notes": []
+  },
+  "baseEncoding": { "xField": "x", "yField": "y" },
+  "expectedLayers": [
+    {
+      "mark": { "type": "point", "filled": true, "size": 60 },
+      "encoding": {
+        "x": { "field": "x", "type": "quantitative" },
+        "y": { "field": "y", "type": "quantitative" },
+        "color": {
+          "field": "__cluster__", "type": "ordinal",
+          "scale": { "scheme": "tableau10" },
+          "legend": { "title": "Cluster", "labelExpr": "'Cluster ' + (datum.label + 1) + ' (' + datum.value + ' marks)'" }
+        },
+        "tooltip": [
+          { "field": "__cluster__", "type": "ordinal", "title": "Cluster" },
+          { "field": "__distance__", "type": "quantitative", "format": ".3f", "title": "Distance to centroid" }
+        ]
+      }
+    }
+  ]
+}
