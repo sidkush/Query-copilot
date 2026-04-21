@@ -631,6 +631,8 @@ def update_dashboard(email: str, dashboard_id: str, updates: dict) -> Optional[d
                     "layout",
                     # Plan 6a — device-layout overrides (Build_Tableau §IX.5)
                     "deviceLayouts",
+                    # Plan 10a — workbook-level format rules (precedence chain)
+                    "formatting",
                 ):
                     if key in updates:
                         d[key] = updates[key]

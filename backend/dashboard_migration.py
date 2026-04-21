@@ -446,6 +446,10 @@ def legacy_to_freeform_schema(legacy: dict) -> dict:
     }
     if existing_device_layouts is not None:
         result["deviceLayouts"] = existing_device_layouts
+    # Plan 10a — preserve workbook-level format rules verbatim. Resolver
+    # validates shape at load time; migration must NOT drop or mutate.
+    if isinstance(legacy.get("formatting"), list):
+        result["formatting"] = legacy["formatting"]
     return result
 
 
