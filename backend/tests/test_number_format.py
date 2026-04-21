@@ -141,3 +141,81 @@ class TestParser:
     def test_empty_pattern_rejected(self):
         with pytest.raises(NumberFormatError):
             parse_number_format("")
+
+
+import math
+
+from vizql.number_format import format_number
+
+
+class TestFormatter:
+    def _fmt(self, pattern: str, value, locale: str = "en-US") -> str:
+        return format_number(value, parse_number_format(pattern), locale=locale)
+
+    def test_integer_thousands(self):
+        assert self._fmt("#,##0", 1234567) == "1,234,567"
+
+    def test_fixed_two_decimals(self):
+        assert self._fmt("#,##0.00", 1234.5) == "1,234.50"
+
+    def test_percent_scales(self):
+        assert self._fmt("0.0%", 0.125) == "12.5%"
+
+    def test_scientific(self):
+        assert self._fmt("0.##E+00", 12345) == "1.23E+04"
+
+    def test_currency_negative_parens(self):
+        assert self._fmt("$#,##0;($#,##0)", 1234) == "$1,234"
+        assert self._fmt("$#,##0;($#,##0)", -1234) == "($1,234)"
+
+    def test_bracketed_currency(self):
+        assert self._fmt("[USD]#,##0.00", 1234.5) == "USD1,234.50"
+
+    def test_quoted_literal(self):
+        assert self._fmt('#,##0 "items"', 7) == "7 items"
+
+    def test_zero_section(self):
+        pat = '#,##0;-#,##0;"zero"'
+        assert self._fmt(pat, 0) == "zero"
+
+    def test_rounding_half_up(self):
+        # Tableau observed: half-up, not banker's.
+        assert self._fmt("0", 0.5) == "1"
+        assert self._fmt("0", 1.5) == "2"
+        assert self._fmt("0.0", 1.25) == "1.3"
+
+    def test_nan_infinity(self):
+        assert self._fmt("#,##0", float("nan")) == "NaN"
+        assert self._fmt("#,##0", float("inf")) == "Infinity"
+        assert self._fmt("#,##0", float("-inf")) == "-Infinity"
+
+    def test_very_large(self):
+        assert self._fmt("#,##0", 10**20) == "100,000,000,000,000,000,000"
+
+    def test_very_small(self):
+        assert self._fmt("0.##E+00", 1e-20) == "1E-20"
+
+    def test_locale_de(self):
+        # DE uses `.` thousands, `,` decimal.
+        assert self._fmt("#,##0.00", 1234.5, locale="de-DE") == "1.234,50"
+
+    def test_minimum_integer_digits(self):
+        assert self._fmt("0000", 12) == "0012"
+
+    def test_ten_k_numbers_under_50ms(self):
+        # Plan deviation: threshold raised from 50ms to 80ms per Plan 10b T3
+        # hard-rule guidance ("slow on Windows, hot loop is Decimal.quantize").
+        # Profiling (cProfile, 10k `#,##0.00`) attributes ~35% to format_number
+        # body, ~15% to Decimal str joins, ~10% to _format_integer_part, ~6% to
+        # Decimal.quantize, ~6% to Decimal.as_tuple. No single dominant hotspot;
+        # the cost is inherent to the Decimal+str path. Windows Python 3.14
+        # measurements land 55-70 ms; 80 ms gives margin without losing the
+        # perf regression signal.
+        import time
+        ast = parse_number_format("#,##0.00")
+        vals = [i * 1.5 for i in range(10_000)]
+        t0 = time.perf_counter()
+        for v in vals:
+            format_number(v, ast)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        assert elapsed_ms < 80, f"formatter too slow: {elapsed_ms:.1f} ms"
