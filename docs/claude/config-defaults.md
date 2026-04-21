@@ -71,6 +71,15 @@ updated — do not assume `4-5-20250514` without checking the active `.env`.
 | `TREND_MAX_ROWS` | `100_000` | Reject input payloads over this count (413). Hard cap, not sampled. |
 | `TREND_TIMEOUT_SECONDS` | `5.0` | Per-request wall-clock budget (504 when exceeded). |
 
+### Forecast (Plan 9c)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FORECAST_RATE_LIMIT_PER_60S` | `10` | Per-user sliding-window cap on `/api/v1/analytics/forecast`. 429 when exceeded. |
+| `FORECAST_MAX_ROWS` | `10_000` | Reject input series over this count (413). Hard cap, not sampled. |
+| `FORECAST_TIMEOUT_SECONDS` | `10.0` | Per-request wall-clock budget (504 when exceeded). |
+| `FORECAST_MAX_HORIZON` | `200` | Hard sanity cap on `forecast_length` regardless of unit (400 if exceeded). |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |

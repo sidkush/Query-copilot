@@ -281,6 +281,12 @@ class Settings(BaseSettings):
     TREND_MAX_ROWS: int = 100_000
     TREND_TIMEOUT_SECONDS: float = 5.0
 
+    # ── Forecast (Plan 9c) ────────────────────────────────────
+    FORECAST_RATE_LIMIT_PER_60S: int = 10
+    FORECAST_MAX_ROWS: int = 10_000
+    FORECAST_TIMEOUT_SECONDS: float = 10.0
+    FORECAST_MAX_HORIZON: int = 200
+
     # Sub-project A — new chart editor + ChartSpec IR cutover (Phase 4b).
     # Phase 4c+2: default flipped to True. /analytics now always renders
     # the new DashboardShell + ChartEditor path (legacy DashboardBuilder
