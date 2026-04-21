@@ -24,7 +24,7 @@ const ITEMS = [
   { id: 'totals',                 label: 'Totals',                 kind: 'totals' },
   { id: 'trend_line',             label: 'Trend Line',             kind: 'trend_line' },
   { id: 'forecast',               label: 'Forecast',               kind: 'forecast' },
-  { id: 'cluster',                label: 'Cluster',                kind: 'cluster',  disabled: true },
+  { id: 'cluster',                label: 'Cluster',                kind: 'cluster' },
   { id: 'box_plot',               label: 'Box Plot',               kind: 'box_plot', disabled: true },
 ];
 
@@ -34,6 +34,7 @@ export default function AnalyticsPanel() {
   const openDialog = useStore((s) => s.openReferenceLineDialogAnalystPro);
   const openTrendLineDialog = useStore((s) => s.openTrendLineDialogAnalystPro);
   const openForecastDialog = useStore((s) => s.openForecastDialogAnalystPro);
+  const openClusterDialog = useStore((s) => s.openClusterDialogAnalystPro);
 
   return (
     <SidebarSection id="analytics" heading="Analytics">
@@ -79,6 +80,10 @@ export default function AnalyticsPanel() {
                 }
                 if (it.kind === 'forecast' && typeof openForecastDialog === 'function') {
                   openForecastDialog({ kind: it.kind, preset: it.preset ?? {} });
+                  return;
+                }
+                if (it.kind === 'cluster' && typeof openClusterDialog === 'function') {
+                  openClusterDialog({});
                   return;
                 }
                 if (typeof openDialog === 'function') {
