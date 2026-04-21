@@ -511,3 +511,71 @@ describe('ZoneFrame — keyboard affordances', () => {
     expect(screen.queryByTestId('zone-frame-z2-title')).toBeNull();
   });
 });
+
+// Plan 10a T6 — ZoneFrame consults FormatResolver for StyledBox-layer styles.
+// Sheet-level rules apply to every zone whose worksheetRef matches; mark-level
+// rules (selector.markId === zone.id) override sheet-level. Fallback to the
+// legacy `zone.background` fields is preserved when no rule is in play.
+describe('ZoneFrame — Plan 10a StyledBox resolver integration', () => {
+  beforeEach(() => {
+    useStore.setState({ analystProFormatRules: [] });
+  });
+
+  it('applies resolved background-color from sheet-level rule', () => {
+    useStore.setState({
+      analystProFormatRules: [
+        {
+          selector: { kind: 'sheet', sheetId: 'sheetA' },
+          properties: { 'background-color': '#abcdef' },
+        },
+      ],
+    });
+    const zone = {
+      id: 'z10a1',
+      type: 'worksheet' as const,
+      worksheetRef: 'sheetA',
+      w: 100000,
+      h: 100000,
+    };
+    render(
+      <ZoneFrame zone={zone} resolved={{ x: 0, y: 0, width: 400, height: 300 }}>
+        <div />
+      </ZoneFrame>,
+    );
+    const frame = screen.getByTestId('zone-frame-z10a1') as HTMLElement;
+    // jsdom serialises #abcdef → rgb(171, 205, 239). Assert via the DOM's own
+    // normalised form on style.background (which covers the shorthand set).
+    expect(frame.style.background).toContain('rgb(171, 205, 239)');
+  });
+
+  it('mark-level rule overrides sheet-level rule', () => {
+    useStore.setState({
+      analystProFormatRules: [
+        {
+          selector: { kind: 'sheet', sheetId: 'sheetA' },
+          properties: { 'background-color': '#abcdef' },
+        },
+        {
+          selector: { kind: 'mark', markId: 'z10a2' },
+          properties: { 'background-color': '#123456' },
+        },
+      ],
+    });
+    const zone = {
+      id: 'z10a2',
+      type: 'worksheet' as const,
+      worksheetRef: 'sheetA',
+      w: 100000,
+      h: 100000,
+    };
+    render(
+      <ZoneFrame zone={zone} resolved={{ x: 0, y: 0, width: 400, height: 300 }}>
+        <div />
+      </ZoneFrame>,
+    );
+    const frame = screen.getByTestId('zone-frame-z10a2') as HTMLElement;
+    // #123456 → rgb(18, 52, 86); #abcdef → rgb(171, 205, 239).
+    expect(frame.style.background).toContain('rgb(18, 52, 86)');
+    expect(frame.style.background).not.toContain('rgb(171, 205, 239)');
+  });
+});

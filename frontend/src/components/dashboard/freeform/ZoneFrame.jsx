@@ -1,8 +1,10 @@
 // frontend/src/components/dashboard/freeform/ZoneFrame.jsx
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../../../store';
 import { getZoneDisplayLabel } from './lib/zoneLabel';
 import { TITLE_BAR_DEFAULT_VISIBLE } from './lib/zoneDefaults';
+import { FormatResolver } from './lib/formatResolver';
+import { StyleProp } from './lib/formattingTypes';
 
 function shouldShowTitleBar(zone) {
   // Plan 5d: `showTitle` is the authoritative field. Legacy fixtures may
@@ -14,13 +16,26 @@ function shouldShowTitleBar(zone) {
   return TITLE_BAR_DEFAULT_VISIBLE.has(zone.type);
 }
 
-function buildFrameStyle(zone) {
+function buildFrameStyle(zone, resolved = null) {
   const style = {};
   // Plan 5d: Worksheet/Zone-level formatting applies below per-field Mark/Field
   // formats. Full precedence chain (Mark > Field > Worksheet > DS > Workbook)
   // lands in Phase 10 (Build_Tableau.md §XIV.1).
+  // Plan 10a T6: `resolved` is a Partial<Record<StyleProp, StyleValue>> computed
+  // by `FormatResolver.resolveAll` against the store's `analystProFormatRules`.
+  // When a property is resolved, it wins over the zone-level legacy field;
+  // otherwise we fall through to the legacy `zone.background` / `zone.border`
+  // paths so unstyled zones keep rendering exactly as before.
   const bg = zone.background;
-  if (bg && typeof bg.color === 'string') {
+  const resolvedBg =
+    resolved && typeof resolved[StyleProp.BackgroundColor] === 'string'
+      ? resolved[StyleProp.BackgroundColor]
+      : null;
+  if (resolvedBg) {
+    style.background = resolvedBg;
+    // Opacity only known via the legacy field; resolver doesn't surface it yet.
+    if (bg && typeof bg.opacity === 'number') style.opacity = bg.opacity;
+  } else if (bg && typeof bg.color === 'string') {
     const opacity = typeof bg.opacity === 'number' ? bg.opacity : 1;
     style.background = bg.color;
     style.opacity = opacity;
@@ -33,7 +48,22 @@ function buildFrameStyle(zone) {
     style.borderTopWidth = `${t || 0}px`;
     style.borderBottomWidth = `${b || 0}px`;
     style.borderStyle = border.style === 'dashed' ? 'dashed' : 'solid';
-    style.borderColor = border.color || 'currentColor';
+    // Resolver surfaces border-top/right/bottom/left as strings (line-style
+    // objects land in a later plan). Prefer the resolved colour when present,
+    // otherwise keep the zone-level `border.color`.
+    const resolvedBorderColor =
+      resolved && (
+        typeof resolved[StyleProp.BorderTop] === 'string'
+          ? resolved[StyleProp.BorderTop]
+          : typeof resolved[StyleProp.BorderLeft] === 'string'
+            ? resolved[StyleProp.BorderLeft]
+            : typeof resolved[StyleProp.BorderRight] === 'string'
+              ? resolved[StyleProp.BorderRight]
+              : typeof resolved[StyleProp.BorderBottom] === 'string'
+                ? resolved[StyleProp.BorderBottom]
+                : null
+      );
+    style.borderColor = resolvedBorderColor || border.color || 'currentColor';
   }
   if (typeof zone.innerPadding === 'number') {
     style.padding = `${zone.innerPadding}px`;
@@ -62,6 +92,20 @@ function EdgeHotzones() {
 function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
   const setHovered = useStore((s) => s.setAnalystProHoveredZoneId);
   const updateZone = useStore((s) => s.updateZoneAnalystPro);
+
+  // Plan 10a T6 — resolve StyledBox-layer styles via the precedence chain
+  // (Mark > Field > Worksheet > DS > Workbook). Mark selector maps 1:1 to
+  // zone.id for Analyst Pro; sheet selector maps to zone.worksheetRef. Field
+  // + DS scopes land in later 10b/10c/10d plans so we pass null for them.
+  const formatRules = useStore((s) => s.analystProFormatRules);
+  const resolver = useMemo(
+    () => new FormatResolver(formatRules ?? []),
+    [formatRules],
+  );
+  const resolvedStyles = useMemo(
+    () => resolver.resolveAll(zone.id, null, zone.worksheetRef ?? null, null),
+    [resolver, zone.id, zone.worksheetRef],
+  );
 
   const withTitle = shouldShowTitleBar(zone);
   const label = getZoneDisplayLabel(zone);
@@ -162,7 +206,7 @@ function ZoneFrame({ zone, resolved, children, onContextMenu, onQuickAction }) {
       data-resolved-w={resolved?.width ?? 0}
       data-resolved-h={resolved?.height ?? 0}
       className={`analyst-pro-zone-frame${withTitle ? ' analyst-pro-zone-frame--with-title' : ''}`}
-      style={buildFrameStyle(zone)}
+      style={buildFrameStyle(zone, resolvedStyles)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onContextMenu={handleContextMenu}
