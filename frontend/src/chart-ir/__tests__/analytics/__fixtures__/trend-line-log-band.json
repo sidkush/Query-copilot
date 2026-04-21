@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "fit_type": "logarithmic",
+    "degree": null,
+    "factor_fields": ["region"],
+    "show_confidence_bands": true,
+    "confidence_level": 0.95,
+    "color_by_factor": true,
+    "trend_line_label": true
+  },
+  "fits": [
+    {
+      "factor_value": "East",
+      "result": {
+        "coefficients": [1.5, 0.8],
+        "r_squared": 0.91,
+        "p_value": 3.0e-4,
+        "sse": 0.4,
+        "rmse": 0.35,
+        "equation": "y = 1.5*ln(x) + 0.8",
+        "predictions": [
+          {"x": 1, "y": 0.8, "lower": 0.6, "upper": 1.0},
+          {"x": 2, "y": 1.84, "lower": 1.55, "upper": 2.13},
+          {"x": 3, "y": 2.45, "lower": 2.10, "upper": 2.80}
+        ]
+      }
+    },
+    {
+      "factor_value": "West",
+      "result": {
+        "coefficients": [1.2, 0.5],
+        "r_squared": 0.88,
+        "p_value": 5.0e-4,
+        "sse": 0.5,
+        "rmse": 0.4,
+        "equation": "y = 1.2*ln(x) + 0.5",
+        "predictions": [
+          {"x": 1, "y": 0.5, "lower": 0.3, "upper": 0.7},
+          {"x": 2, "y": 1.33, "lower": 1.05, "upper": 1.61},
+          {"x": 3, "y": 1.82, "lower": 1.50, "upper": 2.14}
+        ]
+      }
+    }
+  ]
+}

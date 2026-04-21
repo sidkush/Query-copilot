@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "fit_type": "polynomial",
+    "degree": 2,
+    "factor_fields": ["region"],
+    "show_confidence_bands": false,
+    "confidence_level": 0.95,
+    "color_by_factor": true,
+    "trend_line_label": true
+  },
+  "fits": [
+    {
+      "factor_value": "North",
+      "result": {
+        "coefficients": [0.5, 1.0, 2.0],
+        "r_squared": 0.987,
+        "p_value": 1.0e-6,
+        "sse": 0.1,
+        "rmse": 0.2,
+        "equation": "y = 0.5*x^2 + 1.0*x + 2.0",
+        "predictions": [
+          {"x": 0, "y": 2.0},
+          {"x": 1, "y": 3.5},
+          {"x": 2, "y": 6.0}
+        ]
+      }
+    },
+    {
+      "factor_value": "South",
+      "result": {
+        "coefficients": [0.3, 0.8, 1.5],
+        "r_squared": 0.972,
+        "p_value": 2.0e-5,
+        "sse": 0.2,
+        "rmse": 0.3,
+        "equation": "y = 0.3*x^2 + 0.8*x + 1.5",
+        "predictions": [
+          {"x": 0, "y": 1.5},
+          {"x": 1, "y": 2.6},
+          {"x": 2, "y": 4.3}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "spec": {
+    "fit_type": "linear",
+    "degree": null,
+    "factor_fields": [],
+    "show_confidence_bands": false,
+    "confidence_level": 0.95,
+    "color_by_factor": false,
+    "trend_line_label": true
+  },
+  "fits": [
+    {
+      "factor_value": null,
+      "result": {
+        "coefficients": [2.0, 3.0],
+        "r_squared": 0.9998,
+        "p_value": 1.2e-15,
+        "sse": 0.02,
+        "rmse": 0.045,
+        "equation": "y = 2.0000*x + 3.0000",
+        "predictions": [
+          {"x": 0, "y": 3.0},
+          {"x": 1, "y": 5.0},
+          {"x": 2, "y": 7.0}
+        ]
+      }
+    }
+  ]
+}
