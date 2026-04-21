@@ -1,0 +1,1746 @@
+[
+  {
+    "id": "hand-halfup-0005",
+    "pattern": "#,##0.00",
+    "value": 0.005,
+    "locale": "en-US",
+    "expected": "0.01",
+    "source": "hand"
+  },
+  {
+    "id": "hand-halfup-0004",
+    "pattern": "#,##0.00",
+    "value": 0.004,
+    "locale": "en-US",
+    "expected": "0.00",
+    "source": "hand"
+  },
+  {
+    "id": "hand-halfup-0015",
+    "pattern": "#,##0.00",
+    "value": 0.015,
+    "locale": "en-US",
+    "expected": "0.02",
+    "source": "hand"
+  },
+  {
+    "id": "hand-halfup-999995",
+    "pattern": "#,##0.00",
+    "value": 999.995,
+    "locale": "en-US",
+    "expected": "1,000.00",
+    "source": "hand"
+  },
+  {
+    "id": "hand-halfup-1235",
+    "pattern": "#,##0.00",
+    "value": 1234.995,
+    "locale": "en-US",
+    "expected": "1,235.00",
+    "source": "hand"
+  },
+  {
+    "id": "hand-halfup-neg0005",
+    "pattern": "#,##0.00",
+    "value": -0.005,
+    "locale": "en-US",
+    "expected": "-0.01",
+    "source": "hand"
+  },
+  {
+    "id": "hand-halfup-int-05",
+    "pattern": "0",
+    "value": 0.5,
+    "locale": "en-US",
+    "expected": "1",
+    "source": "hand"
+  },
+  {
+    "id": "hand-halfup-int-15",
+    "pattern": "0",
+    "value": 1.5,
+    "locale": "en-US",
+    "expected": "2",
+    "source": "hand"
+  },
+  {
+    "id": "hand-halfup-int-25",
+    "pattern": "0",
+    "value": 2.5,
+    "locale": "en-US",
+    "expected": "3",
+    "source": "hand"
+  },
+  {
+    "id": "hand-halfup-fmt-125",
+    "pattern": "0.0",
+    "value": 1.25,
+    "locale": "en-US",
+    "expected": "1.3",
+    "source": "hand"
+  },
+  {
+    "id": "hand-pct-0005",
+    "pattern": "0.0%",
+    "value": 0.005,
+    "locale": "en-US",
+    "expected": "0.5%",
+    "source": "hand"
+  },
+  {
+    "id": "hand-pct-0",
+    "pattern": "0.0%",
+    "value": 0.0,
+    "locale": "en-US",
+    "expected": "0.0%",
+    "source": "hand"
+  },
+  {
+    "id": "hand-pct-001",
+    "pattern": "0.0%",
+    "value": 0.01,
+    "locale": "en-US",
+    "expected": "1.0%",
+    "source": "hand"
+  },
+  {
+    "id": "hand-pct-0999",
+    "pattern": "0.0%",
+    "value": 0.999,
+    "locale": "en-US",
+    "expected": "99.9%",
+    "source": "hand"
+  },
+  {
+    "id": "hand-pct-15",
+    "pattern": "0.0%",
+    "value": 1.5,
+    "locale": "en-US",
+    "expected": "150.0%",
+    "source": "hand"
+  },
+  {
+    "id": "hand-neg0-parens",
+    "pattern": "$#,##0;($#,##0)",
+    "value": -0.0,
+    "locale": "en-US",
+    "expected": "$0",
+    "source": "hand"
+  },
+  {
+    "id": "hand-pos0-parens",
+    "pattern": "$#,##0;($#,##0)",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "$0",
+    "source": "hand"
+  },
+  {
+    "id": "hand-de-usd",
+    "pattern": "[USD]#,##0.00",
+    "value": 1234.5,
+    "locale": "de-DE",
+    "expected": "USD1.234,50",
+    "source": "hand"
+  },
+  {
+    "id": "hand-de-neg",
+    "pattern": "#,##0.00",
+    "value": -1234.5,
+    "locale": "de-DE",
+    "expected": "-1.234,50",
+    "source": "hand"
+  },
+  {
+    "id": "hand-fr-basic",
+    "pattern": "#,##0.00",
+    "value": 1234.5,
+    "locale": "fr-FR",
+    "expected": "1 234,50",
+    "source": "hand"
+  },
+  {
+    "id": "hand-nan",
+    "pattern": "#,##0",
+    "value": NaN,
+    "locale": "en-US",
+    "expected": "NaN",
+    "source": "hand"
+  },
+  {
+    "id": "hand-inf",
+    "pattern": "#,##0",
+    "value": Infinity,
+    "locale": "en-US",
+    "expected": "Infinity",
+    "source": "hand"
+  },
+  {
+    "id": "hand-ninf",
+    "pattern": "#,##0",
+    "value": -Infinity,
+    "locale": "en-US",
+    "expected": "-Infinity",
+    "source": "hand"
+  },
+  {
+    "id": "hand-nan-2dp",
+    "pattern": "#,##0.00",
+    "value": NaN,
+    "locale": "en-US",
+    "expected": "NaN",
+    "source": "hand"
+  },
+  {
+    "id": "hand-inf-pct",
+    "pattern": "0.0%",
+    "value": Infinity,
+    "locale": "en-US",
+    "expected": "Infinity",
+    "source": "hand"
+  },
+  {
+    "id": "hand-sci-1e-20",
+    "pattern": "0.##E+00",
+    "value": 1e-20,
+    "locale": "en-US",
+    "expected": "1E-20",
+    "source": "hand"
+  },
+  {
+    "id": "hand-sci-0",
+    "pattern": "0.##E+00",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "0E+00",
+    "source": "hand"
+  },
+  {
+    "id": "hand-sci-1e20",
+    "pattern": "0.##E+00",
+    "value": 1e+20,
+    "locale": "en-US",
+    "expected": "1E+20",
+    "source": "hand"
+  },
+  {
+    "id": "hand-sci-12345",
+    "pattern": "0.##E+00",
+    "value": 12345,
+    "locale": "en-US",
+    "expected": "1.23E+04",
+    "source": "hand"
+  },
+  {
+    "id": "hand-sci-noplus",
+    "pattern": "0.##E-00",
+    "value": 1e-05,
+    "locale": "en-US",
+    "expected": "1E-05",
+    "source": "hand"
+  },
+  {
+    "id": "hand-zerosec-neg",
+    "pattern": "#,##0;-#,##0;\"zero\"",
+    "value": -5,
+    "locale": "en-US",
+    "expected": "-5",
+    "source": "hand"
+  },
+  {
+    "id": "hand-zerosec-zero",
+    "pattern": "#,##0;-#,##0;\"zero\"",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "zero",
+    "source": "hand"
+  },
+  {
+    "id": "hand-zerosec-pos",
+    "pattern": "#,##0;-#,##0;\"zero\"",
+    "value": 5,
+    "locale": "en-US",
+    "expected": "5",
+    "source": "hand"
+  },
+  {
+    "id": "hand-4sec-neg",
+    "pattern": "#,##0;-#,##0;\"zero\";@",
+    "value": -5,
+    "locale": "en-US",
+    "expected": "-5",
+    "source": "hand"
+  },
+  {
+    "id": "hand-4sec-zero",
+    "pattern": "#,##0;-#,##0;\"zero\";@",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "zero",
+    "source": "hand"
+  },
+  {
+    "id": "hand-4sec-pos",
+    "pattern": "#,##0;-#,##0;\"zero\";@",
+    "value": 5,
+    "locale": "en-US",
+    "expected": "5",
+    "source": "hand"
+  },
+  {
+    "id": "hand-zp-0000",
+    "pattern": "0000",
+    "value": 12,
+    "locale": "en-US",
+    "expected": "0012",
+    "source": "hand"
+  },
+  {
+    "id": "hand-zp-00000",
+    "pattern": "00.000",
+    "value": 1.5,
+    "locale": "en-US",
+    "expected": "01.500",
+    "source": "hand"
+  },
+  {
+    "id": "hand-zp-pound-dot-0",
+    "pattern": "#.0",
+    "value": 0.5,
+    "locale": "en-US",
+    "expected": "0.5",
+    "source": "hand"
+  },
+  {
+    "id": "hand-items-1",
+    "pattern": "#,##0 \"items\"",
+    "value": 1,
+    "locale": "en-US",
+    "expected": "1 items",
+    "source": "hand"
+  },
+  {
+    "id": "hand-items-0",
+    "pattern": "#,##0 \"items\"",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "0 items",
+    "source": "hand"
+  },
+  {
+    "id": "derived-int-0",
+    "pattern": "#,##0",
+    "value": -100000000000000000000,
+    "locale": "en-US",
+    "expected": "-100,000,000,000,000,000,000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-int-1",
+    "pattern": "#,##0",
+    "value": -1234567,
+    "locale": "en-US",
+    "expected": "-1,234,567",
+    "source": "derived"
+  },
+  {
+    "id": "derived-int-2",
+    "pattern": "#,##0",
+    "value": -1,
+    "locale": "en-US",
+    "expected": "-1",
+    "source": "derived"
+  },
+  {
+    "id": "derived-int-3",
+    "pattern": "#,##0",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "0",
+    "source": "derived"
+  },
+  {
+    "id": "derived-int-4",
+    "pattern": "#,##0",
+    "value": 1,
+    "locale": "en-US",
+    "expected": "1",
+    "source": "derived"
+  },
+  {
+    "id": "derived-int-5",
+    "pattern": "#,##0",
+    "value": 1234,
+    "locale": "en-US",
+    "expected": "1,234",
+    "source": "derived"
+  },
+  {
+    "id": "derived-int-6",
+    "pattern": "#,##0",
+    "value": 1234567,
+    "locale": "en-US",
+    "expected": "1,234,567",
+    "source": "derived"
+  },
+  {
+    "id": "derived-int-7",
+    "pattern": "#,##0",
+    "value": 100000000000000000000,
+    "locale": "en-US",
+    "expected": "100,000,000,000,000,000,000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-0",
+    "pattern": "#,##0.00",
+    "value": -1.5,
+    "locale": "en-US",
+    "expected": "-1.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-1",
+    "pattern": "#,##0.00",
+    "value": -0.5,
+    "locale": "en-US",
+    "expected": "-0.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-2",
+    "pattern": "#,##0.00",
+    "value": 0.0,
+    "locale": "en-US",
+    "expected": "0.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-3",
+    "pattern": "#,##0.00",
+    "value": 0.1,
+    "locale": "en-US",
+    "expected": "0.10",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-4",
+    "pattern": "#,##0.00",
+    "value": 0.25,
+    "locale": "en-US",
+    "expected": "0.25",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-5",
+    "pattern": "#,##0.00",
+    "value": 0.5,
+    "locale": "en-US",
+    "expected": "0.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-6",
+    "pattern": "#,##0.00",
+    "value": 0.99,
+    "locale": "en-US",
+    "expected": "0.99",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-7",
+    "pattern": "#,##0.00",
+    "value": 1.0,
+    "locale": "en-US",
+    "expected": "1.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-8",
+    "pattern": "#,##0.00",
+    "value": 1.5,
+    "locale": "en-US",
+    "expected": "1.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-9",
+    "pattern": "#,##0.00",
+    "value": 9.99,
+    "locale": "en-US",
+    "expected": "9.99",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-10",
+    "pattern": "#,##0.00",
+    "value": 12.34,
+    "locale": "en-US",
+    "expected": "12.34",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-11",
+    "pattern": "#,##0.00",
+    "value": 100.0,
+    "locale": "en-US",
+    "expected": "100.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-12",
+    "pattern": "#,##0.00",
+    "value": 999.5,
+    "locale": "en-US",
+    "expected": "999.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-13",
+    "pattern": "#,##0.00",
+    "value": 1000.0,
+    "locale": "en-US",
+    "expected": "1,000.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-14",
+    "pattern": "#,##0.00",
+    "value": 1234.5,
+    "locale": "en-US",
+    "expected": "1,234.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-15",
+    "pattern": "#,##0.00",
+    "value": 12345.678,
+    "locale": "en-US",
+    "expected": "12,345.68",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-16",
+    "pattern": "#,##0.00",
+    "value": 100000.001,
+    "locale": "en-US",
+    "expected": "100,000.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-17",
+    "pattern": "#,##0.00",
+    "value": 1000000.0,
+    "locale": "en-US",
+    "expected": "1,000,000.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-18",
+    "pattern": "#,##0.00",
+    "value": 999900.0,
+    "locale": "en-US",
+    "expected": "999,900.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-2dp-19",
+    "pattern": "#,##0.00",
+    "value": 1000000000.0,
+    "locale": "en-US",
+    "expected": "1,000,000,000.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-0",
+    "pattern": "0.0%",
+    "value": -1.0,
+    "locale": "en-US",
+    "expected": "-100.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-1",
+    "pattern": "0.0%",
+    "value": -0.5,
+    "locale": "en-US",
+    "expected": "-50.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-2",
+    "pattern": "0.0%",
+    "value": -0.1,
+    "locale": "en-US",
+    "expected": "-10.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-3",
+    "pattern": "0.0%",
+    "value": 0.0,
+    "locale": "en-US",
+    "expected": "0.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-4",
+    "pattern": "0.0%",
+    "value": 0.001,
+    "locale": "en-US",
+    "expected": "0.1%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-5",
+    "pattern": "0.0%",
+    "value": 0.01,
+    "locale": "en-US",
+    "expected": "1.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-6",
+    "pattern": "0.0%",
+    "value": 0.05,
+    "locale": "en-US",
+    "expected": "5.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-7",
+    "pattern": "0.0%",
+    "value": 0.1,
+    "locale": "en-US",
+    "expected": "10.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-8",
+    "pattern": "0.0%",
+    "value": 0.125,
+    "locale": "en-US",
+    "expected": "12.5%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-9",
+    "pattern": "0.0%",
+    "value": 0.25,
+    "locale": "en-US",
+    "expected": "25.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-10",
+    "pattern": "0.0%",
+    "value": 0.333,
+    "locale": "en-US",
+    "expected": "33.3%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-11",
+    "pattern": "0.0%",
+    "value": 0.5,
+    "locale": "en-US",
+    "expected": "50.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-12",
+    "pattern": "0.0%",
+    "value": 0.666,
+    "locale": "en-US",
+    "expected": "66.6%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-13",
+    "pattern": "0.0%",
+    "value": 0.75,
+    "locale": "en-US",
+    "expected": "75.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-14",
+    "pattern": "0.0%",
+    "value": 0.9,
+    "locale": "en-US",
+    "expected": "90.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-15",
+    "pattern": "0.0%",
+    "value": 0.99,
+    "locale": "en-US",
+    "expected": "99.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-16",
+    "pattern": "0.0%",
+    "value": 0.999,
+    "locale": "en-US",
+    "expected": "99.9%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-17",
+    "pattern": "0.0%",
+    "value": 1.0,
+    "locale": "en-US",
+    "expected": "100.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-18",
+    "pattern": "0.0%",
+    "value": 1.25,
+    "locale": "en-US",
+    "expected": "125.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-pct-19",
+    "pattern": "0.0%",
+    "value": 1.5,
+    "locale": "en-US",
+    "expected": "150.0%",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-0",
+    "pattern": "0.##E+00",
+    "value": 1e-20,
+    "locale": "en-US",
+    "expected": "1E-20",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-1",
+    "pattern": "0.##E+00",
+    "value": 1e-10,
+    "locale": "en-US",
+    "expected": "1E-10",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-2",
+    "pattern": "0.##E+00",
+    "value": 1e-05,
+    "locale": "en-US",
+    "expected": "1E-05",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-3",
+    "pattern": "0.##E+00",
+    "value": 0.001,
+    "locale": "en-US",
+    "expected": "1E-03",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-4",
+    "pattern": "0.##E+00",
+    "value": 0.1,
+    "locale": "en-US",
+    "expected": "1E-01",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-5",
+    "pattern": "0.##E+00",
+    "value": 1.0,
+    "locale": "en-US",
+    "expected": "1E+00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-6",
+    "pattern": "0.##E+00",
+    "value": 12.3,
+    "locale": "en-US",
+    "expected": "1.23E+01",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-7",
+    "pattern": "0.##E+00",
+    "value": 1234.5,
+    "locale": "en-US",
+    "expected": "1.23E+03",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-8",
+    "pattern": "0.##E+00",
+    "value": 12345,
+    "locale": "en-US",
+    "expected": "1.23E+04",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-9",
+    "pattern": "0.##E+00",
+    "value": 100000.0,
+    "locale": "en-US",
+    "expected": "1E+05",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-10",
+    "pattern": "0.##E+00",
+    "value": 10000000000.0,
+    "locale": "en-US",
+    "expected": "1E+10",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-11",
+    "pattern": "0.##E+00",
+    "value": 1000000000000000.0,
+    "locale": "en-US",
+    "expected": "1E+15",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-12",
+    "pattern": "0.##E+00",
+    "value": 1e+20,
+    "locale": "en-US",
+    "expected": "1E+20",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-13",
+    "pattern": "0.##E+00",
+    "value": 55000000.0,
+    "locale": "en-US",
+    "expected": "5.5E+07",
+    "source": "derived"
+  },
+  {
+    "id": "derived-sci-14",
+    "pattern": "0.##E+00",
+    "value": 9.99e-08,
+    "locale": "en-US",
+    "expected": "9.99E-08",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-0",
+    "pattern": "$#,##0",
+    "value": -1234567,
+    "locale": "en-US",
+    "expected": "-$1,234,567",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-1",
+    "pattern": "$#,##0",
+    "value": -1000,
+    "locale": "en-US",
+    "expected": "-$1,000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-2",
+    "pattern": "$#,##0",
+    "value": -1,
+    "locale": "en-US",
+    "expected": "-$1",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-3",
+    "pattern": "$#,##0",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "$0",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-4",
+    "pattern": "$#,##0",
+    "value": 1,
+    "locale": "en-US",
+    "expected": "$1",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-5",
+    "pattern": "$#,##0",
+    "value": 99,
+    "locale": "en-US",
+    "expected": "$99",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-6",
+    "pattern": "$#,##0",
+    "value": 1000,
+    "locale": "en-US",
+    "expected": "$1,000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-7",
+    "pattern": "$#,##0",
+    "value": 12345,
+    "locale": "en-US",
+    "expected": "$12,345",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-8",
+    "pattern": "$#,##0",
+    "value": 1234567,
+    "locale": "en-US",
+    "expected": "$1,234,567",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-9",
+    "pattern": "$#,##0",
+    "value": 1000000000000000000,
+    "locale": "en-US",
+    "expected": "$1,000,000,000,000,000,000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-0",
+    "pattern": "$#,##0;($#,##0)",
+    "value": -10000,
+    "locale": "en-US",
+    "expected": "($10,000)",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-1",
+    "pattern": "$#,##0;($#,##0)",
+    "value": -1234,
+    "locale": "en-US",
+    "expected": "($1,234)",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-2",
+    "pattern": "$#,##0;($#,##0)",
+    "value": -1,
+    "locale": "en-US",
+    "expected": "($1)",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-3",
+    "pattern": "$#,##0;($#,##0)",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "$0",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-4",
+    "pattern": "$#,##0;($#,##0)",
+    "value": 1,
+    "locale": "en-US",
+    "expected": "$1",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-5",
+    "pattern": "$#,##0;($#,##0)",
+    "value": 1234,
+    "locale": "en-US",
+    "expected": "$1,234",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-6",
+    "pattern": "$#,##0;($#,##0)",
+    "value": 10000,
+    "locale": "en-US",
+    "expected": "$10,000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-7",
+    "pattern": "$#,##0;($#,##0)",
+    "value": -100000,
+    "locale": "en-US",
+    "expected": "($100,000)",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-8",
+    "pattern": "$#,##0;($#,##0)",
+    "value": 100000,
+    "locale": "en-US",
+    "expected": "$100,000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-usd-parens-9",
+    "pattern": "$#,##0;($#,##0)",
+    "value": -999,
+    "locale": "en-US",
+    "expected": "($999)",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-0",
+    "pattern": "[USD]#,##0.00",
+    "value": -1234.5,
+    "locale": "en-US",
+    "expected": "-USD1,234.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-1",
+    "pattern": "[USD]#,##0.00",
+    "value": -1.01,
+    "locale": "en-US",
+    "expected": "-USD1.01",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-2",
+    "pattern": "[USD]#,##0.00",
+    "value": 0.0,
+    "locale": "en-US",
+    "expected": "USD0.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-3",
+    "pattern": "[USD]#,##0.00",
+    "value": 0.5,
+    "locale": "en-US",
+    "expected": "USD0.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-4",
+    "pattern": "[USD]#,##0.00",
+    "value": 1.0,
+    "locale": "en-US",
+    "expected": "USD1.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-5",
+    "pattern": "[USD]#,##0.00",
+    "value": 1.99,
+    "locale": "en-US",
+    "expected": "USD1.99",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-6",
+    "pattern": "[USD]#,##0.00",
+    "value": 12.345,
+    "locale": "en-US",
+    "expected": "USD12.35",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-7",
+    "pattern": "[USD]#,##0.00",
+    "value": 99.995,
+    "locale": "en-US",
+    "expected": "USD100.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-8",
+    "pattern": "[USD]#,##0.00",
+    "value": 1234.5,
+    "locale": "en-US",
+    "expected": "USD1,234.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-usd-9",
+    "pattern": "[USD]#,##0.00",
+    "value": 1000000.0,
+    "locale": "en-US",
+    "expected": "USD1,000,000.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-0",
+    "pattern": "[EUR]#,##0.00",
+    "value": -1234.5,
+    "locale": "en-US",
+    "expected": "-EUR1,234.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-1",
+    "pattern": "[EUR]#,##0.00",
+    "value": -1.0,
+    "locale": "en-US",
+    "expected": "-EUR1.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-2",
+    "pattern": "[EUR]#,##0.00",
+    "value": 0.0,
+    "locale": "en-US",
+    "expected": "EUR0.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-3",
+    "pattern": "[EUR]#,##0.00",
+    "value": 1.0,
+    "locale": "en-US",
+    "expected": "EUR1.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-4",
+    "pattern": "[EUR]#,##0.00",
+    "value": 1234.5,
+    "locale": "en-US",
+    "expected": "EUR1,234.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-5",
+    "pattern": "[EUR]#,##0.00",
+    "value": 9999.99,
+    "locale": "en-US",
+    "expected": "EUR9,999.99",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-6",
+    "pattern": "[EUR]#,##0.00",
+    "value": 1000000.0,
+    "locale": "en-US",
+    "expected": "EUR1,000,000.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-7",
+    "pattern": "[EUR]#,##0.00",
+    "value": 0.001,
+    "locale": "en-US",
+    "expected": "EUR0.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-8",
+    "pattern": "[EUR]#,##0.00",
+    "value": 42.42,
+    "locale": "en-US",
+    "expected": "EUR42.42",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-eur-9",
+    "pattern": "[EUR]#,##0.00",
+    "value": 100.5,
+    "locale": "en-US",
+    "expected": "EUR100.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-0",
+    "pattern": "[XYZ]#,##0",
+    "value": -1234,
+    "locale": "en-US",
+    "expected": "-XYZ1,234",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-1",
+    "pattern": "[XYZ]#,##0",
+    "value": -1,
+    "locale": "en-US",
+    "expected": "-XYZ1",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-2",
+    "pattern": "[XYZ]#,##0",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "XYZ0",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-3",
+    "pattern": "[XYZ]#,##0",
+    "value": 1,
+    "locale": "en-US",
+    "expected": "XYZ1",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-4",
+    "pattern": "[XYZ]#,##0",
+    "value": 99,
+    "locale": "en-US",
+    "expected": "XYZ99",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-5",
+    "pattern": "[XYZ]#,##0",
+    "value": 1000,
+    "locale": "en-US",
+    "expected": "XYZ1,000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-6",
+    "pattern": "[XYZ]#,##0",
+    "value": 12345,
+    "locale": "en-US",
+    "expected": "XYZ12,345",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-7",
+    "pattern": "[XYZ]#,##0",
+    "value": 1234567,
+    "locale": "en-US",
+    "expected": "XYZ1,234,567",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-8",
+    "pattern": "[XYZ]#,##0",
+    "value": -999999,
+    "locale": "en-US",
+    "expected": "-XYZ999,999",
+    "source": "derived"
+  },
+  {
+    "id": "derived-bracketed-xyz-9",
+    "pattern": "[XYZ]#,##0",
+    "value": 1000000000000000,
+    "locale": "en-US",
+    "expected": "XYZ1,000,000,000,000,000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-0",
+    "pattern": "#,##0 \"items\"",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "0 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-1",
+    "pattern": "#,##0 \"items\"",
+    "value": 1,
+    "locale": "en-US",
+    "expected": "1 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-2",
+    "pattern": "#,##0 \"items\"",
+    "value": 7,
+    "locale": "en-US",
+    "expected": "7 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-3",
+    "pattern": "#,##0 \"items\"",
+    "value": 100,
+    "locale": "en-US",
+    "expected": "100 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-4",
+    "pattern": "#,##0 \"items\"",
+    "value": 1234,
+    "locale": "en-US",
+    "expected": "1,234 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-5",
+    "pattern": "#,##0 \"items\"",
+    "value": 1234567,
+    "locale": "en-US",
+    "expected": "1,234,567 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-6",
+    "pattern": "#,##0 \"items\"",
+    "value": -1,
+    "locale": "en-US",
+    "expected": "-1 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-7",
+    "pattern": "#,##0 \"items\"",
+    "value": -1000,
+    "locale": "en-US",
+    "expected": "-1,000 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-8",
+    "pattern": "#,##0 \"items\"",
+    "value": 42,
+    "locale": "en-US",
+    "expected": "42 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-items-9",
+    "pattern": "#,##0 \"items\"",
+    "value": 9999,
+    "locale": "en-US",
+    "expected": "9,999 items",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-en-US-0",
+    "pattern": "#,##0.00",
+    "value": 0.0,
+    "locale": "en-US",
+    "expected": "0.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-en-US-1",
+    "pattern": "#,##0.00",
+    "value": 1.0,
+    "locale": "en-US",
+    "expected": "1.00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-en-US-2",
+    "pattern": "#,##0.00",
+    "value": 1234.5,
+    "locale": "en-US",
+    "expected": "1,234.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-en-US-3",
+    "pattern": "#,##0.00",
+    "value": 1234567.89,
+    "locale": "en-US",
+    "expected": "1,234,567.89",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-en-US-4",
+    "pattern": "#,##0.00",
+    "value": -1234.5,
+    "locale": "en-US",
+    "expected": "-1,234.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-en-US-5",
+    "pattern": "#,##0.00",
+    "value": -0.5,
+    "locale": "en-US",
+    "expected": "-0.50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-de-DE-0",
+    "pattern": "#,##0.00",
+    "value": 0.0,
+    "locale": "de-DE",
+    "expected": "0,00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-de-DE-1",
+    "pattern": "#,##0.00",
+    "value": 1.0,
+    "locale": "de-DE",
+    "expected": "1,00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-de-DE-2",
+    "pattern": "#,##0.00",
+    "value": 1234.5,
+    "locale": "de-DE",
+    "expected": "1.234,50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-de-DE-3",
+    "pattern": "#,##0.00",
+    "value": 1234567.89,
+    "locale": "de-DE",
+    "expected": "1.234.567,89",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-de-DE-4",
+    "pattern": "#,##0.00",
+    "value": -1234.5,
+    "locale": "de-DE",
+    "expected": "-1.234,50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-de-DE-5",
+    "pattern": "#,##0.00",
+    "value": -0.5,
+    "locale": "de-DE",
+    "expected": "-0,50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-fr-FR-0",
+    "pattern": "#,##0.00",
+    "value": 0.0,
+    "locale": "fr-FR",
+    "expected": "0,00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-fr-FR-1",
+    "pattern": "#,##0.00",
+    "value": 1.0,
+    "locale": "fr-FR",
+    "expected": "1,00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-fr-FR-2",
+    "pattern": "#,##0.00",
+    "value": 1234.5,
+    "locale": "fr-FR",
+    "expected": "1 234,50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-fr-FR-3",
+    "pattern": "#,##0.00",
+    "value": 1234567.89,
+    "locale": "fr-FR",
+    "expected": "1 234 567,89",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-fr-FR-4",
+    "pattern": "#,##0.00",
+    "value": -1234.5,
+    "locale": "fr-FR",
+    "expected": "-1 234,50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-fr-FR-5",
+    "pattern": "#,##0.00",
+    "value": -0.5,
+    "locale": "fr-FR",
+    "expected": "-0,50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-es-ES-0",
+    "pattern": "#,##0.00",
+    "value": 0.0,
+    "locale": "es-ES",
+    "expected": "0,00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-es-ES-1",
+    "pattern": "#,##0.00",
+    "value": 1.0,
+    "locale": "es-ES",
+    "expected": "1,00",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-es-ES-2",
+    "pattern": "#,##0.00",
+    "value": 1234.5,
+    "locale": "es-ES",
+    "expected": "1.234,50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-es-ES-3",
+    "pattern": "#,##0.00",
+    "value": 1234567.89,
+    "locale": "es-ES",
+    "expected": "1.234.567,89",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-es-ES-4",
+    "pattern": "#,##0.00",
+    "value": -1234.5,
+    "locale": "es-ES",
+    "expected": "-1.234,50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-locale-es-ES-5",
+    "pattern": "#,##0.00",
+    "value": -0.5,
+    "locale": "es-ES",
+    "expected": "-0,50",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-0",
+    "pattern": "0000",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "0000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-1",
+    "pattern": "0000",
+    "value": 1,
+    "locale": "en-US",
+    "expected": "0001",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-2",
+    "pattern": "0000",
+    "value": 12,
+    "locale": "en-US",
+    "expected": "0012",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-3",
+    "pattern": "0000",
+    "value": 123,
+    "locale": "en-US",
+    "expected": "0123",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-4",
+    "pattern": "0000",
+    "value": 1234,
+    "locale": "en-US",
+    "expected": "1234",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-5",
+    "pattern": "0000",
+    "value": 0.5,
+    "locale": "en-US",
+    "expected": "0001",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-6",
+    "pattern": "0000",
+    "value": 1.5,
+    "locale": "en-US",
+    "expected": "0002",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-7",
+    "pattern": "0000",
+    "value": 12.345,
+    "locale": "en-US",
+    "expected": "0012",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-8",
+    "pattern": "0000",
+    "value": 0.05,
+    "locale": "en-US",
+    "expected": "0000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-0000-9",
+    "pattern": "0000",
+    "value": 9.9,
+    "locale": "en-US",
+    "expected": "0010",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-0",
+    "pattern": "00.000",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "00.000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-1",
+    "pattern": "00.000",
+    "value": 1,
+    "locale": "en-US",
+    "expected": "01.000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-2",
+    "pattern": "00.000",
+    "value": 12,
+    "locale": "en-US",
+    "expected": "12.000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-3",
+    "pattern": "00.000",
+    "value": 123,
+    "locale": "en-US",
+    "expected": "123.000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-4",
+    "pattern": "00.000",
+    "value": 1234,
+    "locale": "en-US",
+    "expected": "1234.000",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-5",
+    "pattern": "00.000",
+    "value": 0.5,
+    "locale": "en-US",
+    "expected": "00.500",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-6",
+    "pattern": "00.000",
+    "value": 1.5,
+    "locale": "en-US",
+    "expected": "01.500",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-7",
+    "pattern": "00.000",
+    "value": 12.345,
+    "locale": "en-US",
+    "expected": "12.345",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-8",
+    "pattern": "00.000",
+    "value": 0.05,
+    "locale": "en-US",
+    "expected": "00.050",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-00.000-9",
+    "pattern": "00.000",
+    "value": 9.9,
+    "locale": "en-US",
+    "expected": "09.900",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-0",
+    "pattern": "#.0",
+    "value": 0,
+    "locale": "en-US",
+    "expected": "0.0",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-1",
+    "pattern": "#.0",
+    "value": 1,
+    "locale": "en-US",
+    "expected": "1.0",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-2",
+    "pattern": "#.0",
+    "value": 12,
+    "locale": "en-US",
+    "expected": "12.0",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-3",
+    "pattern": "#.0",
+    "value": 123,
+    "locale": "en-US",
+    "expected": "123.0",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-4",
+    "pattern": "#.0",
+    "value": 1234,
+    "locale": "en-US",
+    "expected": "1234.0",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-5",
+    "pattern": "#.0",
+    "value": 0.5,
+    "locale": "en-US",
+    "expected": "0.5",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-6",
+    "pattern": "#.0",
+    "value": 1.5,
+    "locale": "en-US",
+    "expected": "1.5",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-7",
+    "pattern": "#.0",
+    "value": 12.345,
+    "locale": "en-US",
+    "expected": "12.3",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-8",
+    "pattern": "#.0",
+    "value": 0.05,
+    "locale": "en-US",
+    "expected": "0.1",
+    "source": "derived"
+  },
+  {
+    "id": "derived-zp-#.0-9",
+    "pattern": "#.0",
+    "value": 9.9,
+    "locale": "en-US",
+    "expected": "9.9",
+    "source": "derived"
+  }
+]
