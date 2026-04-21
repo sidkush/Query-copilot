@@ -63,6 +63,14 @@ updated — do not assume `4-5-20250514` without checking the active `.env`.
 | `CALC_SUGGEST_RATE_LIMIT_PER_60S` | `5` | Per-user LLM suggestion cap (60s sliding window). 429 when exceeded. |
 | `CALC_SUGGEST_MAX_DESCRIPTION_LEN` | `1000` | Reject oversized NL descriptions (413). |
 
+### Trend line (Plan 9b)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `TREND_RATE_LIMIT_PER_30S` | `20` | Per-user sliding-window cap on `/api/v1/analytics/trend-fit`. 429 when exceeded. |
+| `TREND_MAX_ROWS` | `100_000` | Reject input payloads over this count (413). Hard cap, not sampled. |
+| `TREND_TIMEOUT_SECONDS` | `5.0` | Per-request wall-clock budget (504 when exceeded). |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |
