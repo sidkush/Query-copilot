@@ -5,6 +5,16 @@ import singlePane from './__fixtures__/boxplot-single-pane.json';
 import withOutliers from './__fixtures__/boxplot-with-outliers.json';
 import minMax from './__fixtures__/boxplot-min-max.json';
 
+type Mark = { type?: string } | string;
+type VegaLayer = {
+  mark?: Mark;
+  data?: { values?: unknown[] };
+  encoding?: { tooltip?: Array<{ field: string }> };
+};
+
+const markType = (l: VegaLayer): string | undefined =>
+  typeof l.mark === 'string' ? l.mark : l.mark?.type;
+
 describe('boxPlotToVega', () => {
   const baseEnc = { xField: 'category', yField: 'measure' };
 
@@ -14,9 +24,8 @@ describe('boxPlotToVega', () => {
       show_outliers: false, fill_color: '#4C78A8', fill_opacity: 0.3,
       scope: 'entire',
     };
-    const layers = compileBoxPlot(spec, singlePane as BoxPlotEnvelope, baseEnc);
-    const types = layers.map((l: any) => l.mark?.type ?? l.mark);
-    expect(types).toEqual(['rule', 'rect', 'rule']);
+    const layers = compileBoxPlot(spec, singlePane as BoxPlotEnvelope, baseEnc) as VegaLayer[];
+    expect(layers.map(markType)).toEqual(['rule', 'rect', 'rule']);
   });
 
   it('emits 4 marks with outlier point layer when show_outliers', () => {
@@ -26,13 +35,13 @@ describe('boxPlotToVega', () => {
       scope: 'entire',
     };
     const env = withOutliers as BoxPlotEnvelope;
-    const layers = compileBoxPlot(spec, env, baseEnc);
-    const types = layers.map((l: any) => l.mark?.type ?? l.mark);
-    expect(types).toEqual(['rule', 'rect', 'rule', 'point']);
-    const outlierLayer: any = layers[3];
-    expect(outlierLayer.mark.filled).toBe(false);
-    expect(Array.isArray(outlierLayer.data.values)).toBe(true);
-    expect(outlierLayer.data.values.length).toBe(env.outliers.length);
+    const layers = compileBoxPlot(spec, env, baseEnc) as VegaLayer[];
+    expect(layers.map(markType)).toEqual(['rule', 'rect', 'rule', 'point']);
+    const outlierLayer = layers[3];
+    const outlierMark = outlierLayer.mark as { filled?: boolean };
+    expect(outlierMark.filled).toBe(false);
+    expect(Array.isArray(outlierLayer.data?.values)).toBe(true);
+    expect(outlierLayer.data?.values?.length).toBe(env.outliers.length);
   });
 
   it('tooltip carries all summary stats', () => {
@@ -41,9 +50,9 @@ describe('boxPlotToVega', () => {
       show_outliers: false, fill_color: '#4C78A8', fill_opacity: 0.3,
       scope: 'entire',
     };
-    const layers = compileBoxPlot(spec, minMax as BoxPlotEnvelope, baseEnc);
-    const box: any = layers[1];  // rect layer
-    const fields = (box.encoding.tooltip as Array<{ field: string }>).map((t) => t.field);
+    const layers = compileBoxPlot(spec, minMax as BoxPlotEnvelope, baseEnc) as VegaLayer[];
+    const box = layers[1];
+    const fields = (box.encoding?.tooltip ?? []).map((t) => t.field);
     expect(fields).toEqual(
       expect.arrayContaining(['min', 'q1', 'median', 'q3', 'max', 'iqr']),
     );
@@ -55,9 +64,9 @@ describe('boxPlotToVega', () => {
       show_outliers: false, fill_color: '#E45756', fill_opacity: 0.55,
       scope: 'entire',
     };
-    const layers = compileBoxPlot(spec, singlePane as BoxPlotEnvelope, baseEnc);
-    const rect: any = layers[1];
-    expect(rect.mark.fill).toBe('#E45756');
-    expect(rect.mark.fillOpacity).toBeCloseTo(0.55);
+    const layers = compileBoxPlot(spec, singlePane as BoxPlotEnvelope, baseEnc) as VegaLayer[];
+    const rectMark = layers[1].mark as { fill?: string; fillOpacity?: number };
+    expect(rectMark.fill).toBe('#E45756');
+    expect(rectMark.fillOpacity).toBeCloseTo(0.55);
   });
 });

@@ -5,6 +5,19 @@ import {
   type ActiveMark,
 } from '../../analytics/dropLinesToVega';
 
+type RuleMark = {
+  type?: string;
+  color?: string;
+  strokeWidth?: number;
+  strokeDash?: number[];
+};
+type DropLineLayer = { mark?: RuleMark };
+
+const firstMark = (layers: unknown[]): RuleMark => {
+  const [first] = layers as DropLineLayer[];
+  return first.mark ?? {};
+};
+
 describe('dropLinesToVega', () => {
   const mark: ActiveMark = { x: 12, y: 340, xField: 'category', yField: 'sales' };
 
@@ -30,20 +43,18 @@ describe('dropLinesToVega', () => {
 
   it('applies dashed style by default', () => {
     const spec: DropLinesSpec = { mode: 'both', color: '#888', line_style: 'dashed' };
-    const [first]: any = compileDropLines(spec, mark);
-    expect(first.mark.strokeDash).toEqual([4, 3]);
-    expect(first.mark.strokeWidth).toBe(1);
+    const m = firstMark(compileDropLines(spec, mark));
+    expect(m.strokeDash).toEqual([4, 3]);
+    expect(m.strokeWidth).toBe(1);
   });
 
   it('applies dotted style', () => {
     const spec: DropLinesSpec = { mode: 'both', color: '#888', line_style: 'dotted' };
-    const [first]: any = compileDropLines(spec, mark);
-    expect(first.mark.strokeDash).toEqual([1, 2]);
+    expect(firstMark(compileDropLines(spec, mark)).strokeDash).toEqual([1, 2]);
   });
 
   it('honours color', () => {
     const spec: DropLinesSpec = { mode: 'both', color: '#E45756', line_style: 'dashed' };
-    const [first]: any = compileDropLines(spec, mark);
-    expect(first.mark.color).toBe('#E45756');
+    expect(firstMark(compileDropLines(spec, mark)).color).toBe('#E45756');
   });
 });
