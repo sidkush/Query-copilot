@@ -763,7 +763,9 @@ doc:
 
 **Status:** ✅ Shipped 2026-04-20. 10 tasks. Backend modules: `backend/vizql/{forecast,forecast_preflight,forecast_engine}.py`. Endpoint: `POST /api/v1/analytics/forecast` (feature-flagged on `FEATURE_ANALYST_PRO`, rate-limited 10/60s, 10s timeout, 10k-row hard cap). Frontend: `frontend/src/chart-ir/analytics/forecastToVega.ts`, `ForecastDialog.jsx`, `ForecastStatsBadge.jsx`. Dependency added: `statsmodels>=0.14`. New config: `FORECAST_RATE_LIMIT_PER_60S=10`, `FORECAST_MAX_ROWS=10_000`, `FORECAST_TIMEOUT_SECONDS=10.0`, `FORECAST_MAX_HORIZON=200`. 31 new tests (8 types + 8 preflight + 16 engine + 7 endpoint backend; 4 store + 4 vega + 2 dialog frontend) — all green; 1326 backend pass, frontend chart-ir baseline unchanged. Plan doc: `docs/superpowers/plans/2026-04-20-analyst-pro-plan-9c-forecast-holt-winters.md`.
 
-### Plan 9d — Cluster (K-means + Calinski-Harabasz)
+### Plan 9d — Cluster (K-means + Calinski-Harabasz) — ✅ Shipped 2026-04-20
+
+**Status:** ✅ Shipped 2026-04-20. 8 tasks. Backend modules: `backend/vizql/{cluster,cluster_engine}.py`. Endpoint: `POST /api/v1/analytics/cluster` (feature-flagged on `FEATURE_ANALYST_PRO`, rate-limited 10/60s, 8s timeout, 50k-row hard cap, k_max hard-cap 25). Frontend: `frontend/src/chart-ir/analytics/clusterToVega.ts`, `ClusterDialog.jsx`, `ClusterStatsBadge.jsx`, `ClusterLegendContextMenu.jsx`. Cluster-as-Set bridges into Plan 4b via `createSetFromClusterAnalystPro` → `addSetAnalystPro`. New config: `CLUSTER_RATE_LIMIT_PER_60S=10`, `CLUSTER_MAX_ROWS=50_000`, `CLUSTER_TIMEOUT_SECONDS=8.0`, `CLUSTER_K_MAX_HARD_CAP=25`. Tests: 6 type + 10 engine + 7 endpoint backend; 5 store + 3 vega + 1 dialog + 1 legend menu frontend — all green; backend full suite green; frontend chart-ir baseline unchanged. Plan doc: `docs/superpowers/plans/2026-04-20-analyst-pro-plan-9d-cluster-kmeans.md`.
 
 ### Plan 9e — Box Plots + Drop Lines
 
