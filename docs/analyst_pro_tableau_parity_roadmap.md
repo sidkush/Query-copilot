@@ -791,7 +791,23 @@ right-click mount of FormatInspectorPanel) deferred as a follow-up task; panel i
 exportable and unit-tested, but not yet reachable from the Analyst Pro UI. Plan doc:
 `docs/superpowers/plans/2026-04-21-analyst-pro-plan-10a-formatting-precedence-chain.md`.
 
-### Plan 10b — Number Format Grammar (Excel-style)
+### Plan 10b — Number Format Grammar (Excel-style) — ✅ Shipped 2026-04-21
+
+**Status:** ✅ Shipped 2026-04-21. 10 tasks.
+Backend modules: `backend/vizql/{number_format,number_format_defaults}.py`.
+Frontend: `frontend/src/components/dashboard/freeform/lib/{numberFormat,numberFormatDefaults}.ts`,
+`frontend/src/chart-ir/formatting/{vegaFormatAdapter,registerVegaFormat}.ts`,
+`panels/NumberFormatEditor.jsx`. Consumed via `StyleProp.NUMBER_FORMAT` through the
+Plan 10a `FormatResolver`. Vega integration: D3-format mapping where expressible,
+falls back to registered `askdbFormatNumber` Vega expression fn for paren-negative /
+bracketed currency / multi-section patterns. Tests: parser + formatter + parity
+corpus + defaults + integration = 41 backend; unit (28) + parity (219) + adapter
+(7) + editor (6) = 260 frontend specs — all green. FormatInspectorPanel gains a
+Number format section with preset dropdown + custom pattern + live 1,234,567.89
+preview + error indicator. Docs: `backend/vizql/NUMBER_FORMAT_GRAMMAR.md`. Router
+`askdb:<pattern>` sentinel consumer wiring tracked as a follow-up task (to keep
+Plan 10b from touching the known `chart-ir/router` test-debt baseline). Plan doc:
+`docs/superpowers/plans/2026-04-21-analyst-pro-plan-10b-number-format-grammar.md`.
 
 ### Plan 10c — Date Format Grammar (ICU tokens)
 
