@@ -58,6 +58,18 @@ function findZoneById(dashboard, id) {
   return null;
 }
 
+// Plan 10a — Stable string key for Selector identity. Mirrors the TS
+// Selector shape in `components/dashboard/freeform/lib/formattingTypes.ts`.
+// Used by analystProFormatRules CRUD to find/merge rules across calls.
+function selectorKey(s) {
+  if (s.kind === 'workbook') return 'workbook::';
+  if (s.kind === 'mark') return `mark::${s.markId}`;
+  if (s.kind === 'field') return `field::${s.fieldId}`;
+  if (s.kind === 'sheet') return `sheet::${s.sheetId}`;
+  if (s.kind === 'ds') return `ds::${s.dsId}`;
+  throw new Error(`selectorKey: unknown ${JSON.stringify(s)}`);
+}
+
 export const useStore = create((set, get) => ({
   user: JSON.parse(localStorage.getItem("user") || "null"),
   token: localStorage.getItem("token") || null,
@@ -1653,6 +1665,55 @@ export const useStore = create((set, get) => ({
 
   openBoxPlotDialogAnalystPro: (ctx) => set({ analystProBoxPlotDialogCtx: ctx || {} }),
   closeBoxPlotDialogAnalystPro: () => set({ analystProBoxPlotDialogCtx: null }),
+
+  // Plan 10a — Format precedence rules. Rendered by FormatResolver.
+  // Each entry: { selector: Selector, properties: Record<StyleProp, StyleValue> }.
+  // Precedence (Build_Tableau.md §XIV.1): Mark > Field > Worksheet > DS > Workbook.
+  analystProFormatRules: [],
+
+  setFormatRuleAnalystPro: (selector, prop, value) =>
+    set((state) => {
+      const idx = state.analystProFormatRules.findIndex(
+        (r) => selectorKey(r.selector) === selectorKey(selector),
+      );
+      if (idx === -1) {
+        return {
+          analystProFormatRules: [
+            ...state.analystProFormatRules,
+            { selector, properties: { [prop]: value } },
+          ],
+        };
+      }
+      const existing = state.analystProFormatRules[idx];
+      const merged = { ...existing, properties: { ...existing.properties, [prop]: value } };
+      const next = state.analystProFormatRules.slice();
+      next[idx] = merged;
+      return { analystProFormatRules: next };
+    }),
+
+  clearFormatRuleAnalystPro: (selector, prop) =>
+    set((state) => {
+      const idx = state.analystProFormatRules.findIndex(
+        (r) => selectorKey(r.selector) === selectorKey(selector),
+      );
+      if (idx === -1) return {};
+      const existing = state.analystProFormatRules[idx];
+      const { [prop]: _removed, ...rest } = existing.properties;
+      const next = state.analystProFormatRules.slice();
+      if (Object.keys(rest).length === 0) {
+        next.splice(idx, 1);
+      } else {
+        next[idx] = { ...existing, properties: rest };
+      }
+      return { analystProFormatRules: next };
+    }),
+
+  resetFormatScopeAnalystPro: (selector) =>
+    set((state) => ({
+      analystProFormatRules: state.analystProFormatRules.filter(
+        (r) => selectorKey(r.selector) !== selectorKey(selector),
+      ),
+    })),
 
   // Plan 9e: Drop Lines per-sheet. Explicit mode='off' persists vs. absent key.
   analystProDropLinesBySheet: {},
