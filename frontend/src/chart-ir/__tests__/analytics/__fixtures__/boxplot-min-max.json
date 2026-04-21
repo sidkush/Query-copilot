@@ -1,0 +1,10 @@
+{
+  "kind": "box_plot",
+  "axis": "y",
+  "scope": "entire",
+  "whisker_method": "min-max",
+  "values": { "q1": -0.67, "median": 0.0, "q3": 0.67, "whisker_low": -3.2, "whisker_high": 3.2 },
+  "outliers": [],
+  "fill_color": "#4C78A8",
+  "fill_opacity": 0.3
+}
