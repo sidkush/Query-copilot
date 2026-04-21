@@ -260,7 +260,11 @@ class Settings(BaseSettings):
 
     # ── Analyst Pro archetype (Tableau-parity freeform workbook) ──
     # Plan 1 ships read-only rendering. Plan 2+ add drag/resize/actions/sets.
-    FEATURE_ANALYST_PRO: bool = False
+    # Default True because Plan 9a–9e shipped and the `/analytics` route +
+    # calc editor + analytics panel are on by default in the frontend
+    # (NEW_CHART_EDITOR_ENABLED). Override to False in staging/prod to
+    # gate individual launches if needed.
+    FEATURE_ANALYST_PRO: bool = True
     FEATURE_RAWSQL_ENABLED: bool = False
     CALC_RATE_LIMIT_PER_30S: int = 10
     MAX_CALC_FORMULA_LEN: int = 10_000

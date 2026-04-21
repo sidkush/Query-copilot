@@ -12,7 +12,11 @@ import { fetchSampleRows } from '../../../../api';
  * Props:
  *   connId          — active connection id (string, required).
  *   selectedRowIdx  — currently selected row index (number, default 0).
- *   onSelectRow     — callback(rowIdx: number) fired on row click.
+ *   onSelectRow     — callback(rowIdx, rowObject) fired on row click. The
+ *                     rowObject is the full {column: value} dict the
+ *                     single-row evaluator needs (without it the backend
+ *                     builds a VALUES clause that only carries __idx and
+ *                     fails with "column not found").
  */
 export function CalcTestValues({ connId, selectedRowIdx = 0, onSelectRow }) {
   const [state, setState] = React.useState({
@@ -43,6 +47,16 @@ export function CalcTestValues({ connId, selectedRowIdx = 0, onSelectRow }) {
       cancelled = true;
     };
   }, [connId]);
+
+  /* Auto-fire onSelectRow with the default row as soon as sample rows
+     arrive. Without this the evaluator runs against an empty row on the
+     user's first formula and the backend fails to bind any field. */
+  const firstRow = state.rows[selectedRowIdx];
+  React.useEffect(() => {
+    if (firstRow && onSelectRow) onSelectRow(selectedRowIdx, firstRow);
+    // selectedRowIdx/onSelectRow are stable across renders per caller design.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstRow]);
 
   if (state.loading) {
     return (
@@ -86,7 +100,7 @@ export function CalcTestValues({ connId, selectedRowIdx = 0, onSelectRow }) {
           role="row"
           aria-selected={i === selectedRowIdx}
           className={`calc-test-values__row ${i === selectedRowIdx ? 'is-selected' : ''}`}
-          onClick={() => onSelectRow && onSelectRow(i)}
+          onClick={() => onSelectRow && onSelectRow(i, row)}
         >
           <span className="calc-test-values__idx">{i + 1}</span>
           {state.columns.map((c) => (

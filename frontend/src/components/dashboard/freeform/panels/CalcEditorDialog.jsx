@@ -274,9 +274,11 @@ export function CalcEditorDialog({
               <CalcTestValues
                 connId={connId}
                 selectedRowIdx={selectedRowIdx}
-                onSelectRow={(i) => {
+                onSelectRow={(i, rowData) => {
                   setSelectedRowIdx(i);
-                  setSampleRow({ ...sampleRow, __idx: i });
+                  /* Evaluator consumes {column: value} — not just the index.
+                     Keep __idx for legacy callers that key on it. */
+                  setSampleRow({ ...(rowData ?? {}), __idx: i });
                 }}
               />
               <CalcResultPreview formula={formula} row={sampleRow} schemaRef={schemaRef} />
