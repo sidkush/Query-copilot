@@ -767,9 +767,9 @@ doc:
 
 **Status:** ✅ Shipped 2026-04-20. 8 tasks. Backend modules: `backend/vizql/{cluster,cluster_engine}.py`. Endpoint: `POST /api/v1/analytics/cluster` (feature-flagged on `FEATURE_ANALYST_PRO`, rate-limited 10/60s, 8s timeout, 50k-row hard cap, k_max hard-cap 25). Frontend: `frontend/src/chart-ir/analytics/clusterToVega.ts`, `ClusterDialog.jsx`, `ClusterStatsBadge.jsx`, `ClusterLegendContextMenu.jsx`. Cluster-as-Set bridges into Plan 4b via `createSetFromClusterAnalystPro` → `addSetAnalystPro`. New config: `CLUSTER_RATE_LIMIT_PER_60S=10`, `CLUSTER_MAX_ROWS=50_000`, `CLUSTER_TIMEOUT_SECONDS=8.0`, `CLUSTER_K_MAX_HARD_CAP=25`. Tests: 6 type + 10 engine + 7 endpoint backend; 5 store + 3 vega + 1 dialog + 1 legend menu frontend — all green; backend full suite green; frontend chart-ir baseline unchanged. Plan doc: `docs/superpowers/plans/2026-04-20-analyst-pro-plan-9d-cluster-kmeans.md`.
 
-### Plan 9e — Box Plots + Drop Lines
+### Plan 9e — Box Plots + Drop Lines — ✅ Shipped 2026-04-20
 
-Each uses DuckDB or Python (scikit-learn via subprocess) for numerical work. Surface R²/p-value/SSE for trend; confidence intervals for forecast; F-statistic/within-sum-of-squares for cluster. Reference `Build_Tableau.md` §XIII for math + UI.
+**Status:** ✅ Shipped 2026-04-20. 8 tasks. Backend modules: `backend/vizql/{box_plot,box_plot_compiler}.py`. Wire path: `POST /api/queries/execute` extended with `analytics.box_plots[]` (Plan 9a bundle). Frontend: `frontend/src/chart-ir/analytics/{boxPlotToVega,dropLinesToVega}.ts`, `BoxPlotDialog.jsx`, `BoxPlotStatsBadge.jsx`, `DropLinesDialog.jsx`. Store: `analystProBoxPlots` + `analystProDropLinesBySheet` per-sheet dict. Protobuf: new `BoxPlotSpec` message + `repeated BoxPlotSpec box_plots = 6` on `AnalyticsBundle`. AnalyticsPanel polish: 3 collapsible sections (Summarise / Model / Custom), 12 catalogue items with icons + hover tooltips + empty-state copy. Tests: 10 spec + 7 compiler + 3 endpoint backend; 4 vega + 7 drop-lines + 7 store + 4 dialog + 6 panel frontend — all green; backend full suite green; frontend chart-ir baseline unchanged. Plan doc: `docs/superpowers/plans/2026-04-20-analyst-pro-plan-9e-box-plots-drop-lines.md`.
 
 ---
 
