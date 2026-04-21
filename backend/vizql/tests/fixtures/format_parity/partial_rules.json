@@ -1,0 +1,10 @@
+{
+  "rules": [
+    { "selector": { "kind": "workbook", "id": "" }, "properties": { "font-size": "12" } },
+    { "selector": { "kind": "field", "id": "price" }, "properties": { "font-size": "14" } }
+  ],
+  "queries": [
+    { "mark": "m1", "field": "price", "sheet": "s1", "ds": "d1", "prop": "font-size", "expected": 14 },
+    { "mark": "m1", "field": "name", "sheet": "s1", "ds": "d1", "prop": "font-size", "expected": 12 }
+  ]
+}

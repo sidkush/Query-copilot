@@ -1,0 +1,9 @@
+{
+  "rules": [
+    { "selector": { "kind": "workbook", "id": "" }, "properties": { "color": "#111111" } },
+    { "selector": { "kind": "workbook", "id": "" }, "properties": { "color": "#222222" } }
+  ],
+  "queries": [
+    { "mark": "m1", "field": "f1", "sheet": "s1", "ds": "d1", "prop": "color", "expected": "#222222" }
+  ]
+}

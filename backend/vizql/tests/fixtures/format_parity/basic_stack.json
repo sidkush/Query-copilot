@@ -1,0 +1,12 @@
+{
+  "rules": [
+    { "selector": { "kind": "workbook", "id": "" }, "properties": { "color": "#000000" } },
+    { "selector": { "kind": "sheet", "id": "s1" }, "properties": { "color": "#0000ff" } },
+    { "selector": { "kind": "mark", "id": "m1" }, "properties": { "color": "#ff0000" } }
+  ],
+  "queries": [
+    { "mark": "m1", "field": "f1", "sheet": "s1", "ds": "d1", "prop": "color", "expected": "#ff0000" },
+    { "mark": "m2", "field": "f1", "sheet": "s1", "ds": "d1", "prop": "color", "expected": "#0000ff" },
+    { "mark": "m9", "field": "f1", "sheet": "s9", "ds": "d1", "prop": "color", "expected": "#000000" }
+  ]
+}
