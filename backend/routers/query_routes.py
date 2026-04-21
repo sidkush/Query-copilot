@@ -1877,3 +1877,88 @@ async def suggest_calc_endpoint(
 # app.include_router(query_routes.router) picks them up at /api/v1/calcs/*
 # without needing an extra mount line in main.py.
 router.routes.extend(_calcs_router.routes)
+
+
+# ---- Plan 9b: trend-fit analytics endpoint ----
+# Separate sub-router spliced onto `router.routes` so FastAPI mounts it at
+# /api/v1/analytics/trend-fit (cannot modify main.py).
+
+_TREND_RL_LOCK = _Lock()
+_TREND_RL_TIMESTAMPS: dict[str, list[float]] = _collections.defaultdict(list)
+
+
+def _enforce_trend_rate_limit(email: str) -> None:
+    now = time.time()
+    window = 30.0
+    cap = settings.TREND_RATE_LIMIT_PER_30S
+    with _TREND_RL_LOCK:
+        ts = [t for t in _TREND_RL_TIMESTAMPS[email] if t > now - window]
+        if len(ts) >= cap:
+            raise HTTPException(
+                status_code=429,
+                detail=f"trend-fit rate limit: max {cap} per 30s",
+            )
+        ts.append(now)
+        _TREND_RL_TIMESTAMPS[email] = ts
+
+
+class _TrendFitRequest(BaseModel):
+    rows: list[dict]
+    spec: dict
+
+
+_trend_router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
+
+
+@_trend_router.post("/trend-fit")
+def trend_fit(
+    req: _TrendFitRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Fit a trend line per factor group. See `backend/vizql/trend_fit.py`."""
+    if not settings.FEATURE_ANALYST_PRO:
+        raise HTTPException(status_code=403, detail="FEATURE_ANALYST_PRO disabled")
+
+    email = user["email"]
+    _enforce_trend_rate_limit(email)
+
+    if len(req.rows) > settings.TREND_MAX_ROWS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"trend-fit payload exceeds TREND_MAX_ROWS={settings.TREND_MAX_ROWS}",
+        )
+
+    from vizql.trend_fit import fit_all
+    from vizql.trend_line import TrendLineSpec
+
+    try:
+        spec = TrendLineSpec.from_dict(req.spec)
+        spec.validate()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"invalid spec: {exc}") from exc
+
+    # 5-second wall-clock budget via signal alarm is not portable (Windows).
+    # Use a monotonic check around `fit_all` and bail with 504 if exceeded.
+    start = time.monotonic()
+    try:
+        fits = fit_all(req.rows, spec)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    elapsed = time.monotonic() - start
+    if elapsed > settings.TREND_TIMEOUT_SECONDS:
+        raise HTTPException(
+            status_code=504,
+            detail=f"trend-fit exceeded {settings.TREND_TIMEOUT_SECONDS:.1f}s (took {elapsed:.2f}s)",
+        )
+
+    # Wire-format flatten: result → dict.
+    return {
+        "fits": [
+            {"factor_value": f["factor_value"], "result": f["result"].to_dict()}
+            for f in fits
+        ]
+    }
+
+
+# Splice _trend_router's routes onto the primary router so main.py mounts them.
+router.routes.extend(_trend_router.routes)
