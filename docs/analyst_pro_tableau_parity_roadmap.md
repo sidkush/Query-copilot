@@ -759,7 +759,9 @@ doc:
 
 ### Plan 9b — Trend Line (linear/log/exp/power/polynomial)
 
-### Plan 9c — Forecast (Holt-Winters + AIC model selection)
+### Plan 9c — Forecast (Holt-Winters + AIC model selection) — ✅ Shipped 2026-04-20
+
+**Status:** ✅ Shipped 2026-04-20. 10 tasks. Backend modules: `backend/vizql/{forecast,forecast_preflight,forecast_engine}.py`. Endpoint: `POST /api/v1/analytics/forecast` (feature-flagged on `FEATURE_ANALYST_PRO`, rate-limited 10/60s, 10s timeout, 10k-row hard cap). Frontend: `frontend/src/chart-ir/analytics/forecastToVega.ts`, `ForecastDialog.jsx`, `ForecastStatsBadge.jsx`. Dependency added: `statsmodels>=0.14`. New config: `FORECAST_RATE_LIMIT_PER_60S=10`, `FORECAST_MAX_ROWS=10_000`, `FORECAST_TIMEOUT_SECONDS=10.0`, `FORECAST_MAX_HORIZON=200`. 31 new tests (8 types + 8 preflight + 16 engine + 7 endpoint backend; 4 store + 4 vega + 2 dialog frontend) — all green; 1326 backend pass, frontend chart-ir baseline unchanged. Plan doc: `docs/superpowers/plans/2026-04-20-analyst-pro-plan-9c-forecast-holt-winters.md`.
 
 ### Plan 9d — Cluster (K-means + Calinski-Harabasz)
 
