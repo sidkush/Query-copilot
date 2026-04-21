@@ -6,6 +6,8 @@ import ReferenceLineDialog from './panels/ReferenceLineDialog';
 import TrendLineDialog from './panels/TrendLineDialog';
 import ForecastDialog from './panels/ForecastDialog';
 import ClusterDialog from './panels/ClusterDialog';
+import BoxPlotDialog from './panels/BoxPlotDialog';
+import DropLinesDialog from './panels/DropLinesDialog';
 
 const EMPTY_SETS = Object.freeze([]);
 const EMPTY_PARAMS = Object.freeze([]);
@@ -28,6 +30,8 @@ function FloatingLayer({ zones, renderLeaf }) {
   const analystProTrendLineDialogCtx = useStore((s) => s.analystProTrendLineDialogCtx);
   const analystProForecastDialogCtx = useStore((s) => s.analystProForecastDialogCtx);
   const analystProClusterDialogCtx = useStore((s) => s.analystProClusterDialogCtx);
+  const analystProBoxPlotDialogCtx = useStore((s) => s.analystProBoxPlotDialogCtx);
+  const analystProDropLinesDialogCtx = useStore((s) => s.analystProDropLinesDialogCtx);
   const ctx = useMemo(
     () => buildEvaluationContext({ sets, parameters, sheetFilters }),
     [sets, parameters, sheetFilters],
@@ -39,6 +43,8 @@ function FloatingLayer({ zones, renderLeaf }) {
       {analystProTrendLineDialogCtx ? <TrendLineDialog /> : null}
       {analystProForecastDialogCtx ? <ForecastDialog /> : null}
       {analystProClusterDialogCtx ? <ClusterDialog /> : null}
+      {analystProBoxPlotDialogCtx ? <BoxPlotDialog /> : null}
+      {analystProDropLinesDialogCtx ? <DropLinesDialog /> : null}
     </>
   );
 
