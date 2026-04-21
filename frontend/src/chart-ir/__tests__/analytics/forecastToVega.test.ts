@@ -22,7 +22,7 @@ const baseResult: ForecastResult = {
 describe('forecastToVega', () => {
   it('emits actuals line + forecast line + CI band + divider rule', () => {
     const layers = compileForecast(baseSpec, baseResult, /* lastActualT */ 3);
-    const kinds = layers.map((l) => `${l.mark.type}:${(l.mark as any).strokeDash ? 'dashed' : 'solid'}`);
+    const kinds = layers.map((l) => `${l.mark.type}:${(l.mark as { strokeDash?: number[] }).strokeDash ? 'dashed' : 'solid'}`);
     // 4 layers expected: actuals (line/solid) + forecast (line/dashed) + CI (area) + divider (rule)
     expect(layers).toHaveLength(4);
     expect(kinds[0]).toBe('line:solid');
@@ -34,7 +34,7 @@ describe('forecastToVega', () => {
   it('CI area uses 30% opacity', () => {
     const layers = compileForecast(baseSpec, baseResult, 3);
     const ci = layers.find((l) => l.mark.type === 'area')!;
-    expect((ci.mark as any).opacity).toBeCloseTo(0.3);
+    expect((ci.mark as { opacity?: number }).opacity).toBeCloseTo(0.3);
   });
 
   it('omits CI band when forecast points lack lower/upper', () => {
@@ -49,7 +49,7 @@ describe('forecastToVega', () => {
   it('tooltip carries best-model kind + AIC + RMSE', () => {
     const layers = compileForecast(baseSpec, baseResult, 3);
     const forecastLayer = layers[1];
-    const tooltips = (forecastLayer.encoding as any).tooltip as Array<{ field: string }>;
+    const tooltips = (forecastLayer.encoding as { tooltip: Array<{ field: string }> }).tooltip;
     const fields = tooltips.map((t) => t.field);
     expect(fields).toEqual(expect.arrayContaining(['t', 'y', 'model_kind', 'aic', 'rmse']));
   });
