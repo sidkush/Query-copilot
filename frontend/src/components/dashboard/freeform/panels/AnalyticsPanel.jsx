@@ -23,7 +23,7 @@ const ITEMS = [
   { id: 'reference_distribution', label: 'Reference Distribution', kind: 'reference_distribution' },
   { id: 'totals',                 label: 'Totals',                 kind: 'totals' },
   { id: 'trend_line',             label: 'Trend Line',             kind: 'trend_line' },
-  { id: 'forecast',               label: 'Forecast',               kind: 'forecast', disabled: true },
+  { id: 'forecast',               label: 'Forecast',               kind: 'forecast' },
   { id: 'cluster',                label: 'Cluster',                kind: 'cluster',  disabled: true },
   { id: 'box_plot',               label: 'Box Plot',               kind: 'box_plot', disabled: true },
 ];
@@ -33,6 +33,7 @@ const MIME = 'application/askdb-analytics';
 export default function AnalyticsPanel() {
   const openDialog = useStore((s) => s.openReferenceLineDialogAnalystPro);
   const openTrendLineDialog = useStore((s) => s.openTrendLineDialogAnalystPro);
+  const openForecastDialog = useStore((s) => s.openForecastDialogAnalystPro);
 
   return (
     <SidebarSection id="analytics" heading="Analytics">
@@ -74,6 +75,10 @@ export default function AnalyticsPanel() {
                   if (typeof openTrendLineDialog === 'function') {
                     openTrendLineDialog({ kind: it.kind, preset: it.preset ?? {} });
                   }
+                  return;
+                }
+                if (it.kind === 'forecast' && typeof openForecastDialog === 'function') {
+                  openForecastDialog({ kind: it.kind, preset: it.preset ?? {} });
                   return;
                 }
                 if (typeof openDialog === 'function') {
