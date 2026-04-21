@@ -775,7 +775,21 @@ doc:
 
 ## Phase 10 — Formatting System
 
-### Plan 10a — Precedence Chain (Mark > Field > Worksheet > DS > Workbook)
+### Plan 10a — Precedence Chain (Mark > Field > Worksheet > DS > Workbook) — ✅ Shipped 2026-04-21
+
+**Status:** ✅ Shipped 2026-04-21. 10 tasks.
+Backend modules: `backend/vizql/{formatting_types,format_resolver,format_sanitiser}.py`.
+Proto: `StyleRuleProto` + `VisualSpec.formatting = 17`.
+Frontend: `frontend/src/components/dashboard/freeform/lib/{formattingTypes,formatResolver}.ts`,
+`panels/FormatInspectorPanel.jsx`. Store: `analystProFormatRules` slice +
+`setFormatRuleAnalystPro` / `clearFormatRuleAnalystPro` /
+`resetFormatScopeAnalystPro`. Docs: `backend/vizql/FORMATTING_MODEL.md`.
+Tests: 7 types + 20 resolver + 3 parity fixture + 2 proto roundtrip + 3 migration +
+26 security + 1 integration (backend); 6 parity+unit + 5 store + 27 ZoneFrame
+(with 2 new) + 3 inspector + 1 integration (frontend). T8 Step 3 (AnalystProSidebar
+right-click mount of FormatInspectorPanel) deferred as a follow-up task; panel is
+exportable and unit-tested, but not yet reachable from the Analyst Pro UI. Plan doc:
+`docs/superpowers/plans/2026-04-21-analyst-pro-plan-10a-formatting-precedence-chain.md`.
 
 ### Plan 10b — Number Format Grammar (Excel-style)
 
