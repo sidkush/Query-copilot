@@ -10,13 +10,8 @@ point here instead of duplicating values. Confirm against
 | Constant | Source-of-truth | Value |
 |---|---|---|
 | `PRIMARY_MODEL` | `backend/config.py` default | `claude-haiku-4-5-20251001` |
-| `FALLBACK_MODEL` | `backend/config.py` default | `claude-sonnet-4-5-20250514` |
+| `FALLBACK_MODEL` | `backend/config.py` default | `claude-sonnet-4-6` |
 | `FALLBACK_MODEL` | `backend/.env.example` override | `claude-sonnet-4-6` |
-
-**Reconcile note.** Runtime picks up `.env` first, so `sonnet-4-6` wins when
-`.env` comes from `.env.example`. The two files currently disagree. Treat the
-`.env.example` value as the intended production pin until the code default is
-updated — do not assume `4-5-20250514` without checking the active `.env`.
 
 ### Ports
 

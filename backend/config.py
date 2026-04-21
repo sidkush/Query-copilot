@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # ── Anthropic API ──────────────────────────────────────────────
     ANTHROPIC_API_KEY: str = Field(..., description="Your Anthropic API key")
     PRIMARY_MODEL: str = Field(default="claude-haiku-4-5-20251001")
-    FALLBACK_MODEL: str = Field(default="claude-sonnet-4-5-20250514")
+    FALLBACK_MODEL: str = Field(default="claude-sonnet-4-6")
     MAX_TOKENS: int = Field(default=2048)
 
     # ── Agent Phase Timeouts ──────────────────────────────────────
