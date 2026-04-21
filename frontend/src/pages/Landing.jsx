@@ -1,15 +1,14 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence, useInView } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../store";
-import React, { Suspense, Component, lazy } from "react";
+import React, { Suspense, Component } from "react";
 import AnimatedCounter from "../components/animation/AnimatedCounter";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import MotionButton from "../components/animation/MotionButton";
 import { GPUTierProvider, useGPUTier } from "../lib/gpuDetect";
 import useScrollParallax from "../components/animation/useScrollParallax";
-import useVisibilityMount from "../components/animation/useVisibilityMount";
 import TiltCard from "../components/animation/TiltCard";
 import AnimatedBorderGradient from "../components/animation/AnimatedBorderGradient";
 import CursorGlow from "../components/animation/CursorGlow";
@@ -25,7 +24,7 @@ class WebGLErrorBoundary extends Component {
     super(props);
     this.state = { hasError: false };
   }
-  static getDerivedStateFromError(error) { return { hasError: true }; }
+  static getDerivedStateFromError(_error) { return { hasError: true }; }
   componentDidCatch(error, errorInfo) {
     console.warn("WebGL failed, falling back to 2D background.", error, errorInfo);
   }
@@ -189,16 +188,6 @@ const FEATURE_ICONS = {
       </svg>
     </div>
   ),
-};
-
-/* ── Spring animation variants ── */
-const springIn = {
-  hidden: { opacity: 0, y: 40 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 100, damping: 15, mass: 0.8 },
-  },
 };
 
 const staggerContainer = {
@@ -730,11 +719,10 @@ function ThemeToggle() {
 function LandingInner() {
   const navigate = useNavigate();
   const token = useStore((s) => s.token);
-  const tier = useGPUTier();
+  useGPUTier();
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  const [scrolled, setScrolled] = useState(false);
+  const [, setScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [heroLoaded, setHeroLoaded] = useState(true);
 
   // Section backgrounds — locked in
   const sectionBgs = { features: 'constellation', how: 'particleRise', demo: 'pulseRings', stats: 'particleRise', testimonials: 'softWaves', pricing: 'softWaves', cta: 'softWaves' };

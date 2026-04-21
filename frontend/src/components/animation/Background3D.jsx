@@ -38,7 +38,7 @@ function MouseTracker() {
 function Starfield({ count = 600, isLight = false }) {
   const ref = useRef();
 
-  const [positions, opacities] = useMemo(() => {
+  const [positions, _opacities] = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const alpha = new Float32Array(count);
     for (let i = 0; i < count; i++) {
@@ -328,7 +328,7 @@ function MagneticParticles({ count = 200, isLight = false }) {
     const my = mouseRef.y * 10;
 
     for (let i = 0; i < count; i++) {
-      const ix = i * 3, iy = i * 3 + 1, iz = i * 3 + 2;
+      const ix = i * 3, iy = i * 3 + 1, _iz = i * 3 + 2;
       const dx = mx - posArr[ix];
       const dy = my - posArr[iy];
       const dist = Math.sqrt(dx * dx + dy * dy) + 0.1;

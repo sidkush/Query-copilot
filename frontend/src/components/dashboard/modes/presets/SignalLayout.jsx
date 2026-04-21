@@ -168,11 +168,8 @@ export default function SignalLayout({
   tileData,
   onSlotEdit,
   editable = true,
-  // eslint-disable-next-line no-unused-vars
   tiles: _tiles,
-  // eslint-disable-next-line no-unused-vars
   dashboardId: _dashboardId,
-  // eslint-disable-next-line no-unused-vars
   dashboardName: _dashboardName,
 } = {}) {
   const slotProps = { bindings, tileData, onEdit: onSlotEdit, editable };
@@ -246,7 +243,6 @@ export default function SignalLayout({
                     <span>Signal Detected</span>
                   </div>
                   {bound ? (
-                    /* eslint-disable-next-line react/no-danger */
                     <p className="sg-signal-body" dangerouslySetInnerHTML={sanitizedHtml} />
                   ) : (
                     <p className="sg-signal-body sg-signal-empty">&mdash;</p>

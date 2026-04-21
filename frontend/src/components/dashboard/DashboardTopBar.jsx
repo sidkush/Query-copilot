@@ -37,18 +37,13 @@ export default function DashboardTopBar({
   rightSlot = null,
 }) {
   const connections = useStore((s) => s.connections);
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(dashboardName || '');
+  const [editing] = useState(false);
+  const [, setName] = useState(dashboardName || '');
   const inputRef = useRef(null);
   const agentLoading = useStore((s) => s.agentLoading);
 
   useEffect(() => { setName(dashboardName || ''); }, [dashboardName]);
   useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
-
-  const saveName = () => {
-    setEditing(false);
-    if (name.trim() && name.trim() !== dashboardName) onNameChange?.(name.trim());
-  };
 
   return (
     <div

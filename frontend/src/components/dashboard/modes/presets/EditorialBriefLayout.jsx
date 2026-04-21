@@ -107,11 +107,8 @@ export default function EditorialBriefLayout({
   tileData,
   onSlotEdit,
   editable = true,
-  // eslint-disable-next-line no-unused-vars
   tiles: _tiles,
-  // eslint-disable-next-line no-unused-vars
   dashboardId: _dashboardId,
-  // eslint-disable-next-line no-unused-vars
   dashboardName: _dashboardName,
 } = {}) {
   const slotProps = { bindings, tileData, onEdit: onSlotEdit, editable };
@@ -173,7 +170,6 @@ export default function EditorialBriefLayout({
           {({ value, state }) => {
             if (state === 'bound' && typeof value === 'string' && value.length > 0) {
               // renderNarrativeMarkdown sanitises before HTML insert.
-              // eslint-disable-next-line react/no-danger
               return (
                 <p
                   className="eb-summary"
@@ -401,7 +397,6 @@ export default function EditorialBriefLayout({
               <div className="eb-commentary__body">
                 {state === 'bound' && typeof value === 'string' && value.length > 0 ? (
                   // renderNarrativeMarkdown sanitises before HTML insert.
-                  // eslint-disable-next-line react/no-danger
                   <div dangerouslySetInnerHTML={safeHtmlPayload(value)} />
                 ) : null}
               </div>

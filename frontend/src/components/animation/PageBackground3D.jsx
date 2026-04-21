@@ -9,6 +9,6 @@ import Background3D from "./Background3D";
 
    Accepts `mode` (ignored) and `className` for backward compat.
    ═══════════════════════════════════════════════════════════════ */
-export default function PageBackground3D({ mode, className = "" }) {
+export default function PageBackground3D({ mode: _mode, className = "" }) {
   return <Background3D className={className} />;
 }

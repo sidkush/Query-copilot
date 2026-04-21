@@ -35,7 +35,6 @@ import {
   isMeasureColumn,
   isDimensionColumn,
   isStringColumn,
-  isNumericColumn,
 } from './lib/columnClassify';
 
 const STEP_KEYS = ['primaryDate', 'revenueMetric', 'primaryDimension', 'entityName', 'timeGrain'];

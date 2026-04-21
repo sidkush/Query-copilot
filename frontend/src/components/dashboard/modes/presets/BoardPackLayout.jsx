@@ -189,11 +189,8 @@ export default function BoardPackLayout({
   onSlotEdit,
   editable = true,
   /* legacy props */
-  // eslint-disable-next-line no-unused-vars
   tiles: _tiles,
-  // eslint-disable-next-line no-unused-vars
   dashboardId: _dashboardId,
-  // eslint-disable-next-line no-unused-vars
   dashboardName: _dashboardName,
 } = {}) {
   const slotProps = { bindings, tileData, onEdit: onSlotEdit, editable };

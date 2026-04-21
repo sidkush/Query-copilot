@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, Suspense, Component, lazy } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense, Component, lazy } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
@@ -43,7 +43,7 @@ function formatMessageTime(ts) {
 }
 
 // ── Toast notification component ──
-function ToastContainer({ toasts, onDismiss }) {
+function ToastContainer({ toasts, onDismiss: _onDismiss }) {
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
       <AnimatePresence>
@@ -233,10 +233,7 @@ export default function Chat() {
   const addMessage = useCallback((msg) => _addMessage({ timestamp: Date.now(), ...msg }), [_addMessage]);
   const clearMessages = useStore((s) => s.clearMessages);
   const setMessages = useStore((s) => s.setMessages);
-  const user = useStore((s) => s.user);
   const connections = useStore((s) => s.connections);
-  const addConnection = useStore((s) => s.addConnection);
-  const removeConnection = useStore((s) => s.removeConnection);
   const activeConnId = useStore((s) => s.activeConnId);
   const setActiveConnId = useStore((s) => s.setActiveConnId);
   const turboStatus = useStore((s) => s.turboStatus);
@@ -272,10 +269,10 @@ export default function Chat() {
   // Sync connections from the backend on mount — track live vs saved
   const setConnections = useStore((s) => s.setConnections);
   const [liveConnIds, setLiveConnIds] = useState(new Set());
-  const [savedDbs, setSavedDbs] = useState([]); // saved configs for badge display
+  const [_savedDbs, setSavedDbs] = useState([]); // saved configs for badge display
   useEffect(() => {
     // Fetch live connections
-    const livePromise = api.listConnections()
+    api.listConnections()
       .then((data) => {
         const live = (data.connections || []).map((c) => ({
           conn_id: c.conn_id,
@@ -467,7 +464,7 @@ export default function Chat() {
       addMessage(agentStepMsg);
 
       await new Promise((resolve, reject) => {
-        const stream = api.agentRun(question, resolvedConnId, agentChatId, (step) => {
+        api.agentRun(question, resolvedConnId, agentChatId, (step) => {
           if (step.chat_id && !agentChatId) agentChatId = step.chat_id;
 
           if (step.type === "error") {
@@ -611,7 +608,7 @@ export default function Chat() {
             resolve();
           }
         }, 35000);
-      }).catch(async (err) => {
+      }).catch(async (_err) => {
         // Fallback to single-shot generate if agent fails
         // Fallback to single-shot SQL generation
         try {
@@ -733,7 +730,7 @@ export default function Chat() {
             order: sec.order || sIdx,
             collapsed: false,
             layout: [],
-            tiles: (sec.tiles || []).map((tile, i) => {
+            tiles: (sec.tiles || []).map((tile, _i) => {
               const tileId = tile.id || generateId();
               const cType = tile.chartType || "bar";
               const w = cType === "kpi" ? 3 : 6;
@@ -909,13 +906,6 @@ export default function Chat() {
     api.getDashboards().then((res) => setDashboards(res.dashboards || [])).catch(() => {});
   }, []);
 
-  const handleAddToDashboard = useCallback((tileData) => {
-    setPendingTileData(tileData);
-    setShowDashboardPicker(true);
-    // Refresh dashboards list
-    api.getDashboards().then((res) => setDashboards(res.dashboards || [])).catch(() => {});
-  }, []);
-
   const handlePickDashboard = useCallback(async (dashboardId) => {
     if (!pendingTileData || addingTile) return;
     setAddingTile(true);
@@ -978,7 +968,7 @@ export default function Chat() {
           ? "Thanks! This query has been saved as a training example."
           : "Thanks for the feedback. We'll improve.",
       });
-    } catch {}
+    } catch { /* noop */ }
   };
 
   // Chat history operations
@@ -1003,7 +993,7 @@ export default function Chat() {
       });
       setMessages(normalized);
       setShowSidebar(false);
-    } catch (err) {
+    } catch {
       // Silent — chat load failure is recoverable
     }
   };
@@ -1016,7 +1006,7 @@ export default function Chat() {
         setActiveChatId(null);
         clearMessages();
       }
-    } catch {}
+    } catch { /* noop */ }
   };
 
   return (

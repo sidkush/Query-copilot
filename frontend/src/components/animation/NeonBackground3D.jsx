@@ -129,7 +129,7 @@ function DigitalRain() {
   }, []);
 
   const ref = useRef();
-  useFrame((state) => {
+  useFrame((_state) => {
     if (!ref.current) return;
     const pos = ref.current.geometry.attributes.position.array;
     for (let i = 0; i < count; i++) {

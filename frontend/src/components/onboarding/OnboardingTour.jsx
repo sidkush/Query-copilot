@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { CHART_PALETTES } from "../dashboard/tokens";
 

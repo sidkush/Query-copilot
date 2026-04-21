@@ -324,7 +324,7 @@ export default function AdminDashboard() {
     try {
       const d = await adminApi.listDeletedUsers();
       setDeletedUsers(d.deleted_users);
-    } catch { }
+    } catch { /* noop */ }
   };
 
   const TABS = [

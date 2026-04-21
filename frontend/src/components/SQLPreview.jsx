@@ -62,7 +62,7 @@ function formatSQL(sqlStr) {
   return result;
 }
 
-export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit, loading, onCopySQL, connId }) {
+export default function SQLPreview({ sql: sqlCode, onApprove, onReject, onEdit: _onEdit, loading, onCopySQL, connId }) {
   const [editing, setEditing] = useState(false);
   const [editedSQL, setEditedSQL] = useState(sqlCode);
   const [copied, setCopied] = useState(false);

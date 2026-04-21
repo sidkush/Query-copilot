@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import { useStore } from "../store";

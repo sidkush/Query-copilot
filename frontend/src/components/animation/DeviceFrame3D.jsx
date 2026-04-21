@@ -1,5 +1,5 @@
-import React, { useRef, useMemo, useCallback, useEffect, useState } from "react";
-import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
+import React, { useRef, useMemo, useEffect, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGPUTier } from "../../lib/gpuDetect";
 

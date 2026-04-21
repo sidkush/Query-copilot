@@ -1,6 +1,4 @@
 import { useState, useEffect, Suspense, Component, lazy } from "react";
-import { useNavigate } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import UserDropdown from "../components/UserDropdown";
@@ -12,7 +10,6 @@ const PageBackground3D = lazy(() => import("../components/animation/PageBackgrou
 class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
 export default function Billing() {
-  const navigate = useNavigate();
   const [billing, setBilling] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

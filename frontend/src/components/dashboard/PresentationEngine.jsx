@@ -43,8 +43,6 @@ function packIntoSlides(allTiles, maxPerSlide = 6) {
 function getGridTemplate(tiles) {
   const n = tiles.length;
   const kpiCount = tiles.filter(t => t.chartType === 'kpi').length;
-  const chartCount = tiles.filter(t => t.chartType !== 'kpi' && t.chartType !== 'table').length;
-  const tableCount = tiles.filter(t => t.chartType === 'table').length;
 
   // Single tile = full viewport
   if (n === 1) {

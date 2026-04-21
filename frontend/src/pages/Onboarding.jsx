@@ -1,6 +1,5 @@
 import { useState, useEffect, lazy, Suspense, Component } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "../store";
 import AnimatedBackground from "../components/animation/AnimatedBackground";

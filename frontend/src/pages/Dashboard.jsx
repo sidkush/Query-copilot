@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
@@ -398,7 +397,7 @@ export default function Dashboard() {
       )
     );
     if (match) {
-      try { await api.disconnectDB(match.conn_id); } catch {}
+      try { await api.disconnectDB(match.conn_id); } catch { /* noop */ }
       removeConnection(match.conn_id);
     }
   };
@@ -599,7 +598,6 @@ export default function Dashboard() {
                         const ts = turboStates[conn.conn_id];
                         const tEnabled = ts?.enabled || false;
                         const tSyncing = ts?.syncing || false;
-                        const tInfo = ts?.twin_info || null;
                         return (
                           <button
                             onClick={() => handleTurboToggle(conn.conn_id, tEnabled)}

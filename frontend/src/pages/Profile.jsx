@@ -1,5 +1,4 @@
 import { useState, useEffect, Suspense, Component, lazy } from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import behaviorEngine from "../lib/behaviorEngine";

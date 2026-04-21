@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { TOKENS } from './tokens';
 
-export default function NotesPanel({ annotations = [], userName, onAdd, onDelete }) {
+export default function NotesPanel({ annotations = [], userName: _userName, onAdd, onDelete }) {
   const [text, setText] = useState('');
 
   const initials = (name) => {

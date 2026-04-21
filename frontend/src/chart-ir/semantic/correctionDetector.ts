@@ -46,8 +46,6 @@ const SINGLE_FIELD_CHANNELS = [
   'text', 'row', 'column', 'order',
 ] as const satisfies ReadonlyArray<keyof Encoding>;
 
-type SingleFieldChannel = typeof SINGLE_FIELD_CHANNELS[number];
-
 /** Counter incremented for each suggestion within a single detectCorrections call. */
 let _callCounter = 0;
 
