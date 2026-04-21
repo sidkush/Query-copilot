@@ -1093,3 +1093,14 @@ export function fetchForecast(req) {
     body: JSON.stringify(req),
   });
 }
+
+// ──────────────────────────────────────────────────────────────────
+// Plan 9d T4 — K-means cluster backend helper.
+// POST /api/v1/analytics/cluster
+// ──────────────────────────────────────────────────────────────────
+export function fetchCluster(req) {
+  return request("/analytics/cluster", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}

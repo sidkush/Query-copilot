@@ -1546,6 +1546,66 @@ export const useStore = create((set, get) => ({
   openForecastDialogAnalystPro: (ctx) => set({ analystProForecastDialogCtx: ctx }),
   closeForecastDialogAnalystPro: () => set({ analystProForecastDialogCtx: null }),
 
+  // Plan 9d: K-means cluster analytics. analystProClusters list lives at the
+  // root; each entry carries spec, result, and optionally rowKeys[] (parallel
+  // to result.assignments) so Cluster-as-Set can map index → member.
+  analystProClusters: [],
+  analystProClusterDialogCtx: null,
+
+  addClusterAnalystPro: (cluster) => {
+    if (!cluster || !cluster.id) return;
+    const next = [...get().analystProClusters, cluster];
+    set({ analystProClusters: next });
+    const dash = get().analystProDashboard;
+    if (dash) get().pushAnalystProHistory(dash, 'Add cluster');
+  },
+
+  updateClusterAnalystPro: (clusterId, patch) => {
+    if (!clusterId || !patch) return;
+    const next = get().analystProClusters.map((c) =>
+      c.id === clusterId ? { ...c, ...patch } : c,
+    );
+    set({ analystProClusters: next });
+    const dash = get().analystProDashboard;
+    if (dash) get().pushAnalystProHistory(dash, 'Update cluster');
+  },
+
+  deleteClusterAnalystPro: (clusterId) => {
+    if (!clusterId) return;
+    const next = get().analystProClusters.filter((c) => c.id !== clusterId);
+    set({ analystProClusters: next });
+    const dash = get().analystProDashboard;
+    if (dash) get().pushAnalystProHistory(dash, 'Delete cluster');
+  },
+
+  openClusterDialogAnalystPro: (ctx) => {
+    set({ analystProClusterDialogCtx: ctx || {} });
+  },
+
+  closeClusterDialogAnalystPro: () => {
+    set({ analystProClusterDialogCtx: null });
+  },
+
+  // Plan 9d: bridge to Plan 4b sets subsystem. Build member list from
+  // result.assignments == clusterIndex, mapped through rowKeys[].
+  createSetFromClusterAnalystPro: (clusterId, clusterIndex, dimension) => {
+    const cluster = get().analystProClusters.find((c) => c.id === clusterId);
+    if (!cluster || !cluster.result || !Array.isArray(cluster.rowKeys)) return;
+    const { assignments } = cluster.result;
+    const members = [];
+    for (let i = 0; i < assignments.length; i += 1) {
+      if (assignments[i] === clusterIndex) members.push(cluster.rowKeys[i]);
+    }
+    const setId = `set_${cluster.id}_c${clusterIndex}_${Date.now()}`;
+    get().addSetAnalystPro({
+      id: setId,
+      name: `Cluster ${clusterIndex + 1} (${cluster.name || cluster.id})`,
+      dimension,
+      members,
+      mode: 'replace',
+    });
+  },
+
   // Plan 5c: right-click context menu.
   // `items` is computed eagerly by openContextMenuAnalystPro via
   // buildContextMenu(zone, dashboard, selection) — kept in state so
