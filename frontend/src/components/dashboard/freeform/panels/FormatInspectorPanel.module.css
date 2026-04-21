@@ -1,0 +1,4 @@
+.panel { padding: 12px; font: 13px/1.4 "Inter", sans-serif; }
+.header { font-weight: 600; margin-bottom: 8px; }
+.grid { width: 100%; border-collapse: collapse; }
+.grid th, .grid td { padding: 4px 6px; border-bottom: 1px solid #eee; text-align: left; }
