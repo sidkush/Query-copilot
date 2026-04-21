@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { getCreativeComponent } from "../themes/creativeRegistry";
-import { getGPUTier } from "../../../lib/gpuDetect";
+import { getGPUTier } from "../../../lib/gpuDetect.js";
 
 /**
  * CreativeRenderer — Phase 5 landing.

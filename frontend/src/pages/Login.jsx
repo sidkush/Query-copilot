@@ -7,7 +7,7 @@ import MotionButton from "../components/animation/MotionButton";
 import AskDBLogo from "../components/AskDBLogo";
 
 import AnimatedBackground from "../components/animation/AnimatedBackground";
-import { GPUTierProvider } from "../lib/gpuDetect";
+import { GPUTierProvider } from "../lib/gpuDetect.jsx";
 
 function ThemeToggleBtn() {
   const theme = useStore((s) => s.theme);

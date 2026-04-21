@@ -5,7 +5,7 @@ import { adminApi } from "../api";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import MotionButton from "../components/animation/MotionButton";
 
-import { GPUTierProvider } from "../lib/gpuDetect";
+import { GPUTierProvider } from "../lib/gpuDetect.jsx";
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
 class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 

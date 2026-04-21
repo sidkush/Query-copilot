@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { useGPUTier, scaleParticles } from "../../lib/gpuDetect";
+import { useGPUTier, scaleParticles } from "../../lib/gpuDetect.js";
 import { useStore } from "../../store";
 
 /* ═══════���═══════════════════════════════════════════════════════

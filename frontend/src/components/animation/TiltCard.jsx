@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import { motion, useSpring, useMotionValue } from "framer-motion";
-import { useGPUTier } from "../../lib/gpuDetect";
+import { useGPUTier } from "../../lib/gpuDetect.js";
 
 /**
  * TiltCard — Dora.run-inspired 3D perspective card.
