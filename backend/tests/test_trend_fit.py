@@ -119,3 +119,53 @@ def test_fit_power_rejects_nonpositive():
         fit_power([0.0, 1.0], [1.0, 2.0])
     with pytest.raises(ValueError, match="x > 0 and y > 0"):
         fit_power([1.0, 2.0], [-1.0, 2.0])
+
+
+from vizql.trend_fit import fit_all, add_confidence_band
+from vizql.trend_line import TrendLineSpec
+
+
+def test_confidence_band_widens_at_extremes():
+    """t-distribution prediction interval is narrowest near x̄, widest at the edges."""
+    x = np.linspace(0, 10, 100)
+    y = 2.0 * x + 3.0 + np.random.default_rng(0).normal(0, 1, size=x.shape)
+    r = fit_linear(x.tolist(), y.tolist())
+    r_band = add_confidence_band(r, x.tolist(), y.tolist(), level=0.95, fit_type="linear")
+    preds = r_band.predictions
+    # All prediction dicts now carry lower/upper.
+    assert all("lower" in p and "upper" in p for p in preds)
+    # Width at the boundary > width near the centre.
+    widths = [p["upper"] - p["lower"] for p in preds]
+    centre_idx = len(widths) // 2
+    assert widths[0] > widths[centre_idx]
+    assert widths[-1] > widths[centre_idx]
+
+
+def test_fit_all_groups_by_factor():
+    # Two factor groups with distinct slopes.
+    rows = (
+        [{"x": xi, "y": 2.0 * xi + 1.0, "factor": "A"} for xi in np.linspace(0, 10, 50)]
+        + [{"x": xi, "y": -1.0 * xi + 5.0, "factor": "B"} for xi in np.linspace(0, 10, 50)]
+    )
+    spec = TrendLineSpec(
+        fit_type="linear", degree=None, factor_fields=["factor"],
+        show_confidence_bands=False, confidence_level=0.95,
+        color_by_factor=True, trend_line_label=True,
+    )
+    fits = fit_all(rows, spec)
+    by_factor = {f["factor_value"]: f["result"] for f in fits}
+    assert set(by_factor.keys()) == {"A", "B"}
+    npt.assert_allclose(by_factor["A"].coefficients[0], 2.0, rtol=1e-6)
+    npt.assert_allclose(by_factor["B"].coefficients[0], -1.0, rtol=1e-6)
+
+
+def test_fit_all_no_factor_returns_single_group():
+    rows = [{"x": i, "y": 2 * i + 1} for i in range(10)]
+    spec = TrendLineSpec(
+        fit_type="linear", degree=None, factor_fields=[],
+        show_confidence_bands=False, confidence_level=0.95,
+        color_by_factor=False, trend_line_label=False,
+    )
+    fits = fit_all(rows, spec)
+    assert len(fits) == 1
+    assert fits[0]["factor_value"] is None
