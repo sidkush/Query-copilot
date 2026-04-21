@@ -379,6 +379,21 @@ message TotalsSpec {
   bool   should_affect_totals = 5;  // true = honor normal filters; false = skip
 }
 
+// Plan 10a §XIV.1 — Layered format rule. Resolver walks
+// Mark > Field > Worksheet > DataSource > Workbook.
+message Selector {
+  string kind = 1;          // "mark" | "field" | "sheet" | "ds" | "workbook"
+  string id   = 2;          // empty when kind == "workbook"
+}
+
+message StyleRuleProto {
+  Selector selector       = 1;
+  // Properties keyed by the Build_Tableau §XIV.6 grammar (e.g. "color",
+  // "font-size"). Values serialise as strings; numeric props parsed on
+  // the wire boundary (resolver re-types from StyleProp).
+  map<string, string> properties = 2;
+}
+
 // ----------------------------------------------------------------------------
 // Root message
 // ----------------------------------------------------------------------------
@@ -421,4 +436,7 @@ message VisualSpec {
   //   client-side (LOOKUP, PREVIOUS_VALUE, DIFF, IS_DISTINCT, IS_STACKED):
   //                forwarded to frontend evaluator post-fetch.
   repeated TableCalcSpec table_calc_specs = 16;
+
+  // Plan 10a §XIV.1 — workbook-scoped format rules; resolved at render.
+  repeated StyleRuleProto formatting = 17;
 }

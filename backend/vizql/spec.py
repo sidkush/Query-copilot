@@ -22,6 +22,15 @@ from typing import Optional
 
 from vizql.proto import v1_pb2 as pb
 from .table_calc import TableCalcSpec
+from .formatting_types import (
+    DataSourceSelector,
+    FieldSelector,
+    MarkSelector,
+    StyleProp,
+    StyleRule,
+    WorkbookSelector,
+    WorksheetSelector,
+)
 
 # Re-export enums so callers get a stable import path.
 DataType = pb.DataType
@@ -384,6 +393,9 @@ class VisualSpec:
     # integration agent should run `bash backend/scripts/regen_proto.sh`
     # and then wire the proto round-trip following the pattern below.
     table_calc_specs: list["TableCalcSpec"] = field(default_factory=list)
+    # Plan 10a §XIV.1 — workbook-scoped format rules resolved at render via
+    # the Mark > Field > Worksheet > DataSource > Workbook precedence chain.
+    formatting: list[StyleRule] = field(default_factory=list)
 
     def viz_granularity(self) -> frozenset[str]:
         """Plan 8b §V.4 — union of dimension pills on Rows, Columns, Detail,
@@ -412,7 +424,7 @@ class VisualSpec:
         return frozenset(out)
 
     def to_proto(self) -> pb.VisualSpec:
-        return pb.VisualSpec(
+        proto = pb.VisualSpec(
             sheet_id=self.sheet_id,
             fields=[f.to_proto() for f in self.fields],
             shelves=[s.to_proto() for s in self.shelves],
@@ -426,9 +438,29 @@ class VisualSpec:
             domain_type=self.domain_type,
             join_lod_overrides=list(self.join_lod_overrides),
         )
+        for rule in self.formatting:
+            kind, sid = _selector_to_proto_pair(rule.selector)
+            proto_rule = proto.formatting.add()
+            proto_rule.selector.kind = kind
+            proto_rule.selector.id = sid
+            for prop, value in rule.properties.items():
+                proto_rule.properties[prop.value] = _value_to_wire(value)
+        return proto
 
     @classmethod
     def from_proto(cls, m: pb.VisualSpec) -> "VisualSpec":
+        formatting: list[StyleRule] = []
+        for proto_rule in getattr(m, "formatting", []):
+            kind = proto_rule.selector.kind
+            selector = _SELECTOR_CTOR[kind](proto_rule.selector.id)
+            props: dict[StyleProp, object] = {}
+            for raw_key, raw_val in proto_rule.properties.items():
+                try:
+                    key = StyleProp(raw_key)
+                except ValueError:
+                    continue  # forward-compat: skip unknown props
+                props[key] = _value_from_wire(key, raw_val)
+            formatting.append(StyleRule(selector=selector, properties=props))
         return cls(
             sheet_id=m.sheet_id,
             fields=[Field.from_proto(f) for f in m.fields],
@@ -442,6 +474,7 @@ class VisualSpec:
             is_generative_ai_web_authoring=m.is_generative_ai_web_authoring,
             domain_type=m.domain_type or "separate",
             join_lod_overrides=list(m.join_lod_overrides),
+            formatting=formatting,
         )
 
     def serialize(self) -> bytes:
@@ -452,6 +485,42 @@ class VisualSpec:
         m = pb.VisualSpec()
         m.ParseFromString(data)
         return cls.from_proto(m)
+
+
+_SELECTOR_CTOR = {
+    "mark": lambda id_: MarkSelector(mark_id=id_),
+    "field": lambda id_: FieldSelector(field_id=id_),
+    "sheet": lambda id_: WorksheetSelector(sheet_id=id_),
+    "ds": lambda id_: DataSourceSelector(ds_id=id_),
+    "workbook": lambda _id: WorkbookSelector(),
+}
+
+
+def _selector_to_proto_pair(selector) -> tuple[str, str]:
+    if isinstance(selector, MarkSelector): return ("mark", selector.mark_id)
+    if isinstance(selector, FieldSelector): return ("field", selector.field_id)
+    if isinstance(selector, WorksheetSelector): return ("sheet", selector.sheet_id)
+    if isinstance(selector, DataSourceSelector): return ("ds", selector.ds_id)
+    if isinstance(selector, WorkbookSelector): return ("workbook", "")
+    raise ValueError(f"unknown selector: {type(selector).__name__}")
+
+
+def _value_to_wire(value) -> str:
+    if isinstance(value, bool): return "true" if value else "false"
+    return str(value)
+
+
+def _value_from_wire(prop: StyleProp, wire: str) -> object:
+    numeric_props = {
+        StyleProp.FONT_SIZE, StyleProp.LINE_HEIGHT,
+        StyleProp.PANE_LINE_THICKNESS, StyleProp.PADDING,
+    }
+    bool_props = {StyleProp.SHOW_COLUMN_BANDING, StyleProp.SHOW_ROW_BANDING}
+    if prop in bool_props: return wire == "true"
+    if prop in numeric_props:
+        try: return int(wire)
+        except ValueError: return float(wire)
+    return wire
 
 
 __all__ = [

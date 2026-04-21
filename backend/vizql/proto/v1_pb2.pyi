@@ -555,8 +555,31 @@ class TotalsSpec(_message.Message):
     should_affect_totals: bool
     def __init__(self, kind: _Optional[str] = ..., axis: _Optional[str] = ..., aggregation: _Optional[str] = ..., position: _Optional[str] = ..., should_affect_totals: bool = ...) -> None: ...
 
+class Selector(_message.Message):
+    __slots__ = ("kind", "id")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    kind: str
+    id: str
+    def __init__(self, kind: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
+
+class StyleRuleProto(_message.Message):
+    __slots__ = ("selector", "properties")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    selector: Selector
+    properties: _containers.ScalarMap[str, str]
+    def __init__(self, selector: _Optional[_Union[Selector, _Mapping[_Any, _Any]]] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
 class VisualSpec(_message.Message):
-    __slots__ = ("sheet_id", "fields", "shelves", "encodings", "filters", "parameters", "lod_calculations", "mark_type", "analytics", "is_generative_ai_web_authoring", "domain_type", "join_lod_overrides", "table_calc_specs")
+    __slots__ = ("sheet_id", "fields", "shelves", "encodings", "filters", "parameters", "lod_calculations", "mark_type", "analytics", "is_generative_ai_web_authoring", "domain_type", "join_lod_overrides", "table_calc_specs", "formatting")
     SHEET_ID_FIELD_NUMBER: _ClassVar[int]
     FIELDS_FIELD_NUMBER: _ClassVar[int]
     SHELVES_FIELD_NUMBER: _ClassVar[int]
@@ -570,6 +593,7 @@ class VisualSpec(_message.Message):
     DOMAIN_TYPE_FIELD_NUMBER: _ClassVar[int]
     JOIN_LOD_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
     TABLE_CALC_SPECS_FIELD_NUMBER: _ClassVar[int]
+    FORMATTING_FIELD_NUMBER: _ClassVar[int]
     sheet_id: str
     fields: _containers.RepeatedCompositeFieldContainer[Field]
     shelves: _containers.RepeatedCompositeFieldContainer[Shelf]
@@ -583,4 +607,5 @@ class VisualSpec(_message.Message):
     domain_type: str
     join_lod_overrides: _containers.RepeatedScalarFieldContainer[str]
     table_calc_specs: _containers.RepeatedCompositeFieldContainer[TableCalcSpec]
-    def __init__(self, sheet_id: _Optional[str] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ..., shelves: _Optional[_Iterable[_Union[Shelf, _Mapping[_Any, _Any]]]] = ..., encodings: _Optional[_Iterable[_Union[Encoding, _Mapping[_Any, _Any]]]] = ..., filters: _Optional[_Iterable[_Union[FilterSpec, _Mapping[_Any, _Any]]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping[_Any, _Any]]]] = ..., lod_calculations: _Optional[_Iterable[_Union[LodCalculation, _Mapping[_Any, _Any]]]] = ..., mark_type: _Optional[_Union[MarkType, str]] = ..., analytics: _Optional[_Union[Analytics, _Mapping[_Any, _Any]]] = ..., is_generative_ai_web_authoring: bool = ..., domain_type: _Optional[str] = ..., join_lod_overrides: _Optional[_Iterable[str]] = ..., table_calc_specs: _Optional[_Iterable[_Union[TableCalcSpec, _Mapping[_Any, _Any]]]] = ...) -> None: ...
+    formatting: _containers.RepeatedCompositeFieldContainer[StyleRuleProto]
+    def __init__(self, sheet_id: _Optional[str] = ..., fields: _Optional[_Iterable[_Union[Field, _Mapping[_Any, _Any]]]] = ..., shelves: _Optional[_Iterable[_Union[Shelf, _Mapping[_Any, _Any]]]] = ..., encodings: _Optional[_Iterable[_Union[Encoding, _Mapping[_Any, _Any]]]] = ..., filters: _Optional[_Iterable[_Union[FilterSpec, _Mapping[_Any, _Any]]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping[_Any, _Any]]]] = ..., lod_calculations: _Optional[_Iterable[_Union[LodCalculation, _Mapping[_Any, _Any]]]] = ..., mark_type: _Optional[_Union[MarkType, str]] = ..., analytics: _Optional[_Union[Analytics, _Mapping[_Any, _Any]]] = ..., is_generative_ai_web_authoring: bool = ..., domain_type: _Optional[str] = ..., join_lod_overrides: _Optional[_Iterable[str]] = ..., table_calc_specs: _Optional[_Iterable[_Union[TableCalcSpec, _Mapping[_Any, _Any]]]] = ..., formatting: _Optional[_Iterable[_Union[StyleRuleProto, _Mapping[_Any, _Any]]]] = ...) -> None: ...
