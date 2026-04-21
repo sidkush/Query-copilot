@@ -454,13 +454,16 @@ export default function Chat() {
     }
 
     // ── Agent streaming flow ──
+    // Hoisted out of try{} so the finally{} safety net (which references
+    // agentStepMsg to mark the row as `done`) can still see the binding when
+    // an early throw happens inside the streaming setup.
+    const agentStepMsg = { type: "agent_steps", steps: [], status: "running", startTime: Date.now() };
     try {
       let agentFailed = false;
       let agentChatId = chatId;
       // When turbo/memory tier answers instantly, we resolve early and skip the
       // redundant final_answer message that the backend may still emit.
       let resolvedViaTurbo = false;
-      const agentStepMsg = { type: "agent_steps", steps: [], status: "running", startTime: Date.now() };
       addMessage(agentStepMsg);
 
       await new Promise((resolve, reject) => {
