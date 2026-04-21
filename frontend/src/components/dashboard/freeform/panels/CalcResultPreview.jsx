@@ -1,48 +1,43 @@
 import React from 'react';
-import { evaluateCalc } from '../../../../api';
+import { evaluateCalc, evaluateCalcOnSource } from '../../../../api';
 
 /**
- * CalcResultPreview — Plan 8d T7.
+ * CalcResultPreview — Plan 8d T7b.
  *
- * Shows two complementary views of the calc result:
- *   1. "Over N sample rows" — when `rows.length > 1`, runs the formula over
- *      the full sample via the multi-row evaluator. Aggregates (COUNTD,
- *      SUM, AVG…) collapse to a single scalar; per-row formulas return an
- *      array of N values and we render a one-line summary ("10 values: a,
- *      b, c, …, j").
- *   2. "For selected row" — classic single-row evaluation against the
- *      highlighted sample row, preserved so the user can pick a row and
- *      see the per-row value change.
+ * Two tiers, stacked side-by-side:
  *
- * Props:
- *   formula         — calc formula text
- *   row             — the highlighted sample row ({col: value})
- *   rows            — the full sample set (optional)
- *   schemaRef       — {col: type} schema hints for the parser
- *   selectedRowIdx  — index into `rows` for the per-row label
- *   debounceMs      — defaults to 300ms
+ *   1. "In <table>" — evaluates the formula against the LIVE database
+ *      via /calcs/evaluate-on-source. Aggregates (COUNTD, SUM, AVG…)
+ *      collapse to the true DB-wide scalar (169M distinct ride_ids, not
+ *      10). Per-row formulas return up to 10 representative values.
+ *
+ *   2. "For selected row" — single-row in-memory evaluation against the
+ *      highlighted sample row, so the user can click a row below and see
+ *      the per-row formula result change.
+ *
+ * Sample rows below remain for column-shape familiarity; they are NOT the
+ * source of truth for aggregates anymore.
  */
 export function CalcResultPreview({
   formula,
   row,
-  rows,
   schemaRef,
+  connId,
   selectedRowIdx = 0,
-  debounceMs = 300,
+  debounceMs = 350,
 }) {
-  const [sample, setSample] = React.useState(null);
+  const [live, setLive] = React.useState(null);
   const [single, setSingle] = React.useState(null);
   const [error, setError] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const timerRef = React.useRef(null);
 
   const rowKey = React.useMemo(() => JSON.stringify(row), [row]);
-  const rowsKey = React.useMemo(() => JSON.stringify(rows), [rows]);
   const schemaKey = React.useMemo(() => JSON.stringify(schemaRef), [schemaRef]);
 
   React.useEffect(() => {
     if (!formula) {
-      setSample(null);
+      setLive(null);
       setSingle(null);
       setError(null);
       setLoading(false);
@@ -51,29 +46,33 @@ export function CalcResultPreview({
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       setLoading(true);
-      const hasSample = Array.isArray(rows) && rows.length > 1;
       const singleP = evaluateCalc({ formula, row, schema_ref: schemaRef });
-      const sampleP = hasSample
-        ? evaluateCalc({ formula, row, rows, schema_ref: schemaRef })
+      const liveP = connId
+        ? evaluateCalcOnSource({ formula, conn_id: connId, schema_ref: schemaRef })
         : Promise.resolve(null);
-      Promise.all([singleP, sampleP])
-        .then(([singleRes, sampleRes]) => {
-          setSingle(singleRes);
-          setSample(sampleRes);
-          setError(null);
-          setLoading(false);
-        })
-        .catch((err) => {
-          setError(err.message);
-          setLoading(false);
-        });
+      /* Run both in parallel. Fail-open: if the live query 4xxs (rate
+         limit, validator rejection) we still show the per-row result
+         rather than a blocking error. */
+      Promise.allSettled([singleP, liveP]).then(([singleRes, liveRes]) => {
+        if (singleRes.status === 'fulfilled') setSingle(singleRes.value);
+        else setSingle(null);
+        if (liveRes.status === 'fulfilled') setLive(liveRes.value);
+        else setLive(null);
+        const firstErr =
+          singleRes.status === 'rejected' ? singleRes.reason?.message : null;
+        setError(
+          singleRes.status === 'rejected' && liveRes.status === 'rejected'
+            ? firstErr
+            : null,
+        );
+        setLoading(false);
+      });
     }, debounceMs);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-    // row/rows/schemaRef tracked via hashed keys above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formula, rowKey, rowsKey, schemaKey, debounceMs]);
+  }, [formula, rowKey, schemaKey, connId, debounceMs]);
 
   if (!formula) {
     return (
@@ -82,34 +81,30 @@ export function CalcResultPreview({
       </div>
     );
   }
-  if (error) {
+  if (error && !single && !live) {
     return (
       <div role="alert" className="calc-result-preview calc-result-preview--error">
         {error}
       </div>
     );
   }
-  if (loading && !sample && !single) {
+  if (loading && !single && !live) {
     return <div className="calc-result-preview calc-result-preview--loading">Evaluating…</div>;
   }
 
-  /* Render the two tiers. Sample-level sits on top (it's the one users
-     expect when they type COUNTD([ride_id])); per-row sits below as a
-     debugging aid. If no multi-row sample is available we fall back to
-     per-row only. */
   return (
     <div className="calc-result-preview" aria-live="polite">
-      {sample ? <SampleTier result={sample} /> : null}
+      {live ? <LiveTier result={live} /> : null}
       {single ? <SingleTier result={single} rowIdx={selectedRowIdx} /> : null}
     </div>
   );
 }
 
-function SampleTier({ result }) {
-  const { value, type, row_count: rowCount, is_aggregate: isAggregate } = result;
+function LiveTier({ result }) {
+  const { value, type, table, is_aggregate: isAggregate, result_count: resultCount } = result;
   const label = isAggregate
-    ? `Aggregate · ${rowCount} sample rows`
-    : `Per row · ${rowCount} sample rows`;
+    ? `In ${table}`
+    : `In ${table} · ${resultCount} sample value${resultCount === 1 ? '' : 's'}`;
   const display = Array.isArray(value) ? formatSeries(value) : formatScalar(value);
   return (
     <div className="calc-result-preview__tier">
@@ -134,8 +129,12 @@ function SingleTier({ result, rowIdx }) {
   );
 }
 
+/* Group digits with locale grouping so 84565639 renders as 84,565,639 —
+   matches BigQuery/Postgres console output and reads at a glance. Strings,
+   dates, and booleans fall through untouched. */
 function formatScalar(v) {
   if (v === null || v === undefined) return '—';
+  if (typeof v === 'number' && Number.isFinite(v)) return v.toLocaleString();
   return String(v);
 }
 

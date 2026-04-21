@@ -5,7 +5,7 @@ import time
 import logging
 from collections import defaultdict
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from auth import get_current_user
@@ -1929,6 +1929,148 @@ async def evaluate_calc(
         "type": res.type,
         "error": res.error,
         "trace": res.trace,
+    }
+
+
+# ── Plan 8d T7b — /api/v1/calcs/evaluate-on-source ────────────────────
+# Runs a calc formula against the live database (not the 10-row sample).
+# COUNTD([ride_id]) on a 169M-row BigQuery table returns 169M, not 10.
+# The sample panel stays for column-shape familiarity; this endpoint
+# answers "what's the real value?".
+
+class _CalcEvaluateOnSourceRequest(BaseModel):
+    formula: str
+    conn_id: str
+    schema_ref: dict[str, str] = Field(default_factory=dict)
+    # Optional: caller may pin the table; otherwise first schema entry wins
+    # (matches /queries/sample so the preview runs on the same table shown
+    # in the sample panel below).
+    table: Optional[str] = None
+
+
+_CALC_SOURCE_PREVIEW_MAX_ROWS = 10
+
+
+@_calcs_router.post("/evaluate-on-source")
+def evaluate_calc_on_source(
+    req: _CalcEvaluateOnSourceRequest,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Compile `req.formula` against the connection's dialect, wrap as
+    SELECT <expr> FROM <table>, route through the 6-layer SQLValidator +
+    read-only connector, return the first column. Aggregates collapse to
+    a scalar; per-row formulas are capped at 10 values (defence-in-depth
+    alongside the connector's MAX_ROWS)."""
+    if not settings.FEATURE_ANALYST_PRO:
+        raise HTTPException(status_code=404, detail="calc evaluate disabled")
+    if len(req.formula) > settings.MAX_CALC_FORMULA_LEN:
+        raise HTTPException(status_code=413, detail="formula too long")
+    email = current_user["email"]
+    _enforce_calc_rate_limit(email)
+
+    connections = request.app.state.connections.get(email, {})
+    entry = connections.get(req.conn_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="connection not found")
+
+    try:
+        schema_info = entry.connector.get_schema_info()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"schema lookup failed: {exc}")
+    if not schema_info:
+        raise HTTPException(status_code=404, detail="no tables available")
+    table_name = req.table or next(iter(schema_info.keys()))
+    if not _SAMPLE_IDENT_RE.match(table_name):
+        raise HTTPException(
+            status_code=400,
+            detail=f"table name '{table_name}' rejected by identifier policy",
+        )
+
+    from vizql.calc_to_expression import compile_calc, CompileError
+    from vizql.calc_functions import Dialect as CalcDialect
+    from vizql.calc_parser import parse, ParseError, LexError
+    from vizql.calc_typecheck import typecheck, TypeError as CalcTypeError
+    from vizql.dialects.registry import get_dialect as get_db_dialect
+    from config import DBType
+
+    # `entry.db_type` comes in as either a DBType enum or its .value string
+    # depending on the construction path. Coerce to enum for the dialect
+    # lookups — both registries key on DBType.
+    raw_db_type = entry.db_type
+    if isinstance(raw_db_type, str):
+        try:
+            db_type_enum = DBType(raw_db_type)
+        except ValueError:
+            db_type_enum = DBType.DUCKDB
+    else:
+        db_type_enum = raw_db_type
+    calc_dialect_map = {
+        DBType.BIGQUERY: CalcDialect.BIGQUERY,
+        DBType.POSTGRESQL: CalcDialect.POSTGRES,
+        DBType.COCKROACHDB: CalcDialect.POSTGRES,
+        DBType.REDSHIFT: CalcDialect.POSTGRES,
+        DBType.SNOWFLAKE: CalcDialect.SNOWFLAKE,
+    }
+    calc_dialect = calc_dialect_map.get(db_type_enum, CalcDialect.DUCKDB)
+    db_dialect = get_db_dialect(db_type_enum)
+
+    try:
+        ast = parse(req.formula, max_depth=settings.MAX_CALC_NESTING)
+        inferred = typecheck(ast, req.schema_ref)
+        expr = compile_calc(ast, dialect=calc_dialect, schema=req.schema_ref)
+    except (ParseError, LexError, CalcTypeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except CompileError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    expression_sql = db_dialect._emit_expr(expr)  # type: ignore[attr-defined]
+    quoted_table = db_dialect.format_identifier(table_name)
+    # `compile_calc` emits `t.col` references (same alias used by the
+    # single-row VALUES wrapper in /calcs/evaluate). Keep the alias so
+    # the expression binds against the real table without rewriting.
+    sql = (
+        f"SELECT {expression_sql} AS __v__ FROM {quoted_table} AS t "
+        f"LIMIT {_CALC_SOURCE_PREVIEW_MAX_ROWS}"
+    )
+
+    from sql_validator import SQLValidator
+    # Validator parses dialect-aware SQL (BigQuery backticks, Snowflake
+    # double-quotes, etc.). Without the right dialect the backtick-quoted
+    # identifiers the compiler emits are flagged as syntax errors.
+    validator = SQLValidator(dialect=db_type_enum.value)
+    ok, clean, err = validator.validate(sql)
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"sql validator rejected: {err}")
+
+    try:
+        result = entry.engine.execute_sql(clean, "calc_eval_source")
+    except Exception as exc:  # noqa: BLE001 — driver/runtime error
+        raise HTTPException(status_code=422, detail=f"calc evaluation failed: {exc}")
+    if getattr(result, "error", None):
+        raise HTTPException(status_code=422, detail=result.error)
+
+    df = getattr(result, "data", None)
+    if df is None or getattr(df, "empty", True):
+        values: list = []
+    else:
+        col = df.columns[0]
+        values = [
+            None if (v is None or (isinstance(v, float) and v != v))
+            else (int(v) if isinstance(v, float) and v.is_integer() else v)
+            for v in df[col].tolist()
+        ]
+
+    is_aggregate = len(values) == 1
+    value = values[0] if is_aggregate else values
+
+    return {
+        "value": value,
+        "type": inferred.kind.value,
+        "table": table_name,
+        "is_aggregate": is_aggregate,
+        "result_count": len(values),
+        "mode": "live",
     }
 
 

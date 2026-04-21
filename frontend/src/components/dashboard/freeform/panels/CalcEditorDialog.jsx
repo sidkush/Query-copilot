@@ -289,6 +289,7 @@ export function CalcEditorDialog({
                 rows={sampleRows}
                 schemaRef={schemaRef}
                 selectedRowIdx={selectedRowIdx}
+                connId={connId}
               />
               <CalcDebugPanel
                 formula={formula}

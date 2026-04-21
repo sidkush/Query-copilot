@@ -5,6 +5,7 @@ import { CalcResultPreview } from '../CalcResultPreview';
 
 vi.mock('../../../../../api', () => ({
   evaluateCalc: vi.fn(),
+  evaluateCalcOnSource: vi.fn().mockResolvedValue(null),
 }));
 
 describe('CalcResultPreview', () => {
@@ -16,14 +17,15 @@ describe('CalcResultPreview', () => {
     expect(screen.getByText(/number/i)).toBeInTheDocument();
   });
 
-  it('shows error banner on 400', async () => {
-    const { evaluateCalc } = await import('../../../../../api');
+  it('shows error banner when both tiers fail', async () => {
+    const { evaluateCalc, evaluateCalcOnSource } = await import('../../../../../api');
     evaluateCalc.mockRejectedValueOnce(Object.assign(new Error('ParseError'), { status: 400 }));
-    render(<CalcResultPreview formula="bad" row={{}} schemaRef={{}} />);
+    evaluateCalcOnSource.mockRejectedValueOnce(Object.assign(new Error('ParseError'), { status: 400 }));
+    render(<CalcResultPreview formula="bad" row={{}} schemaRef={{}} connId="c1" />);
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/ParseError/));
   });
 
-  it('debounces to one evaluate call within 300ms for 3 rapid updates', async () => {
+  it('debounces to one evaluate call within 350ms for 3 rapid updates', async () => {
     const { evaluateCalc } = await import('../../../../../api');
     evaluateCalc.mockClear();
     vi.useFakeTimers();
@@ -31,7 +33,7 @@ describe('CalcResultPreview', () => {
     const { rerender } = render(<CalcResultPreview formula="a" row={{}} schemaRef={{}} />);
     rerender(<CalcResultPreview formula="ab" row={{}} schemaRef={{}} />);
     rerender(<CalcResultPreview formula="abc" row={{}} schemaRef={{}} />);
-    await vi.advanceTimersByTimeAsync(300);
+    await vi.advanceTimersByTimeAsync(400);
     expect(evaluateCalc).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });

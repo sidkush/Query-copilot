@@ -1002,6 +1002,26 @@ export async function evaluateCalc({ formula, row, rows = [], schema_ref = {}, t
   return res.json();
 }
 
+/* Plan 8d T7b — evaluate the calc formula against the LIVE database
+   (not the sample). Returns the real aggregate (e.g. COUNTD across 169M
+   rows) so the preview matches BigQuery semantics instead of returning 1
+   because the sample held 10 rows. */
+export async function evaluateCalcOnSource({ formula, conn_id, schema_ref = {}, table }) {
+  const res = await fetch(`${API_BASE}/calcs/evaluate-on-source`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ formula, conn_id, schema_ref, table }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw Object.assign(new Error(body.detail || res.statusText), {
+      status: res.status,
+      detail: body.detail,
+    });
+  }
+  return res.json();
+}
+
 // Plan 8d T11 — POST /api/v1/calcs/suggest for LLM-grounded formula suggestion.
 // Mirrors the getHeaders() auth pattern used by validateCalc/evaluateCalc.
 // Throws Error with `.status` + `.detail` on non-2xx so callers can surface
