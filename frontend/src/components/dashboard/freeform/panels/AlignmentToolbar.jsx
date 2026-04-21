@@ -24,7 +24,7 @@ export default function AlignmentToolbar() {
   const floatingSelectedCount = useMemo(() => {
     if (!dashboard) return 0;
     let n = 0;
-    for (const z of dashboard.floatingLayer) if (selection.has(z.id)) n++;
+    for (const z of dashboard.floatingLayer ?? []) if (selection.has(z.id)) n++;
     return n;
   }, [dashboard, selection]);
 
