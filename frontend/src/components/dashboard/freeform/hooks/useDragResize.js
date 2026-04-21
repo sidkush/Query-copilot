@@ -44,7 +44,7 @@ export function clampFloatingMove(move, canvas) {
  * Floating zones: mutate `dashboard.floatingLayer[idx].{x,y}` (move) or {pxW,pxH} (resize).
  * Tiled zones: wired in Tasks 10/11 (resize via resizeZone, reorder via reorderZone).
  */
-export function useDragResize({ canvasRef, resolvedMap, siblingsFloating, resolvedList, canvasSize }) {
+export function useDragResize({ canvasRef, resolvedMap: _resolvedMap, siblingsFloating, resolvedList, canvasSize }) {
   const rafRef = useRef(0);
   const startRef = useRef(null);
 
@@ -163,7 +163,7 @@ export function useDragResize({ canvasRef, resolvedMap, siblingsFloating, resolv
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-  }, [canvasRef, resolvedMap, dashboard, snapEnabled, setDashboard, pushHistory, siblingsFloating, resolvedList, canvasSize]);
+  }, [canvasRef, dashboard, snapEnabled, setDashboard, pushHistory, siblingsFloating, resolvedList, canvasSize]);
 
   return { onZonePointerDown };
 }

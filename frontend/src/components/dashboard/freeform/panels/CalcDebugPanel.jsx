@@ -4,6 +4,12 @@ import { evaluateCalc } from '../../../../api';
 export function CalcDebugPanel({ formula, row, schemaRef }) {
   const [state, setState] = React.useState({ trace: null, error: null, loading: false });
 
+  // Stable deps: hash row/schemaRef once so the effect's dep array stays
+  // primitive (rather than re-stringifying inside the array, which both
+  // hides the deps from the linter and recomputes on every render).
+  const rowKey = React.useMemo(() => JSON.stringify(row), [row]);
+  const schemaKey = React.useMemo(() => JSON.stringify(schemaRef), [schemaRef]);
+
   React.useEffect(() => {
     if (!formula) {
       setState({ trace: null, error: null, loading: false });
@@ -15,7 +21,9 @@ export function CalcDebugPanel({ formula, row, schemaRef }) {
       .then((res) => { if (!cancelled) setState({ trace: res.trace, error: null, loading: false }); })
       .catch((err) => { if (!cancelled) setState({ trace: null, error: err.message, loading: false }); });
     return () => { cancelled = true; };
-  }, [formula, JSON.stringify(row), JSON.stringify(schemaRef)]);
+    // row/schemaRef are intentionally tracked via their hashed keys above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formula, rowKey, schemaKey]);
 
   if (!formula) return <div className="calc-debug-panel calc-debug-panel--empty">No formula to trace.</div>;
   if (state.error) return <div role="alert" className="calc-debug-panel calc-debug-panel--error">{state.error}</div>;

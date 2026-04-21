@@ -75,10 +75,6 @@ export default function useVoicePipeline({ onTranscript } = {}) {
     recognition.onerror = (event) => {
       if (event.error === 'aborted' || event.error === 'no-speech') return;
       console.warn('[VoicePipeline] recognition error:', event.error);
-      // stopListening is defined later in the same hook scope; the closure
-      // resolves it lazily when the event fires (after mount), so the TDZ
-      // check this rule performs is a false positive here.
-      // eslint-disable-next-line react-hooks/immutability
       stopListening();
     };
 
@@ -95,6 +91,9 @@ export default function useVoicePipeline({ onTranscript } = {}) {
 
     recognitionRef.current = recognition;
     return recognition;
+    // stopListening is defined later in the same hook; closure resolves
+    // it lazily — including it here would create a circular dep loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceMode, voiceConfig.silenceDelayMs, onTranscript, setVoiceListening, setVoiceTranscribing, setVoiceTranscript, setVoiceFinalTranscript, setVoiceActive]);
 
   const startListening = useCallback(() => {

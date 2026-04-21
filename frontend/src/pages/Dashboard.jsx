@@ -256,6 +256,12 @@ export default function Dashboard() {
   }, [setTurboStatus]);
 
   useEffect(() => {
+    // Snapshot the polling map at effect-mount so the cleanup closure
+    // operates on the same set of intervals it observed, not whatever
+    // turboPolls.current happens to reference at unmount time (the ref
+    // could mutate between mount and unmount).
+    const polls = turboPolls.current;
+
     api.getSavedConnections()
       .then((data) => setSavedConnections(data.configs || data.connections || data || []))
       .catch(() => {});
@@ -273,7 +279,7 @@ export default function Dashboard() {
       })
       .catch(() => {});
     // Cleanup polling on unmount
-    return () => Object.values(turboPolls.current).forEach(clearInterval);
+    return () => Object.values(polls).forEach(clearInterval);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTurboToggle = async (connId, currentlyEnabled) => {

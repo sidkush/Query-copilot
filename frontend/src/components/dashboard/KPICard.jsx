@@ -6,7 +6,7 @@ import { TOKENS, KPI_ACCENTS } from './tokens';
  * tabular numerics, delta pill, bottom context strip. Theme-aware.
  */
 export default function KPICard({ tile, index = 0, formatting }) {
-  const rows = tile?.rows || [];
+  const rows = useMemo(() => tile?.rows || [], [tile?.rows]);
   const columns = tile?.columns || [];
   const gradientId = useId();
 

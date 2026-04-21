@@ -117,6 +117,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!localStorage.getItem("admin_token")) { navigate("/admin/login"); return; }
     loadData();
+    // mount-only bootstrap
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {

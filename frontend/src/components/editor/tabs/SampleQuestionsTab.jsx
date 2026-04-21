@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { api } from '../../../api';
 
 /**
@@ -18,7 +18,7 @@ export default function SampleQuestionsTab({ connId, linguistic, onUpdate }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const sampleQuestions = linguistic?.sampleQuestions ?? [];
+  const sampleQuestions = useMemo(() => linguistic?.sampleQuestions ?? [], [linguistic?.sampleQuestions]);
 
   // -------------------------------------------------------------------------
   // Persist
