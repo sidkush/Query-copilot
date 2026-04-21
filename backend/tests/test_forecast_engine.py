@@ -108,3 +108,69 @@ def test_detect_season_length_recovers_period_12():
     y = (np.sin(2 * np.pi * t / 12) + 0.1 * np.random.default_rng(0).normal(0, 1, n))
     p = _detect_season_length(y.tolist(), candidates=(4, 7, 12, 24, 52))
     assert p == 12
+
+
+from vizql.forecast import ForecastSpec
+from vizql.forecast_engine import fit_all, _confidence_band
+
+
+def _spec_auto(horizon=12, level=0.95):
+    return ForecastSpec(
+        forecast_length=horizon, forecast_unit="months", model="auto",
+        season_length=None, confidence_level=level, ignore_last=0,
+    )
+
+
+def test_confidence_band_widens_with_horizon():
+    rng = np.random.default_rng(0)
+    y = (np.arange(120) * 0.5 + rng.normal(0, 1.0, 120)).tolist()
+    best, _ = fit_auto(y, season_length=12, ignore_last=0)
+    point, lower, upper = _confidence_band(best, horizon=12, level=0.95)
+    widths = [upper[i] - lower[i] for i in range(12)]
+    assert widths[-1] > widths[0], "CI band should widen with horizon"
+
+
+def test_confidence_band_coverage_above_85_percent():
+    rng = np.random.default_rng(0)
+    n = 240
+    season = np.tile(np.array([1.0, 4.0, 2.0, 5.0]), n // 4)
+    y_full = (season + 0.5 * np.arange(n) + rng.normal(0, 0.5, n)).tolist()
+    train = y_full[:200]
+    test = y_full[200:]
+    best, _ = fit_auto(train, season_length=4, ignore_last=0)
+    _, lower, upper = _confidence_band(best, horizon=len(test), level=0.90)
+    inside = sum(1 for i, t in enumerate(test) if lower[i] <= t <= upper[i])
+    coverage = inside / len(test)
+    assert coverage >= 0.85, f"CI coverage {coverage:.2f} below 0.85"
+
+
+def test_fit_all_groups_by_factor_field():
+    series = []
+    for region in ("east", "west"):
+        for i in range(40):
+            series.append({"t": float(i), "y": float(i * (1.0 if region == "east" else 2.0)), "region": region})
+    spec = _spec_auto(horizon=4)
+    results = fit_all(series, spec, factor_fields=["region"])
+    factors = {r["factor_value"] for r in results}
+    assert factors == {"east", "west"}
+    for r in results:
+        assert len(r["result"].forecasts) == 4
+        assert len(r["result"].model_candidates) == 8
+
+
+def test_fit_all_no_factor_returns_single_group():
+    series = [{"t": float(i), "y": float(i)} for i in range(40)]
+    results = fit_all(series, _spec_auto(horizon=4), factor_fields=[])
+    assert len(results) == 1
+    assert results[0]["factor_value"] is None
+
+
+def test_fit_all_custom_model_skips_search():
+    series = [{"t": float(i), "y": float(i + 1)} for i in range(40)]
+    spec = ForecastSpec(
+        forecast_length=4, forecast_unit="months", model="custom",
+        season_length=4, confidence_level=0.95, ignore_last=0,
+    )
+    # Custom model defaults to AAA; only one candidate returned.
+    results = fit_all(series, spec, factor_fields=[])
+    assert len(results[0]["result"].model_candidates) == 1

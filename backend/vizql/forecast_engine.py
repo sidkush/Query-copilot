@@ -241,3 +241,118 @@ def fit_auto(
     best = min(finite, key=lambda c: c.aic)
     candidates_sorted = sorted(candidates, key=lambda c: c.aic)
     return best, candidates_sorted
+
+
+from scipy import stats as _scipy_stats
+
+from vizql.forecast import ForecastResult, ForecastSpec
+from vizql.forecast_preflight import build_uniform_index, validate_series
+
+
+_MODEL_TO_KIND = {
+    "additive": "AAA",
+    "multiplicative": "MAM",
+    "custom": "AAA",
+}
+
+
+def _confidence_band(
+    fit: ForecastModelFit,
+    horizon: int,
+    level: float,
+) -> Tuple[List[float], List[float], List[float]]:
+    """Hyndman prediction interval. Use statsmodels' get_prediction when
+    available; fall back to RMSE * z * sqrt(h) widening if not."""
+    res = _get_sm_result(fit)
+    if res is not None and hasattr(res, "get_prediction"):
+        try:
+            pred = res.get_prediction(start=res.nobs, end=res.nobs + horizon - 1)
+            mean = np.asarray(pred.predicted_mean, dtype=float)
+            ci = np.asarray(pred.pred_int(alpha=1.0 - level), dtype=float)
+            lower = ci[:, 0].tolist()
+            upper = ci[:, 1].tolist()
+            return mean.tolist(), lower, upper
+        except Exception:  # noqa: BLE001
+            pass
+    # Fallback: forecast point + z*RMSE*sqrt(h) widening.
+    point = []
+    if res is not None and hasattr(res, "forecast"):
+        try:
+            point = np.asarray(res.forecast(steps=horizon), dtype=float).tolist()
+        except Exception:  # noqa: BLE001
+            point = []
+    if not point:
+        point = [float("nan")] * horizon
+    z = float(_scipy_stats.norm.ppf(0.5 + level / 2.0))
+    sigma = max(fit.rmse, 1e-9)
+    lower = [point[i] - z * sigma * math.sqrt(i + 1) for i in range(horizon)]
+    upper = [point[i] + z * sigma * math.sqrt(i + 1) for i in range(horizon)]
+    return point, lower, upper
+
+
+def _group_by_factor(
+    series: Sequence[dict],
+    factor_fields: Sequence[str],
+) -> List[Tuple[Optional[object], List[dict]]]:
+    if not factor_fields:
+        return [(None, list(series))]
+    groups: dict = {}
+    for row in series:
+        key = tuple(row.get(f) for f in factor_fields)
+        key_value = key[0] if len(key) == 1 else key
+        groups.setdefault(key_value, []).append(row)
+    return list(groups.items())
+
+
+def fit_all(
+    series: Sequence[dict],
+    spec: ForecastSpec,
+    factor_fields: Sequence[str] = (),
+) -> List[dict]:
+    """Group series by factor_fields, fit each group, return wire dicts.
+
+    Each entry: { 'factor_value': <value>, 'result': ForecastResult }.
+    """
+    spec.validate()
+    grouped = _group_by_factor(series, factor_fields)
+    out: List[dict] = []
+    for factor_value, rows in grouped:
+        validate_series(rows, spec)
+        # `spec.forecast_unit` indicates the desired *output cadence* (e.g.
+        # "months" for monthly forecast points). For input resampling we
+        # always auto-detect from the actual data spacing, otherwise a
+        # mismatch (e.g. daily data with `forecast_unit="months"`) would
+        # collapse the grid to a single bucket.
+        ts, y = build_uniform_index(rows, unit="auto")
+        if spec.model == "auto":
+            best, candidates = fit_auto(y, season_length=spec.season_length, ignore_last=spec.ignore_last)
+        else:
+            kind = _MODEL_TO_KIND[spec.model]
+            season_length = spec.season_length
+            if season_length is None:
+                season_length = _detect_season_length(y)
+            best, _, _ = fit_one(y, kind=kind, season_length=season_length, ignore_last=spec.ignore_last)
+            candidates = [best]
+        point, lower, upper = _confidence_band(best, spec.forecast_length, spec.confidence_level)
+        # Project forecast timestamps off the uniform grid.
+        if len(ts) >= 2:
+            step = ts[1] - ts[0]
+        else:
+            step = 1.0
+        last_t = ts[-1]
+        forecasts = [
+            {"t": float(last_t + (i + 1) * step), "y": float(point[i]),
+             "lower": float(lower[i]), "upper": float(upper[i])}
+            for i in range(spec.forecast_length)
+        ]
+        actuals = [
+            {"t": float(ts[i]), "y": float(y[i])}
+            for i in range(len(ts))
+            if not math.isnan(y[i])
+        ]
+        result = ForecastResult(
+            best_model=best, forecasts=forecasts, actuals=actuals,
+            model_candidates=list(candidates),
+        )
+        out.append({"factor_value": factor_value, "result": result})
+    return out
