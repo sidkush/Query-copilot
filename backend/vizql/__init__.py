@@ -105,3 +105,21 @@ __all__ += [
     "ServerSideCalc", "ClientSideCalc", "CompiledTableCalc",
     "compile_table_calc",
 ]
+
+# Plan 10b — Excel-style number format grammar + named defaults.
+from .number_format import (  # noqa: E402,F401
+    NumberFormatAST,
+    NumberFormatError,
+    format_number,
+    parse_number_format,
+)
+from .number_format_defaults import DEFAULT_NUMBER_FORMATS  # noqa: E402,F401
+
+__all__ += [
+    # Plan 10b
+    "NumberFormatAST",
+    "NumberFormatError",
+    "format_number",
+    "parse_number_format",
+    "DEFAULT_NUMBER_FORMATS",
+]
