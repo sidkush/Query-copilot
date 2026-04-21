@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../../store";
 import { useShallow } from "zustand/react/shallow";
@@ -75,7 +75,7 @@ export default function DashboardShell({
   // but is no longer used to dispatch between layouts. Wave 3 replaces it
   // with an `initialPresetId` prop wired through the preset registry.
   initialMode = "analyst-pro",
-  onModeChange,
+  onModeChange: _onModeChange,
   dashboardId = null,
   dashboardName,
   dashboardList = [],
@@ -153,7 +153,6 @@ export default function DashboardShell({
     activeSemanticModel,
     setChartEditorSpec,
     agentTierInfo,
-    turboStatus,
     connections,
     analystProSize,
     setAnalystProSize,
@@ -161,7 +160,6 @@ export default function DashboardShell({
     activeSemanticModel: s.activeSemanticModel,
     setChartEditorSpec: s.setChartEditorSpec,
     agentTierInfo: s.agentTierInfo,
-    turboStatus: s.turboStatus,
     connections: s.connections,
     analystProSize: s.analystProSize,
     setAnalystProSize: s.setAnalystProSize,
@@ -220,6 +218,8 @@ export default function DashboardShell({
   // Detect narrow viewport — triggers ContextBar collapse into TopBar breadcrumb
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${CONTEXT_BAR_COLLAPSE_BREAKPOINT}px)`);
+    // state must mirror prop on prop change — derived-state guard
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsNarrowViewport(mq.matches);
     const handler = (e) => setIsNarrowViewport(e.matches);
     mq.addEventListener('change', handler);

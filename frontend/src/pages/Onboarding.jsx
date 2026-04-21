@@ -1,10 +1,9 @@
 import { useState, useEffect, lazy, Suspense, Component } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from "framer-motion";
 import { useStore } from "../store";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
-import { GPUTierProvider } from "../lib/gpuDetect";
+import { GPUTierProvider } from "../lib/gpuDetect.jsx";
 import OnboardingWelcome from "../components/onboarding/OnboardingWelcome";
 import OnboardingTour from "../components/onboarding/OnboardingTour";
 import OnboardingApiKey from "../components/onboarding/OnboardingApiKey";

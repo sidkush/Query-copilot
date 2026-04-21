@@ -1,15 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence, useInView } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../store";
-import React, { Suspense, Component, lazy } from "react";
+import React, { Suspense, Component } from "react";
 import AnimatedCounter from "../components/animation/AnimatedCounter";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
 import MotionButton from "../components/animation/MotionButton";
-import { GPUTierProvider, useGPUTier } from "../lib/gpuDetect";
+import { GPUTierProvider } from "../lib/gpuDetect.jsx";
+import { useGPUTier } from "../lib/gpuDetect.js";
 import useScrollParallax from "../components/animation/useScrollParallax";
-import useVisibilityMount from "../components/animation/useVisibilityMount";
 import TiltCard from "../components/animation/TiltCard";
 import AnimatedBorderGradient from "../components/animation/AnimatedBorderGradient";
 import CursorGlow from "../components/animation/CursorGlow";
@@ -25,7 +25,7 @@ class WebGLErrorBoundary extends Component {
     super(props);
     this.state = { hasError: false };
   }
-  static getDerivedStateFromError(error) { return { hasError: true }; }
+  static getDerivedStateFromError(_error) { return { hasError: true }; }
   componentDidCatch(error, errorInfo) {
     console.warn("WebGL failed, falling back to 2D background.", error, errorInfo);
   }
@@ -191,16 +191,6 @@ const FEATURE_ICONS = {
   ),
 };
 
-/* ── Spring animation variants ── */
-const springIn = {
-  hidden: { opacity: 0, y: 40 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 100, damping: 15, mass: 0.8 },
-  },
-};
-
 const staggerContainer = {
   hidden: {},
   visible: {
@@ -226,10 +216,24 @@ const fadeScale = {
   },
 };
 
+/* ── Parallax wrapper child — owns its own parallax binding so the parent
+       does not access `parallax.ref` / `parallax.parallaxY` during render
+       (which trips react-hooks/refs). ── */
+function ParallaxWrapper({ speed, children }) {
+  const parallax = useScrollParallax({ speed });
+  return (
+    // framer-motion's transform helpers expose `.ref` and `.parallaxY` for
+    // direct binding into JSX — standard library API, not a stale ref read.
+    // eslint-disable-next-line react-hooks/refs
+    <motion.div ref={parallax.ref} style={{ y: parallax.parallaxY }}>
+      {children}
+    </motion.div>
+  );
+}
+
 /* ── Section wrapper with scroll-reveal + parallax ── */
 function RevealSection({ children, className = "", parallaxSpeed, ...props }) {
   const { ref, isInView } = useScrollReveal({ once: true, margin: "-60px", amount: 0.08 });
-  const parallax = useScrollParallax({ speed: parallaxSpeed || 0 });
 
   const content = (
     <motion.div
@@ -244,13 +248,8 @@ function RevealSection({ children, className = "", parallaxSpeed, ...props }) {
     </motion.div>
   );
 
-  // Wrap in parallax if speed specified
   if (parallaxSpeed) {
-    return (
-      <motion.div ref={parallax.ref} style={{ y: parallax.parallaxY }}>
-        {content}
-      </motion.div>
-    );
+    return <ParallaxWrapper speed={parallaxSpeed}>{content}</ParallaxWrapper>;
   }
   return content;
 }
@@ -730,11 +729,10 @@ function ThemeToggle() {
 function LandingInner() {
   const navigate = useNavigate();
   const token = useStore((s) => s.token);
-  const tier = useGPUTier();
+  useGPUTier();
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  const [scrolled, setScrolled] = useState(false);
+  const [, setScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [heroLoaded, setHeroLoaded] = useState(true);
 
   // Section backgrounds — locked in
   const sectionBgs = { features: 'constellation', how: 'particleRise', demo: 'pulseRings', stats: 'particleRise', testimonials: 'softWaves', pricing: 'softWaves', cta: 'softWaves' };

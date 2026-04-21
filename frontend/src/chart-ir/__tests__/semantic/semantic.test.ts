@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any --
+   semantic compiler tests use `as unknown as any` to construct partial
+   ChartSpec encoding shapes the production types intentionally forbid;
+   the casts are scoped to test fixtures only. */
 import { describe, it, expect } from 'vitest';
 import {
   validateSemanticModel,

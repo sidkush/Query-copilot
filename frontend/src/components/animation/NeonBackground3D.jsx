@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity -- particle seeds live inside useMemo, so Math.random runs once on mount */
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float } from '@react-three/drei';
@@ -129,7 +130,7 @@ function DigitalRain() {
   }, []);
 
   const ref = useRef();
-  useFrame((state) => {
+  useFrame((_state) => {
     if (!ref.current) return;
     const pos = ref.current.geometry.attributes.position.array;
     for (let i = 0; i < count; i++) {

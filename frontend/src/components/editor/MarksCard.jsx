@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { applySpecPatch, resolveSemanticRef } from "../../chart-ir";
 import ChannelSlot from "./ChannelSlot";
 import CustomTypePicker from "./CustomTypePicker";
@@ -39,7 +39,7 @@ export default function MarksCard({
   columnProfile = [],
   activeSemanticModel = null,
 }) {
-  const encoding = spec?.encoding || {};
+  const encoding = useMemo(() => spec?.encoding || {}, [spec?.encoding]);
   const isCartesian = spec?.type === "cartesian";
 
   const dispatchPatch = useCallback(

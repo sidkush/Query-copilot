@@ -40,6 +40,8 @@ export default function VisibilityTab({ zone, onPatch }) {
   useEffect(() => {
     const rule = zone?.visibilityRule;
     if (!rule || rule.kind === 'always') {
+      // state must mirror prop on prop change — derived-state guard
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setKind('always');
       return;
     }

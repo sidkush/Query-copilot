@@ -8,9 +8,6 @@ export default function ExportModal({ show, onClose, dashboardName, onExport }) 
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
 
-  // Check if presentation slides exist (PresentationEngine is active)
-  const hasPresentationSlides = () => !!document.getElementById('presentation-slide-0');
-
   const captureElement = async (html2canvas, target) => {
     return html2canvas(target, {
       backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-page').trim() || '#06060e',

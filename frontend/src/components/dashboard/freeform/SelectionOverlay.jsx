@@ -38,7 +38,7 @@ function getHandleStyle(handle, width, height) {
   }
 }
 
-function SelectionOverlay({ selectedResolved, onResizeHandlePointerDown, onSelectionPointerDown }) {
+function SelectionOverlay({ selectedResolved, onResizeHandlePointerDown, onSelectionPointerDown: _onSelectionPointerDown }) {
   if (!selectedResolved || selectedResolved.length === 0) return null;
   return (
     <div data-testid="selection-overlay" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>

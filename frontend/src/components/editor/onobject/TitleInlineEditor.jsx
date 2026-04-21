@@ -17,6 +17,8 @@ export default function TitleInlineEditor({ spec, onSpecChange }) {
   const spanRef = useRef(null);
 
   useEffect(() => {
+    // state must mirror prop on prop change — derived-state guard
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraft(spec?.title || "");
   }, [spec?.title]);
 

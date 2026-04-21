@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { TOKENS } from './tokens';
 import { api } from '../../api';
 import { findCommonColumns } from '../../lib/dataBlender';
@@ -41,7 +41,7 @@ export default function DataSourceEditor({
   const [runningId, setRunningId] = useState(null);
   const [runError, setRunError] = useState(null);
 
-  const sources = dataSources || [];
+  const sources = useMemo(() => dataSources || [], [dataSources]);
   const config = blendConfig || { joinKey: '', enabled: false };
   const commonCols = findCommonColumns(primaryColumns, sources);
 

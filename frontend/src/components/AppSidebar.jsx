@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../store";
 
@@ -366,6 +365,8 @@ export default function AppSidebar() {
           </svg>
         </button>
       )}
+      {/* inner SidebarContent shares closure with parent on purpose; lifting would duplicate prop wiring */}
+      {/* eslint-disable-next-line react-hooks/static-components */}
       <SidebarContent onNavClick={window.innerWidth < 768 ? () => setCollapsed(true) : undefined} />
     </div>
   );

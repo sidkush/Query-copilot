@@ -12,6 +12,8 @@ import { api } from '../../api';
  * @param {Array}  currentTiles - Current array of tile objects (each with `id` + arbitrary fields)
  * @returns {{ added: string[], removed: string[], modified: string[] }}
  */
+// utility helper colocated with the BookmarkManager component for callsite cohesion — fast-refresh acceptable since this file is rarely hot-edited
+// eslint-disable-next-line react-refresh/only-export-components
 export function compareBookmark(bookmark, currentTiles) {
   const savedTiles = bookmark?.state?.tiles ?? [];
 

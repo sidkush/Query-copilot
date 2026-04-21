@@ -48,12 +48,10 @@ export default function useAnalystProAutosave(dashboardId) {
         if (result && typeof result.catch === 'function') {
           result.catch((err) => {
             // Surface but don't throw — editor must keep working.
-            // eslint-disable-next-line no-console
             console.warn('[Plan 7 T8] autosave failed', err);
           });
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.warn('[Plan 7 T8] autosave threw', err);
       }
     }, 1500);

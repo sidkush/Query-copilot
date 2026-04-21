@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { api } from '../../../api';
 
 /**
@@ -19,7 +19,7 @@ export default function PhrasingsTab({ connId, linguistic, onUpdate }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const phrasings = linguistic?.phrasings ?? [];
+  const phrasings = useMemo(() => linguistic?.phrasings ?? [], [linguistic?.phrasings]);
 
   // -------------------------------------------------------------------------
   // Persist

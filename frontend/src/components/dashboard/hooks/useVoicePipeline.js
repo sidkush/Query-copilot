@@ -91,6 +91,9 @@ export default function useVoicePipeline({ onTranscript } = {}) {
 
     recognitionRef.current = recognition;
     return recognition;
+    // stopListening is defined later in the same hook; closure resolves
+    // it lazily — including it here would create a circular dep loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceMode, voiceConfig.silenceDelayMs, onTranscript, setVoiceListening, setVoiceTranscribing, setVoiceTranscript, setVoiceFinalTranscript, setVoiceActive]);
 
   const startListening = useCallback(() => {

@@ -181,6 +181,8 @@ export default function ContextMenu() {
 
   useEffect(() => {
     if (menu) {
+      // state must mirror prop on prop change — derived-state guard
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFocusIndex(firstFocusableIndex(menu.items));
       setSubmenuIndex(null);
     } else {
@@ -398,6 +400,8 @@ export default function ContextMenu() {
   };
 
   useEffect(() => {
+    // state must mirror prop on prop change — derived-state guard
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (submenuIndex == null) { setParentRowRect(null); return; }
     const node = rootRef.current;
     if (!node) return;

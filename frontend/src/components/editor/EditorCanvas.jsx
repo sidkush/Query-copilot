@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { routeSpecWithStrategy } from "../../chart-ir";
-import { getGPUTier } from "../../lib/gpuDetect";
+import { getGPUTier } from "../../lib/gpuDetect.js";
 import VizQLRenderer from "./renderers/VizQLRenderer";
 const VegaRenderer = lazy(() => import("./renderers/VegaRenderer"));
 import MapLibreRenderer from "./renderers/MapLibreRenderer";

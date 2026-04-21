@@ -498,6 +498,9 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
       }
     }, { persona: agentPersona, permissionMode: agentPermissionMode, agentContext });
     streamRef.current = stream;
+    // isListening is read inside the SSE callback only and intentionally
+    // captures the latest value via streamRef closure, not the dep array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep]);
 
   // ── Quick action — same as handleSubmit but accepts text directly ──
@@ -547,6 +550,9 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
       }
     }, { persona: agentPersona, permissionMode: agentPermissionMode, agentContext });
     streamRef.current = stream;
+    // isListening is read inside the SSE callback only and intentionally
+    // captures the latest value via streamRef closure, not the dep array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep]);
 
   // Keep ref in sync so the speech recognition callback always calls the latest version

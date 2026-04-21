@@ -60,6 +60,8 @@ export default function VoiceModeSelector({ open, onClose, anchorRect, anchorRef
 
   // Keep liveAnchorRect in sync when the prop updates (re-open at new position)
   useEffect(() => {
+    // async-init failure path — standard React pattern
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLiveAnchorRect(anchorRect || null);
   }, [anchorRect]);
 

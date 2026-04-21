@@ -1,5 +1,4 @@
 import { useState, useEffect, Suspense, Component, lazy } from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import behaviorEngine from "../lib/behaviorEngine";
@@ -7,7 +6,7 @@ import UserDropdown from "../components/UserDropdown";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 
 import AnimatedBackground from "../components/animation/AnimatedBackground";
-import { GPUTierProvider } from "../lib/gpuDetect";
+import { GPUTierProvider } from "../lib/gpuDetect.jsx";
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
 class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 

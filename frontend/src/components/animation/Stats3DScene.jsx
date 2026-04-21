@@ -1,7 +1,8 @@
+/* eslint-disable react-hooks/purity -- particle seeds live inside useMemo, so Math.random runs once on mount */
 import React, { useRef, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { useGPUTier } from "../../lib/gpuDetect";
+import { useGPUTier } from "../../lib/gpuDetect.js";
 
 /* ═══════════════════════════════════════════════════════════════
    Stats3DScene — Animated ring arcs with overlaid HTML counters.

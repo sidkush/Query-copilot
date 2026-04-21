@@ -437,6 +437,8 @@ describe('edge cases', () => {
   });
 
   it('throws on unknown calc type', () => {
+    // intentional any cast — tests the runtime guard for unknown calc types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const badDef = { type: 'nonexistent' as any, measure: 'Sales', as: 'x' };
     expect(() => executeTableCalc(MONTHLY_SALES, badDef)).toThrow('Unknown table calculation type');
   });

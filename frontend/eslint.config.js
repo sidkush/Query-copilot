@@ -33,7 +33,7 @@ export default defineConfig([
       // `import { motion } from 'framer-motion'` as unused. See Phase 0.2.
       'react/jsx-uses-vars': 'error',
       'react/jsx-uses-react': 'error',
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^([A-Z_]|motion$)', argsIgnorePattern: '^_' }],
     },
   },
   // TypeScript linting scoped strictly to chart-ir (sub-project A Phase 0).
@@ -43,4 +43,18 @@ export default defineConfig([
     ...cfg,
     files: ['src/chart-ir/**/*.ts'],
   })),
+  // Mirror the JS-side underscore-prefix convention for unused names so
+  // intentional throwaway destructures (`const { foo: _omit, ...rest } = obj`)
+  // and `_arg` parameters do not trip @typescript-eslint/no-unused-vars.
+  {
+    files: ['src/chart-ir/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', {
+        varsIgnorePattern: '^_',
+        argsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_',
+      }],
+    },
+  },
 ])

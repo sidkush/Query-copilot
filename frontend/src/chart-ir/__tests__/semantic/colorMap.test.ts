@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveColor,
   validateColorMap,
-  buildColorScale,
 } from '../../semantic/colorMap';
 import type { ColorMap } from '../../semantic/colorMap';
 

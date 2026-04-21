@@ -872,7 +872,6 @@ export const useStore = create((set, get) => ({
       // Basic SSE line reader — W2-A will ship a richer parser that
       // reuses agent_routes' AgentStep shape; this just pulls "data: {…}"
       // frames and forwards progress snapshots.
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;

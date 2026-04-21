@@ -86,6 +86,8 @@ describe('chartEditor store slice', () => {
   });
 
   it('history is bounded at historyCap (drops the oldest when full)', () => {
+    // test fixture — store shape isn't worth re-typing for one assertion
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useStore.setState((state: any) => ({
       chartEditor: { ...state.chartEditor, historyCap: 3 },
     }));

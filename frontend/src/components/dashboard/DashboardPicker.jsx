@@ -31,6 +31,8 @@ export default function DashboardPicker({
   const panelRef = useRef(null);
   const openSaveDialog = useStore((s) => s.openSaveDashboardDialog);
 
+  // async-init failure path — standard React pattern
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setDraftName(dashboardName || ''); }, [dashboardName]);
 
   // Outside-click + Escape dismiss

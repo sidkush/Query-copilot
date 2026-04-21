@@ -39,6 +39,8 @@ export default function DashboardHeader({
   const inputRef = useRef(null);
   const headerRef = useRef(null);
 
+  // state must mirror prop on prop change — derived-state guard
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setName(dashboard?.name || ''); }, [dashboard?.name]);
   useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
 

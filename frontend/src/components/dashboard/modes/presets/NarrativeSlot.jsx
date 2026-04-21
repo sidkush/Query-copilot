@@ -69,7 +69,6 @@ export default function NarrativeSlot({
           return <Tag className={className}>{fallbackRender(text)}</Tag>;
         }
         const sanitized = renderNarrativeMarkdown(text);
-        // eslint-disable-next-line react/no-danger
         const htmlProp = { __html: sanitized };
         return <Tag className={className} dangerouslySetInnerHTML={htmlProp} />;
       }}

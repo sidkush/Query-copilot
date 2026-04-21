@@ -1,5 +1,4 @@
 import { memo, useEffect } from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store';
 import { TOKENS } from '../dashboard/tokens';

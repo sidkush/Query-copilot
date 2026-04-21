@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any --
+   duckdb-wasm is loaded via dynamic import + variable indirection so the
+   package isn't statically analyzed; its types aren't available at this
+   boundary. Internal use only. */
 /**
  * duckdbWasm.ts — client-side DuckDB-WASM for local LTTB downsampling.
  *

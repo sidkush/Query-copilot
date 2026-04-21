@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { api } from '../../../api';
 
 /**
@@ -20,7 +20,7 @@ export default function MetricsTab({ connId, model, onUpdate }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const metrics = model?.metrics ?? [];
+  const metrics = useMemo(() => model?.metrics ?? [], [model?.metrics]);
 
   // -------------------------------------------------------------------------
   // Persist

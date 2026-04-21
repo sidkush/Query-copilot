@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { TOKENS } from './tokens';
 

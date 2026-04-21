@@ -1,5 +1,4 @@
 import { useState, useRef } from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 
 /**

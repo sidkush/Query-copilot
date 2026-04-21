@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Suspense, Component, lazy } from "react";
 import { useNavigate } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { StaggerContainer, StaggerItem } from "../components/animation/StaggerContainer";
 import AnimatedBackground from "../components/animation/AnimatedBackground";
@@ -8,7 +7,7 @@ import { api } from "../api";
 import { useStore } from "../store";
 import UserDropdown from "../components/UserDropdown";
 import SavedDbPill from "../components/SavedDbPill";
-import { GPUTierProvider } from "../lib/gpuDetect";
+import { GPUTierProvider } from "../lib/gpuDetect.jsx";
 const PageBackground3D = lazy(() => import("../components/animation/PageBackground3D"));
 class _WebGLBound extends Component { constructor(p){super(p);this.state={e:false};} static getDerivedStateFromError(){return{e:true};} render(){return this.state.e?this.props.fallback:this.props.children;} }
 
@@ -257,6 +256,12 @@ export default function Dashboard() {
   }, [setTurboStatus]);
 
   useEffect(() => {
+    // Snapshot the polling map at effect-mount so the cleanup closure
+    // operates on the same set of intervals it observed, not whatever
+    // turboPolls.current happens to reference at unmount time (the ref
+    // could mutate between mount and unmount).
+    const polls = turboPolls.current;
+
     api.getSavedConnections()
       .then((data) => setSavedConnections(data.configs || data.connections || data || []))
       .catch(() => {});
@@ -274,7 +279,7 @@ export default function Dashboard() {
       })
       .catch(() => {});
     // Cleanup polling on unmount
-    return () => Object.values(turboPolls.current).forEach(clearInterval);
+    return () => Object.values(polls).forEach(clearInterval);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTurboToggle = async (connId, currentlyEnabled) => {
@@ -398,7 +403,7 @@ export default function Dashboard() {
       )
     );
     if (match) {
-      try { await api.disconnectDB(match.conn_id); } catch {}
+      try { await api.disconnectDB(match.conn_id); } catch { /* noop */ }
       removeConnection(match.conn_id);
     }
   };
@@ -599,7 +604,6 @@ export default function Dashboard() {
                         const ts = turboStates[conn.conn_id];
                         const tEnabled = ts?.enabled || false;
                         const tSyncing = ts?.syncing || false;
-                        const tInfo = ts?.twin_info || null;
                         return (
                           <button
                             onClick={() => handleTurboToggle(conn.conn_id, tEnabled)}

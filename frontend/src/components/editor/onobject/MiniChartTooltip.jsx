@@ -17,8 +17,8 @@ import { useMemo } from 'react';
  *   - label: string — dimension value label
  */
 export default function MiniChartTooltip({ x, y, visible, datum, seriesData, xField, yField, label }) {
-  if (!visible || !datum) return null;
-
+  // Hook must run on every render — keep it above any conditional early-return
+  // so rules-of-hooks isn't violated when `visible`/`datum` flip.
   const sparklinePoints = useMemo(() => {
     if (!seriesData?.length || !xField || !yField) return '';
     const values = seriesData.map((r, i) => ({
@@ -35,6 +35,8 @@ export default function MiniChartTooltip({ x, y, visible, datum, seriesData, xFi
       `${(i / (values.length - 1)) * w},${h - ((v.y - minY) / rangeY) * h}`
     ).join(' ');
   }, [seriesData, xField, yField]);
+
+  if (!visible || !datum) return null;
 
   return (
     <div

@@ -1,3 +1,4 @@
+/* global process */
 /**
  * bench-500-tile-dashboard.js
  * ===========================

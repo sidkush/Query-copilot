@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any --
+   Web Speech API has no DOM lib types in current TS target; events are
+   structurally typed at the call sites. Replacing with `unknown` would
+   force casts at every property access without improving safety. */
 /**
  * Wake word detection — SP-5c real implementation.
  *
