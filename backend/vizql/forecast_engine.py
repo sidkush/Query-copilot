@@ -175,3 +175,69 @@ def fit_one(
     # step (T5) can re-use the trained statsmodels object without re-fitting.
     _register_sm_result(fit, res)
     return fit, fitted.tolist(), residuals.tolist()
+
+
+def _detect_season_length(
+    y: Sequence[float],
+    candidates: Sequence[int] = (4, 7, 12, 24, 52),
+) -> int:
+    """Pick season period via FFT autocorrelation peak among candidates."""
+    arr = np.asarray(y, dtype=float)
+    arr = arr[~np.isnan(arr)]
+    if arr.size < max(candidates) * 2:
+        return min(candidates)
+    arr = arr - arr.mean()
+    n = arr.size
+    # Real FFT autocorrelation: ifft(|fft|^2) / n.
+    fft = np.fft.rfft(arr, n=2 * n)
+    acf = np.fft.irfft(fft * np.conj(fft), n=2 * n)[:n].real
+    if acf[0] > 0:
+        acf = acf / acf[0]
+    best_p = candidates[0]
+    best_score = -math.inf
+    for p in candidates:
+        if p < n:
+            score = float(acf[p])
+            if score > best_score:
+                best_score = score
+                best_p = p
+    return best_p
+
+
+def fit_auto(
+    y: Sequence[float],
+    season_length: Optional[int],
+    ignore_last: int,
+) -> Tuple[ForecastModelFit, List[ForecastModelFit]]:
+    """Fit all 8 ETS kinds; return (best, all_candidates) sorted by AIC."""
+    candidates: List[ForecastModelFit] = []
+    arr = np.asarray(y, dtype=float)
+    has_nonpositive = bool(np.any(arr <= 0))
+    if season_length is None:
+        season_length = _detect_season_length(y)
+    for kind in _MODEL_KINDS:
+        if has_nonpositive and "M" in kind:
+            sentinel = ForecastModelFit(
+                kind=kind, alpha=None, beta=None, gamma=None,
+                sse=float("inf"), aic=float("inf"),
+                rmse=float("inf"), mae=float("inf"), mape=float("inf"),
+            )
+            candidates.append(sentinel)
+            continue
+        try:
+            fit, _, _ = fit_one(y, kind=kind, season_length=season_length, ignore_last=ignore_last)
+            candidates.append(fit)
+        except (ValueError, RuntimeError, np.linalg.LinAlgError, Exception):  # noqa: BLE001
+            sentinel = ForecastModelFit(
+                kind=kind, alpha=None, beta=None, gamma=None,
+                sse=float("inf"), aic=float("inf"),
+                rmse=float("inf"), mae=float("inf"), mape=float("inf"),
+            )
+            candidates.append(sentinel)
+
+    finite = [c for c in candidates if math.isfinite(c.aic)]
+    if not finite:
+        raise ValueError("no ETS model converged for this series")
+    best = min(finite, key=lambda c: c.aic)
+    candidates_sorted = sorted(candidates, key=lambda c: c.aic)
+    return best, candidates_sorted

@@ -59,3 +59,52 @@ def test_fit_one_ignore_last_drops_n_points():
 def test_model_kinds_constant_has_eight_entries():
     assert len(_MODEL_KINDS) == 8
     assert set(_MODEL_KINDS) == {"AAA", "AAM", "AMA", "AMM", "ANA", "ANM", "ANN", "MNN"}
+
+
+from vizql.forecast_engine import fit_auto, _detect_season_length
+
+
+def test_fit_auto_returns_eight_candidates_and_one_best():
+    rng = np.random.default_rng(0)
+    y = (np.arange(60) * 0.5 + rng.normal(0, 0.5, 60)).tolist()
+    best, candidates = fit_auto(y, season_length=4, ignore_last=0)
+    assert len(candidates) == 8
+    aics = [c.aic for c in candidates if math.isfinite(c.aic)]
+    assert best.aic == min(aics)
+
+
+def test_fit_auto_picks_trend_model_for_trending_data():
+    rng = np.random.default_rng(0)
+    y = (np.arange(80) * 0.5 + rng.normal(0, 0.3, 80)).tolist()
+    best, _ = fit_auto(y, season_length=4, ignore_last=0)
+    # Trend models contain 'A' or 'M' in slot 1 (not 'N').
+    assert best.kind[1] != "N", f"expected trend model, got {best.kind}"
+
+
+def test_fit_auto_picks_seasonal_model_for_seasonal_data():
+    n = 96
+    season = np.tile(np.array([1.0, 4.0, 2.0, 5.0]), n // 4)
+    rng = np.random.default_rng(0)
+    y = (season + rng.normal(0, 0.1, n)).tolist()
+    best, _ = fit_auto(y, season_length=4, ignore_last=0)
+    # Seasonal models contain 'A' or 'M' in slot 2 (not 'N').
+    assert best.kind[2] != "N", f"expected seasonal model, got {best.kind}"
+
+
+def test_fit_auto_skips_multiplicative_for_negative_data():
+    rng = np.random.default_rng(0)
+    y = rng.normal(0, 1, 60).tolist()  # contains negatives
+    best, candidates = fit_auto(y, season_length=4, ignore_last=0)
+    # Multiplicative variants (M in slot 0/1/2) must be marked aic=inf.
+    for c in candidates:
+        if "M" in c.kind:
+            assert not math.isfinite(c.aic), f"mul kind {c.kind} should be inf"
+    assert "M" not in best.kind
+
+
+def test_detect_season_length_recovers_period_12():
+    n = 240
+    t = np.arange(n)
+    y = (np.sin(2 * np.pi * t / 12) + 0.1 * np.random.default_rng(0).normal(0, 1, n))
+    p = _detect_season_length(y.tolist(), candidates=(4, 7, 12, 24, 52))
+    assert p == 12
