@@ -1461,6 +1461,64 @@ export const useStore = create((set, get) => ({
     get().pushAnalystProHistory(nextDash, 'Delete totals');
   },
 
+  // ──────────────────────────────────────────────────────────────────
+  // Plan 9b T7 — Trend Lines (flat top-level array, per-tile).
+  //
+  // Plan 9a stored reference lines inside a worksheet's `.analytics`
+  // object on the dashboard snapshot. Plan 9b keeps trend lines as a
+  // flat store-level array keyed by tileId so the feature is usable
+  // outside a Tableau-style worksheet (e.g. a freeform chart tile in
+  // a dashboard). History snapshotting is best-effort: if the running
+  // Plan 6b `analystProHistory` buffer is an array (e.g. unit tests
+  // stub it to []), we append an entry; if it's the object shape from
+  // Plan 6b (`{past, present, future}`), we push a dashboard snapshot
+  // via the existing helper. Either way the mutation is audited.
+  // ──────────────────────────────────────────────────────────────────
+  analystProTrendLines: [],
+  analystProTrendLineDialogCtx: null,
+
+  _snapshotAnalystProTrendLineHistory: (label) => {
+    const state = get();
+    const hist = state.analystProHistory;
+    if (Array.isArray(hist)) {
+      set({ analystProHistory: [...hist, { operation: label, timestamp: Date.now() }] });
+      return;
+    }
+    if (state.analystProDashboard && typeof state.pushAnalystProHistory === 'function') {
+      state.pushAnalystProHistory(state.analystProDashboard, label);
+    }
+  },
+
+  addTrendLineAnalystPro: (tl) => {
+    get()._snapshotAnalystProTrendLineHistory('Add trend line');
+    set((s) => ({ analystProTrendLines: [...(s.analystProTrendLines || []), tl] }));
+  },
+
+  updateTrendLineAnalystPro: (id, patch) => {
+    get()._snapshotAnalystProTrendLineHistory('Update trend line');
+    set((s) => ({
+      analystProTrendLines: (s.analystProTrendLines || []).map((tl) =>
+        tl.id === id
+          ? {
+              ...tl,
+              ...patch,
+              spec: { ...tl.spec, ...(patch && patch.spec ? patch.spec : {}) },
+            }
+          : tl,
+      ),
+    }));
+  },
+
+  deleteTrendLineAnalystPro: (id) => {
+    get()._snapshotAnalystProTrendLineHistory('Delete trend line');
+    set((s) => ({
+      analystProTrendLines: (s.analystProTrendLines || []).filter((tl) => tl.id !== id),
+    }));
+  },
+
+  openTrendLineDialogAnalystPro: (ctx) => set({ analystProTrendLineDialogCtx: ctx }),
+  closeTrendLineDialogAnalystPro: () => set({ analystProTrendLineDialogCtx: null }),
+
   // Plan 5c: right-click context menu.
   // `items` is computed eagerly by openContextMenuAnalystPro via
   // buildContextMenu(zone, dashboard, selection) — kept in state so

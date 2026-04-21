@@ -1066,3 +1066,17 @@ export const adminApi = {
     adminRequest(`/admin/tickets/${ticketId}/close`, { method: "PUT" }),
   listDeletedUsers: () => adminRequest("/admin/deleted-users"),
 };
+
+// ──────────────────────────────────────────────────────────────────
+// Plan 9b T7 — Trend-line fit backend helper.
+// POST /api/v1/analytics/trend-fit
+// Body: { rows, spec } → { fits: TrendFit[] }
+// Reuses the shared `request` wrapper which already injects the JWT
+// Authorization header + handles 401 → /login redirect.
+// ──────────────────────────────────────────────────────────────────
+export async function fetchTrendFit(body) {
+  return request("/analytics/trend-fit", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}

@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react';
 import { evaluateRule, buildEvaluationContext } from './lib/visibilityRules';
 import { useStore } from '../../../store';
 import ReferenceLineDialog from './panels/ReferenceLineDialog';
+import TrendLineDialog from './panels/TrendLineDialog';
 
 const EMPTY_SETS = Object.freeze([]);
 const EMPTY_PARAMS = Object.freeze([]);
@@ -22,12 +23,18 @@ function FloatingLayer({ zones, renderLeaf }) {
   const parameters = useStore((s) => s.analystProDashboard?.parameters ?? EMPTY_PARAMS);
   const sheetFilters = useStore((s) => s.analystProSheetFilters ?? EMPTY_FILTERS);
   const analystProReferenceLineDialog = useStore((s) => s.analystProReferenceLineDialog);
+  const analystProTrendLineDialogCtx = useStore((s) => s.analystProTrendLineDialogCtx);
   const ctx = useMemo(
     () => buildEvaluationContext({ sets, parameters, sheetFilters }),
     [sets, parameters, sheetFilters],
   );
 
-  const dialogNode = analystProReferenceLineDialog ? <ReferenceLineDialog /> : null;
+  const dialogNode = (
+    <>
+      {analystProReferenceLineDialog ? <ReferenceLineDialog /> : null}
+      {analystProTrendLineDialogCtx ? <TrendLineDialog /> : null}
+    </>
+  );
 
   if (!zones || zones.length === 0) {
     return dialogNode;
