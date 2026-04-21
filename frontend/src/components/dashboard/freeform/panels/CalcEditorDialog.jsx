@@ -41,6 +41,7 @@ export function CalcEditorDialog({
   );
   const [selectedRowIdx, setSelectedRowIdx] = React.useState(0);
   const [sampleRow, setSampleRow] = React.useState({});
+  const [sampleRows, setSampleRows] = React.useState([]);
   const [suggestOpen, setSuggestOpen] = React.useState(false);
   const [sidebarTab, setSidebarTab] = React.useState('fields');
   const [sidebarQuery, setSidebarQuery] = React.useState('');
@@ -280,9 +281,21 @@ export function CalcEditorDialog({
                      Keep __idx for legacy callers that key on it. */
                   setSampleRow({ ...(rowData ?? {}), __idx: i });
                 }}
+                onRowsLoaded={setSampleRows}
               />
-              <CalcResultPreview formula={formula} row={sampleRow} schemaRef={schemaRef} />
-              <CalcDebugPanel formula={formula} row={sampleRow} schemaRef={schemaRef} />
+              <CalcResultPreview
+                formula={formula}
+                row={sampleRow}
+                rows={sampleRows}
+                schemaRef={schemaRef}
+                selectedRowIdx={selectedRowIdx}
+              />
+              <CalcDebugPanel
+                formula={formula}
+                row={sampleRow}
+                schemaRef={schemaRef}
+                selectedRowIdx={selectedRowIdx}
+              />
             </section>
           </div>
 

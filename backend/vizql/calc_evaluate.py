@@ -91,6 +91,31 @@ def _build_values_sql(expression_sql: str, row: dict[str, Any]) -> tuple[str, li
     return sql, [row[c] for c in cols]
 
 
+def _build_values_sql_multi(
+    expression_sql: str, rows: list[dict[str, Any]]
+) -> tuple[str, list[Any]]:
+    """Multi-row VALUES variant. Aggregate formulas collapse to 1 output row;
+    per-row formulas return one output row per input row. Columns are drawn
+    from the first row — callers must pass homogeneous rows (the sample-rows
+    endpoint returns them from a single table, so this holds)."""
+    if not rows:
+        return f"SELECT {expression_sql} AS v", []
+    cols = list(rows[0].keys())
+    if not cols:
+        return f"SELECT {expression_sql} AS v", []
+    per_row_ph = "(" + ", ".join(["?"] * len(cols)) + ")"
+    values_clause = ", ".join([per_row_ph] * len(rows))
+    col_list = ", ".join([_duckdb_dialect.format_identifier(c) for c in cols])
+    sql = (
+        f"SELECT {expression_sql} AS v "
+        f"FROM (VALUES {values_clause}) AS t({col_list})"
+    )
+    flat_params: list[Any] = []
+    for r in rows:
+        flat_params.extend(r.get(c) for c in cols)
+    return sql, flat_params
+
+
 def _run_with_timeout(con: duckdb.DuckDBPyConnection, sql: str, params: list[Any],
                       timeout_s: float) -> Any:
     done = threading.Event()
@@ -117,6 +142,38 @@ def _run_with_timeout(con: duckdb.DuckDBPyConnection, sql: str, params: list[Any
         raise result_holder["exc"]
     row_result = result_holder.get("val")
     return row_result[0] if row_result else None
+
+
+def _run_fetchall_with_timeout(
+    con: duckdb.DuckDBPyConnection, sql: str, params: list[Any], timeout_s: float,
+) -> list[Any]:
+    """Multi-row variant of `_run_with_timeout` — returns every row's first
+    column. Aggregate formulas collapse to a 1-element list; per-row
+    formulas yield one entry per input row."""
+    done = threading.Event()
+    result_holder: dict[str, Any] = {}
+
+    def worker() -> None:
+        try:
+            result_holder["val"] = con.execute(sql, params).fetchall()
+        except Exception as exc:  # noqa: BLE001 — propagated via result_holder
+            result_holder["exc"] = exc
+        finally:
+            done.set()
+
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+    if not done.wait(timeout=timeout_s):
+        try:
+            con.interrupt()
+        except Exception:  # noqa: BLE001 — best-effort
+            pass
+        t.join(timeout=0.5)
+        raise TimeoutError(f"calc evaluation exceeded {timeout_s}s")
+    if "exc" in result_holder:
+        raise result_holder["exc"]
+    rows = result_holder.get("val") or []
+    return [r[0] for r in rows]
 
 
 def _normalize_duckdb_value(v: Any, inferred_kind: str | None = None) -> Any:
@@ -213,6 +270,60 @@ def evaluate_formula(
     if not trace:
         _cache_put(key, result)
     return result
+
+
+def evaluate_formula_over_rows(
+    *, formula: str, rows: list[dict[str, Any]], schema_ref: dict[str, str],
+) -> dict[str, Any]:
+    """Multi-row variant. Evaluates the compiled SQL over every sample row;
+    returns a scalar when the formula is an aggregate (DuckDB collapses the
+    result set to 1 row) and a list of N values otherwise.
+
+    Shape: {value, type, row_count, is_aggregate}. The endpoint surfaces all
+    four so the UI can render "over N sample rows" labels unambiguously.
+    """
+    try:
+        ast = parse(formula, max_depth=settings.MAX_CALC_NESTING)
+        inferred = typecheck(ast, schema_ref)
+    except (ParseError, LexError) as exc:
+        raise ValueError(str(exc)) from exc
+    except CalcTypeError as exc:
+        raise ValueError(str(exc)) from exc
+
+    try:
+        expr = compile_calc(ast, dialect=Dialect.DUCKDB, schema=schema_ref)
+    except CompileError as exc:
+        raise ValueError(str(exc)) from exc
+
+    expression_sql = _duckdb_dialect._emit_expr(expr)  # type: ignore[attr-defined]
+    sql, params = _build_values_sql_multi(expression_sql, rows)
+
+    ok, _canonical, err = _validator.validate(sql)
+    if not ok:
+        raise ValueError(f"sql_validator rejected compiled calc SQL: {err}")
+
+    con = duckdb.connect(database=":memory:", read_only=False)
+    try:
+        raw_values = _run_fetchall_with_timeout(
+            con, sql, params, settings.CALC_EVAL_TIMEOUT_SECONDS
+        )
+    finally:
+        con.close()
+
+    kind = inferred.kind.value
+    normalized = [_normalize_duckdb_value(v, kind) for v in raw_values]
+
+    is_aggregate = len(normalized) == 1 and len(rows) > 1
+    value: Any = normalized[0] if len(normalized) == 1 else normalized
+
+    return {
+        "value": value,
+        "type": kind,
+        "row_count": len(rows),
+        "result_count": len(normalized),
+        "is_aggregate": is_aggregate,
+        "error": None,
+    }
 
 
 def _trace_ast(ast: ca.CalcExpr, row: dict[str, Any],

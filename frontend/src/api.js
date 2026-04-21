@@ -986,11 +986,11 @@ export async function validateCalc({ formula, schema_ref = {}, params = {}, sche
 // Plan 8d T8 — POST /api/v1/calcs/evaluate for single-row live preview + AST trace.
 // Mirrors the getHeaders() auth pattern used by validateCalc. Throws Error with
 // `.status` + `.detail` on non-2xx so callers can distinguish error classes.
-export async function evaluateCalc({ formula, row, schema_ref = {}, trace = false }) {
+export async function evaluateCalc({ formula, row, rows = [], schema_ref = {}, trace = false }) {
   const res = await fetch(`${API_BASE}/calcs/evaluate`, {
     method: "POST",
     headers: getHeaders(),
-    body: JSON.stringify({ formula, row, schema_ref, trace }),
+    body: JSON.stringify({ formula, row, rows, schema_ref, trace }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

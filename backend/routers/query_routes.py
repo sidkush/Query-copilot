@@ -1865,6 +1865,11 @@ async def validate_calc(
 class _CalcEvaluateRequest(BaseModel):
     formula: str
     row: dict[str, object] = Field(default_factory=dict)
+    # Optional multi-row variant — when non-empty, runs the formula over
+    # every row in a single VALUES clause. Aggregates (COUNTD, SUM, AVG…)
+    # collapse to one scalar; non-aggregate formulas return a list of N
+    # values. The single-row `row` field stays around for /trace support.
+    rows: list[dict[str, object]] = Field(default_factory=list)
     schema_ref: dict[str, str] = Field(default_factory=dict)
     trace: bool = False
 
@@ -1881,7 +1886,31 @@ async def evaluate_calc(
     email = current_user.get("email") or current_user.get("sub", "")
     _enforce_calc_rate_limit(email)
 
-    from vizql.calc_evaluate import evaluate_formula
+    from vizql.calc_evaluate import evaluate_formula, evaluate_formula_over_rows
+
+    # Multi-row sample-level evaluation (UI preview "over N rows"). Trace is
+    # intentionally single-row only — walking the AST per-row for a 10-row
+    # sample balloons the response without giving the user clearer info.
+    if req.rows and not req.trace:
+        try:
+            multi = evaluate_formula_over_rows(
+                formula=req.formula,
+                rows=req.rows,
+                schema_ref=req.schema_ref,
+            )
+        except TimeoutError as exc:
+            raise HTTPException(status_code=504, detail=str(exc))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        return {
+            "value": multi["value"],
+            "type": multi["type"],
+            "error": None,
+            "trace": None,
+            "row_count": multi["row_count"],
+            "result_count": multi["result_count"],
+            "is_aggregate": multi["is_aggregate"],
+        }
 
     try:
         res = evaluate_formula(

@@ -17,8 +17,13 @@ import { fetchSampleRows } from '../../../../api';
  *                     single-row evaluator needs (without it the backend
  *                     builds a VALUES clause that only carries __idx and
  *                     fails with "column not found").
+ *   onRowsLoaded    — optional callback(rows) fired once when the sample
+ *                     fetch resolves with ≥1 row. Lets the parent
+ *                     forward the full sample set to the multi-row
+ *                     evaluator so aggregates (COUNTD, SUM…) collapse
+ *                     over the whole sample instead of a single row.
  */
-export function CalcTestValues({ connId, selectedRowIdx = 0, onSelectRow }) {
+export function CalcTestValues({ connId, selectedRowIdx = 0, onSelectRow, onRowsLoaded }) {
   const [state, setState] = React.useState({
     loading: true,
     columns: [],
@@ -57,6 +62,17 @@ export function CalcTestValues({ connId, selectedRowIdx = 0, onSelectRow }) {
     // selectedRowIdx/onSelectRow are stable across renders per caller design.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstRow]);
+
+  /* Forward the full sample set once it arrives so the parent can feed
+     the multi-row evaluator. Fires on every fetch settle, not on selection. */
+  const sampleRowsRef = React.useRef([]);
+  React.useEffect(() => {
+    if (state.rows.length > 0 && state.rows !== sampleRowsRef.current) {
+      sampleRowsRef.current = state.rows;
+      if (onRowsLoaded) onRowsLoaded(state.rows);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.rows]);
 
   if (state.loading) {
     return (
