@@ -1519,6 +1519,34 @@ export const useStore = create((set, get) => ({
   openTrendLineDialogAnalystPro: (ctx) => set({ analystProTrendLineDialogCtx: ctx }),
   closeTrendLineDialogAnalystPro: () => set({ analystProTrendLineDialogCtx: null }),
 
+  // ──────────────────────────────────────────────────────────────────
+  // Plan 9c T7 — Holt-Winters forecast CRUD + dialog context.
+  // Mirrors the trend-line shape directly above. `pushHistorySnapshot`
+  // call-guarded so the store stays compatible with unit tests that
+  // don't bring the full Plan 6b history machinery online.
+  // ──────────────────────────────────────────────────────────────────
+  analystProForecasts: [],
+  analystProForecastDialogCtx: null,
+
+  addForecastAnalystPro: (forecast) => {
+    set((s) => ({ analystProForecasts: [...s.analystProForecasts, forecast] }));
+    if (typeof get().pushHistorySnapshot === 'function') get().pushHistorySnapshot();
+  },
+  updateForecastAnalystPro: (id, patch) => {
+    set((s) => ({
+      analystProForecasts: s.analystProForecasts.map((f) =>
+        f.id === id ? { ...f, ...patch } : f,
+      ),
+    }));
+    if (typeof get().pushHistorySnapshot === 'function') get().pushHistorySnapshot();
+  },
+  deleteForecastAnalystPro: (id) => {
+    set((s) => ({ analystProForecasts: s.analystProForecasts.filter((f) => f.id !== id) }));
+    if (typeof get().pushHistorySnapshot === 'function') get().pushHistorySnapshot();
+  },
+  openForecastDialogAnalystPro: (ctx) => set({ analystProForecastDialogCtx: ctx }),
+  closeForecastDialogAnalystPro: () => set({ analystProForecastDialogCtx: null }),
+
   // Plan 5c: right-click context menu.
   // `items` is computed eagerly by openContextMenuAnalystPro via
   // buildContextMenu(zone, dashboard, selection) — kept in state so

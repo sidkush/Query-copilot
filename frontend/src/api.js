@@ -1080,3 +1080,16 @@ export async function fetchTrendFit(body) {
     body: JSON.stringify(body),
   });
 }
+
+// ──────────────────────────────────────────────────────────────────
+// Plan 9c T7 — Holt-Winters forecast backend helper.
+// POST /api/v1/analytics/forecast
+// req = { series: [{t, y, ...factor_field_values}], spec: ForecastSpec, factor_fields: string[] }
+// returns { fits: [{ factor_value, result: ForecastResult }] }
+// ──────────────────────────────────────────────────────────────────
+export function fetchForecast(req) {
+  return request("/analytics/forecast", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
