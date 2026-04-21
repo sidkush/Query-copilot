@@ -4,6 +4,7 @@ import { evaluateRule, buildEvaluationContext } from './lib/visibilityRules';
 import { useStore } from '../../../store';
 import ReferenceLineDialog from './panels/ReferenceLineDialog';
 import TrendLineDialog from './panels/TrendLineDialog';
+import ForecastDialog from './panels/ForecastDialog';
 
 const EMPTY_SETS = Object.freeze([]);
 const EMPTY_PARAMS = Object.freeze([]);
@@ -24,6 +25,7 @@ function FloatingLayer({ zones, renderLeaf }) {
   const sheetFilters = useStore((s) => s.analystProSheetFilters ?? EMPTY_FILTERS);
   const analystProReferenceLineDialog = useStore((s) => s.analystProReferenceLineDialog);
   const analystProTrendLineDialogCtx = useStore((s) => s.analystProTrendLineDialogCtx);
+  const analystProForecastDialogCtx = useStore((s) => s.analystProForecastDialogCtx);
   const ctx = useMemo(
     () => buildEvaluationContext({ sets, parameters, sheetFilters }),
     [sets, parameters, sheetFilters],
@@ -33,6 +35,7 @@ function FloatingLayer({ zones, renderLeaf }) {
     <>
       {analystProReferenceLineDialog ? <ReferenceLineDialog /> : null}
       {analystProTrendLineDialogCtx ? <TrendLineDialog /> : null}
+      {analystProForecastDialogCtx ? <ForecastDialog /> : null}
     </>
   );
 
