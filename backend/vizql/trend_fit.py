@@ -117,3 +117,70 @@ def fit_polynomial(x: Sequence[float], y: Sequence[float], degree: int) -> Trend
         equation=_format_polynomial_equation(coeffs.tolist()),
         predictions=preds,
     )
+
+
+def fit_logarithmic(x: Sequence[float], y: Sequence[float]) -> TrendFitResult:
+    """y = a*ln(x) + b. Linear fit on (ln(x), y)."""
+    xa = _require_min_samples(x, 2)
+    ya = np.asarray(y, dtype=float)
+    if ya.shape != xa.shape:
+        raise ValueError("x and y must have the same length")
+    if np.any(xa <= 0):
+        raise ValueError("logarithmic fit requires x > 0 for all samples")
+
+    coeffs = np.polyfit(np.log(xa), ya, 1)  # [a, b]
+    y_pred = coeffs[0] * np.log(xa) + coeffs[1]
+    r2, p_value, sse, rmse = _compute_stats(ya, y_pred, n_params=2)
+    preds = [{"x": float(xi), "y": float(yi)} for xi, yi in zip(xa, y_pred)]
+    return TrendFitResult(
+        coefficients=[float(coeffs[0]), float(coeffs[1])],
+        r_squared=r2, p_value=p_value, sse=sse, rmse=rmse,
+        equation=f"y = {coeffs[0]:.4f}*ln(x) + {coeffs[1]:.4f}",
+        predictions=preds,
+    )
+
+
+def fit_exponential(x: Sequence[float], y: Sequence[float]) -> TrendFitResult:
+    """y = a*exp(b*x). Linear fit on (x, ln(y)); recovers (a = exp(intercept), b = slope)."""
+    xa = _require_min_samples(x, 2)
+    ya = np.asarray(y, dtype=float)
+    if ya.shape != xa.shape:
+        raise ValueError("x and y must have the same length")
+    if np.any(ya <= 0):
+        raise ValueError("exponential fit requires y > 0 for all samples")
+
+    slope, intercept = np.polyfit(xa, np.log(ya), 1)
+    a = float(np.exp(intercept))
+    b = float(slope)
+    y_pred = a * np.exp(b * xa)
+    r2, p_value, sse, rmse = _compute_stats(ya, y_pred, n_params=2)
+    preds = [{"x": float(xi), "y": float(yi)} for xi, yi in zip(xa, y_pred)]
+    return TrendFitResult(
+        coefficients=[a, b],
+        r_squared=r2, p_value=p_value, sse=sse, rmse=rmse,
+        equation=f"y = {a:.4f}*exp({b:.4f}*x)",
+        predictions=preds,
+    )
+
+
+def fit_power(x: Sequence[float], y: Sequence[float]) -> TrendFitResult:
+    """y = a*x^b. Linear fit on (ln(x), ln(y))."""
+    xa = _require_min_samples(x, 2)
+    ya = np.asarray(y, dtype=float)
+    if ya.shape != xa.shape:
+        raise ValueError("x and y must have the same length")
+    if np.any(xa <= 0) or np.any(ya <= 0):
+        raise ValueError("power fit requires x > 0 and y > 0 for all samples")
+
+    slope, intercept = np.polyfit(np.log(xa), np.log(ya), 1)
+    a = float(np.exp(intercept))
+    b = float(slope)
+    y_pred = a * np.power(xa, b)
+    r2, p_value, sse, rmse = _compute_stats(ya, y_pred, n_params=2)
+    preds = [{"x": float(xi), "y": float(yi)} for xi, yi in zip(xa, y_pred)]
+    return TrendFitResult(
+        coefficients=[a, b],
+        r_squared=r2, p_value=p_value, sse=sse, rmse=rmse,
+        equation=f"y = {a:.4f}*x^{b:.4f}",
+        predictions=preds,
+    )

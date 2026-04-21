@@ -69,3 +69,53 @@ def test_fit_polynomial_requires_min_samples():
     # Need at least degree+1 distinct points.
     with pytest.raises(ValueError, match="at least"):
         fit_polynomial([1.0, 2.0], [1.0, 4.0], degree=3)
+
+
+from vizql.trend_fit import fit_logarithmic, fit_exponential, fit_power
+
+
+def test_fit_logarithmic_recovers_coefficients():
+    # y = 2 ln(x) + 3
+    x = np.linspace(0.5, 50, 300)
+    y = 2.0 * np.log(x) + 3.0
+    r = fit_logarithmic(x.tolist(), y.tolist())
+    npt.assert_allclose(r.coefficients, [2.0, 3.0], rtol=1e-6)
+    assert r.r_squared == pytest.approx(1.0, abs=1e-9)
+    assert "ln(x)" in r.equation
+
+
+def test_fit_logarithmic_rejects_nonpositive_x():
+    with pytest.raises(ValueError, match="x > 0"):
+        fit_logarithmic([0.0, 1.0, 2.0], [1.0, 2.0, 3.0])
+    with pytest.raises(ValueError, match="x > 0"):
+        fit_logarithmic([-1.0, 2.0], [1.0, 2.0])
+
+
+def test_fit_exponential_recovers_coefficients():
+    # y = 1.5 * exp(0.4 x)
+    x = np.linspace(0, 4, 200)
+    y = 1.5 * np.exp(0.4 * x)
+    r = fit_exponential(x.tolist(), y.tolist())
+    npt.assert_allclose(r.coefficients, [1.5, 0.4], rtol=1e-6)
+    assert "exp" in r.equation
+
+
+def test_fit_exponential_rejects_nonpositive_y():
+    with pytest.raises(ValueError, match="y > 0"):
+        fit_exponential([1.0, 2.0], [1.0, 0.0])
+
+
+def test_fit_power_recovers_coefficients():
+    # y = 3 * x^0.5
+    x = np.linspace(0.1, 10, 300)
+    y = 3.0 * x ** 0.5
+    r = fit_power(x.tolist(), y.tolist())
+    npt.assert_allclose(r.coefficients, [3.0, 0.5], rtol=1e-6)
+    assert "^" in r.equation
+
+
+def test_fit_power_rejects_nonpositive():
+    with pytest.raises(ValueError, match="x > 0 and y > 0"):
+        fit_power([0.0, 1.0], [1.0, 2.0])
+    with pytest.raises(ValueError, match="x > 0 and y > 0"):
+        fit_power([1.0, 2.0], [-1.0, 2.0])
