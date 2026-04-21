@@ -25,4 +25,7 @@ export function askdbFormatNumberImpl(value: number, pattern: string): string {
 
 // Register once at module load. Safe to import multiple times — re-registration
 // is an idempotent overwrite in vega's registry.
-(vega as any).expressionFunction('askdbFormatNumber', askdbFormatNumberImpl);
+interface VegaExpressionHost {
+  expressionFunction: (name: string, fn?: (...args: unknown[]) => unknown) => unknown;
+}
+(vega as unknown as VegaExpressionHost).expressionFunction('askdbFormatNumber', askdbFormatNumberImpl as unknown as (...args: unknown[]) => unknown);

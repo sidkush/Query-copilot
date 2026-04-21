@@ -40,9 +40,12 @@ describe('askdbFormatNumber Vega expression fn', () => {
   it('registers on vega global', async () => {
     const mod = await import('../registerVegaFormat');
     const vega = await import('vega');
-    expect(typeof (vega as any).expressionFunction).toBe('function');
+    const vegaHost = vega as unknown as {
+      expressionFunction: (name: string, fn?: (...args: unknown[]) => unknown) => unknown;
+    };
+    expect(typeof vegaHost.expressionFunction).toBe('function');
     // After import, askdbFormatNumber must be callable via the registry.
-    const expr = (vega as any).expressionFunction('askdbFormatNumber');
+    const expr = vegaHost.expressionFunction('askdbFormatNumber');
     expect(typeof expr).toBe('function');
     // Smoke: call through the registered fn.
     const out = mod.askdbFormatNumberImpl(1234.5, '#,##0.00');
