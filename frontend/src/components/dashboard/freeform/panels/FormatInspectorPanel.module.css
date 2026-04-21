@@ -2,3 +2,5 @@
 .header { font-weight: 600; margin-bottom: 8px; }
 .grid { width: 100%; border-collapse: collapse; }
 .grid th, .grid td { padding: 4px 6px; border-bottom: 1px solid #eee; text-align: left; }
+.section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--askdb-border, #e2e2e2); }
+.sectionTitle { font-size: 13px; font-weight: 600; margin: 0 0 6px 0; }

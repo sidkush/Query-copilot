@@ -10,6 +10,7 @@ import React, { useMemo } from 'react';
 import { useStore } from '../../../../store';
 import { FormatResolver } from '../lib/formatResolver';
 import { StyleProp } from '../lib/formattingTypes';
+import NumberFormatEditor from './NumberFormatEditor';
 import styles from './FormatInspectorPanel.module.css';
 
 const EDITABLE_PROPS = [
@@ -76,6 +77,19 @@ export default function FormatInspectorPanel({ selector, context }) {
           })}
         </tbody>
       </table>
+      {/* Plan 10b — number format editor section */}
+      <section className={styles.section}>
+        <h4 className={styles.sectionTitle}>Number format</h4>
+        <NumberFormatEditor
+          value={String(
+            resolver.resolve(
+              context.markId, context.fieldId, context.sheetId, context.dsId,
+              StyleProp.NumberFormat,
+            ) ?? ''
+          )}
+          onChange={(pattern) => setRule(selector, StyleProp.NumberFormat, pattern)}
+        />
+      </section>
     </div>
   );
 }

@@ -1,0 +1,5 @@
+.editor { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
+.row { display: flex; align-items: center; gap: 8px; }
+.label { min-width: 80px; font-size: 12px; color: var(--askdb-text-muted, #888); }
+.preview { font-family: monospace; font-size: 12px; padding: 4px 8px; background: var(--askdb-bg-subtle, #f5f5f5); border-radius: 4px; }
+.error { color: var(--askdb-error, #c53030); font-size: 12px; }
