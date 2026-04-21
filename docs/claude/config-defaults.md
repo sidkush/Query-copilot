@@ -75,6 +75,15 @@ point here instead of duplicating values. Confirm against
 | `FORECAST_TIMEOUT_SECONDS` | `10.0` | Per-request wall-clock budget (504 when exceeded). |
 | `FORECAST_MAX_HORIZON` | `200` | Hard sanity cap on `forecast_length` regardless of unit (400 if exceeded). |
 
+### Cluster (Plan 9d)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `CLUSTER_RATE_LIMIT_PER_60S` | `10` | Per-user sliding-window cap on `/api/v1/analytics/cluster`. 429 when exceeded. |
+| `CLUSTER_MAX_ROWS` | `50_000` | Reject input row payloads over this count (413). Hard cap, not sampled. |
+| `CLUSTER_TIMEOUT_SECONDS` | `8.0` | Per-request wall-clock budget (504 when exceeded). |
+| `CLUSTER_K_MAX_HARD_CAP` | `25` | Hard sanity cap on `k_max` in auto mode regardless of spec value. |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |

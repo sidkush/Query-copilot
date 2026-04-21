@@ -287,6 +287,12 @@ class Settings(BaseSettings):
     FORECAST_TIMEOUT_SECONDS: float = 10.0
     FORECAST_MAX_HORIZON: int = 200
 
+    # Cluster (Plan 9d)
+    CLUSTER_RATE_LIMIT_PER_60S: int = 10
+    CLUSTER_MAX_ROWS: int = 50_000
+    CLUSTER_TIMEOUT_SECONDS: float = 8.0
+    CLUSTER_K_MAX_HARD_CAP: int = 25
+
     # Sub-project A — new chart editor + ChartSpec IR cutover (Phase 4b).
     # Phase 4c+2: default flipped to True. /analytics now always renders
     # the new DashboardShell + ChartEditor path (legacy DashboardBuilder

@@ -2047,3 +2047,79 @@ def forecast(
 
 
 router.routes.extend(_forecast_router.routes)
+
+
+# ---- Plan 9d: cluster analytics endpoint ----
+# Separate sub-router spliced onto `router.routes` so FastAPI mounts it at
+# /api/v1/analytics/cluster (cannot modify main.py).
+
+_CLUSTER_RL_LOCK = _Lock()
+_CLUSTER_RL_TIMESTAMPS: dict[str, list[float]] = _collections.defaultdict(list)
+
+
+def _enforce_cluster_rate_limit(email: str) -> None:
+    now = time.time()
+    window = 60.0
+    cap = settings.CLUSTER_RATE_LIMIT_PER_60S
+    with _CLUSTER_RL_LOCK:
+        ts = [t for t in _CLUSTER_RL_TIMESTAMPS[email] if t > now - window]
+        if len(ts) >= cap:
+            raise HTTPException(
+                status_code=429,
+                detail=f"cluster rate limit: max {cap} per 60s",
+            )
+        ts.append(now)
+        _CLUSTER_RL_TIMESTAMPS[email] = ts
+
+
+class _ClusterRequest(BaseModel):
+    rows: list[dict]
+    spec: dict
+
+
+_cluster_router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
+
+
+@_cluster_router.post("/cluster")
+def cluster(
+    req: _ClusterRequest,
+    user: dict = Depends(get_current_user),
+):
+    """K-means cluster with Calinski-Harabasz auto-k. See backend/vizql/cluster_engine.py."""
+    if not settings.FEATURE_ANALYST_PRO:
+        raise HTTPException(status_code=403, detail="FEATURE_ANALYST_PRO disabled")
+
+    email = user["email"]
+    _enforce_cluster_rate_limit(email)
+
+    if len(req.rows) > settings.CLUSTER_MAX_ROWS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"cluster payload exceeds CLUSTER_MAX_ROWS={settings.CLUSTER_MAX_ROWS}",
+        )
+
+    from vizql.cluster import ClusterSpec
+    from vizql.cluster_engine import fit as cluster_fit
+
+    try:
+        spec = ClusterSpec.from_dict(req.spec)
+        spec.validate()
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=f"invalid spec: {exc}") from exc
+
+    start = time.monotonic()
+    try:
+        result = cluster_fit(req.rows, spec)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"cluster failed: {exc}") from exc
+    elapsed = time.monotonic() - start
+    if elapsed > settings.CLUSTER_TIMEOUT_SECONDS:
+        raise HTTPException(
+            status_code=504,
+            detail=f"cluster exceeded {settings.CLUSTER_TIMEOUT_SECONDS:.1f}s (took {elapsed:.2f}s)",
+        )
+
+    return {"result": result.to_dict()}
+
+
+router.routes.extend(_cluster_router.routes)
