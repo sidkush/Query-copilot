@@ -52,7 +52,7 @@ function colorFor(factorValue: TrendFit['factor_value'], index: number): string 
 export interface VegaLiteLayer {
   mark: { type: 'line' | 'area'; tooltip?: boolean; opacity?: number; interpolate?: string };
   data: { values: Array<Record<string, unknown>> };
-  encoding: Record<string, any>;
+  encoding: Record<string, unknown>;
 }
 
 export function compileTrendLine(spec: TrendLineSpec, fits: TrendFit[]): VegaLiteLayer[] {
