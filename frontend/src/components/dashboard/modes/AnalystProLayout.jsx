@@ -1,5 +1,6 @@
 // frontend/src/components/dashboard/modes/AnalystProLayout.jsx
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { api } from '../../../api';
 import FreeformCanvas from '../freeform/FreeformCanvas';
 import SizeToggleDropdown from '../freeform/SizeToggleDropdown';
 import DevicePreviewToggle from '../freeform/DevicePreviewToggle';
@@ -344,19 +345,73 @@ export default function AnalystProLayout({
   );
 }
 
-function AnalystProCalcEditorMount() {
+/* Schema fields source: `/api/v1/schema/tables?conn_id=…` returns
+   { tables: [{ name, columns: [{ name, type, nullable }, …] }] }.
+   CalcEditorDialog expects a flat [{ name, dataType }] list; names are
+   unqualified because the calc language uses `[Column]` without table
+   prefix. De-dup by first occurrence if two tables share a column name. */
+function flattenSchemaTables(payload) {
+  const seen = new Set();
+  const out = [];
+  for (const t of payload?.tables ?? []) {
+    for (const col of t?.columns ?? []) {
+      if (!col?.name || seen.has(col.name)) continue;
+      seen.add(col.name);
+      out.push({ name: col.name, dataType: col.type ?? 'any' });
+    }
+  }
+  return out;
+}
+
+export function AnalystProCalcEditorMount() {
   const state = useStore((s) => s.analystProCalcEditor);
   const dashboard = useStore((s) => s.analystProDashboard);
-  const connId = useStore((s) => s.activeConnId);
-  if (!state || !state.open) return null;
+  const activeConnId = useStore((s) => s.activeConnId);
+  const boundConnId = dashboard?.boundConnId ?? null;
+  const [schemaFields, setSchemaFields] = useState([]);
+
+  const open = !!state?.open;
+  /* Resolve conn id through a fallback chain. `activeConnId` is only set
+     by explicit bind flows (saveDashboard with binding, dashboard picker);
+     a dashboard may carry `boundConnId` without it. Last resort: the first
+     live connection — common single-DB case. Read `connections` lazily via
+     getState() so we don't subscribe to that slice from this mount. */
+  useEffect(() => {
+    if (!open) {
+      setSchemaFields([]);
+      return undefined;
+    }
+    const fallback = useStore.getState().connections?.[0]?.conn_id ?? null;
+    const connId = activeConnId || boundConnId || fallback;
+    if (!connId) {
+      setSchemaFields([]);
+      return undefined;
+    }
+    let cancelled = false;
+    api
+      .getTables(connId)
+      .then((res) => {
+        if (!cancelled) setSchemaFields(flattenSchemaTables(res));
+      })
+      .catch(() => {
+        if (!cancelled) setSchemaFields([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, activeConnId, boundConnId]);
+
+  if (!open) return null;
   const calcs = dashboard?.calcs ?? [];
   const initial = state.editingCalcId
     ? calcs.find((c) => c.id === state.editingCalcId) ?? { name: state.seedName, formula: state.seedFormula }
     : { name: state.seedName, formula: state.seedFormula };
+  const connIdForProps =
+    activeConnId || boundConnId || useStore.getState().connections?.[0]?.conn_id || null;
   return (
     <CalcEditorDialog
-      connId={connId}
-      schemaFields={dashboard?.schemaFields ?? []}
+      connId={connIdForProps}
+      schemaFields={schemaFields}
       parameters={dashboard?.parameters ?? []}
       sets={dashboard?.sets ?? []}
       existingCalcs={calcs}
