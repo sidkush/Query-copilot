@@ -86,3 +86,7 @@ tiktoken==0.12.0
 # grpcio-tools provides python -m grpc_tools.protoc (bundled protoc binary).
 protobuf>=5.29,<7
 grpcio-tools>=1.68
+
+# ── Analytics — Trend / Forecast / Cluster ────────────────
+numpy>=1.26
+scipy>=1.12

@@ -276,6 +276,11 @@ class Settings(BaseSettings):
     CALC_SUGGEST_RATE_LIMIT_PER_60S: int = 5        # per-user LLM suggest cap (60s sliding)
     CALC_SUGGEST_MAX_DESCRIPTION_LEN: int = 1000    # reject oversized NL descriptions (413)
 
+    # Plan 9b — Trend Line analytics endpoint.
+    TREND_RATE_LIMIT_PER_30S: int = 20
+    TREND_MAX_ROWS: int = 100_000
+    TREND_TIMEOUT_SECONDS: float = 5.0
+
     # Sub-project A — new chart editor + ChartSpec IR cutover (Phase 4b).
     # Phase 4c+2: default flipped to True. /analytics now always renders
     # the new DashboardShell + ChartEditor path (legacy DashboardBuilder
