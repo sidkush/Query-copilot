@@ -316,6 +316,22 @@ message Analytics {
   repeated ReferenceBandSpec         reference_bands = 3;
   repeated ReferenceDistributionSpec distributions   = 4;
   repeated TotalsSpec                totals          = 5;
+  repeated BoxPlotSpec               box_plots       = 6;
+}
+
+// Plan 9e — Tableau §XIII.1 box plot. Composes via ReferenceDistributionSpec
+// (5 aggregated rows: q1 / median / q3 + whisker_low / whisker_high). Whisker
+// method picks the whisker computation (Tukey 1.5*IQR / min-max / percentile).
+message BoxPlotSpec {
+  string axis                   = 1;  // "x" | "y"
+  string whisker_method         = 2;  // "tukey" | "min-max" | "percentile"
+  int32  whisker_percentile_lo  = 3;  // 1..49  when whisker_method=="percentile"; else 0
+  int32  whisker_percentile_hi  = 4;  // 51..99 when whisker_method=="percentile"; else 0
+  bool   has_whisker_percentile = 5;  // discriminates legitimate (0,0) unset from bad tuple
+  bool   show_outliers          = 6;
+  string fill_color             = 7;  // "#RRGGBB"
+  double fill_opacity           = 8;  // 0..1
+  string scope                  = 9;  // "entire" | "pane" | "cell"
 }
 
 // Build_Tableau XIII.1 + Appendix C tabdocaxis!ReferenceLineSpecification.

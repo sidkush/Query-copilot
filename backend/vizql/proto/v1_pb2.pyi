@@ -434,7 +434,7 @@ class TableCalcSpec(_message.Message):
     def __init__(self, calc_id: _Optional[str] = ..., function: _Optional[str] = ..., arg_field: _Optional[str] = ..., addressing: _Optional[_Iterable[str]] = ..., partitioning: _Optional[_Iterable[str]] = ..., direction: _Optional[str] = ..., sort: _Optional[str] = ..., offset: _Optional[int] = ..., has_offset: bool = ...) -> None: ...
 
 class Analytics(_message.Message):
-    __slots__ = ("slots", "reference_lines", "reference_bands", "distributions", "totals")
+    __slots__ = ("slots", "reference_lines", "reference_bands", "distributions", "totals", "box_plots")
     class Slot(_message.Message):
         __slots__ = ("id", "kind", "properties")
         class PropertiesEntry(_message.Message):
@@ -456,12 +456,36 @@ class Analytics(_message.Message):
     REFERENCE_BANDS_FIELD_NUMBER: _ClassVar[int]
     DISTRIBUTIONS_FIELD_NUMBER: _ClassVar[int]
     TOTALS_FIELD_NUMBER: _ClassVar[int]
+    BOX_PLOTS_FIELD_NUMBER: _ClassVar[int]
     slots: _containers.RepeatedCompositeFieldContainer[Analytics.Slot]
     reference_lines: _containers.RepeatedCompositeFieldContainer[ReferenceLineSpec]
     reference_bands: _containers.RepeatedCompositeFieldContainer[ReferenceBandSpec]
     distributions: _containers.RepeatedCompositeFieldContainer[ReferenceDistributionSpec]
     totals: _containers.RepeatedCompositeFieldContainer[TotalsSpec]
-    def __init__(self, slots: _Optional[_Iterable[_Union[Analytics.Slot, _Mapping[_Any, _Any]]]] = ..., reference_lines: _Optional[_Iterable[_Union[ReferenceLineSpec, _Mapping[_Any, _Any]]]] = ..., reference_bands: _Optional[_Iterable[_Union[ReferenceBandSpec, _Mapping[_Any, _Any]]]] = ..., distributions: _Optional[_Iterable[_Union[ReferenceDistributionSpec, _Mapping[_Any, _Any]]]] = ..., totals: _Optional[_Iterable[_Union[TotalsSpec, _Mapping[_Any, _Any]]]] = ...) -> None: ...
+    box_plots: _containers.RepeatedCompositeFieldContainer[BoxPlotSpec]
+    def __init__(self, slots: _Optional[_Iterable[_Union[Analytics.Slot, _Mapping[_Any, _Any]]]] = ..., reference_lines: _Optional[_Iterable[_Union[ReferenceLineSpec, _Mapping[_Any, _Any]]]] = ..., reference_bands: _Optional[_Iterable[_Union[ReferenceBandSpec, _Mapping[_Any, _Any]]]] = ..., distributions: _Optional[_Iterable[_Union[ReferenceDistributionSpec, _Mapping[_Any, _Any]]]] = ..., totals: _Optional[_Iterable[_Union[TotalsSpec, _Mapping[_Any, _Any]]]] = ..., box_plots: _Optional[_Iterable[_Union[BoxPlotSpec, _Mapping[_Any, _Any]]]] = ...) -> None: ...
+
+class BoxPlotSpec(_message.Message):
+    __slots__ = ("axis", "whisker_method", "whisker_percentile_lo", "whisker_percentile_hi", "has_whisker_percentile", "show_outliers", "fill_color", "fill_opacity", "scope")
+    AXIS_FIELD_NUMBER: _ClassVar[int]
+    WHISKER_METHOD_FIELD_NUMBER: _ClassVar[int]
+    WHISKER_PERCENTILE_LO_FIELD_NUMBER: _ClassVar[int]
+    WHISKER_PERCENTILE_HI_FIELD_NUMBER: _ClassVar[int]
+    HAS_WHISKER_PERCENTILE_FIELD_NUMBER: _ClassVar[int]
+    SHOW_OUTLIERS_FIELD_NUMBER: _ClassVar[int]
+    FILL_COLOR_FIELD_NUMBER: _ClassVar[int]
+    FILL_OPACITY_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
+    axis: str
+    whisker_method: str
+    whisker_percentile_lo: int
+    whisker_percentile_hi: int
+    has_whisker_percentile: bool
+    show_outliers: bool
+    fill_color: str
+    fill_opacity: float
+    scope: str
+    def __init__(self, axis: _Optional[str] = ..., whisker_method: _Optional[str] = ..., whisker_percentile_lo: _Optional[int] = ..., whisker_percentile_hi: _Optional[int] = ..., has_whisker_percentile: bool = ..., show_outliers: bool = ..., fill_color: _Optional[str] = ..., fill_opacity: _Optional[float] = ..., scope: _Optional[str] = ...) -> None: ...
 
 class ReferenceLineSpec(_message.Message):
     __slots__ = ("axis", "aggregation", "value", "has_value", "percentile", "scope", "label", "custom_label", "line_style", "color", "show_marker")

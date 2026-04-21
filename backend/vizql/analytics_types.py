@@ -10,6 +10,8 @@ from typing import List, Optional
 
 from vizql.proto import v1_pb2 as pb
 
+from .box_plot import BoxPlotSpec
+
 
 _VALID_AGGS = {"constant", "mean", "median", "sum", "min", "max", "percentile"}
 _VALID_SCOPES = {"entire", "pane", "cell"}
@@ -197,12 +199,14 @@ class AnalyticsBundle:
     reference_bands: List[ReferenceBandSpec] = field(default_factory=list)
     distributions:   List[ReferenceDistributionSpec] = field(default_factory=list)
     totals:          List[TotalsSpec] = field(default_factory=list)
+    box_plots:       List[BoxPlotSpec] = field(default_factory=list)  # NEW — Plan 9e
 
     def validate(self) -> None:
         for rl in self.reference_lines: rl.validate()
         for rb in self.reference_bands: rb.validate()
         for rd in self.distributions:   rd.validate()
         for t  in self.totals:          t.validate()
+        for bp in self.box_plots:       bp.validate()
 
     def to_proto(self) -> pb.Analytics:
         m = pb.Analytics()
@@ -210,6 +214,7 @@ class AnalyticsBundle:
         m.reference_bands.extend(rb.to_proto() for rb in self.reference_bands)
         m.distributions.extend(rd.to_proto()   for rd in self.distributions)
         m.totals.extend(t.to_proto()           for t  in self.totals)
+        m.box_plots.extend(bp.to_proto()       for bp in self.box_plots)
         return m
 
     @classmethod
@@ -219,6 +224,7 @@ class AnalyticsBundle:
             reference_bands=[ReferenceBandSpec.from_proto(x) for x in m.reference_bands],
             distributions=[ReferenceDistributionSpec.from_proto(x) for x in m.distributions],
             totals=[TotalsSpec.from_proto(x) for x in m.totals],
+            box_plots=[BoxPlotSpec.from_proto(x) for x in m.box_plots],
         )
 
 
@@ -227,5 +233,6 @@ __all__ = [
     "ReferenceBandSpec",
     "ReferenceDistributionSpec",
     "TotalsSpec",
+    "BoxPlotSpec",
     "AnalyticsBundle",
 ]
