@@ -429,7 +429,7 @@ def test_connection(req: ConnectRequest, user: dict = Depends(get_current_user))
 
 
 @router.post("/connect")
-def connect_database(req: ConnectRequest, user: dict = Depends(get_current_user)):
+def connect_database(req: ConnectRequest, request: Request, user: dict = Depends(get_current_user)):
     """Connect to a database, introspect schema, and train the query engine."""
     try:
         db_type = DBType(req.db_type)
@@ -682,7 +682,7 @@ def delete_saved_config(config_id: str, user: dict = Depends(get_current_user)):
 
 
 @router.post("/reconnect/{config_id}")
-def reconnect_from_saved(config_id: str, user: dict = Depends(get_current_user)):
+def reconnect_from_saved(config_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Load a saved config, decrypt password, and create a live connection."""
     email = user["email"]
     configs = load_connection_configs(email)
