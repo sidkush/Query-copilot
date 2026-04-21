@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity -- particle seeds live inside useMemo, so Math.random runs once on mount */
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float } from '@react-three/drei';

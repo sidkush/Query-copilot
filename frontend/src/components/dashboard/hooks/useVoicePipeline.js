@@ -75,6 +75,10 @@ export default function useVoicePipeline({ onTranscript } = {}) {
     recognition.onerror = (event) => {
       if (event.error === 'aborted' || event.error === 'no-speech') return;
       console.warn('[VoicePipeline] recognition error:', event.error);
+      // stopListening is defined later in the same hook scope; the closure
+      // resolves it lazily when the event fires (after mount), so the TDZ
+      // check this rule performs is a false positive here.
+      // eslint-disable-next-line react-hooks/immutability
       stopListening();
     };
 

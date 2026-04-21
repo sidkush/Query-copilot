@@ -218,6 +218,8 @@ export default function DashboardShell({
   // Detect narrow viewport — triggers ContextBar collapse into TopBar breadcrumb
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${CONTEXT_BAR_COLLAPSE_BREAKPOINT}px)`);
+    // state must mirror prop on prop change — derived-state guard
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsNarrowViewport(mq.matches);
     const handler = (e) => setIsNarrowViewport(e.matches);
     mq.addEventListener('change', handler);

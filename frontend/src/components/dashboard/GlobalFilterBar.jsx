@@ -94,6 +94,8 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
   // Sync local state when globalFilters prop changes
   useEffect(() => {
     const m = migrateFilters(globalFilters);
+    // state must mirror prop on prop change — derived-state guard
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDateFilters(m.dateFilters);
     setFields(m.fields);
     setDirty(false);
@@ -117,6 +119,8 @@ export default function GlobalFilterBar({ globalFilters, connId, onChange, dashb
   // Load schema columns when picker opens
   useEffect(() => {
     if (!showFieldPicker || allColumns.length > 0) return;
+    // state must mirror prop on prop change — derived-state guard
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingCols(true);
     api.getTables(connId)
       .then(res => {

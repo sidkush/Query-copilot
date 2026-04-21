@@ -42,6 +42,8 @@ export default function DashboardTopBar({
   const inputRef = useRef(null);
   const agentLoading = useStore((s) => s.agentLoading);
 
+  // state must mirror prop on prop change — derived-state guard
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setName(dashboardName || ''); }, [dashboardName]);
   useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
 

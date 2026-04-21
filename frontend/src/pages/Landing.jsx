@@ -216,10 +216,24 @@ const fadeScale = {
   },
 };
 
+/* ── Parallax wrapper child — owns its own parallax binding so the parent
+       does not access `parallax.ref` / `parallax.parallaxY` during render
+       (which trips react-hooks/refs). ── */
+function ParallaxWrapper({ speed, children }) {
+  const parallax = useScrollParallax({ speed });
+  return (
+    // framer-motion's transform helpers expose `.ref` and `.parallaxY` for
+    // direct binding into JSX — standard library API, not a stale ref read.
+    // eslint-disable-next-line react-hooks/refs
+    <motion.div ref={parallax.ref} style={{ y: parallax.parallaxY }}>
+      {children}
+    </motion.div>
+  );
+}
+
 /* ── Section wrapper with scroll-reveal + parallax ── */
 function RevealSection({ children, className = "", parallaxSpeed, ...props }) {
   const { ref, isInView } = useScrollReveal({ once: true, margin: "-60px", amount: 0.08 });
-  const parallax = useScrollParallax({ speed: parallaxSpeed || 0 });
 
   const content = (
     <motion.div
@@ -234,13 +248,8 @@ function RevealSection({ children, className = "", parallaxSpeed, ...props }) {
     </motion.div>
   );
 
-  // Wrap in parallax if speed specified
   if (parallaxSpeed) {
-    return (
-      <motion.div ref={parallax.ref} style={{ y: parallax.parallaxY }}>
-        {content}
-      </motion.div>
-    );
+    return <ParallaxWrapper speed={parallaxSpeed}>{content}</ParallaxWrapper>;
   }
   return content;
 }

@@ -82,6 +82,8 @@ function DashboardTileCanvas({
   const agentEditingTiles = useStore((s) => s.agentEditingTiles);
   const isAgentEditing = tile?.id && agentEditingTiles.has(tile.id);
 
+  // manual memoization preserved across compiler skips; safe in this hot path
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const resultSet = useMemo(() => {
     // resultSetOverride wins when supplied (e.g. WorkbookLayout blends
     // filter-bar-driven SQL re-exec results in without mutating the

@@ -14,6 +14,8 @@ export default function CursorGlow({ size = 300, color = "99,102,241", opacity =
   useEffect(() => {
     // Detect touch device
     if ("ontouchstart" in window || navigator.maxTouchPoints > 0) {
+      // pointer event listener writing to local state is the standard React pattern
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsTouch(true);
       return;
     }

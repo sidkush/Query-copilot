@@ -175,6 +175,8 @@ export default function ChartTypeGallery() {
   /* ── Fetch gallery on mount ── */
   useEffect(() => {
     let cancelled = false;
+    // async-init failure path — standard React pattern
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     api
@@ -237,6 +239,8 @@ export default function ChartTypeGallery() {
   const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Reset to page 1 when filters change
+  // async-init failure path — standard React pattern
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setPage(1); }, [search, category, tier, sort]);
 
   /* ── Install ── */

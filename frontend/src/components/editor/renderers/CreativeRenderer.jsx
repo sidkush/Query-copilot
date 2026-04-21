@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import { getCreativeComponent } from "../themes/creativeRegistry";
 import { getGPUTier } from "../../../lib/gpuDetect.js";
 
@@ -18,7 +18,9 @@ import { getGPUTier } from "../../../lib/gpuDetect.js";
 export default function CreativeRenderer({ spec }) {
   const gpuTier = getGPUTier() || "medium";
   const name = spec?.creative?.component;
-  const Component = name ? getCreativeComponent(name) : null;
+  // Memo so React sees a stable component identity across renders
+  // (otherwise react-hooks/static-components flags the lookup).
+  const Component = useMemo(() => name ? getCreativeComponent(name) : null, [name]);
 
   if (gpuTier === "low" || !Component) {
     return (
@@ -50,6 +52,8 @@ export default function CreativeRenderer({ spec }) {
       }}
     >
       <Suspense fallback={<CreativeLoading />}>
+        {/* Component is loaded lazily from registry; useMemo above already memoizes it */}
+        {/* eslint-disable-next-line react-hooks/static-components */}
         <Component {...props} />
       </Suspense>
     </div>

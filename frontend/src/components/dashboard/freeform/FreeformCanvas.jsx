@@ -346,6 +346,8 @@ export default function FreeformCanvas({ dashboard: dashboardProp, renderLeaf })
           margin: effectiveDashboard.size?.mode === 'automatic' ? 0 : '0 auto',
           transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${canvasZoom})`,
           transformOrigin: '0 0',
+          // ref read mirrors imperative drag state, no React subscription needed
+          // eslint-disable-next-line react-hooks/refs
           cursor: spaceHeldRef.current ? 'grab' : undefined,
         }}
       >

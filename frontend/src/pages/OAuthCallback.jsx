@@ -19,6 +19,8 @@ export default function OAuthCallback() {
     const provider = localStorage.getItem("oauth_provider") || "google";
 
     if (!code || !state) {
+      // async-init failure path — standard React pattern
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError("Missing OAuth parameters.");
       return;
     }

@@ -1,3 +1,7 @@
+/* eslint-disable react-hooks/purity --
+   particle / pulse seed values (Math.random) live inside useMemo callbacks
+   so they only run on mount. Stable enough for a one-shot scene init —
+   converting to a deterministic PRNG would change the visual baseline. */
 import React, { useMemo, useRef, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";

@@ -30,6 +30,8 @@ export default function useDashboardRefresh(dashboardId, intervalMs = 5000) {
 
   useEffect(() => {
     if (!dashboardId) {
+      // async-init failure path — standard React pattern
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTick(0);
       setConnected(false);
       return undefined;

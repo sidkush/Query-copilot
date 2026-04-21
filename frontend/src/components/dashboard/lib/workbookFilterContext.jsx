@@ -49,6 +49,8 @@ export function WorkbookFilterProvider({ children, initialFilters = [] }) {
   );
 }
 
+// hook colocated with its provider component — fast-refresh acceptable since the context is mounted once at the workbook root
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWorkbookFilters() {
   return useContext(WorkbookFilterContext);
 }

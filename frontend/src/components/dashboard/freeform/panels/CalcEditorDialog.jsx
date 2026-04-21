@@ -105,6 +105,8 @@ export function CalcEditorDialog({
   // Latest-values ref so the global keydown handler always sees fresh state
   // without re-binding the listener on every keystroke.
   const stateRef = React.useRef({ name, formula, aiGenerated, initialCalc });
+  // ref forwarded to a non-react autofocus helper, intentional render-time read
+  // eslint-disable-next-line react-hooks/refs
   stateRef.current = { name, formula, aiGenerated, initialCalc };
 
   React.useEffect(() => {

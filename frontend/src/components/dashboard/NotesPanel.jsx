@@ -13,6 +13,8 @@ export default function NotesPanel({ annotations = [], userName: _userName, onAd
   const relTime = (iso) => {
     if (!iso) return '';
     const d = new Date(iso);
+    // relative-time formatter — Date.now() is intentionally read at render
+    // eslint-disable-next-line react-hooks/purity
     const diff = (Date.now() - d.getTime()) / 1000;
     if (diff < 60) return 'just now';
     if (diff < 3600) return `${Math.floor(diff/60)} min ago`;

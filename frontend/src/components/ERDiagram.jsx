@@ -52,6 +52,8 @@ export default function ERDiagram({ tables = [], compact = false, savedPositions
   // Initialize positions from saved positions (if any) or layout defaults
   useEffect(() => {
     if (!initialLayout.nodes.length) {
+      // state must reset when initialLayout becomes empty
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNodePositions(null);
       return;
     }
