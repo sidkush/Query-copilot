@@ -178,6 +178,7 @@ class AnalyticsPayload(BaseModel):
     reference_bands: list[dict] = Field(default_factory=list)
     distributions: list[dict] = Field(default_factory=list)
     totals: list[dict] = Field(default_factory=list)
+    box_plots: list[dict] = Field(default_factory=list)   # NEW — Plan 9e T3
 
 
 class ExecuteRequest(BaseModel):
@@ -523,6 +524,83 @@ def _run_analytics(req: "ExecuteRequest", entry, base_plan) -> list[dict]:
                     "position": tot.position,
                     "axis": tot.axis,
                 })
+
+    # box_plots - Plan 9e: each BoxPlotSpec compiles into 5 aggregated
+    # queries (q1/median/q3 + whisker_low/whisker_high) plus an optional
+    # 6th detail outlier query when show_outliers is True. Tukey
+    # whiskers are clamped here to the emitted MIN/MAX so the client
+    # does not need to re-derive.
+    emit_analytic = _emit_and_exec  # alias for readability of this branch
+
+    for raw in getattr(req.analytics, "box_plots", []) or []:
+        from vizql.box_plot import BoxPlotSpec
+        from vizql.box_plot_compiler import compile_box_plot
+
+        bp = BoxPlotSpec(
+            axis=raw["axis"],
+            whisker_method=raw["whisker_method"],
+            whisker_percentile=(
+                tuple(raw["whisker_percentile"])
+                if raw.get("whisker_percentile") else None
+            ),
+            show_outliers=bool(raw["show_outliers"]),
+            fill_color=raw["fill_color"],
+            fill_opacity=float(raw["fill_opacity"]),
+            scope=raw["scope"],
+        )
+        try:
+            bp.validate()
+        except ValueError as v_err:
+            raise HTTPException(
+                status_code=400,
+                detail=f"invalid box_plot spec: {v_err}",
+            ) from v_err
+
+        fns = compile_box_plot(
+            spec=bp, base_plan=base_plan,
+            measure_alias=req.measure_alias, pane_dims=pane_dims,
+        )
+
+        # Fixed order from compile_box_plot: q1, median, q3, lo, hi [, outliers]
+        q1     = _extract_scalar(emit_analytic(fns[0], "box_plot"), "__reference_value__")
+        median = _extract_scalar(emit_analytic(fns[1], "box_plot"), "__reference_value__")
+        q3     = _extract_scalar(emit_analytic(fns[2], "box_plot"), "__reference_value__")
+        lo     = _extract_scalar(emit_analytic(fns[3], "box_plot"), "__reference_value__")
+        hi     = _extract_scalar(emit_analytic(fns[4], "box_plot"), "__reference_value__")
+
+        # Tukey clamp to actual [q1-1.5*iqr, q3+1.5*iqr].
+        if bp.whisker_method == "tukey" and q1 is not None and q3 is not None:
+            iqr = q3 - q1
+            tlo = q1 - 1.5 * iqr
+            thi = q3 + 1.5 * iqr
+            if lo is not None:
+                lo = max(lo, tlo)
+            if hi is not None:
+                hi = min(hi, thi)
+
+        outliers: list[float] = []
+        if bp.show_outliers and len(fns) == 6:
+            df = emit_analytic(fns[5], "box_plot")
+            if df is not None and not getattr(df, "empty", False):
+                col = req.measure_alias
+                try:
+                    outliers = [float(v) for v in df[col].tolist() if v is not None]
+                except Exception:
+                    outliers = []
+
+        out.append({
+            "kind": "box_plot",
+            "axis": bp.axis,
+            "scope": bp.scope,
+            "whisker_method": bp.whisker_method,
+            "values": {
+                "q1": q1, "median": median, "q3": q3,
+                "whisker_low": lo, "whisker_high": hi,
+            },
+            "outliers": outliers,
+            "fill_color": bp.fill_color,
+            "fill_opacity": bp.fill_opacity,
+        })
 
     return out
 
