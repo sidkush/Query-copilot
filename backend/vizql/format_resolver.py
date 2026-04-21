@@ -42,15 +42,26 @@ class FormatResolver:
         *,
         cache_enabled: bool = True,
         cache_maxsize: int = 4096,
+        max_rules: int = 10_000,
     ) -> None:
         self._cache_enabled = cache_enabled
         self._cache_maxsize = cache_maxsize
+        self._max_rules = max_rules
         self.update_rules(rules)
 
     # --- Public API ------------------------------------------------------
 
     def update_rules(self, rules: Iterable[StyleRule]) -> None:
+        # Lazy import to avoid circular dependency: format_sanitiser imports
+        # ResolverError from this module.
+        from vizql.format_sanitiser import sanitise_rule
+
         flat = list(rules)
+        if len(flat) > self._max_rules:
+            raise ResolverError(
+                f"too many rules: {len(flat)} > {self._max_rules}"
+            )
+        flat = [sanitise_rule(r) if isinstance(r, StyleRule) else r for r in flat]
         self._validate(flat)
         # Pre-bucket rules by selector kind → (key → rule) for O(1) lookup.
         self._by_mark: dict[str, list[StyleRule]] = {}
