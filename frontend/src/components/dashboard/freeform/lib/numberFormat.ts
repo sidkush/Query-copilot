@@ -221,10 +221,18 @@ function roundHalfUp(value: number, decimals: number): string {
   if (!Number.isFinite(value)) return String(value);
   const neg = value < 0;
   const abs = Math.abs(value);
-  // Render with enough digits that the (decimals+1)th fractional digit is accurate.
-  // 20 digits is well past IEEE-754 double precision (15-17 sig digits), so this
-  // never accidentally introduces trailing spurious non-zero noise.
-  const raw = abs.toFixed(Math.max(decimals + 1, 20));
+  // Use the shortest round-trip decimal representation via String(abs), which
+  // matches Python's Decimal(str(value)) construction (the reference formatter
+  // side). toFixed(20) would expose the IEEE-754 representation error — e.g.
+  // (0.015).toFixed(20) === "0.01499999999999999944" — which pushes boundary
+  // cases like 0.015 → 0.01 instead of 0.02. String(0.015) === "0.015", so we
+  // round the exact literal the user wrote.
+  let raw = String(abs);
+  // Handle scientific-notation edge (very large or very small) by expanding back
+  // to decimal form so the digit-indexing logic below is safe.
+  if (raw.includes('e') || raw.includes('E')) {
+    raw = abs.toFixed(Math.max(decimals + 1, 20));
+  }
   // Split on '.'
   const dotIdx = raw.indexOf('.');
   const intPart = dotIdx === -1 ? raw : raw.slice(0, dotIdx);
