@@ -1962,3 +1962,88 @@ def trend_fit(
 
 # Splice _trend_router's routes onto the primary router so main.py mounts them.
 router.routes.extend(_trend_router.routes)
+
+
+# ---- Plan 9c: forecast analytics endpoint ----
+# Separate sub-router spliced onto `router.routes` so FastAPI mounts it at
+# /api/v1/analytics/forecast (cannot modify main.py).
+
+_FORECAST_RL_LOCK = _Lock()
+_FORECAST_RL_TIMESTAMPS: dict[str, list[float]] = _collections.defaultdict(list)
+
+
+def _enforce_forecast_rate_limit(email: str) -> None:
+    now = time.time()
+    window = 60.0
+    cap = settings.FORECAST_RATE_LIMIT_PER_60S
+    with _FORECAST_RL_LOCK:
+        ts = [t for t in _FORECAST_RL_TIMESTAMPS[email] if t > now - window]
+        if len(ts) >= cap:
+            raise HTTPException(
+                status_code=429,
+                detail=f"forecast rate limit: max {cap} per 60s",
+            )
+        ts.append(now)
+        _FORECAST_RL_TIMESTAMPS[email] = ts
+
+
+class _ForecastRequest(BaseModel):
+    series: list[dict]
+    spec: dict
+    factor_fields: list[str] = []
+
+
+_forecast_router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
+
+
+@_forecast_router.post("/forecast")
+def forecast(
+    req: _ForecastRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Holt-Winters forecast with AIC model selection. See backend/vizql/forecast_engine.py."""
+    if not settings.FEATURE_ANALYST_PRO:
+        raise HTTPException(status_code=403, detail="FEATURE_ANALYST_PRO disabled")
+
+    email = user["email"]
+    _enforce_forecast_rate_limit(email)
+
+    if len(req.series) > settings.FORECAST_MAX_ROWS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"forecast payload exceeds FORECAST_MAX_ROWS={settings.FORECAST_MAX_ROWS}",
+        )
+
+    from vizql.forecast import ForecastSpec
+    from vizql.forecast_engine import fit_all
+    from vizql.forecast_preflight import PreflightError
+
+    try:
+        spec = ForecastSpec.from_dict(req.spec)
+        spec.validate()
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=f"invalid spec: {exc}") from exc
+
+    start = time.monotonic()
+    try:
+        fits = fit_all(req.series, spec, factor_fields=req.factor_fields)
+    except PreflightError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"forecast failed: {exc}") from exc
+    elapsed = time.monotonic() - start
+    if elapsed > settings.FORECAST_TIMEOUT_SECONDS:
+        raise HTTPException(
+            status_code=504,
+            detail=f"forecast exceeded {settings.FORECAST_TIMEOUT_SECONDS:.1f}s (took {elapsed:.2f}s)",
+        )
+
+    return {
+        "fits": [
+            {"factor_value": f["factor_value"], "result": f["result"].to_dict()}
+            for f in fits
+        ]
+    }
+
+
+router.routes.extend(_forecast_router.routes)
