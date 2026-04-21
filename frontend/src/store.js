@@ -1606,6 +1606,80 @@ export const useStore = create((set, get) => ({
     });
   },
 
+  // Plan 9e: Box Plot analytics. analystProBoxPlots lives at the root; each
+  // entry carries { id, spec, envelope, name? }. Envelope = wire response
+  // from /queries/execute (values + outliers). Pattern mirrors 9d cluster.
+  analystProBoxPlots: [],
+  analystProBoxPlotDialogCtx: null,
+
+  addBoxPlotAnalystPro: (boxPlot) => {
+    if (!boxPlot || !boxPlot.id) return;
+    set((s) => ({ analystProBoxPlots: [...s.analystProBoxPlots, boxPlot] }));
+    const dash = get().analystProDashboard;
+    if (dash && typeof get().pushAnalystProHistory === 'function') {
+      get().pushAnalystProHistory(dash, 'Add box plot');
+    } else if (typeof get().pushHistorySnapshot === 'function') {
+      get().pushHistorySnapshot();
+    }
+  },
+
+  updateBoxPlotAnalystPro: (boxPlotId, patch) => {
+    if (!boxPlotId || !patch) return;
+    set((s) => ({
+      analystProBoxPlots: s.analystProBoxPlots.map((bp) =>
+        bp.id === boxPlotId ? { ...bp, ...patch } : bp,
+      ),
+    }));
+    const dash = get().analystProDashboard;
+    if (dash && typeof get().pushAnalystProHistory === 'function') {
+      get().pushAnalystProHistory(dash, 'Update box plot');
+    } else if (typeof get().pushHistorySnapshot === 'function') {
+      get().pushHistorySnapshot();
+    }
+  },
+
+  deleteBoxPlotAnalystPro: (boxPlotId) => {
+    if (!boxPlotId) return;
+    set((s) => ({
+      analystProBoxPlots: s.analystProBoxPlots.filter((bp) => bp.id !== boxPlotId),
+    }));
+    const dash = get().analystProDashboard;
+    if (dash && typeof get().pushAnalystProHistory === 'function') {
+      get().pushAnalystProHistory(dash, 'Delete box plot');
+    } else if (typeof get().pushHistorySnapshot === 'function') {
+      get().pushHistorySnapshot();
+    }
+  },
+
+  openBoxPlotDialogAnalystPro: (ctx) => set({ analystProBoxPlotDialogCtx: ctx || {} }),
+  closeBoxPlotDialogAnalystPro: () => set({ analystProBoxPlotDialogCtx: null }),
+
+  // Plan 9e: Drop Lines per-sheet. Explicit mode='off' persists vs. absent key.
+  analystProDropLinesBySheet: {},
+  analystProDropLinesDialogCtx: null,
+
+  setDropLinesAnalystPro: (sheetId, spec) => {
+    if (!sheetId || !spec) return;
+    set((s) => ({
+      analystProDropLinesBySheet: {
+        ...s.analystProDropLinesBySheet,
+        [sheetId]: { ...spec },
+      },
+    }));
+    if (typeof get().pushHistorySnapshot === 'function') {
+      get().pushHistorySnapshot();
+    }
+  },
+
+  getDropLinesForSheet: (sheetId) => {
+    if (!sheetId) return null;
+    const map = get().analystProDropLinesBySheet || {};
+    return map[sheetId] || null;
+  },
+
+  openDropLinesDialogAnalystPro: (ctx) => set({ analystProDropLinesDialogCtx: ctx || {} }),
+  closeDropLinesDialogAnalystPro: () => set({ analystProDropLinesDialogCtx: null }),
+
   // Plan 5c: right-click context menu.
   // `items` is computed eagerly by openContextMenuAnalystPro via
   // buildContextMenu(zone, dashboard, selection) — kept in state so
