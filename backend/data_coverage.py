@@ -394,12 +394,25 @@ class CoverageCache:
             return None
 
     def is_stale(self, conn_id: str) -> bool:
-        """True when no file, or when file is older than ttl_hours."""
+        """True when no file, or when cards are older than ttl_hours.
+
+        Staleness is determined by the oldest card's computed_at timestamp,
+        falling back to the file's written_at if no cards are present.
+        """
         path = self._path(conn_id)
         if not path.exists():
             return True
         try:
             data = _json.loads(path.read_text(encoding="utf-8"))
+            # Use the oldest card's computed_at as the reference time.
+            cards = data.get("cards", [])
+            if cards:
+                timestamps = [_iso_to_dt(c["computed_at"]) for c in cards if "computed_at" in c]
+                if timestamps:
+                    oldest = min(timestamps)
+                    age_hours = (datetime.now(timezone.utc) - oldest).total_seconds() / 3600
+                    return age_hours >= self.ttl_hours
+            # Fall back to written_at when no cards.
             written = _iso_to_dt(data["written_at"])
             age_hours = (datetime.now(timezone.utc) - written).total_seconds() / 3600
             return age_hours >= self.ttl_hours
