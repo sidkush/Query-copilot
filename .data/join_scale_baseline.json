@@ -1,0 +1,67 @@
+{
+  "suite": "trap_join_scale.jsonl",
+  "total": 15,
+  "passed": 13,
+  "per_question": {
+    "join-001": {
+      "passed": true,
+      "reason": "validator rule 'fanout_inflation' not triggered (clean)"
+    },
+    "join-002": {
+      "passed": false,
+      "reason": "validator rule 'fanout_inflation' expected but not present in SQL"
+    },
+    "join-003": {
+      "passed": true,
+      "reason": "validator rule 'negation_as_join' not triggered (clean)"
+    },
+    "join-004": {
+      "passed": true,
+      "reason": "validator rule 'negation_as_join' not triggered (clean)"
+    },
+    "join-005": {
+      "passed": true,
+      "reason": "validator rule 'limit_before_order' not triggered (clean)"
+    },
+    "join-006": {
+      "passed": false,
+      "reason": "validator rule 'limit_before_order' expected but not present in SQL"
+    },
+    "join-007": {
+      "passed": true,
+      "reason": "validator rule 'fanout_inflation' not triggered (clean)"
+    },
+    "join-008": {
+      "passed": true,
+      "reason": "validator rule 'fanout_inflation' not triggered (clean)"
+    },
+    "join-009": {
+      "passed": true,
+      "reason": "table referenced"
+    },
+    "join-010": {
+      "passed": true,
+      "reason": "validator rule 'negation_as_join' not triggered (clean)"
+    },
+    "join-011": {
+      "passed": true,
+      "reason": "table referenced"
+    },
+    "join-012": {
+      "passed": true,
+      "reason": "validator rule 'fanout_inflation' not triggered (clean)"
+    },
+    "join-013": {
+      "passed": true,
+      "reason": "validator rule 'limit_before_order' not triggered (clean)"
+    },
+    "join-014": {
+      "passed": true,
+      "reason": "validator rule 'fanout_inflation' not triggered (clean)"
+    },
+    "join-015": {
+      "passed": true,
+      "reason": "table referenced"
+    }
+  }
+}
