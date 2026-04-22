@@ -1,0 +1,15 @@
+{"id": "join-001", "nl": "how many distinct customers placed any order?", "expected_sql_contains": ["COUNT(DISTINCT", "customers", "orders"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "fanout_inflation"}}
+{"id": "join-002", "nl": "total customers with at least one order (wrong way)", "expected_sql_contains": ["COUNT(*)", "JOIN"], "oracle": {"type": "must_trigger_validator_rule", "rule": "fanout_inflation"}}
+{"id": "join-003", "nl": "users with no orders", "expected_sql_contains": ["LEFT JOIN", "IS NULL"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "negation_as_join"}}
+{"id": "join-004", "nl": "users who have never logged in", "expected_sql_contains": ["LEFT JOIN", "IS NULL"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "negation_as_join"}}
+{"id": "join-005", "nl": "top 5 most recent trips per user", "expected_sql_contains": ["ROW_NUMBER", "ORDER BY"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "limit_before_order"}}
+{"id": "join-006", "nl": "first 100 trips by age (wrong way — LIMIT in subquery)", "expected_sql_contains": ["LIMIT 100", "ORDER BY"], "oracle": {"type": "must_trigger_validator_rule", "rule": "limit_before_order"}}
+{"id": "join-007", "nl": "total order line items", "expected_sql_contains": ["COUNT(*)", "order_items"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "fanout_inflation"}}
+{"id": "join-008", "nl": "three-way distinct user count", "expected_sql_contains": ["COUNT(DISTINCT", "JOIN", "JOIN"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "fanout_inflation"}}
+{"id": "join-009", "nl": "average order total per customer", "expected_sql_contains": ["AVG", "GROUP BY"], "oracle": {"type": "must_query_table", "table": "customers"}}
+{"id": "join-010", "nl": "customers who didn't buy in 2025", "expected_sql_contains": ["LEFT JOIN", "IS NULL"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "negation_as_join"}}
+{"id": "join-011", "nl": "customers with orders in both 2024 and 2025", "expected_sql_contains": ["INTERSECT", "2024", "2025"], "oracle": {"type": "must_query_table", "table": "customers"}}
+{"id": "join-012", "nl": "users active across every quarter", "expected_sql_contains": ["GROUP BY", "HAVING"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "fanout_inflation"}}
+{"id": "join-013", "nl": "pagination: 10 newest trips", "expected_sql_contains": ["ORDER BY", "LIMIT 10"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "limit_before_order"}}
+{"id": "join-014", "nl": "monthly active users", "expected_sql_contains": ["COUNT(DISTINCT", "GROUP BY"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "fanout_inflation"}}
+{"id": "join-015", "nl": "revenue by customer with order fan-out check", "expected_sql_contains": ["SUM", "GROUP BY"], "oracle": {"type": "must_query_table", "table": "orders"}}
