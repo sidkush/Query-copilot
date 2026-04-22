@@ -621,6 +621,28 @@ class SessionMemory:
             )
 
 
+def _format_coverage_card_block(card) -> str:
+    """Render a DataCoverageCard as one multi-line text block for system prompts."""
+    lines = []
+    row_txt = "(unavailable)" if card.row_count is None or card.row_count < 0 else f"{card.row_count:,} rows"
+    lines.append(f"[DATA COVERAGE] {card.table_name}: {row_txt}")
+    for dc in card.date_columns:
+        if dc.min_value and dc.max_value:
+            dm = f"{dc.distinct_months} distinct months" if dc.distinct_months is not None else "(unavailable)"
+            sp = f"{dc.span_days} days" if dc.span_days is not None else "(unavailable)"
+            lines.append(f"  {dc.column} date range {dc.min_value} .. {dc.max_value} ({dm}, {sp})")
+        else:
+            lines.append(f"  {dc.column} date range (unavailable)")
+    for cc in card.categorical_columns:
+        dn = f"{cc.distinct_count}" if cc.distinct_count is not None else "(unavailable)"
+        if cc.sample_values:
+            sample = ", ".join(cc.sample_values[:5])
+            lines.append(f"  {cc.column} distinct={dn} sample=[{sample}]")
+        else:
+            lines.append(f"  {cc.column} distinct={dn} sample=(unavailable)")
+    return "\n".join(lines)
+
+
 # ── Agent Engine ─────────────────────────────────────────────────
 
 class AgentEngine:
@@ -2234,6 +2256,13 @@ class AgentEngine:
                             "table": table_name,
                             "summary": doc[:500],
                         })
+            # Phase B — enrich summaries with DataCoverageCard (Ring 1).
+            coverage_cards = getattr(self.connection_entry, "coverage_cards", None) or []
+            coverage_by_name = {c.table_name: c for c in coverage_cards}
+            for t in tables:
+                card = coverage_by_name.get(t["table"])
+                if card is not None:
+                    t["summary"] = t["summary"] + "\n\n" + _format_coverage_card_block(card)
             return json.dumps({"tables": tables, "count": len(tables)})
         except Exception as e:
             _logger.exception("find_relevant_tables failed")
