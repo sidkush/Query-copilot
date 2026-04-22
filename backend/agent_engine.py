@@ -804,6 +804,33 @@ class AgentEngine:
         except Exception:
             pass
 
+    def _run_scope_validator(self, sql: str, nl_question: str = ""):
+        """Phase C — Ring 3 pre-exec check. Returns ValidatorResult. Fails open (H6)."""
+        try:
+            from config import settings
+            if not settings.FEATURE_SCOPE_VALIDATOR:
+                from scope_validator import ValidatorResult
+                return ValidatorResult(violations=[])
+            from scope_validator import ScopeValidator
+        except Exception:
+            from scope_validator import ValidatorResult
+            return ValidatorResult(violations=[])
+
+        try:
+            dialect = getattr(self.connection_entry, "db_type", None) or "sqlite"
+            if hasattr(dialect, "value"):
+                dialect = dialect.value
+            validator = ScopeValidator(dialect=str(dialect).lower())
+            ctx = {
+                "coverage_cards": getattr(self.connection_entry, "coverage_cards", None) or [],
+                "nl_question": nl_question,
+                "db_type": str(dialect).lower(),
+            }
+            return validator.validate(sql=sql, ctx=ctx)
+        except Exception:
+            from scope_validator import ValidatorResult
+            return ValidatorResult(violations=[], parse_failed=False)
+
     def _build_data_coverage_block(self, table_names=None) -> str:
         """Phase B — render <data_coverage> block for the system prompt.
 
@@ -2440,6 +2467,15 @@ class AgentEngine:
                     "error": f"SQL validation failed: {error}",
                     "columns": [], "rows": [], "row_count": 0,
                 })
+
+            # Phase C — Ring 3 pre-exec validator.
+            nl_q = getattr(self, "_current_nl_question", "") or ""
+            scope_result = self._run_scope_validator(clean_sql, nl_question=nl_q)
+            if scope_result.violations:
+                self._last_scope_warnings = [
+                    {"rule": v.rule_id.value, "message": v.message}
+                    for v in scope_result.violations
+                ]
 
             # ── Turbo Mode: try DuckDB twin first, fall back to live DB ──
             turbo_used = False
