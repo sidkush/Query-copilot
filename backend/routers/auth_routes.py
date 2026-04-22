@@ -209,6 +209,16 @@ def demo_login():
             authenticated = authenticate_user(email=DEMO_EMAIL, password=DEMO_PASSWORD)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to create demo user: {str(e)}")
+    # Ensure demo user always has pro plan so testers aren't capped by the
+    # 10-query/day free tier. Idempotent — runs every demo login.
+    try:
+        from user_storage import load_profile, save_profile
+        _profile = load_profile(DEMO_EMAIL) or {}
+        if _profile.get("plan") != "pro":
+            _profile["plan"] = "pro"
+            save_profile(DEMO_EMAIL, _profile)
+    except Exception:
+        pass
     token = create_access_token({"sub": authenticated["email"], "name": authenticated["name"]})
     return TokenResponse(access_token=token, user=authenticated)
 

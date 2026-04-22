@@ -478,16 +478,12 @@ class TurboTier(BaseTier):
         return "turbo"
 
     async def can_answer(self, question: str, schema_profile, conn_id: str) -> bool:
-        if not conn_id:
-            return False
-        # Check if twin exists for this connection
-        if not self._twin.twin_exists(conn_id):
-            return False
-        # Check twin freshness via metadata
-        info = self._twin.get_twin_info(conn_id)
-        if not info or not info.get("exists"):
-            return False
-        return True
+        # TurboTier is a pure execution backend (see execute_on_twin), not a
+        # direct-answer tier. Returning True here caused route_dual to emit a
+        # "Turbo Mode available…" status string as the cached_result, which
+        # the frontend rendered as the final answer and used to short-circuit
+        # the agent stream — no real reasoning trail ever got persisted.
+        return False
 
     async def _answer(self, question: str, schema_profile, conn_id: str) -> TierResult:
         # We need SQL to query the twin — use the schema to help generate it

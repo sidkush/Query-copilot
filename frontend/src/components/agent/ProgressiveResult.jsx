@@ -53,11 +53,12 @@ export default function ProgressiveResult({ step, compact }) {
       )}
       {hasChart && (
         <Suspense fallback={<div style={{ fontSize: 11, color: TOKENS.text.muted, marginTop: 10, fontFamily: FONT_BODY }}>Loading chart...</div>}>
-          <div style={{ marginTop: 12, height: compact ? 220 : 320 }}>
+          <div style={{ marginTop: 12, height: (compact ? 220 : 320) + 48 }}>
             <LegacyResultChart
               columns={resultData?.columns || []}
               rows={resultData?.rows || []}
               showTitleBar={false}
+              hideToolbar={false}
             />
           </div>
         </Suspense>

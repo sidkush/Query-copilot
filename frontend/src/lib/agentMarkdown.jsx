@@ -87,36 +87,24 @@ export function createMarkdownComponents(density = 'compact') {
       }}>{children}</div>
     ),
     h2: ({ children }) => (
-      <div style={{
-        fontSize: sizeH2, fontWeight: 700, color: TOKENS.text.primary,
+      <div className="chat-md-h2" style={{
+        fontSize: sizeH2, fontWeight: 700,
         marginTop: isComfy ? 22 : 14, marginBottom: isComfy ? 10 : 6,
         fontFamily: FONT_DISPLAY, letterSpacing: '-0.018em', lineHeight: 1.25,
         paddingBottom: isComfy ? 10 : 6,
-        borderBottom: `1px solid ${TOKENS.border.default}`,
-        display: 'flex', alignItems: 'center', gap: 10,
+        display: 'flex', alignItems: 'baseline', gap: 10,
       }}>
-        <span style={{
-          width: 3, height: isComfy ? 18 : 14,
-          borderRadius: 9999,
-          background: 'linear-gradient(180deg, rgba(37,99,235,0.95), rgba(37,99,235,0.35))',
-          boxShadow: '0 0 10px rgba(37,99,235,0.45)',
-        }} />
         {children}
       </div>
     ),
     h3: ({ children }) => (
-      <div style={{
-        fontSize: sizeH3, fontWeight: 700, color: TOKENS.text.muted,
+      <div className="chat-md-h3" style={{
+        fontSize: sizeH3, fontWeight: 700,
         marginTop: isComfy ? 16 : 10, marginBottom: isComfy ? 8 : 4,
         fontFamily: FONT_DISPLAY,
         letterSpacing: '0.22em', textTransform: 'uppercase',
         display: 'inline-flex', alignItems: 'center', gap: 7,
       }}>
-        <span style={{
-          width: 4, height: 4, borderRadius: '50%',
-          background: TOKENS.accent, opacity: 0.7,
-          boxShadow: '0 0 6px rgba(37,99,235,0.5)',
-        }} />
         {children}
       </div>
     ),
@@ -157,20 +145,17 @@ export function createMarkdownComponents(density = 'compact') {
       }}>{children}</ol>
     ),
     li: ({ children }) => (
-      <li style={{
+      <li className="chat-md-li" style={{
         fontSize: sizeLi,
         fontFamily: FONT_BODY,
         lineHeight: 1.6,
         position: 'relative',
         paddingLeft: 18,
         letterSpacing: '-0.005em',
-        color: TOKENS.text.secondary,
       }}>
-        <span style={{
-          position: 'absolute', left: 2, top: isComfy ? 10 : 9,
-          width: 5, height: 5, borderRadius: '50%',
-          background: 'linear-gradient(180deg, rgba(37,99,235,0.95), rgba(37,99,235,0.45))',
-          boxShadow: '0 0 6px rgba(37,99,235,0.45)',
+        <span className="chat-md-li-dot" aria-hidden="true" style={{
+          position: 'absolute', left: 4, top: isComfy ? 11 : 10,
+          width: 4, height: 4, borderRadius: '50%',
         }} />
         {children}
       </li>
@@ -183,15 +168,12 @@ export function createMarkdownComponents(density = 'compact') {
       }} />
     ),
     blockquote: ({ children }) => (
-      <div style={{
+      <div className="chat-md-blockquote" style={{
         margin: `${isComfy ? 14 : 10}px 0`,
         padding: isComfy ? '14px 18px' : '10px 14px',
-        borderRadius: 14,
-        background: 'rgba(37,99,235,0.06)',
-        borderLeft: `2px solid ${TOKENS.accent}`,
+        borderRadius: 12,
         fontFamily: FONT_BODY,
         fontSize: isComfy ? 13.5 : 12.5,
-        color: TOKENS.text.secondary,
         lineHeight: 1.65,
         fontStyle: 'italic',
       }}>{children}</div>
@@ -199,37 +181,31 @@ export function createMarkdownComponents(density = 'compact') {
     code: ({ inline, children }) => {
       if (inline === false) {
         return (
-          <code style={{
+          <code className="chat-md-code-fence" style={{
             display: 'block', whiteSpace: 'pre',
             fontFamily: FONT_MONO, fontSize: 11.5,
-            color: TOKENS.text.primary, lineHeight: 1.55,
+            lineHeight: 1.55,
           }}>{children}</code>
         );
       }
       return (
-        <span style={{
+        <span className="chat-md-inline-code" style={{
           fontSize: isComfy ? 12 : 11,
-          background: 'rgba(37,99,235,0.10)',
           padding: '2px 7px', borderRadius: 6,
-          color: TOKENS.accent,
           fontFamily: FONT_MONO,
           fontWeight: 600,
-          border: '1px solid rgba(37,99,235,0.18)',
           whiteSpace: 'nowrap',
         }}>{children}</span>
       );
     },
     pre: ({ children }) => (
-      <div style={{
+      <div className="chat-md-pre" style={{
         margin: `${isComfy ? 14 : 10}px 0`,
         padding: isComfy ? '14px 16px' : '12px 14px',
-        borderRadius: 14,
-        background: 'rgba(0,0,0,0.32)',
-        border: `1px solid ${TOKENS.border.default}`,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+        borderRadius: 12,
         overflowX: 'auto',
         fontFamily: FONT_MONO, fontSize: 11.5,
-        color: TOKENS.text.primary, lineHeight: 1.6,
+        lineHeight: 1.6,
       }}>{children}</div>
     ),
     table: ({ children }) => (

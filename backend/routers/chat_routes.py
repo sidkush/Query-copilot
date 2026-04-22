@@ -1,5 +1,6 @@
 """Chat history API routes."""
 
+import json
 import re
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -39,15 +40,32 @@ class CreateChatRequest(BaseModel):
         return v
 
 
-_VALID_MSG_TYPES = {"user", "sql_preview", "result", "error", "system", "chart", "dashboard"}
+_VALID_MSG_TYPES = {
+    "user", "assistant", "sql_preview", "result", "error", "system",
+    "chart", "dashboard", "dashboard_chips",
+    "agent_steps", "agent_ask",
+}
 _ALLOWED_MSG_FIELDS = {
     "type", "content", "question", "sql", "rawSQL", "model", "latency",
     "connId", "dbLabel", "summary", "columns", "rows", "rowCount",
     "chartType", "chartConfig", "chartSuggestion", "timestamp",
     "dashboardId", "tileId", "error",
+    # Agent stream persistence
+    "steps", "status", "startTime", "chatId", "waiting", "waitingOptions",
+    "options", "phase",
+    # Turbo Mode flags on assistant messages
+    "turboInstant", "turboVerified", "turboUpdated", "cacheAge",
 }
 _MAX_FIELD_SIZE = 50000  # 50KB cap per string field
 _MAX_ROWS = 500  # Cap stored rows
+_MAX_STEPS = 120  # Cap steps per agent_steps message
+_ALLOWED_STEP_FIELDS = {
+    "type", "content", "tool_name", "tool_input", "tool_result",
+    "tool_use_id", "tier", "tier_name", "cache_age_seconds",
+    "diff_summary", "metadata", "elapsed_ms", "estimated_total_ms",
+    "sub_query_index", "total_sub_queries", "brief_thinking",
+    "chart_suggestion", "chat_id", "timestamp",
+}
 
 
 def _validate_message(msg: dict) -> dict:
@@ -79,7 +97,36 @@ def _validate_message(msg: dict) -> dict:
     # Cap rows to prevent storage exhaustion
     if "rows" in cleaned and isinstance(cleaned["rows"], list):
         cleaned["rows"] = cleaned["rows"][:_MAX_ROWS]
+    # Sanitize + cap nested agent step records so replayed history is safe.
+    if "steps" in cleaned and isinstance(cleaned["steps"], list):
+        cleaned["steps"] = [
+            _sanitize_step(s) for s in cleaned["steps"][:_MAX_STEPS] if isinstance(s, dict)
+        ]
+    # Agent-ask option list: strings only, cap length + count.
+    for opt_field in ("options", "waitingOptions"):
+        if opt_field in cleaned and isinstance(cleaned[opt_field], list):
+            cleaned[opt_field] = [
+                _sanitize(o)[:500] for o in cleaned[opt_field][:20] if isinstance(o, str)
+            ]
     return cleaned
+
+
+def _sanitize_step(step: dict) -> dict:
+    """Strip unknown keys from a nested agent step, XSS-sanitize text."""
+    out = {k: v for k, v in step.items() if k in _ALLOWED_STEP_FIELDS}
+    for key in ("content", "tool_name", "brief_thinking", "diff_summary", "tier", "tier_name"):
+        if key in out and isinstance(out[key], str):
+            out[key] = _sanitize(out[key])[:_MAX_FIELD_SIZE]
+    # tool_result / tool_input can be arbitrary JSON — cap size by serializing.
+    for key in ("tool_result", "tool_input"):
+        if key in out:
+            try:
+                as_str = out[key] if isinstance(out[key], str) else json.dumps(out[key])
+            except (TypeError, ValueError):
+                as_str = str(out[key])
+            if len(as_str) > _MAX_FIELD_SIZE:
+                out[key] = as_str[:_MAX_FIELD_SIZE]
+    return out
 
 
 @router.get("/")

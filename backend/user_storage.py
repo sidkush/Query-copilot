@@ -747,10 +747,51 @@ def add_tile_to_section(email: str, dashboard_id: str, tab_id: str, section_id: 
                                     "minW": 2,
                                     "minH": 2,
                                 })
+                                _sync_tiled_root_add(d, tile, tile_id)
                                 d["updated_at"] = datetime.now(timezone.utc).isoformat()
                                 _save_dashboards(email, dashboards)
                                 return d
         return None
+
+
+def _sync_tiled_root_add(dashboard: dict, tile: dict, tile_id: str) -> None:
+    """Append a worksheet node to tiledRoot when archetype is analyst-pro.
+
+    Analyst Pro renders exclusively from tiledRoot graph; tiles added only to
+    tabs[].sections[].tiles are invisible without this sync. Appends a single-
+    child container-horz row so the new tile shows in the flow without
+    rebalancing existing row weights.
+    """
+    if dashboard.get("archetype") != "analyst-pro":
+        return
+    tiled_root = dashboard.get("tiledRoot")
+    if not isinstance(tiled_root, dict):
+        return
+    children = tiled_root.setdefault("children", [])
+    row_height = 5882
+    existing_rows = [c for c in children if isinstance(c, dict) and c.get("type") == "container-horz"]
+    if existing_rows:
+        first_h = existing_rows[0].get("h")
+        if isinstance(first_h, int) and first_h > 0:
+            row_height = first_h
+    title = tile.get("title") or tile.get("name") or ""
+    worksheet_node = {
+        "id": tile_id,
+        "type": "worksheet",
+        "w": 100000,
+        "h": 100000,
+        "worksheetRef": tile_id,
+        "displayName": title,
+        "fitMode": "fit",
+    }
+    row_node = {
+        "id": f"agent-row-{tile_id}",
+        "type": "container-horz",
+        "w": 100000,
+        "h": row_height,
+        "children": [worksheet_node],
+    }
+    children.append(row_node)
 
 
 def update_tile(email: str, dashboard_id: str, tile_id: str, updates: dict) -> Optional[dict]:

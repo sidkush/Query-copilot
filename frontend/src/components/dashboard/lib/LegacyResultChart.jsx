@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import DashboardTileCanvas from "./DashboardTileCanvas";
+import ChartToolbar from "./ChartToolbar";
 import { columnsRowsToChartSpec } from "./columnsRowsToChartSpec";
 
 /**
@@ -9,28 +10,10 @@ import { columnsRowsToChartSpec } from "./columnsRowsToChartSpec";
  * that renders on the new VegaRenderer path (DashboardTileCanvas →
  * EditorCanvas → VegaRenderer) instead of the legacy ECharts bundle.
  *
- * For callers that already have a `chart_spec` (e.g. migrated dashboard
- * tiles), pass it via `chartSpec` and the helper skips recommendation.
- * When only columns + rows are available (Chat query results, agent
- * step results, share-link tiles), the Show Me recommender picks a
- * sensible default spec on the fly.
- *
- * Props:
- *   - columns         string[]
- *   - rows            object[] | any[][]
- *   - title           optional tile title
- *   - subtitle        optional subtitle (e.g. SQL snippet, question text)
- *   - chartSpec       optional pre-built ChartSpec (skips recommendation)
- *   - height          CSS height (default 100%)
- *   - showTitleBar    boolean (default true)
- *   - onTileClick     click handler forwarded to DashboardTileCanvas
- *
- * Callers that previously used `onAddToDashboard` / `defaultChartType` /
- * `defaultPalette` / `dashboardPalette` / `formatting` on ResultsChart:
- * those props are intentionally dropped in this bridge. The new editor
- * surface exposes all of the above via the Marks card + Inspector when
- * the user promotes a chat-result chart to a dashboard tile (Phase 4c+4
- * work — wire the `add-to-dashboard` agent tool to the new shell).
+ * The chat page wraps the tile with a `ChartToolbar` that exposes PNG /
+ * SVG / CSV download + "Open in editor" so users retain the same freedom
+ * they had on dashboard tiles. Pass `hideToolbar` when embedding inside
+ * a layout that already supplies its own actions (dashboard presets).
  */
 export default function LegacyResultChart({
   columns = [],
@@ -41,7 +24,11 @@ export default function LegacyResultChart({
   height = "100%",
   showTitleBar = true,
   onTileClick,
+  hideToolbar = true,
+  onEdit,
 }) {
+  const [vegaView, setVegaView] = useState(null);
+
   const { spec, columnProfile } = useMemo(() => {
     if (chartSpec) {
       return { spec: chartSpec, columnProfile: [] };
@@ -65,13 +52,36 @@ export default function LegacyResultChart({
     [title, subtitle, spec, columns, rows, columnProfile],
   );
 
+  const handleViewReady = useCallback((view) => setVegaView(view), []);
+
+  const stats = useMemo(() => {
+    if (!rows.length) return null;
+    return `${rows.length.toLocaleString()} row${rows.length !== 1 ? "s" : ""} · ${columns.length} col${columns.length !== 1 ? "s" : ""}`;
+  }, [rows.length, columns.length]);
+
   return (
-    <DashboardTileCanvas
-      tile={tile}
-      height={height}
-      showTitleBar={showTitleBar}
-      onTileClick={onTileClick}
-      resultSetOverride={{ columns, rows, columnProfile }}
-    />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <DashboardTileCanvas
+          tile={tile}
+          height={height}
+          showTitleBar={showTitleBar}
+          onTileClick={onTileClick}
+          resultSetOverride={{ columns, rows, columnProfile }}
+          onViewReady={handleViewReady}
+          surface="chat-result"
+        />
+      </div>
+      {!hideToolbar && (
+        <ChartToolbar
+          view={vegaView}
+          columns={columns}
+          rows={rows}
+          title={title}
+          stats={stats}
+          onEdit={onEdit}
+        />
+      )}
+    </div>
   );
 }

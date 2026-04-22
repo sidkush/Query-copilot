@@ -15,8 +15,10 @@ const Background3D = lazy(() => import("../components/animation/Background3D"));
 import ReactMarkdown from "react-markdown";
 import { MD_COMPONENTS_COMFY, REMARK_PLUGINS } from "../lib/agentMarkdown";
 import SQLPreview from "../components/SQLPreview";
+import AgentStepRenderer from "../components/agent/AgentStepRenderer";
 import ResultsTable from "../components/ResultsTable";
 import LegacyResultChart from "../components/dashboard/lib/LegacyResultChart";
+import ChartEditModal from "../components/dashboard/lib/ChartEditModal";
 import SchemaExplorer from "../components/SchemaExplorer";
 import ERDiagram from "../components/ERDiagram";
 import UserDropdown from "../components/UserDropdown";
@@ -244,6 +246,7 @@ export default function Chat() {
   const navigate = useNavigate();
   const location = useLocation();
   const bottomRef = useRef(null);
+  const [editChart, setEditChart] = useState(null);
   const agentPersona = useStore((s) => s.agentPersona);
   const agentPermissionMode = useStore((s) => s.agentPermissionMode);
 
@@ -454,60 +457,99 @@ export default function Chat() {
     }
 
     // ── Agent streaming flow ──
-    // Hoisted out of try{} so the finally{} safety net (which references
-    // agentStepMsg to mark the row as `done`) can still see the binding when
-    // an early throw happens inside the streaming setup.
-    const agentStepMsg = { type: "agent_steps", steps: [], status: "running", startTime: Date.now() };
+    // Hoisted out of try{} so the finally{} safety net can still see the binding
+    // when an early throw happens inside the streaming setup.
+    // Stable ID for this agent_steps message. Reference-identity breaks as
+    // soon as we spread the object back into the messages array, so every
+    // push/mark uses __id to locate the live copy in state.
+    const stepMsgId = `agent-steps-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const agentStepMsg = {
+      __id: stepMsgId,
+      type: "agent_steps",
+      steps: [],
+      status: "running",
+      startTime: Date.now(),
+      chatId,
+    };
+
+    // Event types we render inline within the agent step feed. Every one lands
+    // in agentStepMsg.steps so chat history replay has the full reasoning trail.
+    const STEP_TYPES = new Set([
+      "thinking", "tool_call", "tool_result", "tier_routing", "tier_hit",
+      "plan", "progress", "cached_result", "live_correction",
+      "budget_extension", "ask_user",
+    ]);
+
+    // Push a step into the message feed. Locate by stable __id because the
+    // previous entry was already replaced with a spread copy on the last push.
+    const pushStep = (step) => {
+      agentStepMsg.steps = [...(agentStepMsg.steps || []), step];
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m && m.__id === stepMsgId);
+        if (idx < 0) return prev;
+        const updated = [...prev];
+        updated[idx] = { ...agentStepMsg };
+        return updated;
+      });
+    };
+
+    // Mark the step feed done so the live timer halts + status glyph flips to ✓.
+    const markStepsDone = () => {
+      agentStepMsg.status = "done";
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m && m.__id === stepMsgId);
+        if (idx < 0) return prev;
+        const updated = [...prev];
+        updated[idx] = { ...agentStepMsg, status: "done" };
+        return updated;
+      });
+    };
+
     try {
       let agentFailed = false;
       let agentChatId = chatId;
-      // When turbo/memory tier answers instantly, we resolve early and skip the
+      // When turbo/memory tier answers instantly, resolve early and skip the
       // redundant final_answer message that the backend may still emit.
       let resolvedViaTurbo = false;
       addMessage(agentStepMsg);
 
       await new Promise((resolve, reject) => {
         api.agentRun(question, resolvedConnId, agentChatId, (step) => {
-          if (step.chat_id && !agentChatId) agentChatId = step.chat_id;
+          if (step.chat_id && !agentChatId) {
+            agentChatId = step.chat_id;
+            agentStepMsg.chatId = agentChatId;
+          }
 
           if (step.type === "error") {
             agentFailed = true;
+            // Surface the error inside the step feed first so the user sees
+            // where it broke, then reject to trigger the fallback path.
+            pushStep(step);
+            markStepsDone();
             reject(new Error(step.content || "Agent error"));
             return;
           }
 
-          if (["thinking", "tool_call", "tier_routing"].includes(step.type)) {
-            // Update the agent_steps message in-place
-            agentStepMsg.steps = [...(agentStepMsg.steps || []), step];
-            setMessages((prev) => {
-              const updated = [...prev];
-              const idx = updated.findIndex((m) => m === agentStepMsg);
-              if (idx >= 0) updated[idx] = { ...agentStepMsg };
-              return updated;
-            });
+          if (STEP_TYPES.has(step.type)) {
+            pushStep(step);
           }
 
           // Turbo Mode instant answer — show immediately and stop the spinner.
-          // The DuckDB twin answered sub-100ms; don't make the user wait for the
+          // DuckDB twin answered sub-100ms; don't make the user wait for the
           // live-verification pass before seeing the result.
           if (step.type === "cached_result" && step.content) {
             resolvedViaTurbo = true;
             setLoading(false);
-            addMessage({
+            const turboMsg = {
               type: "assistant",
               content: step.content,
               turboInstant: true,
               cacheAge: step.cache_age_seconds,
               timestamp: Date.now(),
-            });
-            // Mark the step block done so its spinner stops immediately
-            agentStepMsg.status = "done";
-            setMessages((prev) => {
-              const updated = [...prev];
-              const idx = updated.findIndex((m) => m === agentStepMsg);
-              if (idx >= 0) updated[idx] = { ...agentStepMsg, status: "done" };
-              return updated;
-            });
+            };
+            addMessage(turboMsg);
+            if (chatId) api.appendMessage(chatId, turboMsg).catch(() => {});
+            markStepsDone();
             resolve();
           }
 
@@ -534,25 +576,21 @@ export default function Chat() {
             });
           }
 
+          // ask_user: also persist a dedicated agent_ask message so the question
+          // itself is browseable in history separate from the step feed.
           if (step.type === "ask_user") {
             const askMsg = {
               type: "agent_ask",
               content: step.content,
-              options: step.tool_input,
+              options: Array.isArray(step.tool_input) ? step.tool_input : [],
               chatId: agentChatId,
             };
-            addMessage(askMsg);
+            if (chatId) api.appendMessage(chatId, askMsg).catch(() => {});
           }
 
           // Final result with SQL/data — skip if turbo already answered
           if (step.final_answer || step.sql) {
-            agentStepMsg.status = "done";
-            setMessages((prev) => {
-              const updated = [...prev];
-              const idx = updated.findIndex((m) => m === agentStepMsg);
-              if (idx >= 0) updated[idx] = { ...agentStepMsg, status: "done" };
-              return updated;
-            });
+            markStepsDone();
 
             if (!resolvedViaTurbo) {
               if (step.sql) {
@@ -571,12 +609,11 @@ export default function Chat() {
                 const ansMsg = {
                   type: "assistant",
                   content: step.final_answer,
-                  rowCount: step.rows?.length || 0,
                   chartSuggestion: step.chart_suggestion || null,
                 };
                 addMessage(ansMsg);
                 // Auto-speak agent answer ONLY when voice mode is active (user clicked mic)
-                if (step.final_answer && ttsSupported && isListening) speak(step.final_answer.slice(0, 500));
+                if (ttsSupported && isListening) speak(step.final_answer.slice(0, 500));
                 if (chatId) api.appendMessage(chatId, ansMsg).catch(() => {});
               }
             }
@@ -587,13 +624,7 @@ export default function Chat() {
           }
 
           if (step.type === "result" && !step.final_answer && !step.sql) {
-            agentStepMsg.status = "done";
-            setMessages((prev) => {
-              const updated = [...prev];
-              const idx = updated.findIndex((m) => m === agentStepMsg);
-              if (idx >= 0) updated[idx] = { ...agentStepMsg, status: "done" };
-              return updated;
-            });
+            markStepsDone();
             resolve();
           }
         }, { persona: agentPersona, permissionMode: agentPermissionMode });
@@ -601,13 +632,7 @@ export default function Chat() {
         // Timeout fallback
         setTimeout(() => {
           if (!agentFailed) {
-            agentStepMsg.status = "done";
-            setMessages((prev) => {
-              const updated = [...prev];
-              const idx = updated.findIndex((m) => m === agentStepMsg);
-              if (idx >= 0) updated[idx] = { ...agentStepMsg, status: "done" };
-              return updated;
-            });
+            markStepsDone();
             resolve();
           }
         }, 35000);
@@ -645,12 +670,25 @@ export default function Chat() {
       // Safety net: any path that didn't explicitly set done still stops the spinner
       setMessages((prev) => {
         const updated = [...prev];
-        const idx = updated.findIndex((m) => m === agentStepMsg);
+        const idx = updated.findIndex((m) => m && m.__id === stepMsgId);
         if (idx >= 0 && updated[idx].status !== "done") {
           updated[idx] = { ...updated[idx], status: "done" };
         }
         return updated;
       });
+      agentStepMsg.status = "done";
+      // Persist the full agent reasoning trail so chat history replay shows
+      // every thinking step, tool call, plan, and question the agent emitted.
+      // Skip empty trails (nothing to persist).
+      if (chatId && (agentStepMsg.steps || []).length > 0) {
+        api.appendMessage(chatId, {
+          type: "agent_steps",
+          steps: agentStepMsg.steps,
+          status: "done",
+          startTime: agentStepMsg.startTime,
+          chatId: agentStepMsg.chatId,
+        }).catch(() => {});
+      }
     }
   };
 
@@ -994,6 +1032,39 @@ export default function Chat() {
         if (msg.role === "error") return { type: "error", content: msg.content };
         return { type: "system", content: msg.content || "" };
       });
+
+      // Agent Panel parity: the authoritative agent reasoning trail lives in
+      // SQLite (agent_sessions.db — backend auto-saves on every step flush).
+      // chat_history.json only stores what the frontend manually appended, so
+      // a turbo-early-resolve or disconnect can leave it with just 1 step.
+      // Pull from SQLite and overlay the full trail.
+      try {
+        const session = await api.agentSessionLoad(chatId);
+        const fullSteps = Array.isArray(session?.steps) ? session.steps : [];
+        if (fullSteps.length > 0) {
+          const stepsMsgIdx = normalized.findIndex((m) => m?.type === "agent_steps");
+          const fullStepsMsg = {
+            __id: `agent-steps-loaded-${chatId}`,
+            type: "agent_steps",
+            steps: fullSteps,
+            status: "done",
+            startTime: session.started_at ? session.started_at * 1000 : Date.now(),
+            chatId,
+          };
+          if (stepsMsgIdx >= 0) {
+            normalized[stepsMsgIdx] = fullStepsMsg;
+          } else {
+            // No agent_steps placeholder in chat_history — append one right after
+            // the user question so the trail renders in the correct order.
+            const userIdx = normalized.findIndex((m) => m?.type === "user");
+            const insertAt = userIdx >= 0 ? userIdx + 1 : normalized.length;
+            normalized.splice(insertAt, 0, fullStepsMsg);
+          }
+        }
+      } catch {
+        // SQLite session may not exist for older chats — fall back to chat_history only.
+      }
+
       setMessages(normalized);
       setShowSidebar(false);
     } catch {
@@ -1412,13 +1483,22 @@ export default function Chat() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0.08 }}
                       >
-                        <div style={{ height: 360 }}>
-                          <LegacyResultChart
-                            columns={msg.columns}
-                            rows={msg.rows}
-                            title={msg.question}
-                            subtitle={msg.sql}
-                          />
+                        <div className="chat-artifact" style={{ overflow: "hidden" }}>
+                          <div style={{ height: 360 }}>
+                            <LegacyResultChart
+                              columns={msg.columns}
+                              rows={msg.rows}
+                              title={msg.question}
+                              subtitle={msg.sql}
+                              hideToolbar={false}
+                              onEdit={() => setEditChart({
+                                columns: msg.columns,
+                                rows: msg.rows,
+                                title: msg.question,
+                                sql: msg.sql,
+                              })}
+                            />
+                          </div>
                         </div>
                       </motion.div>
                       <motion.div
@@ -1507,71 +1587,74 @@ export default function Chat() {
 
 
               {msg.type === "agent_steps" && (
-                <div className="border rounded-xl p-3 space-y-1.5" style={{ background: 'color-mix(in srgb, var(--bg-elevated) 70%, transparent)', borderColor: 'var(--border-default)' }}>
-                  <div className="flex items-center gap-2 text-xs font-medium mb-1" style={{ color: msg.status === "done" ? "var(--text-muted)" : "rgb(96 165 250)" }}>
-                    {msg.status === "done" ? (
-                      <svg className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                      </svg>
-                    ) : (
-                      <svg className="w-3.5 h-3.5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
+                <div
+                  className="agent-step-feed"
+                  style={{
+                    borderRadius: 14,
+                    padding: '14px 16px',
+                    background: 'color-mix(in srgb, var(--bg-elevated) 60%, transparent)',
+                    border: '1px solid var(--border-default)',
+                    boxShadow: '0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 24px -16px rgba(0,0,0,0.6)',
+                  }}
+                >
+                  {/* Premium eyebrow header: status dot · label · live timer */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 12,
+                      paddingBottom: 10,
+                      borderBottom: '1px solid color-mix(in srgb, var(--border-default) 60%, transparent)',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 6, height: 6, borderRadius: 9999, flexShrink: 0,
+                        background: msg.status === 'done' ? 'rgb(52, 211, 153)' : 'rgb(96, 165, 250)',
+                        boxShadow: msg.status === 'done'
+                          ? '0 0 0 3px rgba(52,211,153,0.15)'
+                          : '0 0 0 3px rgba(96,165,250,0.18)',
+                        animation: msg.status === 'done' ? 'none' : 'pulse 1.6s ease-in-out infinite',
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 9.5,
+                        fontWeight: 700,
+                        letterSpacing: '0.22em',
+                        textTransform: 'uppercase',
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      {msg.status === 'done' ? 'Reasoning · Complete' : 'Reasoning · Live'}
+                    </span>
+                    <span style={{ flex: 1 }} />
+                    {msg.status !== 'done' && (
+                      <AgentElapsedTimer startTime={msg.startTime} active={true} />
                     )}
-                    {msg.status === "done" ? "Done" : (
-                      <span className="flex items-center gap-1.5">
-                        Working…
-                        <AgentElapsedTimer startTime={msg.startTime} active={msg.status !== "done"} />
+                    {msg.status === 'done' && (msg.steps || []).length > 0 && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--text-muted)',
+                          fontVariantNumeric: 'tabular-nums',
+                          fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                        }}
+                      >
+                        {(msg.steps || []).length} step{(msg.steps || []).length !== 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
-                  {(msg.steps || []).map((step, si) => (
-                    <div key={si} className="text-xs pl-4 flex items-start gap-1.5">
-                      {step.type === "thinking" && (
-                        msg.status === "done" || si < (msg.steps || []).length - 1
-                          ? <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-                              <svg style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4, opacity: 0.5 }} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6L9 17l-5-5" /></svg>
-                              {step.content || 'Analyzed'}
-                            </span>
-                          : <span className="italic" style={{ color: 'var(--text-muted)' }}>
-                              {step.content || 'Analyzing…'}
-                            </span>
-                      )}
-                      {step.type === "tool_call" && (
-                        <span>
-                          <span className="text-blue-400/70">{step.tool_name}</span>
-                          {step.tool_result && <span className="text-emerald-500/60 ml-1">done</span>}
-                        </span>
-                      )}
-                      {step.type === "tier_routing" && (
-                        <span className="text-amber-400/80 font-medium">{step.content || "Checking intelligence tiers..."}</span>
-                      )}
-                      {step.type === "cached_result" && (
-                        <div className="w-full rounded-lg p-3 mt-1 mb-1" style={{ background: 'rgba(6, 182, 212, 0.06)', border: '1px solid rgba(6, 182, 212, 0.35)' }}>
-                          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-400 mb-1.5">
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                            Instant answer (Turbo mode)
-                            {step.cache_age_seconds != null && (
-                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
-                                {step.cache_age_seconds < 60 ? `${Math.round(step.cache_age_seconds)}s ago` : `${Math.round(step.cache_age_seconds / 60)}m ago`}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[13px] font-medium" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>{step.content}</div>
-                          <div className="text-[10px] mt-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                            <span className="animate-pulse w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                            Live verification in progress...
-                          </div>
-                        </div>
-                      )}
-                      {step.type === "live_correction" && (
-                        <div className="w-full rounded-lg p-2 mt-1" style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.35)' }}>
-                          <span className="text-[11px] font-semibold text-amber-400">Updated</span>
-                          <div className="text-[12px] mt-1" style={{ color: 'var(--text-secondary)' }}>{step.content}</div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <AgentStepRenderer
+                      steps={msg.steps || []}
+                      loading={msg.status !== 'done'}
+                      chatId={msg.chatId}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1927,6 +2010,14 @@ export default function Chat() {
           </div>
         </div>
       )}
+
+      <ChartEditModal
+        open={!!editChart}
+        onClose={() => setEditChart(null)}
+        columns={editChart?.columns || []}
+        rows={editChart?.rows || []}
+        title={editChart?.title || "Chart"}
+      />
     </div>
   );
 }

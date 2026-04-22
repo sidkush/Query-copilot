@@ -459,6 +459,74 @@ export default function VegaRenderer({
   const downsampledCount = downsampledRows.length;
   const tier = strategy?.tier ?? 't0';
 
+  const [isLight, setIsLight] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('light'),
+  );
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const html = document.documentElement;
+    const update = () => setIsLight(html.classList.contains('light'));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(html, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  const vegaConfig = useMemo(() => {
+    if (isLight) {
+      const axisFg = '#1C1917';
+      const axisMuted = '#78716C';
+      const grid = 'rgba(41, 37, 36, 0.10)';
+      return {
+        background: 'transparent',
+        view: { stroke: 'transparent' },
+        axis: {
+          domainColor: axisFg,
+          domainWidth: 1,
+          tickColor: axisFg,
+          tickWidth: 1,
+          labelColor: axisFg,
+          labelFontSize: 11,
+          titleColor: axisFg,
+          titleFontSize: 12,
+          titleFontWeight: 600,
+          gridColor: grid,
+          gridWidth: 1,
+          gridDash: [],
+        },
+        legend: { labelColor: axisFg, titleColor: axisFg, symbolStrokeColor: axisMuted },
+        title: { color: axisFg },
+        line: { stroke: '#1C1917', strokeWidth: 2 },
+        rule: { stroke: axisFg, strokeWidth: 1 },
+      };
+    }
+    const axisFg = '#E5E7EB';
+    const axisMuted = '#94A3B8';
+    const grid = 'rgba(148, 163, 184, 0.18)';
+    return {
+      background: 'transparent',
+      view: { stroke: 'transparent' },
+      axis: {
+        domainColor: axisMuted,
+        domainWidth: 1,
+        tickColor: axisMuted,
+        tickWidth: 1,
+        labelColor: axisFg,
+        labelFontSize: 11,
+        titleColor: axisFg,
+        titleFontSize: 12,
+        titleFontWeight: 600,
+        gridColor: grid,
+        gridWidth: 1,
+        gridDash: [],
+      },
+      legend: { labelColor: axisFg, titleColor: axisFg, symbolStrokeColor: axisMuted },
+      title: { color: axisFg },
+      line: { strokeWidth: 2 },
+      rule: { stroke: axisMuted, strokeWidth: 1 },
+    };
+  }, [isLight]);
+
   return (
     <div
       data-testid="vega-renderer"
@@ -521,6 +589,7 @@ export default function VegaRenderer({
           data={vegaData}
           renderer={vegaBackend}
           actions={false}
+          config={vegaConfig as unknown as Parameters<typeof VegaLite>[0]['config']}
           onNewView={handleNewViewWrapped}
           onError={handleError}
           width={DEFAULT_CANVAS_SIZE.width}

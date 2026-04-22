@@ -106,6 +106,7 @@ export default function ChartEditor({
           resultSet={resultSet}
           onSpecChange={onSpecChange}
           mode={mode}
+          surface={surface}
         />
         <CorrectionToast connId={connId} dockVisible={showDock} />
       </div>

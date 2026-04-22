@@ -28,6 +28,89 @@ const STEP_VARIANTS = {
   exit: { opacity: 0, y: -6, filter: 'blur(2px)' },
 };
 
+/* ── reasoning skeleton — editorial shimmer rows while waiting for first step ── */
+function ReasoningSkeleton() {
+  const rows = [
+    { w: '72%', delay: 0.00, label: 'Reading your question' },
+    { w: '58%', delay: 0.14, label: 'Resolving schema context' },
+    { w: '44%', delay: 0.28, label: 'Planning retrieval path' },
+  ];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      transition={{ duration: 0.42, ease: EASE_OUT }}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 10,
+        padding: '14px 16px',
+        borderRadius: 16,
+        border: `1px solid ${TOKENS.border.default}`,
+        background: 'color-mix(in oklab, var(--accent) 4%, transparent)',
+      }}
+    >
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        fontSize: 10, fontWeight: 700,
+        letterSpacing: '0.22em', textTransform: 'uppercase',
+        color: TOKENS.text.muted,
+        fontFamily: FONT_DISPLAY,
+      }}>
+        <span className="agent-thinking-pulse" aria-hidden="true">
+          <span className="agent-thinking-pulse__dot" />
+          <span className="agent-thinking-pulse__ring" />
+        </span>
+        Warming up agent
+      </div>
+      {rows.map((r, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, x: -6 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: r.delay, ease: EASE_OUT }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+        >
+          <motion.div
+            aria-hidden="true"
+            animate={{ opacity: [0.35, 0.85, 0.35] }}
+            transition={{ duration: 1.8, delay: r.delay, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: TOKENS.accent,
+              boxShadow: `0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent)`,
+              flexShrink: 0,
+            }}
+          />
+          <span style={{
+            fontSize: 12, color: TOKENS.text.secondary,
+            fontFamily: FONT_BODY, letterSpacing: '-0.005em',
+            minWidth: 180,
+          }}>
+            {r.label}
+          </span>
+          <motion.div
+            aria-hidden="true"
+            animate={{
+              backgroundPositionX: ['200%', '-200%'],
+            }}
+            transition={{ duration: 1.6, delay: r.delay, repeat: Infinity, ease: 'linear' }}
+            style={{
+              flex: 1,
+              height: 8,
+              borderRadius: 4,
+              maxWidth: r.w,
+              background: `linear-gradient(90deg,
+                color-mix(in oklab, var(--accent) 8%, transparent) 0%,
+                color-mix(in oklab, var(--accent) 24%, transparent) 50%,
+                color-mix(in oklab, var(--accent) 8%, transparent) 100%)`,
+              backgroundSize: '200% 100%',
+            }}
+          />
+        </motion.div>
+      ))}
+    </motion.div>
+  );
+}
+
 /* ── user query bubble (right-aligned) — agent panel "tactile intimate" tone ── */
 function UserBubble({ step }) {
   return (
@@ -412,6 +495,57 @@ function VerificationBadge({ verification }) {
   );
 }
 
+/* ── ask_user step (interactive if active, muted echo when done) ── */
+function AskUserStep({ step, isActive, chatId }) {
+  const options = Array.isArray(step.tool_input) ? step.tool_input : null;
+  if (isActive) {
+    return <AgentQuestion question={step.content} options={options} chatId={chatId} />;
+  }
+  return (
+    <div
+      style={{
+        borderRadius: TOKENS.radius.md,
+        padding: '10px 14px',
+        background: 'rgba(37, 99, 235, 0.05)',
+        border: '1px solid rgba(37, 99, 235, 0.18)',
+      }}
+    >
+      <div style={{
+        fontSize: 9, fontWeight: 700, letterSpacing: '0.22em',
+        textTransform: 'uppercase', color: TOKENS.text.muted,
+        fontFamily: FONT_DISPLAY, marginBottom: 6,
+      }}>
+        Agent asked
+      </div>
+      <div style={{
+        fontSize: 12.5, color: TOKENS.text.primary,
+        lineHeight: 1.55, fontFamily: FONT_BODY,
+      }}>
+        {step.content}
+      </div>
+      {options && options.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {options.map((opt, i) => (
+            <span
+              key={i}
+              style={{
+                padding: '3px 10px',
+                fontSize: 11,
+                borderRadius: 9999,
+                border: `1px solid ${TOKENS.border.default}`,
+                color: TOKENS.text.muted,
+                fontFamily: FONT_BODY,
+              }}
+            >
+              {opt}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── thinking step (inline, adapts to active/complete) ── */
 function ThinkingStep({ step, isActive }) {
   if (isActive) {
@@ -559,11 +693,44 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
   // Filter visible steps
   const visibleSteps = steps.filter((s) => !INTERNAL_TYPES.has(s.type));
 
+  // Merge duplicate tool_call steps sharing a tool_use_id.
+  // Backend yields each tool_call twice — first without tool_result, then again
+  // with it populated — so SQLite stores both. Collapse into one entry per
+  // tool_use_id, keeping the version that has a result when available. Without
+  // this, React sees duplicate keys and the ToolCallCard expand state
+  // mis-associates, leaving most cards empty-looking when clicked.
+  const mergedSteps = (() => {
+    const byId = new Map();
+    const out = [];
+    for (const s of visibleSteps) {
+      if (s.type === 'tool_call' && s.tool_use_id) {
+        const prevIdx = byId.get(s.tool_use_id);
+        if (prevIdx === undefined) {
+          byId.set(s.tool_use_id, out.length);
+          out.push(s);
+        } else {
+          const prev = out[prevIdx];
+          const hasResult = (v) => v != null && v !== '' && v !== 'null';
+          if (hasResult(s.tool_result) && !hasResult(prev.tool_result)) {
+            out[prevIdx] = { ...prev, ...s };
+          } else if (hasResult(prev.tool_result) && !hasResult(s.tool_result)) {
+            // keep existing with result
+          } else {
+            out[prevIdx] = { ...prev, ...s };
+          }
+        }
+      } else {
+        out.push(s);
+      }
+    }
+    return out;
+  })();
+
   // Dedup: skip result steps that duplicate a recent live_correction or cached_result
-  const deduped = visibleSteps.filter((step, i) => {
+  const deduped = mergedSteps.filter((step, i) => {
     if (step.type === 'result' && step.content) {
       const recentStart = Math.max(0, i - 5);
-      return !visibleSteps.slice(recentStart, i).some(
+      return !mergedSteps.slice(recentStart, i).some(
         (prev) =>
           (prev.type === 'live_correction' || prev.type === 'cached_result') &&
           prev.content === step.content,
@@ -572,9 +739,11 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
     return true;
   });
 
-  // Show connecting bubble when loading with no steps
+  // Premium reasoning skeleton — no dead spinner. Three shimmer rows
+  // that mimic a real thinking step so the feed never looks inert before
+  // the first backend event arrives.
   if (loading && deduped.length === 0) {
-    return <ThinkingBubble content="Connecting..." />;
+    return <ReasoningSkeleton />;
   }
 
   return (
@@ -608,6 +777,7 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
               {step.type === 'cached_result' && <CachedResultStep step={step} loading={loading} />}
               {step.type === 'live_correction' && <LiveCorrectionStep step={step} />}
               {step.type === 'budget_extension' && <BudgetExtensionStep step={step} />}
+              {step.type === 'ask_user' && <AskUserStep step={step} isActive={isActive} chatId={chatId} />}
             </motion.div>
           );
         })}

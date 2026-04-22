@@ -72,6 +72,8 @@ function DashboardTileCanvas({
   onMarkSelect,
   onMarkHover,
   mountOnce = false,
+  onViewReady,
+  surface,
 }) {
   const spec = tile?.chart_spec || tile?.chartSpec || null;
 
@@ -337,6 +339,8 @@ function DashboardTileCanvas({
               sheetId={sheetId}
               onMarkSelect={onMarkSelect}
               onMarkHover={onMarkHover}
+              onViewReady={onViewReady}
+              surface={surface}
             />
           ) : (
             <div

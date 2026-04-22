@@ -20,9 +20,12 @@ import { TOKENS } from "../dashboard/tokens";
  * other three renderers render placeholder cards explaining when the real
  * integration lands.
  */
-export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthrough, onDeselect, mode, sheetId, onMarkSelect, onMarkHover }) {
+export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthrough, onDeselect, mode, sheetId, onMarkSelect, onMarkHover, onViewReady: onViewReadyProp, surface }) {
   const [vegaView, setVegaView] = useState(null);
-  const handleViewReady = useCallback((view) => setVegaView(view), []);
+  const handleViewReady = useCallback((view) => {
+    setVegaView(view);
+    if (typeof onViewReadyProp === 'function') onViewReadyProp(view);
+  }, [onViewReadyProp]);
   const colorMap = useStore((s) => s.colorMap);
   const installedTypes = useStore((s) => s.installedChartTypes);
 
@@ -172,6 +175,7 @@ export default function EditorCanvas({ spec, resultSet, onSpecChange, onDrillthr
           resultSet={resultSet}
           strategy={strategy}
           onDrillthrough={onDrillthrough}
+          surface={surface}
         />
       )}
       {rendererId === "vega-lite" && (

@@ -2755,6 +2755,21 @@ class AgentEngine:
             tile["sql"] = sql or ""
             tile["columns"] = columns
             tile["rows"] = rows
+            # Generate chart_spec so the tile renders in Analyst Pro (which
+            # bypasses legacy chartType rendering entirely — empty chart_spec
+            # shows "No chart spec" placeholder).
+            if columns and rows:
+                try:
+                    import pandas as pd
+                    from schema_intelligence import profile_columns
+                    df_rows = rows if (rows and isinstance(rows[0], dict)) else [dict(zip(columns, r)) for r in rows]
+                    df = pd.DataFrame(df_rows, columns=columns)
+                    column_profile = profile_columns(df)
+                    tile["columnProfile"] = column_profile
+                    tile["chart_spec"] = recommend_chart_spec(column_profile)
+                    tile["rowCount"] = len(rows)
+                except Exception as exc:
+                    _logger.warning("create_dashboard_tile: chart_spec generation failed — %s", exc)
 
         result = add_tile_to_section(self.email, dashboard_id, tab["id"], section["id"], tile)
         if result:

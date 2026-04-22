@@ -129,6 +129,12 @@ export interface VizQLRendererProps {
   colorMap?: Record<string, string>;
   onDrillthrough?: (event: { filters: { field: string; value: unknown }[] }) => void;
   onBrush?: (field: string, range: [number, number] | null) => void;
+  /**
+   * Rendering surface — when 'chat-result' the chart honors the global
+   * light/dark theme instead of the dashboard preset scheme. Other values
+   * default to preset-driven chrome (dashboard tiles).
+   */
+  surface?: string;
 }
 
 type Row = Record<string, unknown>;
@@ -170,6 +176,7 @@ export default function VizQLRenderer({
   colorMap: _colorMap,
   onDrillthrough,
   onBrush: _onBrush,
+  surface,
 }: VizQLRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -265,19 +272,23 @@ export default function VizQLRenderer({
     const t0 = performance.now();
 
     const paint = () => {
-    // Sync chart-chrome palette to the active preset *before* painting. The
-    // MutationObserver in palettes.ts is async — relying on it alone can
-    // paint the canvas with stale colors right after a theme flip. The
-    // preset's `scheme` field is authoritative and overrides the global theme
-    // toggle; `resolvedTheme` remains a dep to cover legacy code paths that
-    // still drive chrome via the theme store.
-    setChartChromeFromPreset(presetId);
-    // Reference `resolvedTheme` so the fallback code path and the dep array
-    // stay in sync — keeps the chrome aligned with the global toggle when no
-    // preset is active (e.g. KPI-only views outside the Analyst Pro shell).
-    void resolvedTheme;
-    if (!presetId) {
+    // Sync chart-chrome palette before painting. MutationObserver in
+    // palettes.ts is async — can leave canvas with stale colors after a
+    // theme flip.
+    //
+    // Surface rules:
+    //   - 'chat-result' (chart edit modal / chat tiles) → follow global
+    //     resolvedTheme so chart chrome matches the surrounding page. The
+    //     dashboard preset scheme does not apply outside the dashboard shell.
+    //   - otherwise → preset scheme wins (dashboard tiles are authored in
+    //     a specific look and shouldn't flip with the OS theme toggle).
+    if (surface === 'chat-result') {
       setChartChromeScheme(resolvedTheme === 'light' ? 'light' : 'dark');
+    } else {
+      setChartChromeFromPreset(presetId);
+      if (!presetId) {
+        setChartChromeScheme(resolvedTheme === 'light' ? 'light' : 'dark');
+      }
     }
     // Scale context for HiDPI + CSS zoom
     ctx.setTransform(effectiveScale, 0, 0, effectiveScale, 0, 0);
@@ -406,7 +417,7 @@ export default function VizQLRenderer({
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [vizqlSpec, data, canvasSize, strategy, cssZoom, resolvedTheme, presetId]);
+  }, [vizqlSpec, data, canvasSize, strategy, cssZoom, resolvedTheme, presetId, surface]);
 
   // -- Tooltip (mousemove) -----------------------------------------------
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {

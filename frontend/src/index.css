@@ -4624,3 +4624,452 @@ html.theme-transitioning *::after {
   z-index: 0;
 }
 .dashboard-preset-switcher__pill-label { position: relative; z-index: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHAT MARKDOWN — dual-theme primitives
+   Dark: translucent glass. Light: corporate broadsheet (Bloomberg/
+   Linear — stone-on-ivory, amber hairlines, zero AI-blue glow).
+   ═══════════════════════════════════════════════════════════════════ */
+
+.chat-md-h2 {
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-default);
+}
+.chat-md-h2::before {
+  content: '';
+  width: 2px;
+  align-self: stretch;
+  border-radius: 1px;
+  background: var(--text-primary);
+  opacity: 0.85;
+  margin-right: 2px;
+  margin-top: 0.12em;
+  margin-bottom: 0.2em;
+}
+:root.light .chat-md-h2::before {
+  background: #1C1917;
+  opacity: 1;
+}
+
+.chat-md-h3 {
+  color: var(--text-muted);
+}
+.chat-md-h3::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+  margin-right: 2px;
+}
+
+.chat-md-li {
+  color: var(--text-secondary);
+}
+.chat-md-li-dot {
+  background: var(--text-muted);
+  opacity: 0.55;
+}
+:root.light .chat-md-li {
+  color: #44403C;
+}
+:root.light .chat-md-li-dot {
+  background: #78716C;
+  opacity: 1;
+}
+
+/* Inline code — subtle stone chip, no neon blue */
+.chat-md-inline-code {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #cbd5e1;
+}
+:root.light .chat-md-inline-code {
+  background: #F5F5F4;
+  border: 1px solid #E7E5E4;
+  color: #1C1917;
+}
+
+/* Pre / fenced code block — editorial treatment */
+.chat-md-pre {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: #E7E5E4;
+}
+.chat-md-pre .chat-md-code-fence {
+  color: #E7E5E4;
+}
+:root.light .chat-md-pre {
+  background: #1C1917;
+  border: 1px solid #1C1917;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(41, 37, 36, 0.04),
+    0 10px 24px -16px rgba(41, 37, 36, 0.2);
+  color: #F5F5F4;
+}
+:root.light .chat-md-pre .chat-md-code-fence {
+  color: #F5F5F4;
+}
+
+/* Blockquote — hairline, not slab */
+.chat-md-blockquote {
+  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  color: var(--text-secondary);
+}
+:root.light .chat-md-blockquote {
+  background: #FAFAF7;
+  border: 1px solid #E7E5E4;
+  color: #44403C;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT-THEME CHAT REFINEMENT — professional / corporate
+   Dark theme untouched. Applies only when html.light is set.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Kill the purple mesh on light — reads as unprofessional blur */
+:root.light body::before {
+  background:
+    radial-gradient(800px 500px at 12% 8%, rgba(41, 37, 36, 0.025), transparent 60%),
+    radial-gradient(640px 460px at 88% 92%, rgba(41, 37, 36, 0.018), transparent 55%);
+}
+
+/* Artifact — crisper card separation on cream */
+:root.light .chat-artifact {
+  background: #FFFFFF;
+  border: 1px solid #E7E5E4;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 1px 2px rgba(41, 37, 36, 0.04),
+    0 22px 44px -24px rgba(41, 37, 36, 0.14);
+}
+:root.light .chat-artifact__header {
+  background: #FAFAF7;
+  border-bottom: 1px solid #EFEDE9;
+}
+:root.light .chat-artifact__footer {
+  background: #FAFAF7;
+  border-top: 1px solid #EFEDE9;
+}
+:root.light .chat-artifact__label {
+  color: #78716C;
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+:root.light .chat-artifact__stat {
+  color: #78716C;
+}
+
+/* User bubble — confident stone, not translucent blue */
+:root.light .chat-bubble-user {
+  background: #1C1917;
+  border: 1px solid #1C1917;
+  color: #FAFAF7;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 12px 24px -14px rgba(41, 37, 36, 0.28);
+}
+:root.light .chat-bubble-user * {
+  color: #FAFAF7 !important;
+}
+
+/* Input pill — pure white panel, amber focus (brand), not AI blue */
+:root.light .chat-input-pill,
+:root.light .chat-input-shell {
+  background: #FFFFFF !important;
+  border: 1px solid #E7E5E4 !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 2px 4px rgba(41, 37, 36, 0.04),
+    0 18px 36px -22px rgba(41, 37, 36, 0.16) !important;
+}
+:root.light .chat-input-pill:focus-within,
+:root.light .chat-input-shell:focus-within {
+  border-color: #B45309 !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 0 0 3px rgba(180, 83, 9, 0.14),
+    0 18px 36px -22px rgba(41, 37, 36, 0.18) !important;
+}
+
+/* Autocomplete — crisp stacked list, not muddy glass */
+:root.light .chat-autocomplete {
+  background: #FFFFFF !important;
+  border: 1px solid #E7E5E4 !important;
+  box-shadow:
+    0 4px 12px rgba(41, 37, 36, 0.08),
+    0 24px 48px -24px rgba(41, 37, 36, 0.18) !important;
+}
+
+/* Assistant bubble — paper white, no blue wash */
+:root.light .agent-bubble-assistant,
+:root.light .msg-shadow-assistant {
+  background: #FFFFFF !important;
+  border-color: #E7E5E4 !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 1px 2px rgba(41, 37, 36, 0.04),
+    0 20px 40px -24px rgba(41, 37, 36, 0.14) !important;
+}
+
+/* Starter suggestion cards — refined corporate hover */
+:root.light .glass-card {
+  background: #FFFFFF;
+  border: 1px solid #EFEDE9;
+  box-shadow:
+    0 1px 2px rgba(41, 37, 36, 0.03),
+    0 8px 20px -12px rgba(41, 37, 36, 0.08);
+  transition:
+    transform 280ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 280ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+:root.light .glass-card:hover {
+  border-color: #1C1917;
+  box-shadow:
+    0 1px 2px rgba(41, 37, 36, 0.04),
+    0 16px 32px -16px rgba(41, 37, 36, 0.16);
+}
+
+/* Agent table — editorial, thinner lines in light */
+:root.light .agent-table-shell {
+  background: #FFFFFF;
+  border: 1px solid #E7E5E4;
+}
+:root.light .agent-table-head th {
+  background: #FAFAF7;
+  color: #44403C;
+  border-bottom: 1px solid #E7E5E4;
+}
+:root.light .agent-table td {
+  color: #1C1917;
+  border-top: 1px solid #F5F5F4;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHAT CHART TOOLBAR — download + edit actions
+   ═══════════════════════════════════════════════════════════════════ */
+
+.chat-chart-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-base);
+}
+:root.light .chat-chart-toolbar {
+  background: #FAFAF7;
+  border-top: 1px solid #EFEDE9;
+}
+.chat-chart-toolbar__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: auto;
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+.chat-chart-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    color 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.chat-chart-action:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--overlay-faint);
+}
+.chat-chart-action:active {
+  transform: translateY(1px);
+}
+.chat-chart-action--primary {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--overlay-subtle);
+}
+:root.light .chat-chart-action {
+  color: #44403C;
+  border: 1px solid #E7E5E4;
+  background: #FFFFFF;
+}
+:root.light .chat-chart-action:hover {
+  color: #1C1917;
+  border-color: #1C1917;
+  background: #FFFFFF;
+}
+:root.light .chat-chart-action--primary {
+  color: #FAFAF7;
+  background: #1C1917;
+  border-color: #1C1917;
+}
+:root.light .chat-chart-action--primary:hover {
+  background: #292524;
+  border-color: #292524;
+  color: #FFFFFF;
+}
+.chat-chart-action svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHART EDIT MODAL — 80% portal overlay
+   ═══════════════════════════════════════════════════════════════════ */
+
+.chart-edit-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px) saturate(1.2);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+:root.light .chart-edit-modal__backdrop {
+  background: rgba(41, 37, 36, 0.42);
+}
+
+.chart-edit-modal__panel {
+  width: 80vw;
+  height: 80vh;
+  max-width: 1600px;
+  max-height: 1100px;
+  min-width: 720px;
+  min-height: 480px;
+  background: var(--bg-elevated, #0f172a);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 40px 80px -32px rgba(0, 0, 0, 0.6),
+    0 16px 36px -20px rgba(0, 0, 0, 0.45);
+}
+:root.light .chart-edit-modal__panel {
+  background: #FFFFFF;
+  border: 1px solid #E7E5E4;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 1) inset,
+    0 40px 80px -32px rgba(41, 37, 36, 0.28),
+    0 16px 36px -20px rgba(41, 37, 36, 0.18);
+}
+
+.chart-edit-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-base);
+  flex-shrink: 0;
+}
+:root.light .chart-edit-modal__header {
+  background: #FAFAF7;
+  border-bottom: 1px solid #EFEDE9;
+}
+
+.chart-edit-modal__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.chart-edit-modal__eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+.chart-edit-modal__title {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-primary);
+  font-family: 'Outfit', system-ui, sans-serif;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.chart-edit-modal__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.chart-edit-modal__close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: color 180ms, background 180ms, border-color 180ms;
+}
+.chart-edit-modal__close:hover {
+  color: var(--text-primary);
+  background: var(--overlay-faint);
+  border-color: var(--border-default);
+}
+
+.chart-edit-modal__body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-edit-modal__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+
+@media (max-width: 820px) {
+  .chart-edit-modal__panel {
+    width: 96vw;
+    height: 90vh;
+    min-width: 0;
+    min-height: 0;
+  }
+}

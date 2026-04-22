@@ -14,6 +14,7 @@
     "proto": "bash scripts/regen_proto.sh"
   },
   "dependencies": {
+    "@babel/runtime": "^7.29.2",
     "@deck.gl/core": "^9.3.0",
     "@deck.gl/geo-layers": "^9.3.0",
     "@deck.gl/layers": "^9.3.0",
