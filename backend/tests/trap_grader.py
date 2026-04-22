@@ -160,6 +160,22 @@ def _check_must_not_claim_limited(
     return True, "no 'limited' claims"
 
 
+def _check_must_trigger_validator_rule(sql: str, oracle: dict) -> tuple:
+    rule = oracle.get("rule", "")
+    marker = f"validator fired: {rule}"
+    if marker in sql.lower():
+        return True, f"validator rule {rule!r} fired as expected"
+    return False, f"validator rule {rule!r} expected but not present in SQL"
+
+
+def _check_must_not_trigger_validator_rule(sql: str, oracle: dict) -> tuple:
+    rule = oracle.get("rule", "")
+    marker = f"validator fired: {rule}"
+    if marker in sql.lower():
+        return False, f"validator rule {rule!r} fired but was expected clean"
+    return True, f"validator rule {rule!r} not triggered (clean)"
+
+
 _HANDLERS = {
     "date_range": _check_date_range,
     "must_not_refuse": lambda sql, ora, _db: _check_must_not_refuse(sql, ora),
@@ -169,6 +185,9 @@ _HANDLERS = {
     # Phase B — Ring 1 oracles.
     "must_mention_full_range": _check_must_mention_full_range,
     "must_not_claim_limited": lambda sql, ora, _db: _check_must_not_claim_limited(sql, ora),
+    # Phase C — Ring 3 oracles.
+    "must_trigger_validator_rule": lambda sql, ora, _db: _check_must_trigger_validator_rule(sql, ora),
+    "must_not_trigger_validator_rule": lambda sql, ora, _db: _check_must_not_trigger_validator_rule(sql, ora),
 }
 
 
