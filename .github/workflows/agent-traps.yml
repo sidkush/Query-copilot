@@ -30,7 +30,6 @@ jobs:
             --db /tmp/eval_fixture.sqlite
 
   shadow-suite:
-    # H13 shadow eval: only on trusted branches, never forks.
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: mock-suite
@@ -42,22 +41,7 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - name: Seed fixture DB
         run: python -m backend.tests.fixtures.eval_seed /tmp/eval_fixture.sqlite
-      - name: Verify staging key health (hard fail on 401)
+      - name: Run shadow eval (20 Qs vs real Anthropic staging)
         env:
           ANTHROPIC_STAGING_KEY: ${{ secrets.ANTHROPIC_STAGING_KEY }}
-        run: |
-          if [ -z "$ANTHROPIC_STAGING_KEY" ]; then
-            echo "::error::ANTHROPIC_STAGING_KEY not set"; exit 1
-          fi
-          # Ping with a no-op; fail hard on 401.
-          STATUS=$(curl -sSf -o /tmp/ping.json -w "%{http_code}" \
-            -H "x-api-key: $ANTHROPIC_STAGING_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            https://api.anthropic.com/v1/messages \
-            -d '{"model":"claude-haiku-4-5-20251001","max_tokens":1,"messages":[{"role":"user","content":"ok"}]}' \
-            || echo "REQUEST_FAILED")
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::staging key unhealthy, status=$STATUS"; cat /tmp/ping.json; exit 1
-          fi
-          echo "staging key healthy"
-      # Real shadow-eval invocation is Phase A Task 12. For now we just gate the key.
+        run: python -m backend.tests.run_shadow_eval
