@@ -74,6 +74,33 @@ def _check_date_range(
     return True, "date range matches oracle"
 
 
+def _check_max_date(
+    sql: str, oracle: dict[str, Any], db_path: Path
+) -> tuple[bool, str]:
+    """max_date oracle: verify SQL has MAX() on the right table."""
+    lc = sql.lower()
+    if "max(" not in lc:
+        return False, "sql does not compute MAX"
+    if oracle["table"].lower() not in lc:
+        return False, f"sql does not reference table {oracle['table']}"
+    # Actual max sanity on fixture.
+    resolved = _resolve_db_path(db_path)
+    if not resolved.exists():
+        return True, "max_date structural check passed (fixture not available for runtime check)"
+    conn = sqlite3.connect(resolved)
+    try:
+        cur = conn.execute(
+            f"SELECT MAX({oracle['column']}) FROM {oracle['table']}"
+        )
+        actual_max = cur.fetchone()[0]
+    finally:
+        conn.close()
+    min_expected = oracle.get("min_expected", "0000-01-01")
+    if actual_max < min_expected:
+        return False, f"actual max {actual_max} not after threshold {min_expected}"
+    return True, "max date matches oracle"
+
+
 def _check_must_not_refuse(sql: str, oracle: dict[str, Any]) -> tuple[bool, str]:
     lc = sql.lower()
     for phrase in oracle.get("forbidden_phrases", []):
@@ -92,8 +119,8 @@ _HANDLERS = {
     "date_range": _check_date_range,
     "must_not_refuse": lambda sql, ora, _db: _check_must_not_refuse(sql, ora),
     "must_query_table": lambda sql, ora, _db: _check_must_query_table(sql, ora),
-    "max_date": _check_date_range,            # same structural check
-    "distinct_months": _check_must_query_table,  # loose check — tighten later
+    "max_date": _check_max_date,
+    "distinct_months": lambda sql, ora, _db: _check_must_query_table(sql, ora),  # loose check — tighten later
 }
 
 
