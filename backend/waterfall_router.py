@@ -1401,6 +1401,20 @@ class WaterfallRouter:
         return (cached_result, _run_live)
 
 
+def validate_scope(sql: str, ctx: dict, dialect: str = "sqlite"):
+    """Tier-universal Ring-3 entry point (H18). Fail-open on any crash."""
+    try:
+        from config import settings
+        if not settings.FEATURE_SCOPE_VALIDATOR:
+            from scope_validator import ValidatorResult
+            return ValidatorResult(violations=[])
+        from scope_validator import ScopeValidator
+        return ScopeValidator(dialect=dialect).validate(sql=sql, ctx=ctx)
+    except Exception:
+        from scope_validator import ValidatorResult
+        return ValidatorResult(violations=[], parse_failed=False)
+
+
 def build_default_router() -> WaterfallRouter:
     """
     Return a WaterfallRouter wired with the canonical 5-tier order (Plan 7e).
