@@ -1,0 +1,15 @@
+{"id": "name-001", "nl": "how many january_trips are there?", "expected_sql_contains": ["COUNT", "january_trips"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "range_mismatch"}}
+{"id": "name-002", "nl": "show all trips regardless of month name", "expected_sql_contains": ["january_trips"], "oracle": {"type": "must_not_claim_limited", "forbidden_phrases": ["only january", "january only"]}}
+{"id": "name-003", "nl": "count unique riders across all 23 months", "expected_sql_contains": ["COUNT(DISTINCT", "january_trips"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "fanout_inflation"}}
+{"id": "name-004", "nl": "total orders joined to users", "expected_sql_contains": ["JOIN", "COUNT(DISTINCT"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "fanout_inflation"}}
+{"id": "name-005", "nl": "first trip date despite the january_trips name", "expected_sql_contains": ["MIN(started_at)", "january_trips"], "oracle": {"type": "must_not_refuse", "forbidden_phrases": ["only january"]}}
+{"id": "name-006", "nl": "trips before year 2000 (expect empty)", "expected_sql_contains": ["january_trips", "2000"], "oracle": {"type": "must_trigger_validator_rule", "rule": "range_mismatch"}}
+{"id": "name-007", "nl": "give me top 10 riders ordered by trip count", "expected_sql_contains": ["ORDER BY", "LIMIT"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "limit_before_order"}}
+{"id": "name-008", "nl": "users who never placed an order", "expected_sql_contains": ["LEFT JOIN", "IS NULL"], "oracle": {"type": "must_not_trigger_validator_rule", "rule": "negation_as_join"}}
+{"id": "name-009", "nl": "quarterly trip counts", "expected_sql_contains": ["GROUP BY", "january_trips"], "oracle": {"type": "must_query_table", "table": "january_trips"}}
+{"id": "name-010", "nl": "does `january_trips` name mean January only?", "expected_sql_contains": [], "oracle": {"type": "must_not_claim_limited", "forbidden_phrases": ["yes", "only january", "january only"]}}
+{"id": "name-011", "nl": "count rows in january_trips where started_at is before 1900", "expected_sql_contains": ["1900", "january_trips"], "oracle": {"type": "must_trigger_validator_rule", "rule": "range_mismatch"}}
+{"id": "name-012", "nl": "count rows in january_trips where started_at is after 2099", "expected_sql_contains": ["2099", "january_trips"], "oracle": {"type": "must_trigger_validator_rule", "rule": "range_mismatch"}}
+{"id": "name-013", "nl": "monthly distinct months count", "expected_sql_contains": ["COUNT(DISTINCT", "january_trips"], "oracle": {"type": "distinct_months", "table": "january_trips", "column": "started_at", "expected_value": 23, "tolerance": 1}}
+{"id": "name-014", "nl": "rider type distribution", "expected_sql_contains": ["rider_type", "GROUP BY"], "oracle": {"type": "must_query_table", "table": "january_trips"}}
+{"id": "name-015", "nl": "full date range min max", "expected_sql_contains": ["MIN", "MAX"], "oracle": {"type": "must_mention_full_range", "table": "january_trips", "column": "started_at", "min_before": "2024-01-01", "max_after": "2025-01-01"}}
