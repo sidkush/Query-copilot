@@ -25,6 +25,9 @@ xgboost>=2.0
 lightgbm>=4.0
 joblib>=1.3
 statsmodels>=0.14
+safetensors==0.4.5
+sentence-transformers==3.3.1
+rank_bm25==0.2.2
 
 # ── Database Drivers — Relational ──────────────────────────
 psycopg2-binary>=2.9              # PostgreSQL + CockroachDB
