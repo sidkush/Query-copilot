@@ -154,6 +154,14 @@ class Settings(BaseSettings):
     # ── Query Intelligence ───────────────────────────────────────
     SCHEMA_CACHE_MAX_AGE_MINUTES: int = Field(default=60)
     SCHEMA_CACHE_DIR: str = Field(default=".data/schema_cache")
+
+    # ── Data Coverage (Phase B — Ring 1) ──
+    FEATURE_DATA_COVERAGE: bool = Field(default=True)
+    COVERAGE_CACHE_DIR: str = Field(default=".data/coverage_cache")
+    COVERAGE_QUERY_TIMEOUT_SECONDS: float = Field(default=5.0)
+    COVERAGE_CACHE_TTL_HOURS: int = Field(default=6)
+    COVERAGE_MAX_COLUMNS_PER_TABLE: int = Field(default=5)
+    COVERAGE_MAX_TABLES_PER_CONNECTION: int = Field(default=30)
     QUERY_MEMORY_ENABLED: bool = Field(default=True)
     QUERY_MEMORY_COLLECTION_PREFIX: str = Field(default="query_memory_")
     QUERY_MEMORY_TTL_HOURS: int = Field(default=168)  # 7 days
