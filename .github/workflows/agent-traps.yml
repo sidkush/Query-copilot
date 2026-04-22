@@ -35,6 +35,20 @@ jobs:
             .data/coverage_baseline.json \
             --db /tmp/eval_fixture.sqlite
 
+      - name: Run Ring-3 name-inference trap suite against mock
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_name_inference.jsonl \
+            .data/name_inference_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run Ring-3 join-scale trap suite against mock
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_join_scale.jsonl \
+            .data/join_scale_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
   shadow-suite:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     runs-on: ubuntu-latest
