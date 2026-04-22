@@ -28,6 +28,12 @@ jobs:
             backend/tests/trap_temporal_scope.jsonl \
             .data/eval_baseline.json \
             --db /tmp/eval_fixture.sqlite
+      - name: Run Ring-1 coverage trap suite against mock
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_coverage_grounding.jsonl \
+            .data/coverage_baseline.json \
+            --db /tmp/eval_fixture.sqlite
 
   shadow-suite:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
