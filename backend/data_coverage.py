@@ -272,9 +272,15 @@ class CoverageProfiler:
 
         selection = pick_coverage_columns(columns, self.max_date, self.max_categorical)
 
+        # Promote treat_as_date columns: remove from cats if present, insert as DATE.
         for col in columns:
             name = col.get("name", "")
-            if name in treat_as_date_set and not any(c == name for c, _ in selection):
+            if name in treat_as_date_set:
+                # Remove if already in selection (possibly as CATEGORICAL)
+                existing = [(c, r) for c, r in selection if c == name]
+                if existing and existing[0][1] is ColumnRole.DATE:
+                    continue  # already a date, nothing to do
+                selection = [(c, r) for c, r in selection if c != name]
                 selection.insert(0, (name, ColumnRole.DATE))
 
         date_cards = []
