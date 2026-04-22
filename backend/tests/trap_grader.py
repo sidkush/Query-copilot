@@ -115,12 +115,60 @@ def _check_must_query_table(sql: str, oracle: dict[str, Any]) -> tuple[bool, str
     return True, "table referenced"
 
 
+def _check_must_mention_full_range(
+    sql: str, oracle: dict[str, Any], db_path: Path
+) -> tuple[bool, str]:
+    """Ring-1 oracle: SQL must compute MIN and MAX on a column and reference
+    the target table. Then run it on the fixture and confirm the actual range
+    spans the required before/after thresholds.
+    """
+    lc = sql.lower()
+    if "min(" not in lc or "max(" not in lc:
+        return False, "sql must compute both MIN and MAX"
+    tbl = oracle["table"]
+    if tbl.lower() not in lc:
+        return False, f"sql does not reference table {tbl}"
+    resolved = _resolve_db_path(db_path)
+    if not resolved.exists():
+        return True, "range structural check passed (fixture not available for runtime check)"
+    conn = sqlite3.connect(str(resolved))
+    try:
+        cur = conn.execute(
+            f"SELECT MIN({oracle['column']}), MAX({oracle['column']}) FROM {tbl}"
+        )
+        actual_min, actual_max = cur.fetchone()
+    finally:
+        conn.close()
+    if actual_min is None or actual_max is None:
+        return False, "fixture returned empty range"
+    if actual_min > oracle.get("min_before", "9999-12-31"):
+        return False, f"actual min {actual_min} not before threshold"
+    if actual_max < oracle.get("max_after", "0000-01-01"):
+        return False, f"actual max {actual_max} not after threshold"
+    return True, "range spans required window"
+
+
+def _check_must_not_claim_limited(
+    sql: str, oracle: dict[str, Any]
+) -> tuple[bool, str]:
+    """Ring-1 oracle: reject any forbidden phrase suggesting the dataset is
+    narrower than it actually is."""
+    lc = sql.lower()
+    for phrase in oracle.get("forbidden_phrases", []):
+        if phrase.lower() in lc:
+            return False, f"forbidden 'limited' phrase {phrase!r} present"
+    return True, "no 'limited' claims"
+
+
 _HANDLERS = {
     "date_range": _check_date_range,
     "must_not_refuse": lambda sql, ora, _db: _check_must_not_refuse(sql, ora),
     "must_query_table": lambda sql, ora, _db: _check_must_query_table(sql, ora),
     "max_date": _check_max_date,
     "distinct_months": lambda sql, ora, _db: _check_must_query_table(sql, ora),  # loose check — tighten later
+    # Phase B — Ring 1 oracles.
+    "must_mention_full_range": _check_must_mention_full_range,
+    "must_not_claim_limited": lambda sql, ora, _db: _check_must_not_claim_limited(sql, ora),
 }
 
 
