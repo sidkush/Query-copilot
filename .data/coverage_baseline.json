@@ -1,0 +1,47 @@
+{
+  "suite": "trap_coverage_grounding.jsonl",
+  "total": 10,
+  "passed": 9,
+  "per_question": {
+    "cov-001": {
+      "passed": true,
+      "reason": "no 'limited' claims"
+    },
+    "cov-002": {
+      "passed": false,
+      "reason": "sql must compute both MIN and MAX"
+    },
+    "cov-003": {
+      "passed": true,
+      "reason": "table referenced"
+    },
+    "cov-004": {
+      "passed": true,
+      "reason": "no 'limited' claims"
+    },
+    "cov-005": {
+      "passed": true,
+      "reason": "no forbidden phrases"
+    },
+    "cov-006": {
+      "passed": true,
+      "reason": "table referenced"
+    },
+    "cov-007": {
+      "passed": true,
+      "reason": "max date matches oracle"
+    },
+    "cov-008": {
+      "passed": true,
+      "reason": "no forbidden phrases"
+    },
+    "cov-009": {
+      "passed": true,
+      "reason": "no 'limited' claims"
+    },
+    "cov-010": {
+      "passed": true,
+      "reason": "no forbidden phrases"
+    }
+  }
+}

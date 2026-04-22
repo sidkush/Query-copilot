@@ -58,3 +58,5 @@ yarn-debug.log*
 
 # Eval baseline is committed in git per H13 (eval integrity)
 !.data/eval_baseline.json
+# Ring-1 trap baseline — committed per H13 (eval integrity)
+!.data/coverage_baseline.json
