@@ -48,6 +48,10 @@ class SkillLibrary:
             priority = int(meta.get("priority", 3))
             content = post.content
             tokens = len(_ENCODER.encode(content))
+            # H14: record which embedder version was used to generate this skill's
+            # vector. Lets retrieval filter to the current active version during
+            # migration.
+            embedder_version = meta.get("embedder_version", "hash-v1")
             self._by_name[name] = SkillHit(
                 name=name,
                 priority=priority,
@@ -55,6 +59,7 @@ class SkillLibrary:
                 source="always_on" if priority == 1 else "rag",
                 content=content,
                 path=path,
+                embedder_version=embedder_version,
             )
         logger.info("skill_library: loaded %d skills from %s", len(self._by_name), self._root)
 
@@ -72,6 +77,7 @@ class SkillLibrary:
             SkillHit(
                 name=h.name, priority=h.priority, tokens=h.tokens,
                 source="always_on", content=h.content, path=h.path,
+                embedder_version=h.embedder_version,
             )
             for h in sorted(self._by_name.values(), key=lambda h: h.name)
             if h.priority == 1

@@ -20,3 +20,4 @@ class SkillHit:
     source: SkillSource
     content: str           # full body (no frontmatter)
     path: Path
+    embedder_version: str = "hash-v1"  # H14: migration filtering tag
