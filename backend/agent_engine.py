@@ -804,6 +804,36 @@ class AgentEngine:
         except Exception:
             pass
 
+    def _build_data_coverage_block(self, table_names=None) -> str:
+        """Phase B — render <data_coverage> block for the system prompt.
+
+        If `table_names` is provided, restrict to those tables; otherwise
+        emit all cached cards. Empty when FEATURE_DATA_COVERAGE off or no cards.
+        """
+        try:
+            from config import settings
+            if not settings.FEATURE_DATA_COVERAGE:
+                return ""
+        except Exception:
+            return ""
+        cards = getattr(self.connection_entry, "coverage_cards", None) or []
+        if not cards:
+            return ""
+        if table_names:
+            wanted = set(table_names)
+            cards = [c for c in cards if c.table_name in wanted]
+            if not cards:
+                return ""
+        body = "\n\n".join(_format_coverage_card_block(c) for c in cards)
+        return (
+            "\n\n<data_coverage>\n"
+            + body
+            + "\n</data_coverage>\n"
+            + "The above is empirical profile data — treat it as ground truth "
+            + "about what the database actually contains. Do NOT infer coverage "
+            + "from table names; the profile is the source of truth.\n"
+        )
+
     def _build_legacy_system_prompt(self, question: str, prefetch_context: str) -> str:
         """Plan 4 T1: extracted from run() for reuse by _build_system_blocks.
 
@@ -869,6 +899,9 @@ class AgentEngine:
                 pass
 
         system_prompt += prefetch_context
+
+        # Phase B — data coverage block (Ring 1 empirical grounding).
+        system_prompt += self._build_data_coverage_block()
 
         # ── Semantic layer context (Sub-project D Phase D1) ──────
         semantic_context = self._build_semantic_context()
