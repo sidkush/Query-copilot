@@ -33,6 +33,17 @@ point here instead of duplicating values. Confirm against
 | `_SAFE_JWT_ALGORITHMS` | `{HS256, HS384, HS512}` | Allowlist enforced at startup; unsafe values (incl. `none`) forced to `HS256`. |
 | `JWT_ALGORITHM` default | `HS256` | |
 
+### Data Coverage (Phase B — Ring 1)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_DATA_COVERAGE` | `True` | Gate for Ring-1 empirical grounding. Off → card module silent. |
+| `COVERAGE_CACHE_DIR` | `.data/coverage_cache` | Per-connection card JSON path. Same atomic-write pattern as SchemaProfile. |
+| `COVERAGE_QUERY_TIMEOUT_SECONDS` | `5.0` | Per-query wall-clock cap. Timeout → card fields set to `None`, never raises. |
+| `COVERAGE_CACHE_TTL_HOURS` | `6` | Re-profile when older; mirrors `SCHEMA_CACHE_MAX_AGE_MINUTES`. |
+| `COVERAGE_MAX_COLUMNS_PER_TABLE` | `5` | Picker emits at most 5 columns: up to 2 date-like, 3 categorical. |
+| `COVERAGE_MAX_TABLES_PER_CONNECTION` | `30` | Budget cap: skip beyond 30 tables to bound connect time. |
+
 ### Calc parser (Plan 8a)
 
 | Constant | Value | Notes |

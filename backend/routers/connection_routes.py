@@ -485,6 +485,48 @@ def connect_database(req: ConnectRequest, request: Request, user: dict = Depends
                 logger.info(f"Schema profiled (background): {len(schema_profile.tables)} tables, hash={schema_profile.schema_hash[:8]}")
             except Exception as e:
                 logger.warning(f"Schema profiling failed (non-fatal): {e}")
+                return
+            # Phase B — Ring 1 coverage profiling (feature-flagged).
+            if settings.FEATURE_DATA_COVERAGE:
+                try:
+                    from data_coverage import (
+                        CoverageProfiler, CoverageCache,
+                    )
+                    profiler = CoverageProfiler(
+                        dialect=(connector_ref.db_type or "").lower(),
+                        max_date=2,
+                        max_categorical=3,
+                    )
+                    cache = CoverageCache(
+                        root=settings.COVERAGE_CACHE_DIR,
+                        ttl_hours=settings.COVERAGE_CACHE_TTL_HOURS,
+                    )
+                    def _heuristic_dates(cols):
+                        return tuple(
+                            c["name"] for c in cols
+                            if c.get("name", "").endswith(("_at", "_date", "_ts"))
+                        )
+                    cards = []
+                    cap = settings.COVERAGE_MAX_TABLES_PER_CONNECTION
+                    for tbl in (schema_profile.tables or [])[:cap]:
+                        tbl_cols = [{"name": c.get("name", ""), "type": c.get("type", "")} for c in (tbl.columns or [])]
+                        def _run_query(sql, _c=connector_ref):
+                            df = _c.execute_query(sql)
+                            return list(df.itertuples(index=False, name=None))
+                        cards.append(profiler.profile_table(
+                            run_query=_run_query,
+                            table_name=tbl.name,
+                            columns=tbl_cols,
+                            treat_as_date=_heuristic_dates(tbl_cols),
+                        ))
+                    cache.write(cid, cards)
+                    entry_ref.coverage_cards = cards
+                    logger.info(
+                        "Coverage profiled (background): %d cards for conn %s",
+                        len(cards), cid,
+                    )
+                except Exception as exc:
+                    logger.warning("Coverage profiling failed (non-fatal): %s", exc)
         _threading.Thread(target=_bg_profile, args=(entry, connector, conn_id), daemon=True).start()
 
         # Behavior-based warm priorities (Task 4.3)
@@ -740,6 +782,48 @@ def reconnect_from_saved(config_id: str, request: Request, user: dict = Depends(
                             len(schema_profile.tables), schema_profile.schema_hash[:8])
             except Exception as prof_err:
                 logger.warning("Reconnect schema profiling failed (non-fatal): %s", prof_err)
+                return
+            # Phase B — Ring 1 coverage profiling (feature-flagged).
+            if settings.FEATURE_DATA_COVERAGE:
+                try:
+                    from data_coverage import (
+                        CoverageProfiler, CoverageCache,
+                    )
+                    profiler = CoverageProfiler(
+                        dialect=(connector_ref.db_type or "").lower(),
+                        max_date=2,
+                        max_categorical=3,
+                    )
+                    cache = CoverageCache(
+                        root=settings.COVERAGE_CACHE_DIR,
+                        ttl_hours=settings.COVERAGE_CACHE_TTL_HOURS,
+                    )
+                    def _heuristic_dates(cols):
+                        return tuple(
+                            c["name"] for c in cols
+                            if c.get("name", "").endswith(("_at", "_date", "_ts"))
+                        )
+                    cards = []
+                    cap = settings.COVERAGE_MAX_TABLES_PER_CONNECTION
+                    for tbl in (schema_profile.tables or [])[:cap]:
+                        tbl_cols = [{"name": c.get("name", ""), "type": c.get("type", "")} for c in (tbl.columns or [])]
+                        def _run_query(sql, _c=connector_ref):
+                            df = _c.execute_query(sql)
+                            return list(df.itertuples(index=False, name=None))
+                        cards.append(profiler.profile_table(
+                            run_query=_run_query,
+                            table_name=tbl.name,
+                            columns=tbl_cols,
+                            treat_as_date=_heuristic_dates(tbl_cols),
+                        ))
+                    cache.write(cid, cards)
+                    entry_ref.coverage_cards = cards
+                    logger.info(
+                        "Coverage profiled (background): %d cards for conn %s",
+                        len(cards), cid,
+                    )
+                except Exception as exc:
+                    logger.warning("Coverage profiling failed (non-fatal): %s", exc)
         _threading.Thread(target=_bg_profile_reconnect, args=(entry, connector, conn_id), daemon=True).start()
 
         schema_param = (
