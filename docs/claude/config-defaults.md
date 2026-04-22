@@ -44,6 +44,24 @@ point here instead of duplicating values. Confirm against
 | `COVERAGE_MAX_COLUMNS_PER_TABLE` | `5` | Picker emits at most 5 columns: up to 2 date-like, 3 categorical. |
 | `COVERAGE_MAX_TABLES_PER_CONNECTION` | `30` | Budget cap: skip beyond 30 tables to bound connect time. |
 
+### Scope Validator (Phase C — Ring 3)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_SCOPE_VALIDATOR` | `True` | Master switch for Ring 3. Off → validator silent. |
+| `SCOPE_VALIDATOR_FAIL_OPEN` | `True` | H6 — sqlglot parse exception logs warning, never blocks. |
+| `SCOPE_VALIDATOR_REPLAN_BUDGET` | `1` | H6 — maximum re-plan turns per query on violation. |
+| `RULE_RANGE_MISMATCH` | `True` | Rule 1 — WHERE narrows outside DataCoverageCard min/max. |
+| `RULE_FANOUT_INFLATION` | `True` | Rule 2 — JOIN + COUNT(*) without DISTINCT. |
+| `RULE_LIMIT_BEFORE_ORDER` | `True` | Rule 3 — LIMIT in subquery + ORDER BY outer. |
+| `RULE_TIMEZONE_NAIVE` | `True` | Rule 4 — DATE on TIMESTAMP_TZ without AT TIME ZONE. |
+| `RULE_SOFT_DELETE_MISSING` | `True` | Rule 5 — historical window + `deleted_at` col + no tombstone predicate. |
+| `RULE_NEGATION_AS_JOIN` | `True` | Rule 6 — NL contains "never/no/without" + SQL is INNER JOIN. |
+| `RULE_DIALECT_FALLTHROUGH` | `True` | Rule 7 — sqlglot transpile failure against connection db_type. |
+| `RULE_VIEW_WALKER` | `True` | Rule 8 — recursive view resolution; card check at base. |
+| `RULE_CONJUNCTION_SELECTIVITY` | `False` | Rule 9 — EXPLAIN-backed estimate; off until Phase E. |
+| `RULE_EXPRESSION_PREDICATE` | `True` | Rule 10 — non-literal WHERE → mark unverified-scope. |
+
 ### Calc parser (Plan 8a)
 
 | Constant | Value | Notes |

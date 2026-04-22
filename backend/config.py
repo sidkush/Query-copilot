@@ -162,6 +162,21 @@ class Settings(BaseSettings):
     COVERAGE_CACHE_TTL_HOURS: int = Field(default=6)
     COVERAGE_MAX_COLUMNS_PER_TABLE: int = Field(default=5)
     COVERAGE_MAX_TABLES_PER_CONNECTION: int = Field(default=30)
+
+    # ── Scope Validator (Phase C — Ring 3) ──
+    FEATURE_SCOPE_VALIDATOR: bool = Field(default=True)
+    SCOPE_VALIDATOR_FAIL_OPEN: bool = Field(default=True)
+    SCOPE_VALIDATOR_REPLAN_BUDGET: int = Field(default=1)
+    RULE_RANGE_MISMATCH: bool = Field(default=True)
+    RULE_FANOUT_INFLATION: bool = Field(default=True)
+    RULE_LIMIT_BEFORE_ORDER: bool = Field(default=True)
+    RULE_TIMEZONE_NAIVE: bool = Field(default=True)
+    RULE_SOFT_DELETE_MISSING: bool = Field(default=True)
+    RULE_NEGATION_AS_JOIN: bool = Field(default=True)
+    RULE_DIALECT_FALLTHROUGH: bool = Field(default=True)
+    RULE_VIEW_WALKER: bool = Field(default=True)
+    RULE_CONJUNCTION_SELECTIVITY: bool = Field(default=False)
+    RULE_EXPRESSION_PREDICATE: bool = Field(default=True)
     QUERY_MEMORY_ENABLED: bool = Field(default=True)
     QUERY_MEMORY_COLLECTION_PREFIX: str = Field(default="query_memory_")
     QUERY_MEMORY_TTL_HOURS: int = Field(default=168)  # 7 days
