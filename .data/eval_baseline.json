@@ -1,0 +1,47 @@
+{
+  "suite": "trap_temporal_scope.jsonl",
+  "total": 10,
+  "passed": 10,
+  "per_question": {
+    "temp-001": {
+      "passed": true,
+      "reason": "date range matches oracle"
+    },
+    "temp-002": {
+      "passed": true,
+      "reason": "table referenced"
+    },
+    "temp-003": {
+      "passed": true,
+      "reason": "table referenced"
+    },
+    "temp-004": {
+      "passed": true,
+      "reason": "max date matches oracle"
+    },
+    "temp-005": {
+      "passed": true,
+      "reason": "no forbidden phrases"
+    },
+    "temp-006": {
+      "passed": true,
+      "reason": "no forbidden phrases"
+    },
+    "temp-007": {
+      "passed": true,
+      "reason": "table referenced"
+    },
+    "temp-008": {
+      "passed": true,
+      "reason": "no forbidden phrases"
+    },
+    "temp-009": {
+      "passed": true,
+      "reason": "table referenced"
+    },
+    "temp-010": {
+      "passed": true,
+      "reason": "no forbidden phrases"
+    }
+  }
+}

@@ -1,0 +1,47 @@
+name: Agent Trap Suite
+
+on:
+  pull_request:
+    branches: [main, askdb-global-comp]
+  push:
+    branches: [main, askdb-global-comp]
+
+# H19: forked PRs do NOT get staging secrets.
+permissions:
+  contents: read
+
+jobs:
+  mock-suite:
+    runs-on: ubuntu-latest
+    # Always runs — no secrets needed.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: pip install -r backend/requirements.txt
+      - name: Seed fixture DB
+        run: python -m backend.tests.fixtures.eval_seed /tmp/eval_fixture.sqlite
+      - name: Run trap suite against mock
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_temporal_scope.jsonl \
+            .data/eval_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+  shadow-suite:
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: mock-suite
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: pip install -r backend/requirements.txt
+      - name: Seed fixture DB
+        run: python -m backend.tests.fixtures.eval_seed /tmp/eval_fixture.sqlite
+      - name: Run shadow eval (20 Qs vs real Anthropic staging)
+        env:
+          ANTHROPIC_STAGING_KEY: ${{ secrets.ANTHROPIC_STAGING_KEY }}
+        run: python -m backend.tests.run_shadow_eval
