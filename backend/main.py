@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup — no auto DB connection; user connects via /api/connections/connect
     logger.info("Starting AskDB backend (lazy mode — waiting for user to connect a database)...")
+    # H19 — Phase H: supply-chain boot checks (lock file exists; safetensors-only).
+    from supply_chain import run_boot_checks
+    run_boot_checks()
     app.state.connections = {}  # {email: {conn_id: ConnectionEntry}}
     # M1: Explicit thread pool to prevent default 8-12 thread bottleneck
     # P2 NEMESIS fix: use get_running_loop() (Python 3.10+ safe in async context)
@@ -149,6 +152,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# H25 — Transport guards: reject CL+TE smuggling, non-UTF8 JSON bodies.
+# Installed BEFORE CORS so malformed requests are short-circuited early.
+from transport_guards import TransportGuardMiddleware
+
+if settings.FEATURE_TRANSPORT_GUARDS:
+    app.add_middleware(TransportGuardMiddleware)
 
 # CORS for React frontend
 app.add_middleware(
