@@ -177,6 +177,21 @@ class Settings(BaseSettings):
     RULE_VIEW_WALKER: bool = Field(default=True)
     RULE_CONJUNCTION_SELECTIVITY: bool = Field(default=False)
     RULE_EXPRESSION_PREDICATE: bool = Field(default=True)
+
+    # ── Intent Echo (Phase D — Ring 4) ──────────────────────────────
+    FEATURE_INTENT_ECHO: bool = Field(default=True)
+    ECHO_AMBIGUITY_AUTO_PROCEED_MAX: float = Field(default=0.3)
+    ECHO_AMBIGUITY_MANDATORY_CHOICE_MIN: float = Field(default=0.7)
+    ECHO_AUTO_DOWNGRADE_PAUSE_MS: int = Field(default=500)
+    ECHO_AUTO_DOWNGRADE_STREAK: int = Field(default=3)
+    ECHO_LLM_MAX_TOKENS: int = Field(default=512)
+    NON_INTERACTIVE_MODE_CONSERVATIVE: bool = Field(default=True)
+    VOICE_MODE_READBACK_AMBIGUITY_MIN: float = Field(default=0.5)
+    FEATURE_SEMANTIC_REGISTRY: bool = Field(default=True)
+    SEMANTIC_REGISTRY_DIR: str = Field(default=".data/semantic_registry")
+    FEATURE_DRIFT_DETECTOR: bool = Field(default=True)
+    FISCAL_YEAR_START_MONTH: int = Field(default=1)
+
     QUERY_MEMORY_ENABLED: bool = Field(default=True)
     QUERY_MEMORY_COLLECTION_PREFIX: str = Field(default="query_memory_")
     QUERY_MEMORY_TTL_HOURS: int = Field(default=168)  # 7 days
