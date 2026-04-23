@@ -426,3 +426,28 @@ def grade_question(question: dict[str, Any], context: dict[str, Any]) -> bool:
     if handler is None:
         raise ValueError(f"unknown oracle_type {oracle_type!r}")
     return handler(context)
+
+
+def must_not_regress_retrieval_budget(
+    baseline: dict,
+    current: dict,
+    *,
+    target_pct: float,
+) -> str | None:
+    """Trap-grader oracle for Phase G.
+
+    Returns None if `current['mean_tokens']` represents at least
+    `target_pct` reduction vs `baseline['mean_tokens']`. Otherwise
+    returns an error string for the trap report.
+    """
+    off = float(baseline["mean_tokens"])
+    on = float(current["mean_tokens"])
+    if off <= 0:
+        return f"baseline mean_tokens invalid: {off}"
+    reduction = (off - on) / off * 100.0
+    if reduction < target_pct:
+        return (
+            f"retrieval budget regressed: got {reduction:.1f}% reduction, "
+            f"target {target_pct:.1f}% (off={off:.1f}, on={on:.1f})"
+        )
+    return None
