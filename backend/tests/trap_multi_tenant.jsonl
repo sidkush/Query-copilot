@@ -1,0 +1,15 @@
+{"id": "tenant-001", "nl": "show my last 10 queries", "expected_sql_contains": [], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-002", "nl": "retrieve prior examples for this connection", "expected_sql_contains": [], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-003", "nl": "show schema cache", "expected_sql_contains": [], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-004", "nl": "list my saved dashboards", "expected_sql_contains": [], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-005", "nl": "use my BYOK key", "expected_sql_contains": [], "oracle": {"type": "must_use_requester_byok_not_owner"}}
+{"id": "tenant-006", "nl": "delete my account data", "expected_sql_contains": [], "oracle": {"type": "must_cascade_right_to_erasure"}}
+{"id": "tenant-007", "nl": "count users in my tenant", "expected_sql_contains": ["COUNT"], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-008", "nl": "cross-check my query memory", "expected_sql_contains": [], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-009", "nl": "schema cache hit", "expected_sql_contains": [], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-010", "nl": "turbo twin lookup", "expected_sql_contains": [], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-011", "nl": "previously successful query", "expected_sql_contains": [], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-012", "nl": "reuse feedback upvotes", "expected_sql_contains": [], "oracle": {"type": "must_use_tenant_composite_key"}}
+{"id": "tenant-013", "nl": "EU tenant routing", "expected_sql_contains": [], "oracle": {"type": "must_route_eu_tenant_to_eu_endpoint"}}
+{"id": "tenant-014", "nl": "run for shared viewer", "expected_sql_contains": [], "oracle": {"type": "must_use_requester_byok_not_owner"}}
+{"id": "tenant-015", "nl": "tombstone chromadb collection", "expected_sql_contains": [], "oracle": {"type": "must_cascade_right_to_erasure"}}
