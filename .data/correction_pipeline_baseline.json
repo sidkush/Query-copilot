@@ -1,0 +1,68 @@
+{
+  "suite": "trap_correction_pipeline",
+  "total": 15,
+  "passed": 15,
+  "pass_rate": 1.0,
+  "per_question": {
+    "cp-001": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-002": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-003": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-004": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-005": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-006": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-007": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-008": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-009": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-010": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-011": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-012": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-013": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-014": {
+      "passed": true,
+      "reason": "oracle pass"
+    },
+    "cp-015": {
+      "passed": true,
+      "reason": "oracle pass"
+    }
+  }
+}

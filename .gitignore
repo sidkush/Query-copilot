@@ -70,3 +70,6 @@ yarn-debug.log*
 # Phase E trap baselines — committed per H13
 !.data/sampling_trust_baseline.json
 !.data/multi_tenant_baseline.json
+
+# Phase F trap baseline — committed per H13
+!.data/correction_pipeline_baseline.json
