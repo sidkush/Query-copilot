@@ -458,6 +458,7 @@ export const useStore = create((set, get) => ({
     dualResponseActive: false,
     cachedResultStep: null,
     pendingIntentEcho: null,
+    pendingProvenanceChip: null,
     agentChecklist: [],
     agentPhase: null,
     agentElapsedMs: 0,
@@ -478,12 +479,16 @@ export const useStore = create((set, get) => ({
     dualResponseActive: false,
     cachedResultStep: null,
     pendingIntentEcho: null,
+    pendingProvenanceChip: null,
     // NOTE: agentChatId intentionally NOT cleared — preserves conversation thread
   }),
   setDualResponseActive: (active) => set({ dualResponseActive: active }),
   setCachedResultStep: (step) => set({ cachedResultStep: step }),
   setPendingIntentEcho: (card) => set({ pendingIntentEcho: card }),
   clearPendingIntentEcho: () => set({ pendingIntentEcho: null }),
+  pendingProvenanceChip: null,
+  setProvenanceChip: (chip) => set({ pendingProvenanceChip: chip }),
+  clearProvenanceChip: () => set({ pendingProvenanceChip: null }),
   tickEchoStreak: (pauseMs) => set((s) => ({
     echoPauseMs: pauseMs,
     echoRubberStampStreak: pauseMs < 500

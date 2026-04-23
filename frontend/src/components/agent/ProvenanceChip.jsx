@@ -10,7 +10,7 @@ const ICONS = {
 
 export default function ProvenanceChip({ chip }) {
   if (!chip) return null;
-  const Icon = ICONS[chip.trust] || CircleWavyCheck;
+  const Icon = ICONS[chip.trust] || SealCheck;
   return (
     <motion.span
       className={`provenance-chip provenance-chip--${chip.trust}`}

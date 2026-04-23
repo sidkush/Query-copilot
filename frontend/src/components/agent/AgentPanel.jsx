@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { TOKENS } from "../dashboard/tokens";
 import AgentStepFeed from "./AgentStepFeed";
 import IntentEcho from "./IntentEcho";
+import ProvenanceChip from "./ProvenanceChip";
 import VoiceIndicator from "../voice/VoiceIndicator";
 import useSpeechRecognition from "../../hooks/useSpeechRecognition";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
@@ -160,6 +161,9 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
   const setPendingIntentEcho = useStore((s) => s.setPendingIntentEcho);
   const clearPendingIntentEcho = useStore((s) => s.clearPendingIntentEcho);
   const tickEchoStreak = useStore((s) => s.tickEchoStreak);
+  const pendingProvenanceChip = useStore((s) => s.pendingProvenanceChip);
+  const setProvenanceChip = useStore((s) => s.setProvenanceChip);
+  const clearProvenanceChip = useStore((s) => s.clearProvenanceChip);
   const agentPermissionMode = useStore((s) => s.agentPermissionMode);
   const agentContext = useStore((s) => s.agentContext);
   const softClearAgent = useStore((s) => s.softClearAgent);
@@ -481,6 +485,11 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
         return;
       }
 
+      if (step.__event === "provenance_chip") {
+        setProvenanceChip(typeof step.data === "string" ? JSON.parse(step.data) : step);
+        return;
+      }
+
       if (step.type === "ask_user") {
         setAgentWaiting(step.content, step.tool_input || step.options);
       } else if (step.type === "error") {
@@ -494,6 +503,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
         const resultText = step.final_answer || step.content;
         addAgentStep({ type: "result", content: resultText, sql: step.sql });
         setAgentLoading(false);
+        clearProvenanceChip();
         // Auto-speak result ONLY when voice mode is active (user clicked mic)
         if (resultText && ttsSupported && isListening) speak(resultText.slice(0, 500));
         // Reload dashboard after agent finishes (covers all tile modifications)
@@ -511,7 +521,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
     // isListening is read inside the SSE callback only and intentionally
     // captures the latest value via streamRef closure, not the dep array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep, setPendingIntentEcho]);
+  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep, setPendingIntentEcho, setProvenanceChip, clearProvenanceChip]);
 
   // ── Quick action — same as handleSubmit but accepts text directly ──
   const handleQuickAction = useCallback((text) => {
@@ -543,6 +553,11 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
         return;
       }
 
+      if (step.__event === "provenance_chip") {
+        setProvenanceChip(typeof step.data === "string" ? JSON.parse(step.data) : step);
+        return;
+      }
+
       if (step.type === "ask_user") {
         setAgentWaiting(step.content, step.tool_input || step.options);
       } else if (step.type === "error") {
@@ -553,6 +568,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
         const resultText = step.final_answer || step.content;
         addAgentStep({ type: "result", content: resultText, sql: step.sql });
         setAgentLoading(false);
+        clearProvenanceChip();
         // Auto-speak result ONLY when voice mode is active (user clicked mic)
         if (resultText && ttsSupported && isListening) speak(resultText.slice(0, 500));
         const dashId = useStore.getState().activeDashboardId;
@@ -568,7 +584,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
     // isListening is read inside the SSE callback only and intentionally
     // captures the latest value via streamRef closure, not the dep array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep, setPendingIntentEcho]);
+  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep, setPendingIntentEcho, setProvenanceChip, clearProvenanceChip]);
 
   // Keep ref in sync so the speech recognition callback always calls the latest version
   useEffect(() => { handleQuickActionRef.current = handleQuickAction; }, [handleQuickAction]);
@@ -1121,6 +1137,13 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
               <VoiceIndicator isListening={isListening} isSpeaking={isSpeaking} interimTranscript={interimTranscript} />
               <AgentStepFeed compact={panelWidth < 400} />
             </>
+          )}
+
+          {/* Phase E — ProvenanceChip: trust stamp rendered before first token */}
+          {pendingProvenanceChip && (
+            <div style={{ padding: '0 16px' }}>
+              <ProvenanceChip chip={pendingProvenanceChip} />
+            </div>
           )}
 
           {/* Phase D — IntentEcho card between stream and result */}

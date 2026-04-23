@@ -16,6 +16,7 @@ import ReactMarkdown from "react-markdown";
 import { MD_COMPONENTS_COMFY, REMARK_PLUGINS } from "../lib/agentMarkdown";
 import SQLPreview from "../components/SQLPreview";
 import AgentStepRenderer from "../components/agent/AgentStepRenderer";
+import ProvenanceChip from "../components/agent/ProvenanceChip";
 import ResultsTable from "../components/ResultsTable";
 import LegacyResultChart from "../components/dashboard/lib/LegacyResultChart";
 import ChartEditModal from "../components/dashboard/lib/ChartEditModal";
@@ -249,6 +250,7 @@ export default function Chat() {
   const [editChart, setEditChart] = useState(null);
   const agentPersona = useStore((s) => s.agentPersona);
   const agentPermissionMode = useStore((s) => s.agentPermissionMode);
+  const pendingProvenanceChip = useStore((s) => s.pendingProvenanceChip);
 
   // ── Voice mode hooks ──
   const chatFormRef = useRef(null);
@@ -526,7 +528,14 @@ export default function Chat() {
             // where it broke, then reject to trigger the fallback path.
             pushStep(step);
             markStepsDone();
+            useStore.getState().clearProvenanceChip();
             reject(new Error(step.content || "Agent error"));
+            return;
+          }
+
+          if (step.__event === "provenance_chip") {
+            const chipData = typeof step.data === "string" ? JSON.parse(step.data) : step;
+            useStore.getState().setProvenanceChip(chipData);
             return;
           }
 
@@ -591,6 +600,7 @@ export default function Chat() {
           // Final result with SQL/data — skip if turbo already answered
           if (step.final_answer || step.sql) {
             markStepsDone();
+            useStore.getState().clearProvenanceChip();
 
             if (!resolvedViaTurbo) {
               if (step.sql) {
@@ -1388,6 +1398,10 @@ export default function Chat() {
                       ? 'rgba(34, 197, 94, 0.2)'
                       : 'var(--glass-border)',
                   }}>
+                    {/* Phase E — ProvenanceChip: trust stamp before first token */}
+                    {pendingProvenanceChip && (
+                      <ProvenanceChip chip={pendingProvenanceChip} />
+                    )}
                     {/* Verifying state — pulsing dot while live query runs */}
                     {msg.turboInstant && (
                       <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold text-cyan-400">
