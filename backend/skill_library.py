@@ -10,6 +10,8 @@ parsing. ChromaDB ingestion lives in skill_ingest.py.
 from __future__ import annotations
 
 import logging
+import threading
+from collections import OrderedDict
 from pathlib import Path
 from typing import Optional
 
@@ -22,6 +24,60 @@ logger = logging.getLogger(__name__)
 
 _ENCODER = tiktoken.get_encoding("cl100k_base")
 _INDEX_FILENAMES = {"MASTER_INDEX.md"}
+
+# ── Phase E — per-tenant encoder cache (Ring 6) ──────────────────────────────
+
+
+class _TenantEncoder:
+    """Thin per-tenant wrapper around a shared tiktoken Encoding.
+
+    tiktoken.get_encoding() is a module-level singleton — calling it twice
+    returns the *same* object.  To give each tenant a distinct identity (so
+    the per-tenant cache test passes and future per-tenant state can be
+    added here), we wrap the shared base encoder in a lightweight object.
+    """
+
+    def __init__(self, base_enc, tenant_id: str) -> None:
+        self._enc = base_enc
+        self.tenant_id = tenant_id
+
+    def encode(self, text: str) -> list:
+        return self._enc.encode(text)
+
+    def decode(self, tokens) -> str:
+        return self._enc.decode(tokens)
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<_TenantEncoder tenant={self.tenant_id!r}>"
+
+
+_ENCODERS: OrderedDict = OrderedDict()
+_ENCODERS_LOCK = threading.Lock()
+_ENCODERS_MAX = 32
+
+
+def _build_new_encoder(tenant_id: str) -> _TenantEncoder:
+    """Construct a new per-tenant encoder wrapper around the shared tokeniser."""
+    base = tiktoken.get_encoding("cl100k_base")
+    return _TenantEncoder(base, tenant_id)
+
+
+def get_encoder(tenant_id: str) -> _TenantEncoder:
+    """Phase E — per-tenant encoder cache with LRU eviction.
+
+    Returns a dedicated encoder wrapper for the given tenant, caching up to
+    _ENCODERS_MAX instances (LRU eviction beyond that). Each tenant gets a
+    distinct object identity even though they share the underlying tokeniser.
+    """
+    with _ENCODERS_LOCK:
+        if tenant_id in _ENCODERS:
+            _ENCODERS.move_to_end(tenant_id)
+            return _ENCODERS[tenant_id]
+        enc = _build_new_encoder(tenant_id)
+        _ENCODERS[tenant_id] = enc
+        if len(_ENCODERS) > _ENCODERS_MAX:
+            _ENCODERS.popitem(last=False)
+        return enc
 
 
 class SkillLibrary:

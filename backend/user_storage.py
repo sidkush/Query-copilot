@@ -1494,3 +1494,38 @@ def clear_behavior_profile(email: str) -> bool:
     """Delete all behavior data for a user (right-to-erasure)."""
     with _behavior_lock:
         return _backend.delete(_behavior_key(email))
+
+
+# ── Phase E — Tenant ID migration ──────────────────────────────────────────
+
+def load_profile_with_tenant(path):
+    """Phase E — read a profile JSON, minting + persisting tenant_id if absent.
+
+    Backward-compat: legacy profiles without tenant_id get one on first read.
+    """
+    import json
+    import os
+    import tempfile
+    from pathlib import Path
+    from tenant_fortress import resolve_tenant_id
+
+    p = Path(path)
+    if not p.exists():
+        return {}
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if "tenant_id" not in raw:
+        resolve_tenant_id(raw)
+        fd, tmp = tempfile.mkstemp(dir=str(p.parent), prefix=f".{p.name}_", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(raw, fh, indent=2)
+            os.replace(tmp, p)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+    return raw

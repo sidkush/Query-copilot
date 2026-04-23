@@ -16,6 +16,21 @@ from typing import Optional
 from config import settings
 from user_storage import list_chats, load_chat, load_query_stats
 
+# Phase E (Ring 6 / H7) — TenantFortress composite key helpers available here.
+# Any future in-memory cache in this module that is keyed by user/email MUST
+# instead use:
+#
+#   from tenant_fortress import session_key as _tenant_session_key
+#   key = _tenant_session_key(
+#       tenant_id=profile.get("tenant_id", "unknown"),
+#       conn_id=conn_id or "none",
+#       user_id=user_id,
+#       session_id=session_id or "_",
+#   )
+#
+# Import validated below to surface dependency errors at module load time.
+from tenant_fortress import session_key as _tenant_session_key  # noqa: F401
+
 _logger = logging.getLogger(__name__)
 
 # ── Skill Level Detection (#4) ──────────────────────────────────
