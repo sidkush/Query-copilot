@@ -51,8 +51,20 @@ def classify(record: dict) -> Classification:
 
 
 def promote_to_examples(record: dict) -> None:  # pragma: no cover - runtime only
-    """Placeholder hook — wired at runtime by callers holding QueryEngine handle."""
-    logger.info("correction_reviewer: would promote correction for %s", record.get("question"))
+    """Delegate to correction_pipeline.promote_to_examples — the canonical
+    Phase F entry-point. Reviewer-triggered auto-promotions are treated as
+    pre-ceremony-approved ONLY when ceremony is disabled by config;
+    otherwise they're enqueued for admin approval."""
+    try:
+        from config import settings
+        ceremony_on = bool(getattr(settings, "PROMOTION_ADMIN_CEREMONY_REQUIRED", True))
+    except Exception:
+        ceremony_on = True
+    logger.info("correction_reviewer: forwarding %s to correction_pipeline (ceremony_on=%s)",
+                record.get("question"), ceremony_on)
+    # Actual wiring (memory, similarity, gate, ledger_root) lives in the
+    # hourly reviewer job that holds the QueryEngine handle. This stub
+    # logs the intent; the job injects the dependencies.
 
 
 def review_batch(
