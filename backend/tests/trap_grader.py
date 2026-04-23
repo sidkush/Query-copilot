@@ -9,6 +9,7 @@ Each oracle type has a deterministic check:
 """
 from __future__ import annotations
 import os
+import re as _re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -176,6 +177,36 @@ def _check_must_not_trigger_validator_rule(sql: str, oracle: dict) -> tuple:
     return True, f"validator rule {rule!r} not triggered (clean)"
 
 
+def _check_must_emit_intent_echo(sql: str, oracle: dict) -> tuple:
+    min_amb = float(oracle.get("min_ambiguity", 0.3))
+    m = _re.search(r"intent_echo:\s*ambiguity=([\d.]+)", sql, _re.IGNORECASE)
+    if not m:
+        return False, "no intent_echo marker in SQL"
+    score = float(m.group(1))
+    if score < min_amb:
+        return False, f"intent_echo ambiguity {score} below required {min_amb}"
+    return True, f"intent_echo ambiguity {score} >= {min_amb}"
+
+
+def _check_must_not_emit_intent_echo(sql: str, oracle: dict) -> tuple:
+    max_amb = float(oracle.get("max_ambiguity", 0.3))
+    m = _re.search(r"intent_echo:\s*ambiguity=([\d.]+)", sql, _re.IGNORECASE)
+    if not m:
+        return True, "no intent_echo marker (clean)"
+    score = float(m.group(1))
+    if score > max_amb:
+        return False, f"intent_echo fired at {score} but expected <= {max_amb}"
+    return True, f"intent_echo at {score} within allowed <= {max_amb}"
+
+
+def _check_must_include_clause(sql: str, oracle: dict) -> tuple:
+    kind = oracle.get("clause_kind", "")
+    marker = f"clause: {kind}"
+    if marker.lower() in sql.lower():
+        return True, f"clause {kind!r} present"
+    return False, f"clause {kind!r} missing from SQL"
+
+
 _HANDLERS = {
     "date_range": _check_date_range,
     "must_not_refuse": lambda sql, ora, _db: _check_must_not_refuse(sql, ora),
@@ -188,6 +219,10 @@ _HANDLERS = {
     # Phase C — Ring 3 oracles.
     "must_trigger_validator_rule": lambda sql, ora, _db: _check_must_trigger_validator_rule(sql, ora),
     "must_not_trigger_validator_rule": lambda sql, ora, _db: _check_must_not_trigger_validator_rule(sql, ora),
+    # Phase D — Ring 4 oracles.
+    "must_emit_intent_echo":     lambda sql, ora, _db: _check_must_emit_intent_echo(sql, ora),
+    "must_not_emit_intent_echo": lambda sql, ora, _db: _check_must_not_emit_intent_echo(sql, ora),
+    "must_include_clause":       lambda sql, ora, _db: _check_must_include_clause(sql, ora),
 }
 
 
