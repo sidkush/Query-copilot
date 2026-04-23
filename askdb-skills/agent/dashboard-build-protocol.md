@@ -1,5 +1,8 @@
 ---
 applies_to: multi-step-agent, dashboard-build
+depends_on:
+  - multi-step-planning
+  - session-memory-protocol
 description: 'Phase 1: UNDERSTAND 1a. Parse user intent — what is the business question?
   1b. Identify data domain (sales, product, finance, marketing, ops) 1c....'
 legacy: true

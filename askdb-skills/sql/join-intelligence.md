@@ -1,5 +1,8 @@
 ---
 applies_to: sql-generation
+depends_on:
+  - schema-linking-evidence
+  - schema-profiling
 description: Does an explicit FK constraint exist? YES → Use it directly. Highest
   confidence. NO → Run column name inference (see schema-profiling.md) → If...
 legacy: true

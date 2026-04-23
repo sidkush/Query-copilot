@@ -1,5 +1,7 @@
 ---
 name: learn-from-corrections
+depends_on:
+  - session-memory-protocol
 description: Safe teach-by-correction protocol with ICRH safeguards — correction queue, human review, shadow mode, golden eval gating
 priority: 3
 tokens_budget: 1200

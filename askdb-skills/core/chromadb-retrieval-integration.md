@@ -1,5 +1,7 @@
 ---
 applies_to: always-on
+depends_on:
+  - security-rules
 description: The skill library uses ChromaDB as a semantic retrieval layer. Instead
   of loading all 31+ markdown files into every system prompt (expensive,...
 legacy: true
