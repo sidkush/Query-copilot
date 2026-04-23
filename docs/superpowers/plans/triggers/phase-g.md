@@ -32,9 +32,9 @@ from tenant_fortress import chroma_namespace
 from sampling_aware import approximate_distinct_count
 # Phase F
 from correction_pipeline import promote_to_examples
-from golden_eval_gate import run_gate
+from golden_eval_gate import GoldenEvalGate
 from admin_ceremony import AdminCeremony
-from adversarial_similarity import is_storm
+from adversarial_similarity import AdversarialSimilarity
 print('Phase A-F imports OK')
 "
 ```

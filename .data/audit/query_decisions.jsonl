@@ -1,0 +1,54 @@
+{"timestamp": "2026-04-20T05:08:29.346101+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-20T05:08:33.581734+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-20T05:08:33.624352+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-20T05:08:33.627276+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-20T05:08:33.638018+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-20T05:08:33.646203+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T09:52:01.517483+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T09:52:01.566271+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T09:52:01.581041+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-22T09:52:16.764811+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T09:52:16.827018+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T09:52:16.884905+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-22T09:52:16.886630+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T09:52:16.927591+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T09:52:17.017011+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-22T09:52:39.839913+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T09:52:39.865367+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T09:52:39.891529+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T09:52:39.922965+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T09:52:39.949750+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-22T09:52:39.975195+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T09:52:40.081103+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-22T09:52:40.103324+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T09:52:40.126926+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-22T09:52:40.470060+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T09:52:40.482204+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T09:52:42.229401+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T09:52:42.239689+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T09:52:42.288768+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T09:52:42.291776+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T21:51:25.258227+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T21:51:25.291898+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T21:51:25.298572+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-23T21:51:36.389955+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T21:51:36.435268+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T21:51:36.486775+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-23T21:51:36.489313+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T21:51:36.522941+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T21:51:36.593888+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-23T21:51:51.514861+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:51:51.529395+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:51:51.543165+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:51:51.554228+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:51:51.569152+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-23T21:51:51.583271+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:51:51.641826+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-23T21:51:51.655911+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:51:51.671131+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-23T21:51:52.006459+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T21:51:52.013052+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T21:51:53.067946+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T21:51:53.073564+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T21:51:53.109519+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T21:51:53.111208+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}

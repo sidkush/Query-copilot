@@ -363,3 +363,339 @@
 {"event": "view_data", "timestamp": "2026-04-19T01:17:24.968060+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
 {"event": "view_data", "timestamp": "2026-04-19T01:17:24.992029+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
 {"event": "view_data", "timestamp": "2026-04-19T01:17:25.013733+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-21T02:44:57.105126+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-21T02:44:57.152282+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-21T02:44:57.163911+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-21T02:45:03.564322+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T02:45:03.660588+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T02:45:03.746953+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-21T02:45:03.748888+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T02:45:03.820116+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T02:45:03.958381+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-21T02:45:22.036923+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T02:45:22.058076+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T02:45:22.074806+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T02:45:22.095328+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T02:45:22.114578+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-21T02:45:22.130771+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T02:45:22.210360+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-21T02:45:22.227059+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T02:45:22.244246+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-21T02:45:22.512269+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T02:45:22.521163+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T02:45:23.619062+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T02:45:23.627976+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T02:45:23.661472+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T02:45:23.662654+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T05:41:27.657087+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-21T05:41:27.719094+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-21T05:41:27.733423+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-21T05:41:41.970777+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T05:41:42.083424+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T05:41:42.187335+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-21T05:41:42.188940+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T05:41:42.276897+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T05:41:42.439477+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-21T05:41:59.730518+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T05:41:59.755707+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T05:41:59.774432+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T05:41:59.791895+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T05:41:59.814034+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-21T05:41:59.837180+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T05:41:59.926763+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-21T05:41:59.949464+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T05:41:59.971976+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-21T05:42:00.254546+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T05:42:00.265979+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T05:42:01.911532+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T05:42:01.921720+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T05:42:01.966865+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T05:42:01.968823+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T07:07:17.661582+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-21T07:07:17.714560+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-21T07:07:17.735302+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-21T07:07:31.265550+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T07:07:31.378943+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T07:07:31.504233+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-21T07:07:31.507004+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T07:07:31.601966+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T07:07:31.792663+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-21T07:07:50.163145+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T07:07:50.184933+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T07:07:50.207518+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T07:07:50.231666+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T07:07:50.257244+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-21T07:07:50.278629+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T07:07:50.365774+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-21T07:07:50.386581+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T07:07:50.413889+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-21T07:07:50.709421+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T07:07:50.719715+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T07:07:52.516846+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T07:07:52.527654+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T07:07:52.578023+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T07:07:52.579486+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T11:19:06.708963+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-21T11:19:06.775846+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-21T11:19:06.791360+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-21T11:19:22.471004+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T11:19:22.577345+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T11:19:22.682996+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-21T11:19:22.685843+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T11:19:22.781263+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-21T11:19:22.961391+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-21T11:19:43.774793+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T11:19:43.803074+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T11:19:43.831539+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T11:19:43.856561+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T11:19:43.886745+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-21T11:19:43.915040+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T11:19:44.044887+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-21T11:19:44.072374+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-21T11:19:44.102795+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-21T11:19:44.420936+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T11:19:44.433624+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T11:19:46.219264+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-21T11:19:46.231340+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T11:19:46.272257+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-21T11:19:46.274394+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T10:32:42.326407+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T10:32:42.372988+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T10:32:42.386208+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-22T10:32:54.921838+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T10:32:55.012288+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T10:32:55.117769+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-22T10:32:55.119449+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T10:32:55.207605+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T10:32:55.353860+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-22T10:33:11.842655+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:33:11.861332+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:33:11.881187+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:33:11.900475+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:33:11.919371+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-22T10:33:11.937917+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:33:12.018491+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-22T10:33:12.036722+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:33:12.058571+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-22T10:33:12.315197+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T10:33:12.323737+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T10:33:13.673354+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T10:33:13.681312+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T10:33:13.731493+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T10:33:13.734598+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T10:35:43.843750+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T10:35:43.888706+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T10:35:43.900103+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-22T10:35:55.900382+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T10:35:56.000192+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T10:35:56.090755+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-22T10:35:56.092671+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T10:35:56.163572+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T10:35:56.313218+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-22T10:36:13.430917+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:36:13.449654+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:36:13.468153+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:36:13.486606+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:36:13.507160+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-22T10:36:13.528842+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:36:13.614197+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-22T10:36:13.632902+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T10:36:13.651749+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-22T10:36:13.919010+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T10:36:13.927598+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T10:36:15.213008+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T10:36:15.220470+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T10:36:15.260976+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T10:36:15.262472+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T20:05:15.085070+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T20:05:15.099061+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T20:05:15.103044+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-22T20:05:25.040581+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T20:05:25.105593+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T20:05:25.171961+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-22T20:05:25.173017+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T20:05:25.232670+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T20:05:25.352602+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-22T20:05:36.413018+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:05:36.421975+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:05:36.428347+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:05:36.434885+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:05:36.441222+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-22T20:05:36.447457+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:05:36.471929+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-22T20:05:36.479776+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:05:36.487769+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-22T20:05:36.698775+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T20:05:36.703440+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T20:05:37.664982+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T20:05:37.668363+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T20:05:37.704639+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T20:05:37.705425+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T20:29:09.370305+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T20:29:09.384277+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-22T20:29:09.388007+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-22T20:29:18.232751+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T20:29:18.285503+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T20:29:18.338723+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-22T20:29:18.339703+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T20:29:18.386452+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-22T20:29:18.477838+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-22T20:29:28.385578+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:29:28.394330+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:29:28.400671+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:29:28.407266+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:29:28.415462+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-22T20:29:28.422673+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:29:28.454499+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-22T20:29:28.461360+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-22T20:29:28.466914+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-22T20:29:28.670079+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T20:29:28.685154+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T20:29:29.411550+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-22T20:29:29.422245+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T20:29:29.449790+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-22T20:29:29.451708+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T07:07:43.098586+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T07:07:43.112763+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T07:07:43.116239+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-23T07:07:53.071177+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T07:07:53.125526+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T07:07:53.179763+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-23T07:07:53.180542+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T07:07:53.229583+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T07:07:53.322538+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-23T07:08:03.414790+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T07:08:03.423309+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T07:08:03.431233+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T07:08:03.439115+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T07:08:03.447925+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-23T07:08:03.454682+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T07:08:03.480366+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-23T07:08:03.487357+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T07:08:03.492824+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-23T07:08:03.695675+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T07:08:03.699670+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T07:08:04.622933+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T07:08:04.626046+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T07:08:04.640231+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T07:08:04.640819+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T19:57:27.383636+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T19:57:27.397890+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T19:57:27.401482+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-23T19:57:36.999077+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T19:57:37.054999+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T19:57:37.107816+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-23T19:57:37.108495+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T19:57:37.160879+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T19:57:37.259633+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-23T19:57:47.206826+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T19:57:47.214708+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T19:57:47.224112+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T19:57:47.232029+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T19:57:47.238920+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-23T19:57:47.246603+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T19:57:47.272666+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-23T19:57:47.278736+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T19:57:47.288589+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-23T19:57:47.495652+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T19:57:47.511690+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T19:57:48.517514+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T19:57:48.531973+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T19:57:48.579421+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T19:57:48.580624+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T20:12:19.827199+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T20:12:19.859906+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T20:12:19.868319+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-23T20:12:30.898645+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T20:12:30.979302+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T20:12:31.055745+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-23T20:12:31.056722+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T20:12:31.125354+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T20:12:31.252852+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-23T20:12:51.907166+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T20:12:51.927697+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T20:12:51.945477+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T20:12:51.960124+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T20:12:51.975792+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-23T20:12:51.991452+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T20:12:52.054919+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-23T20:12:52.082693+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T20:12:52.126183+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-23T20:12:52.562659+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T20:12:52.574451+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T20:12:54.174016+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T20:12:54.184621+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T20:12:54.231729+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T20:12:54.233409+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T21:18:29.020031+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T21:18:29.054755+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T21:18:29.063050+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-23T21:18:42.412600+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T21:18:42.494908+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T21:18:42.576785+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-23T21:18:42.578364+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T21:18:42.642685+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T21:18:42.777677+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-23T21:19:01.811672+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:19:01.825527+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:19:01.840983+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:19:01.855294+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:19:01.872055+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-23T21:19:01.888873+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:19:01.950100+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-23T21:19:01.962125+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T21:19:01.974873+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-23T21:19:02.254206+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T21:19:02.263249+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T21:19:03.978296+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T21:19:03.985051+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T21:19:04.022504+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T21:19:04.023862+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T21:59:49.958955+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T21:59:50.017678+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T21:59:50.033464+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-23T22:00:06.201028+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T22:00:06.326121+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T22:00:06.447071+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-23T22:00:06.448591+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T22:00:06.555433+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T22:00:06.757086+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-23T22:00:33.124733+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:00:33.144922+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:00:33.168272+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:00:33.202538+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:00:33.233327+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-23T22:00:33.265149+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:00:33.379542+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-23T22:00:33.426843+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:00:33.461722+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-23T22:00:33.939929+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T22:00:33.953647+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T22:00:36.327016+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T22:00:40.374103+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T22:00:40.426565+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T22:00:40.428441+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T22:19:21.533911+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 26, "fields_used": ["Customer", "Sales"], "confidence": 0.9, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T22:19:21.583935+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"timestamp": "2026-04-23T22:19:21.597674+00:00", "event_type": "calc_suggest", "user": "calc-suggest@askdb.dev", "description_len": 1, "fields_used": ["Sales"], "confidence": 0.5, "input_tokens": 100, "output_tokens": 50}
+{"event": "filter_applied", "timestamp": "2026-04-23T22:19:38.248667+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T22:19:38.395561+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T22:19:38.511103+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["year"]}
+{"event": "filter_applied", "timestamp": "2026-04-23T22:19:38.514128+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "filter_count": 1, "filter_fields": ["region"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T22:19:38.617927+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "parameters_applied", "timestamp": "2026-04-23T22:19:38.814499+00:00", "conn_id": "test-conn", "user": "demo@askdb.dev", "param_names": ["n"]}
+{"event": "view_data", "timestamp": "2026-04-23T22:20:08.348104+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:20:08.375522+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:20:08.399782+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:20:08.425307+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:20:08.450695+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 50000}
+{"event": "view_data", "timestamp": "2026-04-23T22:20:08.473975+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:20:08.580101+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 12345}
+{"event": "view_data", "timestamp": "2026-04-23T22:20:08.605782+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": ["region", "year"], "row_count": 2, "limit": 10000}
+{"event": "view_data", "timestamp": "2026-04-23T22:20:08.629140+00:00", "conn_id": "conn-1", "user": "pytest@askdb.dev", "mark_fields": [], "row_count": 2, "limit": 10000}
+{"timestamp": "2026-04-23T22:20:08.925105+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T22:20:08.937292+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "1f5fe2f346b47fa3d43498da8a575a1c", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T22:20:10.351178+00:00", "conn_id": "conn_a", "event_type": "hit_inprocess", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "in_process", "reason": "exact key match"}
+{"timestamp": "2026-04-23T22:20:14.394269+00:00", "conn_id": "conn_a", "event_type": "miss", "key_hash": "4ea46762682a6aef5407ae33789161fb", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T22:20:14.439932+00:00", "conn_id": "ds_A", "event_type": "miss", "key_hash": "3462e0bf03ff0ae8c96dd48569160256", "tier": "both", "reason": "neither tier returned a value"}
+{"timestamp": "2026-04-23T22:20:14.442149+00:00", "conn_id": "ds_B", "event_type": "miss", "key_hash": "94a9440d8c549cb83d0fb83b372ba3d4", "tier": "both", "reason": "neither tier returned a value"}
