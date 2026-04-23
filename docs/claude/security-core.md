@@ -13,6 +13,13 @@ The canon. Security invariants (never weaken), hardening status (33 findings res
 - **`query_twin()` validates SQL** through `SQLValidator` before execution and caps results at 10K rows. Prevents filesystem-reading DuckDB functions and OOM.
 - **Query memory stores anonymized SQL intents** — `anonymize_sql()` strips all literals (integers, decimals, floats, scientific, hex, dollar-quoted, escaped quotes). Sensitive column names masked to `[MASKED]` via alpha-only lookarounds (`(?<![a-zA-Z])`) and substring match before ChromaDB storage. Never store raw query results or column values in ChromaDB.
 - **Dependencies** — critical packages pinned to exact versions (`==`) in `requirements.txt` to prevent supply chain attacks.
+- **Lock-file enforced at install** — CI runs `pip install --require-hashes -r requirements.lock`. `requirements.txt` is input to `pip-compile`, not the install target in CI / production.
+- **Safetensors only** — embedder loader rejects unsafe weight formats. No unsafe-serialization weights enter the runtime.
+- **`pull_request_target` is banned** in every workflow (forked PRs never see staging secrets).
+- **Auth goes through one middleware** — `backend/middleware/auth_middleware.py` is the only place `get_current_user` is called. No per-route drift.
+- **Audit log is checksummed** — rotation writes sibling `.sha256` file; restart verifies chain.
+- **Transport guards always on** — CL-XOR-TE rejected at ASGI; HTTP/2 rapid-reset capped; SSE sets `X-Accel-Buffering: no`; non-UTF8 body rejected.
+- **PCI/HIPAA modes are one-way** — once `ASKDB_PCI_MODE=True` at boot, demo login is hard-rejected; audit-log fsync per write; Redis mandatory.
 
 ## Security Hardening Status
 

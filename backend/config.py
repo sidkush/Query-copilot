@@ -241,6 +241,43 @@ class Settings(BaseSettings):
     SKILL_ARCHIVAL_MIN_RETRIEVALS: int = Field(default=1, description="< N retrievals in the dormancy window -> archive.")
     SKILL_ARCHIVAL_ROOT: str = Field(default="askdb-skills/archive", description="Relative to repo root. Moved files preserve subdir.")
 
+    # ── Supply Chain + Pipeline (Phase H — H19) ──
+    FEATURE_SUPPLY_CHAIN_HARDENING: bool = Field(default=True, description="Off -> skip lock-file + safetensors checks at startup.")
+    REQUIREMENTS_LOCK_PATH: str = Field(default="backend/requirements.lock", description="Relative to repo root.")
+    SAFETENSORS_ONLY: bool = Field(default=True, description="Reject non-safetensors embedder weight formats.")
+    # ── Identity Hardening (Phase H — H20) ──
+    FEATURE_IDENTITY_HARDENING: bool = Field(default=True)
+    OAUTH_STATE_HMAC_TTL_SECONDS: int = Field(default=600, description="Signed-state expiry; 10 min matches existing flow.")
+    STRIPE_WEBHOOK_SECRET: str = Field(default="", description="Stripe-signed webhook shared secret; empty -> verify raises.")
+    DISPOSABLE_EMAIL_BLOCKLIST_PATH: str = Field(default="backend/middleware/disposable_emails.txt")
+    TRIAL_QUOTA_DAILY_QUERIES: int = Field(default=10, description="Free-tier daily query cap; server-enforced.")
+    # ── Infra Resilience (Phase H — H21) ──
+    FEATURE_INFRA_RESILIENCE: bool = Field(default=True)
+    AGENT_SESSION_DB_PATH: str = Field(default=".data/agent_sessions.db", description="PVC-mount point in k8s.")
+    STALE_BACKUP_WARN_DAYS: int = Field(default=30)
+    # ── Accessibility (Phase H — H22) ──
+    FEATURE_A11Y_MOTION_SETTING: bool = Field(default=True)
+    MOTION_SPEED_MS_DEFAULT: int = Field(default=150, description="Frontend reads this via /api/user/settings; 0 = reduced motion.")
+    # ── Support + Trial (Phase H — H23) ──
+    FEATURE_SUPPORT_IMPERSONATION: bool = Field(default=True)
+    SUPPORT_IMPERSONATION_TTL_SECONDS: int = Field(default=900, description="15 min default.")
+    # ── Observability Self-Defense (Phase H — H24) ──
+    FEATURE_AUDIT_INTEGRITY: bool = Field(default=True)
+    AUDIT_SILENCE_WINDOW_SECONDS: int = Field(default=60, description="No audit-log writes in this window during business hours -> MONITORING_SILENT event.")
+    # ── Transport + Protocol (Phase H — H25) ──
+    FEATURE_TRANSPORT_GUARDS: bool = Field(default=True)
+    HTTP2_MAX_RST_PER_MINUTE: int = Field(default=100, description="RST_STREAM frames per HTTP/2 connection cap.")
+    # ── Export + A/B + Cancel (Phase H — H26) ──
+    FEATURE_EXPORT_SCOPE_VALIDATION: bool = Field(default=True)
+    FEATURE_AB_VARIANT_DEDUP: bool = Field(default=True)
+    FEATURE_CANCEL_2PC: bool = Field(default=True)
+    # ── Auth Version + SSO (Phase H — H27) ──
+    FEATURE_AUTH_UNIFIED_MIDDLEWARE: bool = Field(default=True)
+    JWT_LEEWAY_SECONDS: int = Field(default=5)
+    NONCE_CACHE_TTL_SECONDS: int = Field(default=300)
+    ASKDB_PCI_MODE: bool = Field(default=False, description="Strict mode: no demo user, audit fsync each write, Redis mandatory.")
+    ASKDB_HIPAA_MODE: bool = Field(default=False, description="Same as PCI + mandatory TLS + write-time PII masking on.")
+
     QUERY_MEMORY_ENABLED: bool = Field(default=True)
     QUERY_MEMORY_COLLECTION_PREFIX: str = Field(default="query_memory_")
     QUERY_MEMORY_TTL_HOURS: int = Field(default=168)  # 7 days
