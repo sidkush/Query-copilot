@@ -1,0 +1,5 @@
+# Development-only (not installed in production runtime)
+-r requirements.txt
+pip-tools==7.4.1
+pytest>=7.4
+pytest-asyncio>=0.21

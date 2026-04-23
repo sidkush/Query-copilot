@@ -72,6 +72,11 @@ python-jose[cryptography]==3.5.0
 passlib[bcrypt]>=1.7
 bcrypt==5.0.0
 
+# ── Phase H Hardening (H19/H20/H27) ─────────────────────────
+defusedxml==0.7.1
+itsdangerous==2.2.0
+stripe==12.5.1
+
 # ── CORS & Utils ────────────────────────────────────────────
 python-multipart>=0.0.18
 requests>=2.31
@@ -95,3 +100,11 @@ grpcio-tools>=1.68
 # ── Analytics — Trend / Forecast / Cluster ────────────────
 numpy>=1.26
 scipy>=1.12
+
+# ── Hash-locked install (H19) ───────────────────────────────
+# DO NOT `pip install -r requirements.txt` in CI or production.
+# Regenerate requirements.lock with:
+#   pip install pip-tools==7.4.1
+#   pip-compile --generate-hashes --output-file=requirements.lock requirements.txt
+# CI installs with:
+#   pip install --require-hashes -r requirements.lock
