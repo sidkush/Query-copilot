@@ -85,6 +85,18 @@ jobs:
           sys.exit(1 if delta > 0.02 else 0)
           "
 
+      - name: Run Phase-G retrieval-hygiene trap suite
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_retrieval_hygiene.jsonl \
+            .data/retrieval_hygiene_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Retrieval budget exit criterion
+        working-directory: backend
+        run: |
+          python -m pytest tests/test_retrieval_budget.py -v
+
   shadow-suite:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     runs-on: ubuntu-latest
