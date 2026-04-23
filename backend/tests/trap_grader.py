@@ -293,3 +293,63 @@ def grade_trap(trap: dict[str, Any], emitted_sql: str, db_path: Path) -> TrapRes
 
     ok, reason = handler(emitted_sql, oracle, db_path)
     return TrapResult(trap["id"], ok, reason)
+
+
+# ---------------------------------------------------------------------------
+# Phase F — context-based oracles (operate on a structured context dict, not
+# raw emitted SQL). Dispatched via grade_question() below.
+# ---------------------------------------------------------------------------
+
+def _check_must_block_thumbs_up_storm(context: dict[str, Any]) -> bool:
+    """Oracle: if recent_upvotes from the same user are cosine-similar to the
+    candidate embedding above threshold, the promote_outcome must be 'blocked'
+    with block_reason == 'adversarial_storm'. If no storm detected, always pass.
+    """
+    from adversarial_similarity import cosine
+
+    try:
+        import sys, os as _os
+        _backend = _os.path.join(_os.path.dirname(__file__), "..")
+        if _backend not in sys.path:
+            sys.path.insert(0, _backend)
+        from config import settings
+        threshold = float(settings.ADVERSARIAL_SIMILARITY_COSINE_THRESHOLD)
+        max_up = int(settings.ADVERSARIAL_SIMILARITY_MAX_UPVOTES)
+    except Exception:
+        threshold = 0.92
+        max_up = 3
+
+    cand = context.get("candidate", {})
+    recent = context.get("recent_upvotes", [])
+
+    same_user_similar = sum(
+        1 for up in recent
+        if up.get("user_hash") == cand.get("user_hash")
+        and cosine(up.get("embedding", []), cand.get("embedding", [])) >= threshold
+    )
+    is_storm = same_user_similar >= max_up
+    if is_storm:
+        return (
+            context.get("promote_outcome") == "blocked"
+            and context.get("block_reason") == "adversarial_storm"
+        )
+    return True
+
+
+_CONTEXT_HANDLERS = {
+    # Phase F — correction pipeline oracles.
+    "must_block_thumbs_up_storm": _check_must_block_thumbs_up_storm,
+}
+
+
+def grade_question(question: dict[str, Any], context: dict[str, Any]) -> bool:
+    """Grade a Phase-F style question using a structured context dict.
+
+    Returns True if the oracle passes, False if it fails. Raises ValueError
+    for unknown oracle_type values.
+    """
+    oracle_type = question.get("oracle_type", "")
+    handler = _CONTEXT_HANDLERS.get(oracle_type)
+    if handler is None:
+        raise ValueError(f"unknown oracle_type {oracle_type!r}")
+    return handler(context)
