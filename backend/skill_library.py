@@ -108,6 +108,13 @@ class SkillLibrary:
             # vector. Lets retrieval filter to the current active version during
             # migration.
             embedder_version = meta.get("embedder_version", "hash-v1")
+            raw_deps = meta.get("depends_on", [])
+            if isinstance(raw_deps, list) and all(isinstance(x, str) for x in raw_deps):
+                depends_on = tuple(raw_deps)
+            else:
+                if raw_deps:
+                    logger.warning("skill_library: malformed depends_on in %s (expected list[str])", path)
+                depends_on = ()
             self._by_name[name] = SkillHit(
                 name=name,
                 priority=priority,
@@ -116,6 +123,7 @@ class SkillLibrary:
                 content=content,
                 path=path,
                 embedder_version=embedder_version,
+                depends_on=depends_on,
             )
         logger.info("skill_library: loaded %d skills from %s", len(self._by_name), self._root)
 
