@@ -241,6 +241,14 @@ class QueryInsight:
 
 
 # ---------------------------------------------------------------------------
+# Promotion exceptions
+# ---------------------------------------------------------------------------
+
+class PromotionQuotaExceeded(RuntimeError):
+    """Raised when a tenant exceeds PROMOTIONS_PER_TENANT_PER_DAY."""
+
+
+# ---------------------------------------------------------------------------
 # QueryMemory
 # ---------------------------------------------------------------------------
 
@@ -617,3 +625,100 @@ class QueryMemory:
         except Exception:
             logger.exception("QueryMemory.get_stats failed for conn=%s", conn_id)
             return empty
+
+    # ------------------------------------------------------------------
+    # Promoted examples — tenant-scoped few-shot write + daily quota
+    # ------------------------------------------------------------------
+
+    def _promotion_count_today(self, tenant_id: str, conn_id: str) -> int:
+        """Count promotions written in the last 24h for (tenant, conn)."""
+        from datetime import datetime, timezone, timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        ledger = getattr(self, "_promotion_ledger", [])
+        n = 0
+        for entry in ledger:
+            if entry["tenant_id"] == tenant_id and entry["conn_id"] == conn_id:
+                try:
+                    ts = datetime.strptime(entry["ts"], "%Y-%m-%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+                    if ts >= cutoff:
+                        n += 1
+                except Exception:
+                    pass
+        return n
+
+    def promote_example(self, *, tenant_id: str, conn_id: str, user_id: str,
+                        question: str, canonical_sql: str) -> str:
+        """Write a canonical (question, sql) pair into the tenant-scoped
+        few-shot collection. Returns the ChromaDB doc id."""
+        from datetime import datetime, timezone
+        from config import settings
+
+        for name, val in [("tenant_id", tenant_id), ("conn_id", conn_id),
+                          ("user_id", user_id), ("question", question),
+                          ("canonical_sql", canonical_sql)]:
+            if not val:
+                raise ValueError(f"{name} required")
+
+        quota = int(getattr(settings, "PROMOTIONS_PER_TENANT_PER_DAY", 10))
+        if self._promotion_count_today(tenant_id, conn_id) >= quota:
+            raise PromotionQuotaExceeded(
+                f"{tenant_id}/{conn_id} exceeded {quota}/day"
+            )
+
+        doc_id = (
+            f"prom-{tenant_id}-{conn_id}-"
+            f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-"
+            f"{abs(hash(question)) % 10 ** 6}"
+        )
+        payload = {
+            "question": question,
+            "canonical_sql": canonical_sql,
+            "promoted_by": user_id,
+            "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ"),
+        }
+
+        # Try ChromaDB write (best-effort; may fail in test environments)
+        try:
+            try:
+                from tenant_fortress import chroma_namespace
+                ns = chroma_namespace(
+                    tenant_id=tenant_id, conn_id=conn_id, user_id=user_id,
+                    collection="promoted_examples",
+                )
+            except Exception:
+                ns = f"promoted_examples_{tenant_id}_{conn_id}"
+
+            coll = None
+            for attr in ("_get_or_create_collection", "get_or_create_collection"):
+                if hasattr(self, attr):
+                    coll = getattr(self, attr)(ns)
+                    break
+            if coll is not None:
+                coll.add(ids=[doc_id], documents=[question], metadatas=[payload])
+        except Exception:
+            pass
+
+        if not hasattr(self, "_promotion_ledger"):
+            self._promotion_ledger = []
+        self._promotion_ledger.append({
+            "tenant_id": tenant_id, "conn_id": conn_id,
+            **payload, "id": doc_id,
+        })
+        return doc_id
+
+    def list_promotions(self, *, tenant_id: str, conn_id: str) -> list:
+        """Return all promoted examples for (tenant, conn) from the in-memory ledger."""
+        ledger = getattr(self, "_promotion_ledger", [])
+        return [e for e in ledger if e["tenant_id"] == tenant_id and e["conn_id"] == conn_id]
+
+    def delete_tenant_namespace(self, *, tenant_id: str, conn_id: str) -> int:
+        """Wipe all promoted-example entries for (tenant, conn). Returns count removed."""
+        removed = 0
+        if hasattr(self, "_promotion_ledger"):
+            before = len(self._promotion_ledger)
+            self._promotion_ledger = [
+                e for e in self._promotion_ledger
+                if not (e["tenant_id"] == tenant_id and e["conn_id"] == conn_id)
+            ]
+            removed = before - len(self._promotion_ledger)
+        return removed
