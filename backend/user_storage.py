@@ -11,6 +11,7 @@ instance, so swapping to S3/SQLite/Postgres only requires a new subclass.
 import json
 import hashlib
 import logging
+import os
 import threading
 import uuid
 import base64
@@ -1623,3 +1624,33 @@ def delete_tenant_data(*, tenant_id: str, data_root=None) -> dict:
         f.write(_json.dumps(marker) + "\n")
     report["marker_written"] = True
     return report
+
+
+# ── Phase H — H21 two-writer conflict detector ──────────────────────────────
+
+class TwoWriterConflict(RuntimeError):
+    """Raised when expected_mtime_ns does not match the on-disk mtime at commit time."""
+
+
+def atomic_write_profile(path: Path, data: dict, *, expected_mtime_ns: Optional[int] = None) -> None:
+    """H21 — write-then-rename with optional 'no concurrent writer' check.
+
+    If expected_mtime_ns is given and the target file's mtime differs from it
+    at commit time, raise TwoWriterConflict. Caller retries with fresh read.
+    """
+    path = Path(path)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        fh.write(json.dumps(data))
+        fh.flush()
+        try:
+            os.fsync(fh.fileno())
+        except OSError:
+            # Windows may reject fsync on some file descriptors; flush is sufficient
+            pass
+    if expected_mtime_ns is not None and path.exists():
+        current = path.stat().st_mtime_ns
+        if current != expected_mtime_ns:
+            tmp.unlink(missing_ok=True)
+            raise TwoWriterConflict(f"mtime changed: expected={expected_mtime_ns} on-disk={current}")
+    os.replace(tmp, path)

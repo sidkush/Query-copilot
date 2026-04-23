@@ -2,12 +2,25 @@
 
 import asyncio
 import json as _json
+from pathlib import Path
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 from auth import get_current_user
+from config import settings
 from workspace_sharing import get_workspace_sharing
+
+
+def _stale_flag(backup_path: Path) -> bool:
+    """H21 — return True when backup snapshot is older than STALE_BACKUP_WARN_DAYS."""
+    if not backup_path.exists():
+        return False
+    age = datetime.now(timezone.utc) - datetime.fromtimestamp(
+        backup_path.stat().st_mtime, tz=timezone.utc
+    )
+    return age > timedelta(days=settings.STALE_BACKUP_WARN_DAYS)
 
 
 def _pick_dialect_for_user(email: str) -> str:
@@ -299,7 +312,19 @@ async def get_dashboard(dashboard_id: str, user=Depends(get_current_user)):
     d = load_dashboard(user["email"], dashboard_id)
     if not d:
         raise HTTPException(404, "Dashboard not found")
-    return _sanitize_nan(d)
+    sanitized = _sanitize_nan(d)
+    # H21 — stale-backup warn: surface if the most-recent migration snapshot
+    # is older than STALE_BACKUP_WARN_DAYS so frontend can render a banner.
+    try:
+        from user_storage import _user_dir
+        user_dir = _user_dir(user["email"])
+        backups = sorted(user_dir.glob("dashboards.backup.*.json")) if user_dir.exists() else []
+        latest = backups[-1] if backups else None
+        if isinstance(sanitized, dict) and latest is not None:
+            sanitized["stale_backup"] = _stale_flag(latest)
+    except Exception:
+        pass
+    return sanitized
 
 @router.put("/{dashboard_id}")
 async def update_existing_dashboard(dashboard_id: str, body: UpdateDashboardBody, user=Depends(get_current_user)):
