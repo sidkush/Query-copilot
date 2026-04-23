@@ -15,11 +15,20 @@ jobs:
     runs-on: ubuntu-latest
     # Always runs — no secrets needed.
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: H19 — ban pull_request_target in this workflow
+        run: |
+          grep -q "pull_request_target" "${GITHUB_WORKFLOW_REF:-$0}" && \
+            (echo "pull_request_target is banned (H19)"; exit 1) || exit 0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
         with:
           python-version: '3.10'
-      - run: pip install -r backend/requirements.txt
+      - uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # v4.0.0
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ github.ref }}-${{ hashFiles('backend/requirements.lock') }}
+          restore-keys: pip-${{ github.ref }}-
+      - run: pip install --require-hashes -r backend/requirements.lock
       - name: Seed fixture DB
         run: python -m backend.tests.fixtures.eval_seed /tmp/eval_fixture.sqlite
       - name: Run trap suite against mock
@@ -102,14 +111,50 @@ jobs:
     runs-on: ubuntu-latest
     needs: mock-suite
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: H19 — ban pull_request_target in this workflow
+        run: |
+          grep -q "pull_request_target" "${GITHUB_WORKFLOW_REF:-$0}" && \
+            (echo "pull_request_target is banned (H19)"; exit 1) || exit 0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
         with:
           python-version: '3.10'
-      - run: pip install -r backend/requirements.txt
+      - uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # v4.0.0
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ github.ref }}-${{ hashFiles('backend/requirements.lock') }}
+          restore-keys: pip-${{ github.ref }}-
+      - run: pip install --require-hashes -r backend/requirements.lock
       - name: Seed fixture DB
         run: python -m backend.tests.fixtures.eval_seed /tmp/eval_fixture.sqlite
       - name: Run shadow eval (20 Qs vs real Anthropic staging)
         env:
           ANTHROPIC_STAGING_KEY: ${{ secrets.ANTHROPIC_STAGING_KEY }}
         run: python -m backend.tests.run_shadow_eval
+
+  supply-chain-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: H19 — ban pull_request_target in this workflow
+        run: |
+          grep -q "pull_request_target" "${GITHUB_WORKFLOW_REF:-$0}" && \
+            (echo "pull_request_target is banned (H19)"; exit 1) || exit 0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
+        with:
+          python-version: '3.10'
+      - uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # v4.0.0
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ github.ref }}-${{ hashFiles('backend/requirements.lock') }}
+          restore-keys: pip-${{ github.ref }}-
+      - run: pip install --require-hashes -r backend/requirements.lock
+      - run: pip install pip-audit==2.7.3
+      - run: pip-audit --requirement backend/requirements.lock --strict
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.2
+        with:
+          node-version: '20'
+      - run: |
+          cd frontend
+          npm ci
+          npm audit --audit-level=high

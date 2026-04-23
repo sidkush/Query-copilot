@@ -6,11 +6,18 @@ on:
       - '.data/eval_baseline.json'
       - 'backend/tests/trap_*.jsonl'
 
+permissions:
+  contents: read
+
 jobs:
   pii-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: H19 — ban pull_request_target in this workflow
+        run: |
+          grep -q "pull_request_target" "${GITHUB_WORKFLOW_REF:-$0}" && \
+            (echo "pull_request_target is banned (H19)"; exit 1) || exit 0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
       - name: Scan for PII patterns
         run: |
           set -e

@@ -7,9 +7,16 @@ during a migration window (H14 embedding migration safety).
 from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Protocol
 
 import numpy as np
+
+# H19 - Phase H: supply-chain hook. Call verify_no_unsafe_weights(path) before
+# opening any local weight file. Current loaders delegate to sentence-transformers
+# (safetensors-preferred in 3.x+), so no direct open sites exist today; this
+# import keeps the hook wired for future local-weight additions.
+from supply_chain import verify_no_unsafe_weights  # noqa: F401
 
 
 class Embedder(Protocol):
