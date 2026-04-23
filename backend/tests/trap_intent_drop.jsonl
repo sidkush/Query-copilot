@@ -1,0 +1,15 @@
+{"id": "intent-001", "nl": "why are casual riders churning faster than members", "expected_sql_contains": ["rider_type"], "oracle": {"type": "must_emit_intent_echo", "min_ambiguity": 0.6}}
+{"id": "intent-002", "nl": "show me top 10 users by engagement", "expected_sql_contains": ["ORDER BY", "LIMIT"], "oracle": {"type": "must_emit_intent_echo", "min_ambiguity": 0.3}}
+{"id": "intent-003", "nl": "count active customers by month", "expected_sql_contains": ["GROUP BY", "month"], "oracle": {"type": "must_emit_intent_echo", "min_ambiguity": 0.3}}
+{"id": "intent-004", "nl": "how many users are there", "expected_sql_contains": ["COUNT(*)"], "oracle": {"type": "must_not_emit_intent_echo", "max_ambiguity": 0.3}}
+{"id": "intent-005", "nl": "total orders last quarter", "expected_sql_contains": ["COUNT", "orders"], "oracle": {"type": "must_include_clause", "clause_kind": "temporal"}}
+{"id": "intent-006", "nl": "casual riders by station", "expected_sql_contains": ["rider_type", "GROUP BY", "station"], "oracle": {"type": "must_include_clause", "clause_kind": "groupby"}}
+{"id": "intent-007", "nl": "users who have never logged in", "expected_sql_contains": ["LEFT JOIN", "IS NULL"], "oracle": {"type": "must_include_clause", "clause_kind": "cohort_filter"}}
+{"id": "intent-008", "nl": "retention rate by signup cohort", "expected_sql_contains": ["GROUP BY"], "oracle": {"type": "must_emit_intent_echo", "min_ambiguity": 0.5}}
+{"id": "intent-009", "nl": "revenue trend year over year", "expected_sql_contains": ["DATE_TRUNC", "year"], "oracle": {"type": "must_include_clause", "clause_kind": "temporal"}}
+{"id": "intent-010", "nl": "avg trip duration by rider type", "expected_sql_contains": ["AVG", "GROUP BY", "rider_type"], "oracle": {"type": "must_include_clause", "clause_kind": "groupby"}}
+{"id": "intent-011", "nl": "churn analysis for the product team", "expected_sql_contains": [], "oracle": {"type": "must_emit_intent_echo", "min_ambiguity": 0.7}}
+{"id": "intent-012", "nl": "list all tables", "expected_sql_contains": [], "oracle": {"type": "must_not_emit_intent_echo", "max_ambiguity": 0.3}}
+{"id": "intent-013", "nl": "top spenders this month", "expected_sql_contains": ["ORDER BY", "LIMIT"], "oracle": {"type": "must_include_clause", "clause_kind": "ordering"}}
+{"id": "intent-014", "nl": "find duplicate emails", "expected_sql_contains": ["GROUP BY", "HAVING", "COUNT"], "oracle": {"type": "must_include_clause", "clause_kind": "groupby"}}
+{"id": "intent-015", "nl": "active yearly subscribers who paid on time", "expected_sql_contains": ["active", "subscribers"], "oracle": {"type": "must_emit_intent_echo", "min_ambiguity": 0.5}}
