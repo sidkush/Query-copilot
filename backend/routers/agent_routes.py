@@ -406,6 +406,18 @@ async def agent_run(req: AgentRunRequest, request: Request,
                 elif _step_type == "live_correction":
                     _logger.info("Dual-response: live correction emitted (diff=%s)",
                                 step_data.get("diff_summary", ""))
+                # Phase E — chip rendered BEFORE first token (never mid-stream).
+                if _step_type == "tier_routing":
+                    try:
+                        from waterfall_router import build_tier_chip
+                        from provenance_chip import chip_to_sse_payload
+                        _meta = step_data.get("metadata", {}) if isinstance(step_data, dict) else {}
+                        _tier_name = _meta.get("tier_name", "live")
+                        _row_count = _meta.get("row_count") or 0
+                        _chip = build_tier_chip(tier=_tier_name, row_count=_row_count)
+                        yield _sse_provenance_chip(chip_to_sse_payload(_chip))
+                    except Exception as _exc:
+                        _logger.debug("provenance chip emit skipped: %s", _exc)
                 yield f"data: {json.dumps(step_data, default=str)}\n\n"
 
         except asyncio.CancelledError:
@@ -796,6 +808,11 @@ async def delete_agent_session(chat_id: str, user: dict = Depends(get_current_us
 
 def _sse_intent_echo(card_payload: dict) -> str:
     return f"event: intent_echo\ndata: {json.dumps(card_payload)}\n\n"
+
+
+def _sse_provenance_chip(payload: dict) -> str:
+    import json as _json
+    return f"event: provenance_chip\ndata: {_json.dumps(payload)}\n\n"
 
 
 @router.post("/echo-response")
