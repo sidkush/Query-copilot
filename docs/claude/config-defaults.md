@@ -62,6 +62,23 @@ point here instead of duplicating values. Confirm against
 | `RULE_CONJUNCTION_SELECTIVITY` | `False` | Rule 9 — EXPLAIN-backed estimate; off until Phase E. |
 | `RULE_EXPRESSION_PREDICATE` | `True` | Rule 10 — non-literal WHERE → mark unverified-scope. |
 
+### Intent Echo (Phase D — Ring 4)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_INTENT_ECHO` | `True` | Gate for Ring-4 IntentEcho firing |
+| `ECHO_AMBIGUITY_AUTO_PROCEED_MAX` | `0.3` | Auto-proceed below this score |
+| `ECHO_AMBIGUITY_MANDATORY_CHOICE_MIN` | `0.7` | Mandatory choice at or above this score |
+| `ECHO_AUTO_DOWNGRADE_PAUSE_MS` | `500` | Accept faster than this = rubber-stamp streak tick |
+| `ECHO_AUTO_DOWNGRADE_STREAK` | `3` | Streak threshold for auto-downgrade |
+| `ECHO_LLM_MAX_TOKENS` | `512` | Max tokens for LLM gray-zone second-opinion call |
+| `NON_INTERACTIVE_MODE_CONSERVATIVE` | `True` | Force AUTO_PROCEED in non-interactive modes |
+| `VOICE_MODE_READBACK_AMBIGUITY_MIN` | `0.5` | Voice TTS readback fires at or above this score |
+| `FEATURE_SEMANTIC_REGISTRY` | `True` | Gate for H12 SemanticRegistry |
+| `SEMANTIC_REGISTRY_DIR` | `.data/semantic_registry` | Per-connection definition JSON path |
+| `FEATURE_DRIFT_DETECTOR` | `True` | Gate for H12 DriftDetector |
+| `FISCAL_YEAR_START_MONTH` | `1` | Tenant fiscal year start (1=Jan); mismatch fires DriftDetector |
+
 ### Calc parser (Plan 8a)
 
 | Constant | Value | Notes |
