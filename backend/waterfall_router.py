@@ -1415,6 +1415,26 @@ def validate_scope(sql: str, ctx: dict, dialect: str = "sqlite"):
         return ValidatorResult(violations=[], parse_failed=False)
 
 
+def build_tier_chip(tier: str, row_count: int, staleness_seconds: int = 0, **kwargs):
+    """Phase E — produce the ProvenanceChip for a tier's result."""
+    from provenance_chip import (
+        build_live_chip, build_turbo_chip, build_sample_chip, build_unverified_chip,
+    )
+    t = (tier or "").lower()
+    if t == "turbo":
+        return build_turbo_chip(row_count=row_count, staleness_seconds=staleness_seconds)
+    if t == "sample":
+        return build_sample_chip(
+            row_count=row_count,
+            sample_pct=kwargs.get("sample_pct", 1.0),
+            stratified_on=kwargs.get("stratified_on"),
+            margin_of_error=kwargs.get("margin_of_error"),
+        )
+    if t == "unverified":
+        return build_unverified_chip(reason=kwargs.get("reason", "scope"))
+    return build_live_chip(row_count=row_count)
+
+
 def build_default_router() -> WaterfallRouter:
     """
     Return a WaterfallRouter wired with the canonical 5-tier order (Plan 7e).
