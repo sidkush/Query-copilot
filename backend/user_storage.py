@@ -1529,3 +1529,97 @@ def load_profile_with_tenant(path):
             except OSError:
                 pass
     return raw
+
+
+# ── Phase F — Right-to-erasure cascade ─────────────────────────────────────
+
+def delete_tenant_data(*, tenant_id: str, data_root=None) -> dict:
+    """Right-to-erasure cascade. Removes tenant data from:
+      - turbo twins (.data/turbo_twins/{tenant_id}/*.duckdb)
+      - promotion ledger (.data/promotion_ledger/{tenant_id}.jsonl)
+      - correction queue entries tagged with tenant_id
+      - QueryMemory ChromaDB namespaces (best-effort)
+    Always appends an {action: "erasure"} marker to the audit log.
+    Returns dict with per-surface removal counts + marker_written flag.
+    """
+    from datetime import datetime, timezone
+    import json as _json
+    from pathlib import Path as _Path
+
+    if data_root is None:
+        data_root = _Path(__file__).resolve().parent.parent / ".data"
+    data_root = _Path(data_root)
+
+    report = {
+        "tenant_id": tenant_id,
+        "twin_removed": 0,
+        "ledger_removed": 0,
+        "queue_removed": 0,
+        "chroma_removed": 0,
+        "marker_written": False,
+    }
+
+    # 1) Turbo twins.
+    twin_root = data_root / "turbo_twins" / tenant_id
+    if twin_root.exists():
+        for p in twin_root.glob("*.duckdb"):
+            try:
+                p.unlink()
+                report["twin_removed"] += 1
+            except OSError:
+                pass
+        try:
+            twin_root.rmdir()
+        except OSError:
+            pass
+
+    # 2) Promotion ledger.
+    ledger_root = data_root / "promotion_ledger"
+    ledger_file = ledger_root / f"{tenant_id}.jsonl"
+    if ledger_file.exists():
+        try:
+            ledger_file.unlink()
+            report["ledger_removed"] = 1
+        except OSError:
+            pass
+
+    # 3) Correction queue — best-effort scan.
+    queue_root = data_root / "correction_queue"
+    if queue_root.exists():
+        for p in queue_root.rglob("*.json"):
+            try:
+                rec = _json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if rec.get("tenant_id") == tenant_id:
+                try:
+                    p.unlink()
+                    report["queue_removed"] += 1
+                except OSError:
+                    pass
+
+    # 4) ChromaDB — best-effort via QueryMemory.
+    try:
+        from query_memory import QueryMemory
+        qm = QueryMemory()
+        if hasattr(qm, "_list_tenant_conn_ids"):
+            for conn_id in qm._list_tenant_conn_ids(tenant_id):
+                report["chroma_removed"] += qm.delete_tenant_namespace(
+                    tenant_id=tenant_id, conn_id=conn_id,
+                )
+    except Exception:
+        pass
+
+    # 5) Audit marker — ALWAYS written.
+    audit_dir = data_root / "audit"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    marker = {
+        "action": "erasure",
+        "tenant_id": tenant_id,
+        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ"),
+        "counts": {k: v for k, v in report.items() if k.endswith("_removed")},
+    }
+    with (audit_dir / "query_decisions.jsonl").open("a", encoding="utf-8") as f:
+        f.write(_json.dumps(marker) + "\n")
+    report["marker_written"] = True
+    return report
