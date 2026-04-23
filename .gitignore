@@ -63,3 +63,6 @@ yarn-debug.log*
 # Phase C Ring-3 trap baselines — committed per H13
 !.data/name_inference_baseline.json
 !.data/join_scale_baseline.json
+
+# Phase D Ring-4 trap baseline — committed per H13
+!.data/intent_drop_baseline.json

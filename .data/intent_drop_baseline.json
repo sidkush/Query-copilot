@@ -1,0 +1,67 @@
+{
+  "suite": "trap_intent_drop.jsonl",
+  "total": 15,
+  "passed": 2,
+  "per_question": {
+    "intent-001": {
+      "passed": false,
+      "reason": "no intent_echo marker in SQL"
+    },
+    "intent-002": {
+      "passed": false,
+      "reason": "no intent_echo marker in SQL"
+    },
+    "intent-003": {
+      "passed": false,
+      "reason": "no intent_echo marker in SQL"
+    },
+    "intent-004": {
+      "passed": true,
+      "reason": "no intent_echo marker (clean)"
+    },
+    "intent-005": {
+      "passed": false,
+      "reason": "clause 'temporal' missing from SQL"
+    },
+    "intent-006": {
+      "passed": false,
+      "reason": "clause 'groupby' missing from SQL"
+    },
+    "intent-007": {
+      "passed": false,
+      "reason": "clause 'cohort_filter' missing from SQL"
+    },
+    "intent-008": {
+      "passed": false,
+      "reason": "no intent_echo marker in SQL"
+    },
+    "intent-009": {
+      "passed": false,
+      "reason": "clause 'temporal' missing from SQL"
+    },
+    "intent-010": {
+      "passed": false,
+      "reason": "clause 'groupby' missing from SQL"
+    },
+    "intent-011": {
+      "passed": false,
+      "reason": "no intent_echo marker in SQL"
+    },
+    "intent-012": {
+      "passed": true,
+      "reason": "no intent_echo marker (clean)"
+    },
+    "intent-013": {
+      "passed": false,
+      "reason": "clause 'ordering' missing from SQL"
+    },
+    "intent-014": {
+      "passed": false,
+      "reason": "clause 'groupby' missing from SQL"
+    },
+    "intent-015": {
+      "passed": false,
+      "reason": "no intent_echo marker in SQL"
+    }
+  }
+}
