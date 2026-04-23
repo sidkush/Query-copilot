@@ -23,6 +23,8 @@ from typing import Any, Optional
 
 from skill_hit import SkillHit
 from skill_library import SkillLibrary
+from depends_on_resolver import DependsOnResolver, DependsOnCycleError
+from skill_bundles import resolve_bundles
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,10 @@ class SkillRouter:
         max_skills: int = DEFAULT_MAX_SKILLS,
         k: int = DEFAULT_K,
         audit_path: Optional[Path] = None,
+        query_expansion: Any = None,
+        tenant_id_getter: Any = None,
+        bundles_enabled: bool = True,
+        depends_on_enabled: bool = True,
     ):
         self.library = library
         self.collection = chroma_collection
@@ -75,6 +81,10 @@ class SkillRouter:
         self.max_skills = max_skills
         self.k = k
         self.audit_path = audit_path
+        self.query_expansion = query_expansion
+        self.tenant_id_getter = tenant_id_getter
+        self.bundles_enabled = bundles_enabled
+        self.depends_on_enabled = depends_on_enabled
 
     def resolve(
         self,
@@ -117,7 +127,24 @@ class SkillRouter:
         # Stage 3: RAG (only if we have a collection wired)
         if self.collection is not None:
             try:
-                results = self.collection.query(query_texts=[question], n_results=self.k)
+                embed_text = question
+                try:
+                    from config import settings
+                    hygiene_on = settings.FEATURE_RETRIEVAL_HYGIENE
+                    expansion_on = settings.FEATURE_QUERY_EXPANSION
+                except Exception:
+                    hygiene_on, expansion_on = True, True
+                if (
+                    hygiene_on and expansion_on and
+                    self.query_expansion is not None and self.tenant_id_getter is not None
+                ):
+                    try:
+                        tid = self.tenant_id_getter(connection_entry)
+                        if tid:
+                            embed_text = self.query_expansion.expand(question, tenant_id=tid)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("skill_router: expansion failed, using raw question: %s", exc)
+                results = self.collection.query(query_texts=[embed_text], n_results=self.k)
                 for meta in (results.get("metadatas", [[]])[0] or []):
                     sk_name = meta.get("name") if isinstance(meta, dict) else None
                     if sk_name and sk_name not in seen:
@@ -130,6 +157,52 @@ class SkillRouter:
                             seen.add(sk.name)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("skill_router: RAG failed, continuing without: %s", exc)
+
+        # Phase G - bundles (co-retrieval amplifier + keyword match)
+        try:
+            from config import settings
+            hygiene_on = settings.FEATURE_RETRIEVAL_HYGIENE
+            bundles_on = settings.FEATURE_SKILL_BUNDLES
+            deps_on = settings.FEATURE_DEPENDS_ON_RESOLVER
+        except Exception:
+            hygiene_on, bundles_on, deps_on = True, True, True
+
+        if hygiene_on and bundles_on and self.bundles_enabled:
+            try:
+                extra = resolve_bundles(
+                    question, hits,
+                    library_by_name=self.library._by_name,  # noqa: SLF001
+                )
+                for h in extra:
+                    if h.name not in seen:
+                        hits.append(h)
+                        seen.add(h.name)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("skill_router: bundle resolution failed: %s", exc)
+
+        # Phase G - depends_on closure (fail-open on cycle)
+        if hygiene_on and deps_on and self.depends_on_enabled and hits:
+            try:
+                resolver = DependsOnResolver(self.library._by_name)  # noqa: SLF001
+                closure = resolver.closure([h.name for h in hits])
+                for name in closure:
+                    if name in seen:
+                        continue
+                    dep_hit = self.library.get(name)
+                    if dep_hit is None:
+                        continue
+                    hits.append(SkillHit(
+                        name=dep_hit.name, priority=max(dep_hit.priority, 2),
+                        tokens=dep_hit.tokens, source="bundle",
+                        content=dep_hit.content, path=dep_hit.path,
+                        embedder_version=dep_hit.embedder_version,
+                        depends_on=dep_hit.depends_on,
+                    ))
+                    seen.add(name)
+            except DependsOnCycleError as exc:
+                logger.warning("skill_router: depends_on cycle detected, fail-open: %s", exc)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("skill_router: depends_on closure failed: %s", exc)
 
         kept = self._enforce_caps(hits)
 
