@@ -21,6 +21,12 @@ from urllib.parse import urlencode
 import requests as http_requests
 
 from config import settings
+from identity_hardening import (
+    sign_oauth_state,
+    verify_oauth_state,
+    OAuthStateInvalid,
+    is_disposable_email,
+)
 
 import re
 
@@ -197,6 +203,10 @@ def create_user(email: str, password: str, name: str = "",
     if not email or len(email) > _MAX_EMAIL_LENGTH or not _EMAIL_RE.match(email):
         raise ValueError("Invalid email address")
 
+    # H20 Phase H — block disposable-email domains.
+    if is_disposable_email(email):
+        raise ValueError("disposable email not allowed")
+
     # Validate password match
     if password != confirm_password:
         raise ValueError("Passwords do not match")
@@ -354,26 +364,15 @@ def _save_oauth_states(states: dict):
 
 
 def _new_oauth_state(provider: str) -> str:
-    with _lock:
-        states = _load_oauth_states()
-        now = time.time()
-        states = {k: v for k, v in states.items() if now < v.get("expires_at", 0)}
-        state = secrets.token_urlsafe(32)
-        states[state] = {"provider": provider, "expires_at": now + OAUTH_STATE_TTL}
-        _save_oauth_states(states)
-    return state
+    """HMAC-signed state (H20). File-backed store retained only for legacy in-flight states."""
+    return sign_oauth_state(provider=provider)
 
 
 def _consume_oauth_state(state: str) -> Optional[str]:
-    with _lock:
-        states = _load_oauth_states()
-        entry = states.pop(state, None)
-        _save_oauth_states(states)
-    if not entry:
-        return None
-    if time.time() > entry.get("expires_at", 0):
-        return None
-    return entry["provider"]
+    try:
+        return verify_oauth_state(state)
+    except OAuthStateInvalid:
+        return None  # caller rejects with 400
 
 
 def google_auth_url(redirect_uri: str) -> Tuple[str, str]:

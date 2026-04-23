@@ -55,3 +55,10 @@ def test_disposable_email_detected():
 
 def test_disposable_email_case_insensitive():
     assert is_disposable_email("USER@MAILINATOR.COM") is True
+
+
+def test_create_user_rejects_disposable(monkeypatch, tmp_path):
+    monkeypatch.setattr("auth.USERS_FILE", str(tmp_path / "users.json"))
+    import auth
+    with pytest.raises(ValueError, match="disposable email"):
+        auth.create_user(email="spam@mailinator.com", password="StrongP@ss1", name="x")
