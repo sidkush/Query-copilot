@@ -831,6 +831,73 @@ class AgentEngine:
             from scope_validator import ValidatorResult
             return ValidatorResult(violations=[], parse_failed=False)
 
+    def _emit_intent_echo_if_ambiguous(self, nl: str, sql: str, tables_touched=None):
+        """Phase D — return an SSE-payload dict or None."""
+        try:
+            from config import settings
+            if not settings.FEATURE_INTENT_ECHO:
+                return None
+            from ambiguity_detector import score_ambiguity
+            from intent_echo import build_echo, echo_to_sse_payload, InteractionMode
+        except Exception:
+            return None
+
+        try:
+            score = score_ambiguity(nl=nl, sql=sql, tables_touched=tables_touched or [])
+        except Exception:
+            score = 0.0
+        try:
+            from config import settings as _s
+            threshold = _s.ECHO_AMBIGUITY_AUTO_PROCEED_MAX
+        except Exception:
+            threshold = 0.3
+        if score <= threshold:
+            return None
+
+        card = build_echo(
+            nl=nl,
+            sql=sql,
+            ambiguity=score,
+            clauses=[],
+            unmapped=[],
+            tables_touched=tables_touched or [],
+            interaction_mode=InteractionMode.INTERACTIVE,
+        )
+        return echo_to_sse_payload(card)
+
+    def _handle_scope_violations_with_replan(self, sql: str, nl: str):
+        """Phase D — consume ReplanBudget on Ring-3 violations; return hint dict or None."""
+        try:
+            from scope_validator import ScopeValidator
+            from replan_budget import ReplanBudget
+            from replan_controller import ReplanController
+        except Exception:
+            return None
+
+        if not hasattr(self, "_replan_budget"):
+            self._replan_budget = ReplanBudget(max_replans=1)
+        if not hasattr(self, "_replan_controller"):
+            self._replan_controller = ReplanController(budget=self._replan_budget)
+
+        try:
+            dialect = getattr(self.connection_entry, "db_type", "sqlite")
+            if hasattr(dialect, "value"):
+                dialect = dialect.value
+            validator = ScopeValidator(dialect=str(dialect).lower())
+            ctx = {
+                "coverage_cards": getattr(self.connection_entry, "coverage_cards", None) or [],
+                "nl_question": nl,
+                "db_type": str(dialect).lower(),
+            }
+            result = validator.validate(sql=sql, ctx=ctx)
+        except Exception:
+            return None
+
+        hint = self._replan_controller.on_violation(result=result, original_sql=sql)
+        if hint is None:
+            return None
+        return {"reason": hint.reason, "context": hint.context, "original_sql": hint.original_sql}
+
     def _build_data_coverage_block(self, table_names=None) -> str:
         """Phase B — render <data_coverage> block for the system prompt.
 

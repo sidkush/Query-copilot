@@ -790,3 +790,28 @@ async def delete_agent_session(chat_id: str, user: dict = Depends(get_current_us
     if not deleted:
         raise HTTPException(404, "Session not found")
     return {"status": "ok"}
+
+
+# ── Phase D — IntentEcho endpoints ────────────────────────────
+
+def _sse_intent_echo(card_payload: dict) -> str:
+    return f"event: intent_echo\ndata: {json.dumps(card_payload)}\n\n"
+
+
+@router.post("/echo-response")
+async def echo_response(payload: dict, user: dict = Depends(get_current_user)):
+    """User clicks Proceed / selects interpretation; pin receipt and resume session."""
+    session_id = payload.get("session_id")
+    choice_id = payload.get("choice_id")
+    if not session_id:
+        raise HTTPException(400, "session_id required")
+    from pinned_receipts import PinnedReceiptStore, Receipt
+    from datetime import datetime, timezone
+    store = PinnedReceiptStore(root=".data/pinned_receipts")
+    store.pin(session_id, Receipt(
+        kind="intent_echo_accept",
+        text=f"Interpretation accepted: {choice_id}",
+        created_at=datetime.now(timezone.utc),
+        session_id=session_id,
+    ))
+    return {"ok": True, "choice_id": choice_id}
