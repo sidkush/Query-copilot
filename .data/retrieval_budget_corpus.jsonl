@@ -1,0 +1,50 @@
+{"id": "q01", "category": "sql-aggregation", "db_type": "postgres", "question": "total revenue by month"}
+{"id": "q02", "category": "sql-aggregation", "db_type": "postgres", "question": "average order size"}
+{"id": "q03", "category": "sql-aggregation", "db_type": "postgres", "question": "count distinct users"}
+{"id": "q04", "category": "sql-aggregation", "db_type": "postgres", "question": "percentage of returning customers"}
+{"id": "q05", "category": "sql-aggregation", "db_type": "postgres", "question": "ratio of new to repeat orders"}
+{"id": "q06", "category": "sql-aggregation", "db_type": "postgres", "question": "sum of refunds this quarter"}
+{"id": "q07", "category": "sql-aggregation", "db_type": "postgres", "question": "median session length"}
+{"id": "q08", "category": "sql-aggregation", "db_type": "postgres", "question": "standard deviation of order value"}
+{"id": "q09", "category": "sql-aggregation", "db_type": "postgres", "question": "total units sold by category"}
+{"id": "q10", "category": "sql-aggregation", "db_type": "postgres", "question": "average days between purchases"}
+{"id": "q11", "category": "sql-aggregation", "db_type": "postgres", "question": "count of failed logins"}
+{"id": "q12", "category": "sql-aggregation", "db_type": "postgres", "question": "sum discounts applied"}
+{"id": "q13", "category": "dashboard-build", "db_type": "postgres", "question": "build me a dashboard of sales kpis"}
+{"id": "q14", "category": "dashboard-build", "db_type": "postgres", "question": "create a marketing dashboard with 4 tiles"}
+{"id": "q15", "category": "dashboard-build", "db_type": "postgres", "question": "dashboard for daily active users with widgets for retention and churn"}
+{"id": "q16", "category": "dashboard-build", "db_type": "postgres", "question": "build a dashboard showing pipeline health"}
+{"id": "q17", "category": "dashboard-build", "db_type": "postgres", "question": "dashboard orders refunds top products regions"}
+{"id": "q18", "category": "dashboard-build", "db_type": "postgres", "question": "make a dashboard about support ticket volume"}
+{"id": "q19", "category": "dashboard-build", "db_type": "postgres", "question": "dashboard with tile for revenue and tile for funnel"}
+{"id": "q20", "category": "dashboard-build", "db_type": "postgres", "question": "dashboard for ecommerce with conversion funnel"}
+{"id": "q21", "category": "dashboard-build", "db_type": "postgres", "question": "dashboard add widget for top-10 customers"}
+{"id": "q22", "category": "dashboard-build", "db_type": "postgres", "question": "dashboard with 6 tiles revenue orders aov cac ltv churn"}
+{"id": "q23", "category": "join-reasoning", "db_type": "postgres", "question": "join orders to customers on user id"}
+{"id": "q24", "category": "join-reasoning", "db_type": "postgres", "question": "why is my join returning too many rows"}
+{"id": "q25", "category": "join-reasoning", "db_type": "postgres", "question": "join products with inventory"}
+{"id": "q26", "category": "join-reasoning", "db_type": "postgres", "question": "left join users to subscriptions including never-subscribed"}
+{"id": "q27", "category": "join-reasoning", "db_type": "postgres", "question": "inner join events to sessions"}
+{"id": "q28", "category": "join-reasoning", "db_type": "postgres", "question": "join with foreign key on order_id"}
+{"id": "q29", "category": "join-reasoning", "db_type": "postgres", "question": "complex join across orders items products"}
+{"id": "q30", "category": "join-reasoning", "db_type": "postgres", "question": "find orders without a matching customer outer join"}
+{"id": "q31", "category": "chart-styling", "db_type": "postgres", "question": "format this chart with better colors"}
+{"id": "q32", "category": "chart-styling", "db_type": "postgres", "question": "change the axis to logarithmic"}
+{"id": "q33", "category": "chart-styling", "db_type": "postgres", "question": "make the legend clearer"}
+{"id": "q34", "category": "chart-styling", "db_type": "postgres", "question": "palette for 7 categories"}
+{"id": "q35", "category": "chart-styling", "db_type": "postgres", "question": "remove gridlines from the chart"}
+{"id": "q36", "category": "chart-styling", "db_type": "postgres", "question": "swap the color system to dark theme"}
+{"id": "q37", "category": "unbundled-mix", "db_type": "postgres", "question": "what is schema profiling"}
+{"id": "q38", "category": "unbundled-mix", "db_type": "postgres", "question": "explain ambiguity resolution"}
+{"id": "q39", "category": "unbundled-mix", "db_type": "postgres", "question": "when does the agent ask for user confirmation"}
+{"id": "q40", "category": "unbundled-mix", "db_type": "postgres", "question": "how does session memory work"}
+{"id": "q41", "category": "unbundled-mix", "db_type": "postgres", "question": "security rules for pii masking"}
+{"id": "q42", "category": "unbundled-mix", "db_type": "postgres", "question": "error handling patterns"}
+{"id": "q43", "category": "unbundled-mix", "db_type": "postgres", "question": "self-repair after sql error"}
+{"id": "q44", "category": "unbundled-mix", "db_type": "postgres", "question": "llm error recovery"}
+{"id": "q45", "category": "unbundled-mix", "db_type": "postgres", "question": "iot timeseries domain"}
+{"id": "q46", "category": "unbundled-mix", "db_type": "postgres", "question": "hr domain examples"}
+{"id": "q47", "category": "unbundled-mix", "db_type": "postgres", "question": "bigquery dialect"}
+{"id": "q48", "category": "unbundled-mix", "db_type": "postgres", "question": "mysql dialect pitfalls"}
+{"id": "q49", "category": "unbundled-mix", "db_type": "postgres", "question": "performance optimization tips"}
+{"id": "q50", "category": "unbundled-mix", "db_type": "postgres", "question": "caching breakpoint policy"}

@@ -73,3 +73,7 @@ yarn-debug.log*
 
 # Phase F trap baseline — committed per H13
 !.data/correction_pipeline_baseline.json
+
+# Phase G retrieval-budget corpus + baseline — committed per H13
+!.data/retrieval_budget_corpus.jsonl
+!.data/retrieval_budget_baseline.json
