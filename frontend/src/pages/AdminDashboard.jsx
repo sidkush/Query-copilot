@@ -5,6 +5,7 @@ import { StaggerContainer, StaggerItem } from "../components/animation/StaggerCo
 import AnimatedCounter from "../components/animation/AnimatedCounter";
 import MotionButton from "../components/animation/MotionButton";
 import { adminApi } from "../api";
+import { useStore } from "../store";
 
 const ALL_PLANS = ["free", "pro", "team"];
 
@@ -71,6 +72,8 @@ function PlanBadge({ plan }) {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const promotions = useStore((s) => s.promotions);
+  const fetchPendingPromotions = useStore((s) => s.fetchPendingPromotions);
   const [tab, setTab] = useState("overview");
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState([]);
@@ -117,6 +120,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!localStorage.getItem("admin_token")) { navigate("/admin/login"); return; }
     loadData();
+    fetchPendingPromotions();
     // mount-only bootstrap
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -418,6 +422,19 @@ export default function AdminDashboard() {
                   </StaggerItem>
                   <StaggerItem>
                     <StatCard value={overview.deleted_users} label="Deleted Users" color="from-red-400 to-red-300" icon="D" onClick={() => drillDown("deleted_users")} />
+                  </StaggerItem>
+                </StaggerContainer>
+
+                {/* Promotions tile — Phase F */}
+                <StaggerContainer className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StaggerItem>
+                    <StatCard
+                      value={promotions?.items?.length ?? 0}
+                      label="Pending Promotions"
+                      color="from-violet-400 to-fuchsia-400"
+                      icon="P"
+                      onClick={() => navigate("/admin/promotions")}
+                    />
                   </StaggerItem>
                 </StaggerContainer>
 

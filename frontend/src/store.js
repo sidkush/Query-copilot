@@ -2605,6 +2605,56 @@ export const useStore = create((set, get) => ({
     get().pushAnalystProHistory(nextDash, 'Resize zone');
   },
 
+  // ── Phase F: Admin Promotions slice ──────────────────────────────────────
+  // Tracks pending ChromaDB example promotions awaiting 2-admin ceremony.
+  // Mirrors backend constants: PROMOTION_ADMIN_CEREMONY_REQUIRED = True.
+  promotions: { items: [], loading: false, error: null },
+
+  fetchPendingPromotions: async () => {
+    set((s) => ({ promotions: { ...s.promotions, loading: true, error: null } }));
+    try {
+      const token = localStorage.getItem('admin_token');
+      const res = await fetch('/api/v1/admin/promotions/pending', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      set({ promotions: { items: data.items, loading: false, error: null } });
+    } catch (e) {
+      set((s) => ({ promotions: { ...s.promotions, loading: false, error: e.message } }));
+    }
+  },
+
+  approvePromotion: async (candidate_id) => {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`/api/v1/admin/promotions/${candidate_id}/approve`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+    if (res.ok) {
+      await get().fetchPendingPromotions();
+    }
+  },
+
+  rejectPromotion: async (candidate_id, reason) => {
+    const token = localStorage.getItem('admin_token');
+    const res = await fetch(`/api/v1/admin/promotions/${candidate_id}/reject`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ reason }),
+    });
+    if (res.ok) {
+      await get().fetchPendingPromotions();
+    }
+  },
+
   // Plan 5b: drop-on-edge wrap. Removes source from its current location, then
   // wraps target + source in a new split container sized to inherit target's
   // parent-axis proportion.
