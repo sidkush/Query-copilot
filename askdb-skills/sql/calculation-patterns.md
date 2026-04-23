@@ -1,5 +1,8 @@
 ---
 applies_to: sql-generation
+depends_on:
+  - aggregation-rules
+  - null-handling
 description: Year-over-Year Growth Rate (current_period - prior_year_period) / NULLIF(prior_year_period,
   0) * 100
 legacy: true

@@ -1,5 +1,8 @@
 ---
 applies_to: chart-selection, dashboard-build
+depends_on:
+  - chart-selection
+  - color-system
 description: 'Currency: < $1,000 → $847 Currency K: $1K+ → $8.2K Currency M: $1M+
   → $8.2M'
 legacy: true
