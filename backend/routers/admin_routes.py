@@ -422,3 +422,73 @@ def remove_pii_suppression(body: PIISuppressionRequest, admin: dict = Depends(ge
     """Remove a column from the PII suppression registry."""
     remove_suppressed_column(body.conn_id, body.column)
     return {"status": "removed", "conn_id": body.conn_id, "column": body.column}
+
+
+# ── Phase F — Correction-pipeline promotion review ──────────────────────────
+from pathlib import Path as _Path
+
+from admin_ceremony import (
+    AdminCeremony, CeremonyError, CeremonyState, RateLimitExceeded,
+)
+
+
+def _ceremony_root() -> _Path:
+    root = _Path(__file__).resolve().parent.parent.parent / ".data" / "admin_ceremony"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+class _AckBody(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.get("/promotions/pending")
+def list_pending_promotions(admin: dict = Depends(get_admin_user)):
+    c = AdminCeremony(root=_ceremony_root())
+    items = []
+    for rec in c.list_pending():
+        items.append({
+            "candidate_id": rec.candidate_id,
+            "question": rec.question,
+            "proposed_sql": rec.proposed_sql,
+            "state": rec.state.value,
+            "first_admin": rec.first_admin,
+            "first_ack_at": rec.first_ack_at,
+        })
+    return {"items": items, "count": len(items)}
+
+
+@router.post("/promotions/{candidate_id}/approve")
+def approve_promotion(candidate_id: str, body: _AckBody,
+                      admin: dict = Depends(get_admin_user)):
+    c = AdminCeremony(root=_ceremony_root())
+    try:
+        rec = c.ack(candidate_id=candidate_id,
+                    admin_email=admin["email"], approve=True)
+    except RateLimitExceeded as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except CeremonyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "candidate_id": rec.candidate_id,
+        "state": rec.state.value,
+        "first_admin": rec.first_admin,
+        "second_admin": rec.second_admin,
+    }
+
+
+@router.post("/promotions/{candidate_id}/reject")
+def reject_promotion(candidate_id: str, body: _AckBody,
+                     admin: dict = Depends(get_admin_user)):
+    c = AdminCeremony(root=_ceremony_root())
+    try:
+        rec = c.ack(candidate_id=candidate_id,
+                    admin_email=admin["email"], approve=False,
+                    reason=body.reason)
+    except CeremonyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "candidate_id": rec.candidate_id,
+        "state": rec.state.value,
+        "reject_reason": rec.reject_reason,
+    }
