@@ -66,3 +66,7 @@ yarn-debug.log*
 
 # Phase D Ring-4 trap baseline — committed per H13
 !.data/intent_drop_baseline.json
+
+# Phase E trap baselines — committed per H13
+!.data/sampling_trust_baseline.json
+!.data/multi_tenant_baseline.json

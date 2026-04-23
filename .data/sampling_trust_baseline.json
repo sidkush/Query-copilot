@@ -1,0 +1,67 @@
+{
+  "suite": "trap_sampling_trust.jsonl",
+  "total": 15,
+  "passed": 0,
+  "per_question": {
+    "samp-001": {
+      "passed": false,
+      "reason": "tier not forced to live"
+    },
+    "samp-002": {
+      "passed": false,
+      "reason": "tier not forced to live"
+    },
+    "samp-003": {
+      "passed": false,
+      "reason": "tier not forced to live"
+    },
+    "samp-004": {
+      "passed": false,
+      "reason": "chip 'live' not emitted"
+    },
+    "samp-005": {
+      "passed": false,
+      "reason": "chip 'turbo' not emitted"
+    },
+    "samp-006": {
+      "passed": false,
+      "reason": "chip 'turbo' not emitted"
+    },
+    "samp-007": {
+      "passed": false,
+      "reason": "median phrase missing (skew guard expected)"
+    },
+    "samp-008": {
+      "passed": false,
+      "reason": "chip 'live' not emitted"
+    },
+    "samp-009": {
+      "passed": false,
+      "reason": "chip 'sample' not emitted"
+    },
+    "samp-010": {
+      "passed": false,
+      "reason": "tier not forced to live"
+    },
+    "samp-011": {
+      "passed": false,
+      "reason": "tier not forced to live"
+    },
+    "samp-012": {
+      "passed": false,
+      "reason": "tier not forced to live"
+    },
+    "samp-013": {
+      "passed": false,
+      "reason": "median phrase missing (skew guard expected)"
+    },
+    "samp-014": {
+      "passed": false,
+      "reason": "chip 'turbo' not emitted"
+    },
+    "samp-015": {
+      "passed": false,
+      "reason": "chip 'live' not emitted"
+    }
+  }
+}

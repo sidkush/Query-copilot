@@ -1,0 +1,67 @@
+{
+  "suite": "trap_multi_tenant.jsonl",
+  "total": 15,
+  "passed": 0,
+  "per_question": {
+    "tenant-001": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-002": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-003": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-004": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-005": {
+      "passed": false,
+      "reason": "BYOK binding marker missing"
+    },
+    "tenant-006": {
+      "passed": false,
+      "reason": "erasure cascade marker missing"
+    },
+    "tenant-007": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-008": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-009": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-010": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-011": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-012": {
+      "passed": false,
+      "reason": "tenant composite key marker missing"
+    },
+    "tenant-013": {
+      "passed": false,
+      "reason": "EU endpoint marker missing"
+    },
+    "tenant-014": {
+      "passed": false,
+      "reason": "BYOK binding marker missing"
+    },
+    "tenant-015": {
+      "passed": false,
+      "reason": "erasure cascade marker missing"
+    }
+  }
+}
