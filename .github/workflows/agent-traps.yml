@@ -56,6 +56,20 @@ jobs:
             .data/intent_drop_baseline.json \
             --db /tmp/eval_fixture.sqlite
 
+      - name: Run Phase-E sampling-trust trap suite against mock
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_sampling_trust.jsonl \
+            .data/sampling_trust_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run Phase-E multi-tenant trap suite against mock
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_multi_tenant.jsonl \
+            .data/multi_tenant_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
   shadow-suite:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     runs-on: ubuntu-latest
