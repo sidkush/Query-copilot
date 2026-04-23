@@ -191,6 +191,31 @@ class Settings(BaseSettings):
     SEMANTIC_REGISTRY_DIR: str = Field(default=".data/semantic_registry")
     FEATURE_DRIFT_DETECTOR: bool = Field(default=True)
     FISCAL_YEAR_START_MONTH: int = Field(default=1)
+    # ── Provenance + Tier Calibration (Phase E — Ring 5) ──
+    FEATURE_PROVENANCE_CHIP: bool = Field(default=True)
+    SKEW_GUARD_P99_P50_RATIO: float = Field(default=10.0)
+    TIER_PROMOTE_KEYWORDS: str = Field(
+        default="exact,last hour,today,fraud rate,incident,live",
+        description="Comma-separated NL triggers that force live execution."
+    )
+    # ── Tenant Fortress (Phase E — Ring 6 / H7) ──
+    FEATURE_TENANT_FORTRESS: bool = Field(default=True)
+    TENANT_EU_REGIONS: str = Field(default="eu,fr,de,ie,nl,pl,es,it")
+    # ── Chaos Isolation (Phase E — H8) ──
+    FEATURE_CHAOS_ISOLATION: bool = Field(default=True)
+    JITTER_BASE_MS: int = Field(default=50)
+    JITTER_MAX_MS: int = Field(default=500)
+    SINGLEFLIGHT_WAIT_TIMEOUT_S: float = Field(default=10.0)
+    COST_BREAKER_MAX_USD_PER_MINUTE: float = Field(default=1.0)
+    SSE_CURSOR_TTL_SECONDS: int = Field(default=300)
+    # ── Result Provenance (Phase E — H10) ──
+    FEATURE_RESULT_PROVENANCE: bool = Field(default=True)
+    TURBO_LIVE_SANITY_SAMPLE_FRACTION: float = Field(default=0.01)
+    TURBO_LIVE_DIVERGENCE_WARN_PCT: float = Field(default=10.0)
+    # ── Sampling-Aware Correctness (Phase E — H11) ──
+    FEATURE_SAMPLING_AWARE: bool = Field(default=True)
+    HLL_PRECISION: int = Field(default=14)
+    VIZQL_HEX_BIN_THRESHOLD_ROWS: int = Field(default=20_000)
 
     QUERY_MEMORY_ENABLED: bool = Field(default=True)
     QUERY_MEMORY_COLLECTION_PREFIX: str = Field(default="query_memory_")

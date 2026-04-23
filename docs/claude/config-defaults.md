@@ -79,6 +79,28 @@ point here instead of duplicating values. Confirm against
 | `FEATURE_DRIFT_DETECTOR` | `True` | Gate for H12 DriftDetector |
 | `FISCAL_YEAR_START_MONTH` | `1` | Tenant fiscal year start (1=Jan); mismatch fires DriftDetector |
 
+### Provenance + Tenant + Chaos (Phase E — Rings 5/6, H7/H8/H10/H11)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_PROVENANCE_CHIP` | `True` | Emit provenance_chip SSE event before first token. |
+| `SKEW_GUARD_P99_P50_RATIO` | `10.0` | Ratio trigger for "add median alongside mean" in summaries. |
+| `TIER_PROMOTE_KEYWORDS` | `exact,last hour,today,fraud rate,incident,live` | Force live execution on match. |
+| `FEATURE_TENANT_FORTRESS` | `True` | `(tenant, conn, user)` composite keys everywhere. |
+| `TENANT_EU_REGIONS` | `eu,fr,de,ie,nl,pl,es,it` | Tenants whose region_hint matches → EU Anthropic endpoint. |
+| `FEATURE_CHAOS_ISOLATION` | `True` | Jitter + singleflight + cost breaker + SSE cursor. |
+| `JITTER_BASE_MS` | `50` | Exponential backoff base for retry. |
+| `JITTER_MAX_MS` | `500` | Retry cap. |
+| `SINGLEFLIGHT_WAIT_TIMEOUT_S` | `10.0` | Secondary caller timeout when primary key held. |
+| `COST_BREAKER_MAX_USD_PER_MINUTE` | `1.0` | Per-tenant spend cap; trips → 429. |
+| `SSE_CURSOR_TTL_SECONDS` | `300` | Resumable SSE cursor retention. |
+| `FEATURE_RESULT_PROVENANCE` | `True` | H10 always-on observability on results. |
+| `TURBO_LIVE_SANITY_SAMPLE_FRACTION` | `0.01` | 1% Turbo answers re-run live for sanity. |
+| `TURBO_LIVE_DIVERGENCE_WARN_PCT` | `10.0` | % divergence → warn on chip. |
+| `FEATURE_SAMPLING_AWARE` | `True` | HLL + sentinel + stratify. |
+| `HLL_PRECISION` | `14` | `2^14 = 16 384` registers; ~0.8% error. |
+| `VIZQL_HEX_BIN_THRESHOLD_ROWS` | `20_000` | Scatter → hex-bin auto-swap above this. |
+
 ### Calc parser (Plan 8a)
 
 | Constant | Value | Notes |
