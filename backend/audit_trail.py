@@ -76,6 +76,12 @@ def _rotate_if_needed() -> None:
     try:
         active.rename(dest)
         logger.info("audit_trail: rotated %s -> %s", active, dest)
+        from audit_integrity import seal
+        try:
+            seal(dest)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"audit seal failed for {dest}: {e}")
     except OSError:
         logger.exception("audit_trail: rotation failed — continuing without rotate")
 
