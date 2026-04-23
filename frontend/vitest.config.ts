@@ -35,6 +35,8 @@ export default defineConfig({
       'src/components/dashboard/modes/presets/__tests__/**/*.test.tsx',
       'src/components/dashboard/__tests__/**/*.test.ts',
       'src/components/dashboard/__tests__/**/*.test.tsx',
+      'src/components/agent/**/*.test.jsx',
+      'src/components/agent/**/*.test.tsx',
     ],
     coverage: {
       provider: 'v8',
