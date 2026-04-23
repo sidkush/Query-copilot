@@ -2541,6 +2541,65 @@ html { scroll-behavior: smooth; }
   animation: chipBlink 1.2s ease-in-out infinite;
 }
 
+/* ── ProvenanceChip (Phase E) ─────────────────────────────────── */
+.provenance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  margin-bottom: 6px;
+  user-select: none;
+  line-height: 1.6;
+}
+
+/* live — emerald tint */
+.provenance-chip--live {
+  background: rgba(34, 197, 94, 0.12);
+  color: rgba(34, 197, 94, 0.9);
+}
+:root.light .provenance-chip--live {
+  background: rgba(22, 163, 74, 0.10);
+  color: rgba(21, 128, 61, 1);
+}
+
+/* turbo — cyan tint (matches turboInstant indicator) */
+.provenance-chip--turbo {
+  background: rgba(6, 182, 212, 0.10);
+  color: rgba(6, 182, 212, 0.9);
+}
+:root.light .provenance-chip--turbo {
+  background: rgba(8, 145, 178, 0.10);
+  color: rgba(14, 116, 144, 1);
+}
+
+/* sample — amber tint */
+.provenance-chip--sample {
+  background: rgba(251, 191, 36, 0.10);
+  color: rgba(251, 191, 36, 0.9);
+}
+:root.light .provenance-chip--sample {
+  background: rgba(180, 83, 9, 0.08);
+  color: rgba(146, 64, 14, 1);
+}
+
+/* unverified — orange/warning tint */
+.provenance-chip--unverified {
+  background: rgba(249, 115, 22, 0.10);
+  color: rgba(249, 115, 22, 0.9);
+}
+:root.light .provenance-chip--unverified {
+  background: rgba(234, 88, 12, 0.08);
+  color: rgba(194, 65, 12, 1);
+}
+
+.provenance-chip__label {
+  line-height: 1;
+}
+
 /* ═══════════════════════════════════════════════════════════
    SAVED DATABASE PILL — DOUBLE-BEZEL + TURBO WOW FACTOR
    A premium "machined hardware" treatment for each saved DB.
