@@ -49,6 +49,13 @@ jobs:
             .data/join_scale_baseline.json \
             --db /tmp/eval_fixture.sqlite
 
+      - name: Run Ring-4 intent-drop trap suite against mock
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_intent_drop.jsonl \
+            .data/intent_drop_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
   shadow-suite:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     runs-on: ubuntu-latest
