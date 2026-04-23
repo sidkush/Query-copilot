@@ -33,6 +33,48 @@ _conn_failures: dict[str, int] = defaultdict(int)
 _conn_circuit_open: dict[str, float] = {}
 
 
+# ── H20 Phase H — server-enforced trial quota ────────────────────
+from datetime import date
+from threading import Lock
+
+_MEM_TRIAL: dict[tuple[str, str], int] = {}
+_MEM_LOCK = Lock()
+
+
+def _today_iso() -> str:
+    return date.today().isoformat()
+
+
+def _mem_trial_counter(user_email: str) -> int:
+    with _MEM_LOCK:
+        key = (user_email, _today_iso())
+        _MEM_TRIAL[key] = _MEM_TRIAL.get(key, 0) + 1
+        return _MEM_TRIAL[key]
+
+
+def _trial_quota_gate(user_email: str, plan: str):
+    """H20 — server-enforced daily trial cap. free plan only; Redis primary, in-mem fallback."""
+    if plan != "free":
+        return
+    cap = settings.TRIAL_QUOTA_DAILY_QUERIES
+    key = f"trial_quota:{user_email}:{_today_iso()}"
+    try:
+        from redis_client import get_redis
+        redis = get_redis()
+    except Exception:
+        redis = None
+    if redis:
+        try:
+            count = redis.incr(key)
+            redis.expire(key, 86400)
+        except Exception:
+            count = _mem_trial_counter(user_email)
+    else:
+        count = _mem_trial_counter(user_email)
+    if count > cap:
+        raise HTTPException(status_code=429, detail=f"trial quota exceeded ({cap}/day)")
+
+
 def _rate_limit_key(email: str, conn_id: str) -> str:
     return f"{email}:{conn_id}"
 
@@ -610,6 +652,9 @@ def execute_sql(req: ExecuteRequest, user: dict = Depends(get_current_user)):
     """Step 2: Execute user-approved SQL against the database."""
     from main import app
     email = user["email"]
+
+    # H20 Phase H — server-enforced trial quota (free plan only).
+    _trial_quota_gate(email, user.get("plan", "free"))
 
     # Plan 9a T5 — validate analytics contract BEFORE running the base SQL
     # so we fail fast with a 422 instead of wasting an engine round-trip.

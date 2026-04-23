@@ -127,6 +127,8 @@ def log_tier_decision(
     schema_hash: str,
     cache_age_s: Optional[float],
     reason: str,
+    *,
+    actor_type: str = "system",
 ) -> None:
     """
     Record one query-intelligence tier routing decision.
@@ -152,6 +154,7 @@ def log_tier_decision(
         "schema_hash": schema_hash,
         "cache_age_s": cache_age_s,
         "reason": reason,
+        "actor_type": actor_type,
     }
     _append_entry(entry)
 
@@ -165,6 +168,8 @@ def log_turbo_event(
     conn_id: str,
     event_type: str,
     details: dict,
+    *,
+    actor_type: str = "user",
 ) -> None:
     """
     Record a turbo-sync lifecycle event.
@@ -186,6 +191,7 @@ def log_turbo_event(
         "conn_id": conn_id,
         "event_type": event_type,
         "details": details,
+        "actor_type": actor_type,
     }
     _append_entry(entry)
 
@@ -197,6 +203,8 @@ def log_memory_event(
     conn_id: str,
     event_type: str,
     intent_hash: str,
+    *,
+    actor_type: str = "user",
 ) -> None:
     """
     Record a query-memory lifecycle event.
@@ -217,28 +225,45 @@ def log_memory_event(
         "conn_id": conn_id,
         "event_type": event_type,
         "intent_hash": intent_hash,
+        "actor_type": actor_type,
     }
     _append_entry(entry)
 
 
 def log_agent_event(
-    event_type: str,
-    session_id: str = "",
+    *,
+    email: str = "",
+    chat_id: str = "",
+    event: str = "",
+    actor_type: str = "user",
     details: Optional[dict] = None,
+    # Legacy positional-style aliases retained for callers that still
+    # pass `event_type=` / `session_id=`.
+    event_type: Optional[str] = None,
+    session_id: Optional[str] = None,
 ) -> None:
     """
     Log an agent lifecycle event (budget extension, plan generation, etc.).
 
     Parameters
     ----------
-    event_type  : Event discriminator (e.g., "budget_extension", "plan_generated").
-    session_id  : Agent session / chat_id.
+    email       : User email (or hashed form).
+    chat_id     : Agent session / chat_id.
+    event       : Event discriminator (e.g., "budget_extension").
+    actor_type  : H20 — who initiated; defaults to "user".
     details     : Arbitrary dict of event-specific data.
     """
+    resolved_event = event or event_type or ""
+    resolved_chat = chat_id or session_id or ""
     entry = {
         "timestamp": _utc_now_iso(),
-        "event_type": event_type,
-        "session_id": session_id,
+        "email": email,
+        "chat_id": resolved_chat,
+        "event": resolved_event,
+        # Preserve legacy keys so older log consumers keep working.
+        "event_type": resolved_event,
+        "session_id": resolved_chat,
+        "actor_type": actor_type,
         **(details or {}),
     }
     _append_entry(entry)
@@ -256,6 +281,8 @@ def log_tile_event(
     chart_type: Optional[str] = None,
     user_email_hash: Optional[str] = None,
     age_ms: Optional[int] = None,
+    *,
+    actor_type: str = "user",
 ) -> None:
     """
     Record a dashboard tile lifecycle event for survival telemetry.
@@ -283,6 +310,7 @@ def log_tile_event(
         "event_type": event_type,
         "dashboard_id": dashboard_id,
         "tile_id": tile_id,
+        "actor_type": actor_type,
     }
     if chart_type is not None:
         entry["chart_type"] = chart_type
