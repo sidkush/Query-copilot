@@ -76,6 +76,12 @@ def _rotate_if_needed() -> None:
     try:
         active.rename(dest)
         logger.info("audit_trail: rotated %s -> %s", active, dest)
+        from audit_integrity import seal
+        try:
+            seal(dest)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"audit seal failed for {dest}: {e}")
     except OSError:
         logger.exception("audit_trail: rotation failed — continuing without rotate")
 
@@ -101,6 +107,7 @@ def _append_entry(entry: dict) -> None:
             with open(active, "a", encoding="utf-8") as fh:
                 fh.write(line)
                 fh.flush()
+            _touch_last_write()
         except OSError:
             logger.exception(
                 "audit_trail: failed to write entry to %s — entry: %s",
@@ -409,3 +416,45 @@ def log_vizql_batch_event(
         "total_ms": float(total_ms),
     }
     _append_entry(entry)
+
+
+# ── H24 — monitoring-silent watchdog ──
+import time as _time
+from config import settings as _settings
+
+_LAST_WRITE_TS = 0.0
+_SILENCE_LOCK = threading.Lock()
+_SILENT_CALLBACK = None
+
+
+def _touch_last_write() -> None:
+    global _LAST_WRITE_TS
+    with _SILENCE_LOCK:
+        _LAST_WRITE_TS = _time.time()
+
+
+def _reset_last_write() -> None:
+    global _LAST_WRITE_TS
+    _LAST_WRITE_TS = 0.0
+
+
+def _get_last_write_ts() -> float:
+    return _LAST_WRITE_TS
+
+
+def register_silence_watchdog(*, on_silent) -> None:
+    global _SILENT_CALLBACK
+    _SILENT_CALLBACK = on_silent
+
+
+def _check_silence_now() -> None:
+    if _SILENT_CALLBACK is None:
+        return
+    window = _settings.AUDIT_SILENCE_WINDOW_SECONDS
+    now = _time.time()
+    if _LAST_WRITE_TS == 0:
+        if now > window:
+            _SILENT_CALLBACK()
+        return
+    if now - _LAST_WRITE_TS > window:
+        _SILENT_CALLBACK()
