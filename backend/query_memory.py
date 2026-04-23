@@ -25,6 +25,7 @@ from typing import Optional
 import chromadb
 
 from config import settings
+from chroma_write_guard import guarded_add, guarded_upsert
 
 logger = logging.getLogger(__name__)
 
@@ -383,7 +384,13 @@ class QueryMemory:
             except Exception:
                 pass  # First insertion — use defaults
 
-            collection.upsert(
+            # H21 — route write through ACL guard. Build tenant-prefixed
+            # namespace for this collection even when tenant_id isn't passed
+            # into store_insight; "default" tenant preserves ring-6 contract.
+            ns = f"tenant:default/conn:{conn_id}/coll:queries"
+            guarded_upsert(
+                collection,
+                namespace=ns,
                 ids=[doc_id],
                 documents=[question],
                 metadatas=[metadata],
@@ -694,7 +701,17 @@ class QueryMemory:
                     coll = getattr(self, attr)(ns)
                     break
             if coll is not None:
-                coll.add(ids=[doc_id], documents=[question], metadatas=[payload])
+                # H21 — ACL guard. ns already built via chroma_namespace()
+                # above (or tenant/conn fallback). Prepend tenant: if missing
+                # so fallback string still satisfies the guard.
+                guarded_ns = ns if ns.startswith("tenant:") else f"tenant:{tenant_id}/conn:{conn_id}/coll:promoted_examples"
+                guarded_add(
+                    coll,
+                    namespace=guarded_ns,
+                    ids=[doc_id],
+                    documents=[question],
+                    metadatas=[payload],
+                )
         except Exception:
             pass
 

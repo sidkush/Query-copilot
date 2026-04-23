@@ -17,10 +17,18 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from config import settings
+
 _logger = logging.getLogger(__name__)
 
-_DB_DIR = Path(__file__).resolve().parent / ".data"
-_DB_PATH = _DB_DIR / "agent_sessions.db"
+# H21 — PVC-configurable. Override with `AGENT_SESSION_DB_PATH` env in k8s
+# (e.g. `/mnt/pvc/agent_sessions.db`). Relative paths resolve against backend root.
+_configured = Path(settings.AGENT_SESSION_DB_PATH)
+if _configured.is_absolute():
+    DB_PATH = _configured
+else:
+    DB_PATH = Path(__file__).resolve().parent / _configured
+_DB_PATH = DB_PATH  # legacy alias preserved for existing callers
 _MAX_SESSIONS_PER_USER = 50
 
 _SCHEMA_SQL = """
