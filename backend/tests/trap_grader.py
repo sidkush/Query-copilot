@@ -207,6 +207,52 @@ def _check_must_include_clause(sql: str, oracle: dict) -> tuple:
     return False, f"clause {kind!r} missing from SQL"
 
 
+def _check_must_force_live_tier(sql: str, oracle: dict) -> tuple:
+    if "tier: live" in sql.lower():
+        return True, "forced live tier"
+    return False, "tier not forced to live"
+
+
+def _check_must_emit_chip(sql: str, oracle: dict) -> tuple:
+    want = (oracle.get("trust") or "").lower()
+    if not want:
+        return False, "must_emit_chip oracle missing 'trust' field"
+    if f"chip: {want}" in sql.lower():
+        return True, f"chip {want!r} emitted"
+    return False, f"chip {want!r} not emitted"
+
+
+def _check_must_use_tenant_composite_key(sql: str, oracle: dict) -> tuple:
+    if "tenant_key:" in sql.lower() and "tenant:" in sql.lower() and "conn:" in sql.lower():
+        return True, "tenant composite key present"
+    return False, "tenant composite key marker missing"
+
+
+def _check_must_include_median_when_skewed(sql: str, oracle: dict) -> tuple:
+    if "median" in sql.lower():
+        return True, "median phrase included"
+    return False, "median phrase missing (skew guard expected)"
+
+
+def _check_must_use_requester_byok(sql: str, oracle: dict) -> tuple:
+    if "byok: requester" in sql.lower():
+        return True, "BYOK bound to requester"
+    return False, "BYOK binding marker missing"
+
+
+def _check_must_cascade_right_to_erasure(sql: str, oracle: dict) -> tuple:
+    markers = ("erasure: cascade", "deleted from chromadb", "deleted from audit")
+    if any(m in sql.lower() for m in markers):
+        return True, "erasure cascade marker present"
+    return False, "erasure cascade marker missing"
+
+
+def _check_must_route_eu_tenant_to_eu(sql: str, oracle: dict) -> tuple:
+    if "endpoint: eu" in sql.lower():
+        return True, "EU endpoint used"
+    return False, "EU endpoint marker missing"
+
+
 _HANDLERS = {
     "date_range": _check_date_range,
     "must_not_refuse": lambda sql, ora, _db: _check_must_not_refuse(sql, ora),
@@ -223,6 +269,14 @@ _HANDLERS = {
     "must_emit_intent_echo":     lambda sql, ora, _db: _check_must_emit_intent_echo(sql, ora),
     "must_not_emit_intent_echo": lambda sql, ora, _db: _check_must_not_emit_intent_echo(sql, ora),
     "must_include_clause":       lambda sql, ora, _db: _check_must_include_clause(sql, ora),
+    # Phase E — Ring 5/6 oracles (sampling trust + multi-tenant).
+    "must_force_live_tier":                lambda sql, ora, _db: _check_must_force_live_tier(sql, ora),
+    "must_emit_chip":                      lambda sql, ora, _db: _check_must_emit_chip(sql, ora),
+    "must_use_tenant_composite_key":       lambda sql, ora, _db: _check_must_use_tenant_composite_key(sql, ora),
+    "must_include_median_when_skewed":     lambda sql, ora, _db: _check_must_include_median_when_skewed(sql, ora),
+    "must_use_requester_byok_not_owner":   lambda sql, ora, _db: _check_must_use_requester_byok(sql, ora),
+    "must_cascade_right_to_erasure":       lambda sql, ora, _db: _check_must_cascade_right_to_erasure(sql, ora),
+    "must_route_eu_tenant_to_eu_endpoint": lambda sql, ora, _db: _check_must_route_eu_tenant_to_eu(sql, ora),
 }
 
 
