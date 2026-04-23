@@ -649,20 +649,39 @@ export const api = {
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n\n");
           buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
+          for (const chunk of lines) {
+            const chunkLines = chunk.split("\n");
+            let eventName = null;
+            let dataLine = null;
+            for (const cl of chunkLines) {
+              if (cl.startsWith("event: ")) eventName = cl.slice(7).trim();
+              else if (cl.startsWith("data: ")) dataLine = cl.slice(6);
+            }
+            if (dataLine !== null) {
               try {
-                const data = JSON.parse(line.slice(6));
+                const data = JSON.parse(dataLine);
+                if (eventName) data.__event = eventName;
                 onStep(data);
               } catch { /* skip malformed */ }
             }
           }
         }
         // Process remaining buffer
-        if (buffer.startsWith("data: ")) {
-          try {
-            onStep(JSON.parse(buffer.slice(6)));
-          } catch { /* skip */ }
+        {
+          const chunkLines = buffer.split("\n");
+          let eventName = null;
+          let dataLine = null;
+          for (const cl of chunkLines) {
+            if (cl.startsWith("event: ")) eventName = cl.slice(7).trim();
+            else if (cl.startsWith("data: ")) dataLine = cl.slice(6);
+          }
+          if (dataLine !== null) {
+            try {
+              const data = JSON.parse(dataLine);
+              if (eventName) data.__event = eventName;
+              onStep(data);
+            } catch { /* skip */ }
+          }
         }
       } catch (err) {
         if (err.name !== "AbortError") {
@@ -690,6 +709,12 @@ export const api = {
 
   agentSessionDelete: (chatId) =>
     request(`/agent/sessions/${chatId}`, { method: "DELETE" }),
+
+  postEchoResponse: (chatId, choiceId) =>
+    request("/agent/echo-response", {
+      method: "POST",
+      body: JSON.stringify({ chat_id: chatId, choice_id: choiceId }),
+    }),
 
   agentContinue: (chatId, connId, onStep, { persona, permissionMode, agentContext } = {}) => {
     const controller = new AbortController();

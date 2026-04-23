@@ -4,6 +4,7 @@ import { useStore } from "../../store";
 import { api } from "../../api";
 import { TOKENS } from "../dashboard/tokens";
 import AgentStepFeed from "./AgentStepFeed";
+import IntentEcho from "./IntentEcho";
 import VoiceIndicator from "../voice/VoiceIndicator";
 import useSpeechRecognition from "../../hooks/useSpeechRecognition";
 import useSpeechSynthesis from "../../hooks/useSpeechSynthesis";
@@ -155,6 +156,10 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
   const getAgentHistoryList = useStore((s) => s.getAgentHistoryList);
   const deleteAgentHistory = useStore((s) => s.deleteAgentHistory);
   const agentPersona = useStore((s) => s.agentPersona);
+  const pendingIntentEcho = useStore((s) => s.pendingIntentEcho);
+  const setPendingIntentEcho = useStore((s) => s.setPendingIntentEcho);
+  const clearPendingIntentEcho = useStore((s) => s.clearPendingIntentEcho);
+  const tickEchoStreak = useStore((s) => s.tickEchoStreak);
   const agentPermissionMode = useStore((s) => s.agentPermissionMode);
   const agentContext = useStore((s) => s.agentContext);
   const softClearAgent = useStore((s) => s.softClearAgent);
@@ -471,6 +476,11 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
     const stream = api.agentRun(q, connId, chatIdForRun, (step) => {
       if (step.chat_id) setAgentChatId(step.chat_id);
 
+      if (step.__event === "intent_echo") {
+        setPendingIntentEcho(step);
+        return;
+      }
+
       if (step.type === "ask_user") {
         setAgentWaiting(step.content, step.tool_input || step.options);
       } else if (step.type === "error") {
@@ -501,7 +511,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
     // isListening is read inside the SSE callback only and intentionally
     // captures the latest value via streamRef closure, not the dep array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep]);
+  }, [input, connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep, setPendingIntentEcho]);
 
   // ── Quick action — same as handleSubmit but accepts text directly ──
   const handleQuickAction = useCallback((text) => {
@@ -528,6 +538,11 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
     const stream = api.agentRun(text, connId, chatIdForRun, (step) => {
       if (step.chat_id) setAgentChatId(step.chat_id);
 
+      if (step.__event === "intent_echo") {
+        setPendingIntentEcho(step);
+        return;
+      }
+
       if (step.type === "ask_user") {
         setAgentWaiting(step.content, step.tool_input || step.options);
       } else if (step.type === "error") {
@@ -553,7 +568,7 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
     // isListening is read inside the SSE callback only and intentionally
     // captures the latest value via streamRef closure, not the dep array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep]);
+  }, [connId, agentChatId, agentLoading, agentWaiting, agentSteps, softClearAgent, setAgentLoading, addAgentStep, setAgentWaiting, setAgentChatId, saveAgentHistory, agentPersona, agentPermissionMode, agentContext, ttsSupported, speak, handleDashboardToolStep, setPendingIntentEcho]);
 
   // Keep ref in sync so the speech recognition callback always calls the latest version
   useEffect(() => { handleQuickActionRef.current = handleQuickAction; }, [handleQuickAction]);
@@ -1107,6 +1122,23 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
               <AgentStepFeed compact={panelWidth < 400} />
             </>
           )}
+
+          {/* Phase D — IntentEcho card between stream and result */}
+          <IntentEcho
+            card={pendingIntentEcho}
+            onAccept={() => {
+              const start = Date.now();
+              if (agentChatId) api.postEchoResponse(agentChatId, "proceed").catch(() => {});
+              tickEchoStreak(Date.now() - start);
+              clearPendingIntentEcho();
+            }}
+            onChoose={(choiceId) => {
+              const start = Date.now();
+              if (agentChatId) api.postEchoResponse(agentChatId, choiceId).catch(() => {});
+              tickEchoStreak(Date.now() - start);
+              clearPendingIntentEcho();
+            }}
+          />
 
           {/* Quick-action buttons + suggested chips after agent completes a result */}
           {!agentLoading && !agentWaiting && agentSteps.length > 0 &&

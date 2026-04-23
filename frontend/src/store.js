@@ -372,6 +372,9 @@ export const useStore = create((set, get) => ({
   queryIntelligence: { schemaProfileLoaded: false, memoryInsightCount: 0, lastTierHit: null },
   dualResponseActive: false,
   cachedResultStep: null,
+  pendingIntentEcho: null,
+  echoPauseMs: 0,
+  echoRubberStampStreak: 0,
   agentChecklist: [],
   agentPhase: null,
   agentElapsedMs: 0,
@@ -454,6 +457,7 @@ export const useStore = create((set, get) => ({
     agentChatId: null,
     dualResponseActive: false,
     cachedResultStep: null,
+    pendingIntentEcho: null,
     agentChecklist: [],
     agentPhase: null,
     agentElapsedMs: 0,
@@ -473,10 +477,19 @@ export const useStore = create((set, get) => ({
     agentVerification: null,
     dualResponseActive: false,
     cachedResultStep: null,
+    pendingIntentEcho: null,
     // NOTE: agentChatId intentionally NOT cleared — preserves conversation thread
   }),
   setDualResponseActive: (active) => set({ dualResponseActive: active }),
   setCachedResultStep: (step) => set({ cachedResultStep: step }),
+  setPendingIntentEcho: (card) => set({ pendingIntentEcho: card }),
+  clearPendingIntentEcho: () => set({ pendingIntentEcho: null }),
+  tickEchoStreak: (pauseMs) => set((s) => ({
+    echoPauseMs: pauseMs,
+    echoRubberStampStreak: pauseMs < 500
+      ? s.echoRubberStampStreak + 1
+      : 0,
+  })),
   setAgentChecklist: (checklist) => set({ agentChecklist: checklist }),
   setAgentPhase: (phase) => set({ agentPhase: phase }),
   setAgentElapsedMs: (ms) => set({ agentElapsedMs: ms }),
