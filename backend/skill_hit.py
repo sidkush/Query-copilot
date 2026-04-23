@@ -5,7 +5,7 @@ wants to import both SkillHit and SkillLibrary.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -21,3 +21,4 @@ class SkillHit:
     content: str           # full body (no frontmatter)
     path: Path
     embedder_version: str = "hash-v1"  # H14: migration filtering tag
+    depends_on: tuple[str, ...] = ()   # Phase G: declared skill-name dependencies
