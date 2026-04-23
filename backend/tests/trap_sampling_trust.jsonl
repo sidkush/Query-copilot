@@ -1,0 +1,15 @@
+{"id": "samp-001", "nl": "exact count of users", "expected_sql_contains": ["COUNT"], "oracle": {"type": "must_force_live_tier"}}
+{"id": "samp-002", "nl": "today's signups", "expected_sql_contains": ["today", "signup"], "oracle": {"type": "must_force_live_tier"}}
+{"id": "samp-003", "nl": "active incident count", "expected_sql_contains": ["incident"], "oracle": {"type": "must_force_live_tier"}}
+{"id": "samp-004", "nl": "trips in 2024 by month", "expected_sql_contains": ["2024", "GROUP BY"], "oracle": {"type": "must_emit_chip", "trust": "live"}}
+{"id": "samp-005", "nl": "rough trip count", "expected_sql_contains": [], "oracle": {"type": "must_emit_chip", "trust": "turbo"}}
+{"id": "samp-006", "nl": "approximate distinct riders", "expected_sql_contains": [], "oracle": {"type": "must_emit_chip", "trust": "turbo"}}
+{"id": "samp-007", "nl": "average trip duration", "expected_sql_contains": ["AVG"], "oracle": {"type": "must_include_median_when_skewed", "column": "duration_sec"}}
+{"id": "samp-008", "nl": "p99 latency", "expected_sql_contains": [], "oracle": {"type": "must_emit_chip", "trust": "live"}}
+{"id": "samp-009", "nl": "sample 1% of orders stratified by region", "expected_sql_contains": ["region"], "oracle": {"type": "must_emit_chip", "trust": "sample"}}
+{"id": "samp-010", "nl": "fraud rate this hour", "expected_sql_contains": ["fraud"], "oracle": {"type": "must_force_live_tier"}}
+{"id": "samp-011", "nl": "count events last hour", "expected_sql_contains": ["last hour"], "oracle": {"type": "must_force_live_tier"}}
+{"id": "samp-012", "nl": "give me the total revenue exactly", "expected_sql_contains": ["SUM"], "oracle": {"type": "must_force_live_tier"}}
+{"id": "samp-013", "nl": "typical session duration", "expected_sql_contains": [], "oracle": {"type": "must_include_median_when_skewed", "column": "session_seconds"}}
+{"id": "samp-014", "nl": "fast estimate of trips", "expected_sql_contains": [], "oracle": {"type": "must_emit_chip", "trust": "turbo"}}
+{"id": "samp-015", "nl": "how many orders in 2024", "expected_sql_contains": ["COUNT", "2024"], "oracle": {"type": "must_emit_chip", "trust": "live"}}
