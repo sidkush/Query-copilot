@@ -70,6 +70,21 @@ jobs:
             .data/multi_tenant_baseline.json \
             --db /tmp/eval_fixture.sqlite
 
+      - name: Run Phase-F correction-pipeline trap suite
+        run: |
+          cd backend && python -c "
+          import json, sys
+          sys.path.insert(0, '.')
+          from tests.trap_grader import grade_question
+          traps = [json.loads(l) for l in open('tests/trap_correction_pipeline.jsonl') if l.strip()]
+          baseline = json.load(open('../.data/correction_pipeline_baseline.json'))
+          passed = sum(1 for t in traps if grade_question(t, {k: v for k, v in t.items() if k not in ('id','oracle_type','question')}))
+          rate = passed / len(traps)
+          delta = baseline['pass_rate'] - rate
+          print(f'{passed}/{len(traps)} pass, delta={delta:.2%}')
+          sys.exit(1 if delta > 0.02 else 0)
+          "
+
   shadow-suite:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     runs-on: ubuntu-latest
