@@ -40,6 +40,8 @@ class TableProfile:
     partitions: List[Any]            # partition names / definitions
     primary_keys: List[str]
     foreign_keys: List[Dict[str, Any]]
+    tz_aware_columns: List[str] = field(default_factory=list)    # Phase D — TZ-aware column names
+    soft_delete_columns: List[str] = field(default_factory=list)  # Phase D — soft-delete column names
 
 
 @dataclass
@@ -508,6 +510,60 @@ class SchemaIntelligence:
             logger.info("Schema cache invalidated for '%s'", conn_id)
         except Exception as exc:
             logger.warning("Could not invalidate cache for '%s': %s", conn_id, exc)
+
+    # ------------------------------------------------------------------
+    # Test-friendly SQLite profiler (Phase D)
+    # ------------------------------------------------------------------
+
+    def profile_sqlite(self, db_path: str) -> SchemaProfile:
+        """Test-friendly: profile a SQLite DB directly without a connector.
+
+        Detects tz_aware_columns (TIMESTAMPTZ / TIME ZONE in column type) and
+        soft_delete_columns (deleted_at / archived_at / removed_at nullable cols).
+        Returns a SchemaProfile with minimal required fields for testing.
+        """
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect(db_path)
+        try:
+            tables = []
+            for (tname,) in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ):
+                cols: List[Dict[str, Any]] = []
+                tz_aware: List[str] = []
+                soft_del: List[str] = []
+                for row in conn.execute(f"PRAGMA table_info({tname})"):
+                    # PRAGMA table_info: cid, name, type, notnull, dflt_value, pk
+                    cid, cname, ctype, notnull, dflt, pk = row
+                    cols.append({"name": cname, "type": ctype})
+                    up = (ctype or "").upper()
+                    if "TIMESTAMPTZ" in up or "TIME ZONE" in up:
+                        tz_aware.append(cname)
+                    if (
+                        cname.lower() in {"deleted_at", "archived_at", "removed_at"}
+                        and notnull == 0
+                    ):
+                        soft_del.append(cname)
+                tables.append(TableProfile(
+                    name=tname,
+                    row_count_estimate=-1,
+                    columns=cols,
+                    indexes=[],
+                    partitions=[],
+                    primary_keys=[],
+                    foreign_keys=[],
+                    tz_aware_columns=tz_aware,
+                    soft_delete_columns=soft_del,
+                ))
+            now = datetime.now(tz=timezone.utc)
+            return SchemaProfile(
+                tables=tables,
+                schema_hash=self._compute_hash(tables),
+                cached_at=now,
+                conn_id="_sqlite_test",
+            )
+        finally:
+            conn.close()
 
     # ------------------------------------------------------------------
     # Hashing
