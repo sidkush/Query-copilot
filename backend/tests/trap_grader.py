@@ -336,9 +336,82 @@ def _check_must_block_thumbs_up_storm(context: dict[str, Any]) -> bool:
     return True
 
 
+def _check_must_require_ceremony(context: dict[str, Any]) -> bool:
+    """Oracle: promotion is only allowed when ceremony_state == 'approved'.
+    Any other state must produce promote_outcome == 'blocked' with
+    block_reason == 'ceremony_not_approved'.
+    """
+    state = (context.get("candidate") or {}).get("ceremony_state", "")
+    outcome = context.get("promote_outcome")
+    reason = context.get("block_reason")
+    if state == "approved":
+        return outcome == "allowed"
+    return outcome == "blocked" and reason == "ceremony_not_approved"
+
+
+def _check_must_block_on_golden_eval_regression(context: dict[str, Any]) -> bool:
+    """Oracle: if any trap suite regresses by >= threshold_pct, the outcome
+    must be 'blocked' with block_reason == 'golden_eval_regression'.
+    Otherwise outcome must be 'allowed'.
+    """
+    deltas: dict[str, float] = context.get("shadow_deltas_pct", {})
+    threshold: float = float(context.get("threshold_pct", 2.0))
+    outcome = context.get("promote_outcome")
+    reason = context.get("block_reason")
+
+    regression = any(float(v) >= threshold for v in deltas.values())
+    if regression:
+        return outcome == "blocked" and reason == "golden_eval_regression"
+    return outcome == "allowed"
+
+
+def _check_must_cascade_erasure(context: dict[str, Any]) -> bool:
+    """Oracle: erasure operations must produce promote_outcome == 'erased'.
+    Vacuous correctness check — the test data declares the expected surfaces;
+    the oracle simply confirms the recorded outcome is 'erased'.
+    """
+    return context.get("promote_outcome") == "erased"
+
+
+def _check_must_enforce_tenant_quota(context: dict[str, Any]) -> bool:
+    """Oracle: if attempt_count > quota for the tenant, promotion must be
+    blocked with block_reason == 'quota_exceeded'. If attempt_count is not
+    provided (testing cross-tenant isolation), allow vacuously.
+    """
+    attempt_count = context.get("attempt_count")
+    quota = context.get("quota")
+    outcome = context.get("promote_outcome")
+    reason = context.get("block_reason")
+
+    if attempt_count is None or quota is None:
+        # Cross-tenant isolation test — vacuous allow check.
+        return outcome == "allowed"
+    if int(attempt_count) > int(quota):
+        return outcome == "blocked" and reason == "quota_exceeded"
+    return outcome == "allowed"
+
+
+def _check_must_noop_when_feature_off(context: dict[str, Any]) -> bool:
+    """Oracle: when feature_enabled is False, promote_to_examples must be a
+    no-op — promote_outcome == 'blocked' with block_reason == 'feature_disabled'.
+    When feature_enabled is True (or absent), pass vacuously.
+    """
+    feature_enabled = context.get("feature_enabled", True)
+    if feature_enabled is False:
+        outcome = context.get("promote_outcome")
+        reason = context.get("block_reason")
+        return outcome == "blocked" and reason == "feature_disabled"
+    return True
+
+
 _CONTEXT_HANDLERS = {
     # Phase F — correction pipeline oracles.
-    "must_block_thumbs_up_storm": _check_must_block_thumbs_up_storm,
+    "must_block_thumbs_up_storm":          _check_must_block_thumbs_up_storm,
+    "must_require_ceremony":               _check_must_require_ceremony,
+    "must_block_on_golden_eval_regression": _check_must_block_on_golden_eval_regression,
+    "must_cascade_erasure":                _check_must_cascade_erasure,
+    "must_enforce_tenant_quota":           _check_must_enforce_tenant_quota,
+    "must_noop_when_feature_off":          _check_must_noop_when_feature_off,
 }
 
 
