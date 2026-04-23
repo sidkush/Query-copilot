@@ -1,0 +1,12 @@
+{"id":"g01","category":"bundle","question":"average order value by region","expects":{"must_contain_skills":["calculation-patterns","aggregation-rules","null-handling"]}}
+{"id":"g02","category":"bundle","question":"build a dashboard of sales KPIs","expects":{"must_contain_skills":["dashboard-build-protocol","multi-step-planning","session-memory-protocol"]}}
+{"id":"g03","category":"bundle","question":"join orders to customers","expects":{"must_contain_skills":["join-intelligence","schema-linking-evidence","schema-profiling"]}}
+{"id":"g04","category":"bundle","question":"format chart colors","expects":{"must_contain_skills":["chart-formatting","chart-selection","color-system"]}}
+{"id":"g05","category":"expansion","question":"top SKUs last 30 days","expects":{"expansion_text_contains_any":["best","highest","leading","recent"]}}
+{"id":"g06","category":"expansion","question":"who churned","expects":{"expansion_text_contains_any":["dropped","cancelled","left","inactive"]}}
+{"id":"g07","category":"cycle","question":"<synthetic: a-b cycle>","expects":{"resolver_raises":"DependsOnCycleError"}}
+{"id":"g08","category":"cycle","question":"<synthetic: a self-loop>","expects":{"resolver_raises":"DependsOnCycleError"}}
+{"id":"g09","category":"archive","question":"<dry-run with zero retrievals>","expects":{"archival_moved_nonzero":true,"priority_1_untouched":true}}
+{"id":"g10","category":"archive","question":"<dry-run with one P1 and zero retrievals>","expects":{"archival_moved_zero":true,"priority_1_untouched":true}}
+{"id":"g11","category":"budget","question":"<aggregate measurement>","expects":{"reduction_pct_at_least":30.0}}
+{"id":"g12","category":"budget","question":"<per-query cap>","expects":{"per_query_tokens_under":20000}}
