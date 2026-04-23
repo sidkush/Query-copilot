@@ -1,0 +1,23 @@
+# Disposable email blocklist (Phase H — H20/H23)
+# Source: public mailinator-style lists. Update quarterly.
+# One domain per line, lowercased, no leading @.
+mailinator.com
+10minutemail.com
+guerrillamail.com
+tempmail.com
+throwaway.email
+yopmail.com
+sharklasers.com
+grr.la
+trashmail.com
+dispostable.com
+fakeinbox.com
+mailnesia.com
+mintemail.com
+tempemail.net
+getairmail.com
+mohmal.com
+nada.email
+spambox.us
+tempr.email
+mytemp.email
