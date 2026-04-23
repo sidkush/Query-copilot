@@ -217,6 +217,17 @@ class Settings(BaseSettings):
     HLL_PRECISION: int = Field(default=14)
     VIZQL_HEX_BIN_THRESHOLD_ROWS: int = Field(default=20_000)
 
+    # ── Correction Pipeline (Phase F — P6 + P10 + H15) ──
+    FEATURE_CORRECTION_PIPELINE: bool = Field(default=True)
+    PROMOTION_ADMIN_CEREMONY_REQUIRED: bool = Field(default=True)
+    PROMOTION_CEREMONY_PER_ADMIN_DAILY_LIMIT: int = Field(default=20)
+    PROMOTIONS_PER_TENANT_PER_DAY: int = Field(default=10)
+    PROMOTION_GOLDEN_EVAL_THRESHOLD_PCT: float = Field(default=2.0, description="% pass-rate drop that blocks promotion")
+    ADVERSARIAL_SIMILARITY_COSINE_THRESHOLD: float = Field(default=0.92, description="cosine >= this among same user -> storm")
+    ADVERSARIAL_SIMILARITY_WINDOW_HOURS: int = Field(default=1)
+    ADVERSARIAL_SIMILARITY_MAX_UPVOTES: int = Field(default=3, description="> N thumbs-up in window -> block")
+    PROMOTION_LEDGER_DIR: str = Field(default=".data/promotion_ledger")
+
     QUERY_MEMORY_ENABLED: bool = Field(default=True)
     QUERY_MEMORY_COLLECTION_PREFIX: str = Field(default="query_memory_")
     QUERY_MEMORY_TTL_HOURS: int = Field(default=168)  # 7 days

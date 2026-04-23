@@ -101,6 +101,20 @@ point here instead of duplicating values. Confirm against
 | `HLL_PRECISION` | `14` | `2^14 = 16 384` registers; ~0.8% error. |
 | `VIZQL_HEX_BIN_THRESHOLD_ROWS` | `20_000` | Scatter → hex-bin auto-swap above this. |
 
+### Correction Pipeline (Phase F — P6 + P10 + H15)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_CORRECTION_PIPELINE` | `True` | Master gate for Phase F. Off → `promote_to_examples()` no-ops with log line. |
+| `PROMOTION_ADMIN_CEREMONY_REQUIRED` | `True` | H15 — require 2-admin approval. Off → auto-promote (staging only). |
+| `PROMOTION_CEREMONY_PER_ADMIN_DAILY_LIMIT` | `20` | H15 — per-admin approval quota per 24h rolling window. 429 when exceeded. |
+| `PROMOTIONS_PER_TENANT_PER_DAY` | `10` | Per-tenant promotion cap. Enforced in `query_memory.promote_example`. |
+| `PROMOTION_GOLDEN_EVAL_THRESHOLD_PCT` | `2.0` | % pass-rate drop on any trap suite that blocks promotion. |
+| `ADVERSARIAL_SIMILARITY_COSINE_THRESHOLD` | `0.92` | Cosine distance under which 2 upvotes from same user count as storm. |
+| `ADVERSARIAL_SIMILARITY_WINDOW_HOURS` | `1` | Sliding window for thumbs-up storm detection. |
+| `ADVERSARIAL_SIMILARITY_MAX_UPVOTES` | `3` | Max thumbs-ups from same user in window before block. |
+| `PROMOTION_LEDGER_DIR` | `.data/promotion_ledger` | JSONL append-only ledger of promotion decisions. |
+
 ### Calc parser (Plan 8a)
 
 | Constant | Value | Notes |
