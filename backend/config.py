@@ -228,6 +228,19 @@ class Settings(BaseSettings):
     ADVERSARIAL_SIMILARITY_MAX_UPVOTES: int = Field(default=3, description="> N thumbs-up in window -> block")
     PROMOTION_LEDGER_DIR: str = Field(default=".data/promotion_ledger")
 
+    # ── Retrieval Hygiene (Phase G — P9) ──
+    FEATURE_RETRIEVAL_HYGIENE: bool = Field(default=True, description="Master gate for Phase G (bundles + expansion + archival + depends_on).")
+    FEATURE_QUERY_EXPANSION: bool = Field(default=True, description="Off -> router calls ChromaDB with raw question.")
+    FEATURE_SKILL_BUNDLES: bool = Field(default=True, description="Off -> bundles never fire; fallback to 3-stage router.")
+    FEATURE_DEPENDS_ON_RESOLVER: bool = Field(default=True, description="Off -> depends_on closure is a no-op.")
+    QUERY_EXPANSION_MAX_TOKENS: int = Field(default=200, description="Hard cap on LLM expansion output (Haiku max_tokens).")
+    QUERY_EXPANSION_CACHE_TTL_SECONDS: int = Field(default=3600, description="Per-tenant expansion cache TTL.")
+    QUERY_EXPANSION_MODEL: str = Field(default="claude-haiku-4-5-20251001", description="Must match anthropic_provider default Haiku.")
+    RETRIEVAL_BUDGET_REDUCTION_TARGET_PCT: float = Field(default=30.0, description="Phase G exit criterion - measured against pinned corpus.")
+    SKILL_ARCHIVAL_DORMANCY_DAYS: int = Field(default=30, description="Skill never retrieved in N days -> archival candidate.")
+    SKILL_ARCHIVAL_MIN_RETRIEVALS: int = Field(default=1, description="< N retrievals in the dormancy window -> archive.")
+    SKILL_ARCHIVAL_ROOT: str = Field(default="askdb-skills/archive", description="Relative to repo root. Moved files preserve subdir.")
+
     QUERY_MEMORY_ENABLED: bool = Field(default=True)
     QUERY_MEMORY_COLLECTION_PREFIX: str = Field(default="query_memory_")
     QUERY_MEMORY_TTL_HOURS: int = Field(default=168)  # 7 days

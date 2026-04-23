@@ -115,6 +115,22 @@ point here instead of duplicating values. Confirm against
 | `ADVERSARIAL_SIMILARITY_MAX_UPVOTES` | `3` | Max thumbs-ups from same user in window before block. |
 | `PROMOTION_LEDGER_DIR` | `.data/promotion_ledger` | JSONL append-only ledger of promotion decisions. |
 
+### Retrieval Hygiene (Phase G — P9)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_RETRIEVAL_HYGIENE` | `True` | Master gate for Phase G. Off → `SkillRouter.resolve` pre-G behaviour (no bundles, no expansion, no depends_on closure). |
+| `FEATURE_QUERY_EXPANSION` | `True` | Off → router embeds the raw question. |
+| `FEATURE_SKILL_BUNDLES` | `True` | Off → bundle stage skipped. |
+| `FEATURE_DEPENDS_ON_RESOLVER` | `True` | Off → `depends_on:` frontmatter ignored at retrieval. |
+| `QUERY_EXPANSION_MAX_TOKENS` | `200` | Hard cap on LLM output. Haiku `max_tokens` param. |
+| `QUERY_EXPANSION_CACHE_TTL_SECONDS` | `3600` | Per-tenant expansion cache lifetime. |
+| `QUERY_EXPANSION_MODEL` | `claude-haiku-4-5-20251001` | Must match `PRIMARY_MODEL`. |
+| `RETRIEVAL_BUDGET_REDUCTION_TARGET_PCT` | `30.0` | Phase G exit criterion (measured in `tests/test_retrieval_budget.py`). |
+| `SKILL_ARCHIVAL_DORMANCY_DAYS` | `30` | Skill unused this long is archival candidate. |
+| `SKILL_ARCHIVAL_MIN_RETRIEVALS` | `1` | < N retrievals in window → archive. |
+| `SKILL_ARCHIVAL_ROOT` | `askdb-skills/archive` | Destination. Preserves original subdir. Never deletes. |
+
 ### Calc parser (Plan 8a)
 
 | Constant | Value | Notes |
