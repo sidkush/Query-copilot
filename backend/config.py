@@ -105,6 +105,15 @@ class Settings(BaseSettings):
     TWILIO_FROM_NUMBER: str = Field(default="")  # Your Twilio phone number
     TWILIO_MESSAGING_SERVICE_SID: str = Field(default="")  # Optional: better deliverability
 
+    # ── Alert Manager (Phase I) ───────────────────────────────────
+    FEATURE_ALERT_MANAGER: bool = Field(default=True)
+    ALERT_DEDUP_WINDOW_SECONDS: int = Field(default=300)
+    ALERT_MULTI_HOUR_ACCUMULATOR_SECONDS: int = Field(default=3600)
+    ALERT_MAX_RETRY: int = Field(default=3)
+
+    # ── Residual Risk Thresholds (Phase I) ────────────────────────
+    RESIDUAL_RISK_6_UPVOTE_STORM_MAX_PER_HOUR: int = Field(default=3)
+
     # ── App ───────────────────────────────────────────────────────
     APP_TITLE: str = Field(default="QueryCopilot")
     FRONTEND_URL: str = Field(default="http://localhost:5173")
