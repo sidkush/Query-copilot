@@ -845,6 +845,37 @@ class AgentEngine:
             except Exception:
                 self._planner = None
 
+        # Phase L — attach PlanCache to planner when FEATURE_PLAN_CACHE is on.
+        if getattr(settings, "FEATURE_PLAN_CACHE", False) and getattr(self, "_planner", None) is not None:
+            try:
+                from plan_cache import PlanCache
+                from query_memory import QueryMemory
+                from embeddings.embedder_registry import get_embedder
+
+                qm = QueryMemory()
+                raw_conn_id = getattr(self.connection_entry, "conn_id", None)
+                # Coerce to string and sanitize to ChromaDB-safe characters.
+                # ChromaDB collection names: 3-512 chars from [a-zA-Z0-9._-],
+                # must start AND end with [a-zA-Z0-9].
+                import hashlib as _hl
+                conn_id_str = str(raw_conn_id) if raw_conn_id else "default"
+                conn_id_safe = _hl.sha256(conn_id_str.encode("utf-8")).hexdigest()[:32]
+                plan_collection = qm._chroma.get_or_create_collection(
+                    name=f"plan_cache_{conn_id_safe}",
+                )
+                try:
+                    embedder = get_embedder("minilm-l6-v2")
+                except Exception:
+                    embedder = get_embedder("hash-v1")
+                self._planner._cache = PlanCache(
+                    chroma=plan_collection,
+                    embedder=embedder,
+                    cosine_threshold=settings.PLAN_CACHE_COSINE_THRESHOLD,
+                )
+            except Exception:
+                if hasattr(self, "_planner") and self._planner is not None:
+                    self._planner._cache = None
+
         if settings.FEATURE_AGENT_HALLUCINATION_ABORT:
             try:
                 from hallucination_abort import SafeText, enumerate_backend_error_phrases
