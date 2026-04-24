@@ -1,0 +1,10 @@
+{
+  "engine": "mysql",
+  "supported_features": [
+    "window_functions",
+    "ctes",
+    "recursive_cte"
+  ],
+  "turbo_safe": false,
+  "notes": "MySQL 8+ only for window fns + CTEs; no APPROX_COUNT_DISTINCT, no COUNTIF, no QUALIFY."
+}

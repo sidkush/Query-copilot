@@ -1,0 +1,14 @@
+{
+  "engine": "bigquery",
+  "supported_features": [
+    "qualify_clause",
+    "approx_count_distinct",
+    "countif",
+    "timestamp_sub",
+    "window_functions",
+    "ctes",
+    "except_distinct"
+  ],
+  "turbo_safe": false,
+  "notes": "Remote-only; Turbo mirror uses DuckDB, not BigQuery."
+}

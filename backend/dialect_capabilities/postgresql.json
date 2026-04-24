@@ -1,0 +1,11 @@
+{
+  "engine": "postgresql",
+  "supported_features": [
+    "window_functions",
+    "ctes",
+    "except_distinct",
+    "recursive_cte"
+  ],
+  "turbo_safe": false,
+  "notes": "No QUALIFY (use WHERE + subquery), no COUNTIF (use COUNT(CASE WHEN ...)), no APPROX_COUNT_DISTINCT natively."
+}

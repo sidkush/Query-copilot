@@ -1,0 +1,11 @@
+{
+  "engine": "redshift",
+  "supported_features": [
+    "window_functions",
+    "ctes",
+    "approx_count_distinct",
+    "except_distinct"
+  ],
+  "turbo_safe": false,
+  "notes": "Postgres-derived; no QUALIFY, limited recursive CTE."
+}
