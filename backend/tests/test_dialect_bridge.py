@@ -1,7 +1,7 @@
 """Dialect bridge — pass-through, transpile, fallback."""
 import pytest
 
-from dialect_bridge import transpile
+from dialect_bridge import transpile, transpile_checked
 
 
 def test_same_dialect_returns_source_unchanged():
@@ -60,3 +60,31 @@ def test_churn_query_transpiles():
     out = transpile(sql, source="bigquery", target="duckdb")
     assert "APPROX_COUNT_DISTINCT" in out.upper() or "APPROX_DISTINCT" in out.upper()
     assert "GROUP BY" in out.upper()
+
+
+def test_transpile_checked_success_returns_false_failed():
+    sql = "SELECT COUNTIF(x = 1) FROM t"
+    out, failed = transpile_checked(sql, source="bigquery", target="duckdb")
+    assert not failed
+    assert "COUNT_IF" in out.upper()
+
+
+def test_transpile_checked_same_dialect_returns_false_failed():
+    sql = "SELECT 1"
+    out, failed = transpile_checked(sql, source="bigquery", target="bigquery")
+    assert out == sql
+    assert not failed
+
+
+def test_transpile_checked_exception_returns_true_failed():
+    sql = "/* unterminated comment SELECT 1"
+    out, failed = transpile_checked(sql, source="bigquery", target="duckdb")
+    assert out == sql
+    assert failed
+
+
+def test_transpile_checked_identity_output_not_false_positive():
+    """SELECT 1 transpiles to SELECT 1 in many dialects — must NOT mark as failed."""
+    sql = "SELECT 1"
+    out, failed = transpile_checked(sql, source="bigquery", target="postgres")
+    assert not failed

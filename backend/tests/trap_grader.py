@@ -354,8 +354,8 @@ def _check_must_transpile_clean(sql: str, oracle: dict):
 
 def _check_must_route_capability(sql: str, oracle: dict):
     import re as _re
-    engine = oracle.get("engine", "")
-    feature = oracle.get("feature", "")
+    engine = _re.escape(oracle.get("engine", ""))
+    feature = _re.escape(oracle.get("feature", ""))
     expect_block = bool(oracle.get("expect_block", False))
     pattern = _re.compile(rf"capability_route:\s*{engine}\.{feature}\s*blocked=(true|false)", _re.I)
     m = pattern.search(sql)

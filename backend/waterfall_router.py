@@ -73,10 +73,9 @@ def _transpile_for_live_tier(
     Returns target-dialect SQL. On transpile failure, returns source SQL and
     fires a ``transpile_failure`` alert (if alert_manager available + flag on).
 
-    The underlying ``dialect_bridge.transpile`` swallows sqlglot exceptions and
-    returns the source SQL unchanged. We detect that fallback here by comparing
-    the output to the input SQL when the src/tgt dialects differ, which lets
-    ops correlate quiet transpile regressions with tenant / dialect pairs.
+    Uses ``dialect_bridge.transpile_checked`` which returns a ``failed`` bool
+    instead of comparing output strings — avoids false-positive alerts when
+    identical SQL is valid output (e.g. ``SELECT 1`` transpiles to itself).
     """
     if not settings.FEATURE_DIALECT_BRIDGE:
         return sql
@@ -85,12 +84,10 @@ def _transpile_for_live_tier(
     if src == tgt:
         return sql
 
-    from dialect_bridge import transpile
-    out = transpile(sql, source=src, target=tgt)
+    from dialect_bridge import transpile_checked
+    out, failed = transpile_checked(sql, source=src, target=tgt)
 
-    # Detect fallback: dialect_bridge returns source SQL unchanged when
-    # sqlglot raises. Differing dialects + identical text = transpile failed.
-    if out == sql and settings.DIALECT_BRIDGE_ALERT_ON_FAILURE and alert_manager is not None:
+    if failed and settings.DIALECT_BRIDGE_ALERT_ON_FAILURE and alert_manager is not None:
         try:
             alert_manager.dispatch(
                 rule_id="transpile_failure",
