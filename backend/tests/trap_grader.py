@@ -253,6 +253,49 @@ def _check_must_route_eu_tenant_to_eu(sql: str, oracle: dict) -> tuple:
     return False, "EU endpoint marker missing"
 
 
+def _check_must_safe_abort(sql: str, oracle: dict) -> tuple:
+    marker = "safe_abort:"
+    if marker not in sql.lower():
+        return False, "expected safe_abort marker not present"
+    needed = oracle.get("reason_contains", "").lower()
+    if needed and needed not in sql.lower():
+        return False, f"safe_abort reason missing {needed!r}"
+    return True, "safe_abort ok"
+
+
+def _check_must_bound_steps(sql: str, oracle: dict) -> tuple:
+    m = _re.search(r"step_count:\s*(\d+)", sql.lower())
+    if not m:
+        return False, "step_count marker missing"
+    steps = int(m.group(1))
+    cap = int(oracle.get("max_steps", 20))
+    if steps > cap:
+        return False, f"{steps} steps exceeds cap {cap}"
+    return True, f"{steps} steps within cap {cap}"
+
+
+def _check_must_use_planner(sql: str, oracle: dict) -> tuple:
+    m = _re.search(r"plan_artifact:\s*ctes=(\d+)", sql.lower())
+    if not m:
+        return False, "plan_artifact marker missing"
+    ctes = int(m.group(1))
+    cap = int(oracle.get("max_ctes", 3))
+    if ctes > cap:
+        return False, f"{ctes} CTEs exceeds cap {cap}"
+    return True, f"{ctes} CTEs within cap {cap}"
+
+
+def _check_must_escalate_model(sql: str, oracle: dict) -> tuple:
+    m = _re.search(r"model_tier:\s*(\w+)", sql.lower())
+    if not m:
+        return False, "model_tier marker missing"
+    tier = m.group(1)
+    expected = oracle.get("expected_tier", "").lower()
+    if tier != expected:
+        return False, f"tier {tier!r} != expected {expected!r}"
+    return True, f"tier {tier!r} matches"
+
+
 _HANDLERS = {
     "date_range": _check_date_range,
     "must_not_refuse": lambda sql, ora, _db: _check_must_not_refuse(sql, ora),
@@ -277,6 +320,11 @@ _HANDLERS = {
     "must_use_requester_byok_not_owner":   lambda sql, ora, _db: _check_must_use_requester_byok(sql, ora),
     "must_cascade_right_to_erasure":       lambda sql, ora, _db: _check_must_cascade_right_to_erasure(sql, ora),
     "must_route_eu_tenant_to_eu_endpoint": lambda sql, ora, _db: _check_must_route_eu_tenant_to_eu(sql, ora),
+    # Phase K — Ring 8 CASL agent orchestration oracles.
+    "must_safe_abort":      lambda sql, ora, _db: _check_must_safe_abort(sql, ora),
+    "must_bound_steps":     lambda sql, ora, _db: _check_must_bound_steps(sql, ora),
+    "must_use_planner":     lambda sql, ora, _db: _check_must_use_planner(sql, ora),
+    "must_escalate_model":  lambda sql, ora, _db: _check_must_escalate_model(sql, ora),
 }
 
 
