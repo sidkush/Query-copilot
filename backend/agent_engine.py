@@ -1656,6 +1656,18 @@ class AgentEngine:
             return True
         return False
 
+    def _is_cancelled(self) -> bool:
+        """Phase L — check active-session dict for user cancel signal."""
+        plan = getattr(self, "_current_plan", None)
+        if plan is None:
+            return False
+        try:
+            from routers.agent_routes import _ACTIVE_AGENT_SESSIONS
+            session = _ACTIVE_AGENT_SESSIONS.get(plan.plan_id)
+            return bool(session and session.get("cancelled"))
+        except Exception:
+            return False
+
     def _dispatch_tool(self, name: str, tool_input: dict) -> str:
         """Dispatch a tool call by name. Returns result as string."""
         dispatch = {
@@ -2312,6 +2324,12 @@ class AgentEngine:
                         }
                         _phase, _label = phase_map.get(tool_name, ("thinking", f"Using {tool_name}..."))
                         yield self._start_phase(_phase, _label)
+
+                        # Phase L — honour user cancel signal between tool calls.
+                        if self._is_cancelled():
+                            yield {"type": "cancel_ack", "plan_id": getattr(self._current_plan, "plan_id", "")}
+                            yield {"type": "safe_abort", "reason": "user cancelled"}
+                            return
 
                         # Execute the tool — update progress tracker (Invariant-2)
                         self._progress["total_tool_calls"] = self._tool_calls

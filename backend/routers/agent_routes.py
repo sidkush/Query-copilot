@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query as FQuery
 from fastapi.responses import JSONResponse, StreamingResponse
 import pydantic
 from pydantic import BaseModel, Field
@@ -50,7 +50,27 @@ KNOWN_SSE_EVENT_TYPES = {
     "step_phase",
     "step_detail",
     "safe_abort",
+    # Phase L additions:
+    "claim_chip",
+    "result_preview",
+    "cancel_ack",
 }
+
+# ---------------------------------------------------------------------------
+# Phase L — active agent session registry for cancel signalling.
+# ---------------------------------------------------------------------------
+_ACTIVE_AGENT_SESSIONS: dict = {}
+
+
+@router.post("/cancel")
+def cancel_agent(plan_id: str = FQuery(..., min_length=1)):
+    """Phase L — signal cancel for an active plan_id."""
+    session = _ACTIVE_AGENT_SESSIONS.get(plan_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"no active plan {plan_id!r}")
+    session["cancelled"] = True
+    return {"cancelled": True, "plan_id": plan_id}
+
 
 PLAN_ARTIFACT_SCHEMA = {
     "type": "object",

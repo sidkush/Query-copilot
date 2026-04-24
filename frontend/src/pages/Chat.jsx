@@ -18,6 +18,9 @@ import SQLPreview from "../components/SQLPreview";
 import AgentStepRenderer from "../components/agent/AgentStepRenderer";
 import ProvenanceChip from "../components/agent/ProvenanceChip";
 import PlanArtifact from "../components/agent/PlanArtifact";
+import ResultPreview from "../components/agent/ResultPreview";
+import SafeTextWrapper from "../components/agent/SafeTextWrapper";
+import ClaimChip from "../components/agent/ClaimChip";
 import ResultsTable from "../components/ResultsTable";
 import LegacyResultChart from "../components/dashboard/lib/LegacyResultChart";
 import ChartEditModal from "../components/dashboard/lib/ChartEditModal";
@@ -142,6 +145,15 @@ function DashboardChips({ question, onGenerate, schemaFocusOptions }) {
   const timeOptions = ['Last 7 days', 'Last 30 days', 'This quarter', 'This year', 'All time'];
   const audienceOptions = ['Executive summary', 'Operational detail', 'Technical deep-dive'];
 
+  const handleCancel = async () => {
+    if (!currentPlan?.plan_id) return;
+    try {
+      await fetch(`/api/v1/agent/cancel?plan_id=${encodeURIComponent(currentPlan.plan_id)}`, { method: 'POST' });
+    } catch (err) {
+      console.error('cancel failed', err);
+    }
+  };
+
   const handleChip = (value) => {
     if (phase === 'focus') {
       setFocus(value);
@@ -188,6 +200,8 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [currentPlan, setCurrentPlan] = useState(null);
+  const [currentPreview, setCurrentPreview] = useState(null);
+  const [cancelled, setCancelled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [generatingDashboard, setGeneratingDashboard] = useState(false);
@@ -543,6 +557,16 @@ export default function Chat() {
 
           if (step.type === "plan_artifact") {
             setCurrentPlan(step);
+            return;
+          }
+
+          if (step.type === "result_preview") {
+            setCurrentPreview(step);
+            return;
+          }
+
+          if (step.type === "cancel_ack") {
+            setCancelled(true);
             return;
           }
 
@@ -1344,7 +1368,14 @@ export default function Chat() {
             </div>
           )}
 
-          {currentPlan && <PlanArtifact plan={currentPlan} />}
+          {currentPlan && (
+            <PlanArtifact
+              plan={currentPlan}
+              cancellable={!cancelled}
+              onCancel={handleCancel}
+            />
+          )}
+          {currentPreview && <ResultPreview preview={currentPreview} />}
 
           {messages.map((msg, i) => (
             <motion.div
