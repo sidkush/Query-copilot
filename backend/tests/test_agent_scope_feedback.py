@@ -1,6 +1,19 @@
 """Verify scope violations from Phase C feed back to LLM via tool-result text."""
-from unittest.mock import MagicMock
+import sys
+from unittest.mock import MagicMock, patch
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _stub_daily_usage():
+    """Isolate tests from persisted per-user query counters."""
+    import user_storage
+    with patch.object(user_storage, "get_daily_usage",
+                      return_value={"plan": "free", "queries_today": 0,
+                                    "daily_limit": 10, "remaining": 10,
+                                    "unlimited": False}), \
+         patch.object(user_storage, "increment_query_stats", return_value=None):
+        yield
 
 
 def test_scope_warnings_surface_in_tool_result_when_flag_on():
