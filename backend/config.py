@@ -280,6 +280,22 @@ class Settings(BaseSettings):
 
     # ── Operations Layer (Phase I — P11 / H16) ──
     FEATURE_ALERT_MANAGER: bool = Field(default=True, description="Master gate. Off -> detectors silent, alert_manager.fire() no-ops with log.")
+
+    # ── Ring 8 Agent Orchestration (Phase K) ──
+    FEATURE_AGENT_PLANNER: bool = Field(default=False)
+    FEATURE_AGENT_FEEDBACK_LOOP: bool = Field(default=False)
+    FEATURE_AGENT_HALLUCINATION_ABORT: bool = Field(default=False)
+    FEATURE_AGENT_MODEL_LADDER: bool = Field(default=False)
+    AGENT_STEP_CAP: int = Field(default=20)
+    AGENT_WALL_CLOCK_TYPICAL_S: float = Field(default=60.0)
+    AGENT_WALL_CLOCK_HARD_S: float = Field(default=120.0)
+    AGENT_COST_CAP_USD: float = Field(default=0.10)
+    MODEL_LADDER_STEP_EXEC: str = Field(default="claude-haiku-4-5-20251001")
+    MODEL_LADDER_PLAN_EMIT: str = Field(default="claude-sonnet-4-6")
+    MODEL_LADDER_RECOVERY: str = Field(default="claude-opus-4-7-1m-20260115")
+    SEMANTIC_REGISTRY_BOOTSTRAP_ON_CONNECT: bool = Field(default=True)
+    PLANNER_MAX_CTE_COUNT: int = Field(default=3)
+    PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL: bool = Field(default=True)
     ALERT_DEDUP_WINDOW_SECONDS: int = Field(default=300, description="H16 sliding dedup per (tenant_id, rule_id). 5 min.")
     ALERT_MULTI_HOUR_ACCUMULATOR_SECONDS: int = Field(default=3600, description="Fires once per hour even if signal stays hot.")
     ALERT_MAX_RETRY: int = Field(default=3, description="Retry budget per dispatch via chaos_isolation.jittered_backoff.")
