@@ -1727,6 +1727,14 @@ class AgentEngine:
             _logger.exception("Tool %s failed (post-confirm)", name)
             return json.dumps({"error": self._sanitize_error(str(e))})
 
+    def _run_under_deadline(self, fn):
+        """Phase L — invoke fn within DeadlinePropagator scope if flag on."""
+        if not settings.FEATURE_DEADLINE_PROPAGATION:
+            return fn()
+        from deadline_propagator import DeadlinePropagator
+        with DeadlinePropagator(wall_clock_s=settings.AGENT_WALL_CLOCK_TYPICAL_S):
+            return fn()
+
     def run(self, question: str):
         """
         Run the agent loop for a given question.
@@ -1751,12 +1759,21 @@ class AgentEngine:
             self.memory._cancelled = False
             self.memory._waiting_for_user = False
 
+        # Phase L — wrap generator body in DeadlinePropagator scope when flag on.
+        # Using a context manager keeps DEADLINE set across every yield / tool call.
+        _deadline_cm = None
+        if settings.FEATURE_DEADLINE_PROPAGATION:
+            from deadline_propagator import DeadlinePropagator
+            _deadline_cm = DeadlinePropagator(wall_clock_s=settings.AGENT_WALL_CLOCK_TYPICAL_S)
+            _deadline_cm.__enter__()
         try:
             yield from self._run_inner(question)
         except GeneratorExit:
             _logger.debug("Agent generator abandoned for session %s", self.memory.chat_id)
         finally:
             # MUST be in finally — GeneratorExit bypasses except Exception
+            if _deadline_cm is not None:
+                _deadline_cm.__exit__(None, None, None)
             with self.memory._lock:
                 self.memory._running = False
                 self.memory._waiting_for_user = False
