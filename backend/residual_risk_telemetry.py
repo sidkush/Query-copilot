@@ -211,3 +211,28 @@ def detect_residual_risk_7_client_retry_abuse(tenant_id: str) -> Optional[AlertS
 
 
 _ALL_DETECTORS.append(detect_residual_risk_7_client_retry_abuse)
+
+
+def _hnsw_consistency_divergence(tenant_id: str) -> int:
+    try:
+        from query_memory import hnsw_consistency_divergence_last_hour
+        return hnsw_consistency_divergence_last_hour(tenant_id)
+    except Exception:
+        return 0
+
+
+def detect_residual_risk_8_hnsw_tie_drift(tenant_id: str) -> Optional[AlertSignal]:
+    n = _hnsw_consistency_divergence(tenant_id)
+    if n > 0:
+        return AlertSignal(
+            rule_id="residual_risk_8_hnsw_tie_drift",
+            tenant_id=tenant_id,
+            severity="critical",
+            observed_value=float(n),
+            threshold=0.0,
+            message=f"ChromaDB consistency divergence count = {n}. Runbook: already pinned seed + stable-sort (H9) — re-pin + log.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_residual_risk_8_hnsw_tie_drift)

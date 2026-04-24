@@ -12,6 +12,7 @@ from residual_risk_telemetry import detect_residual_risk_4_leap_day
 from residual_risk_telemetry import detect_residual_risk_5_10k_tables
 from residual_risk_telemetry import detect_residual_risk_6_thumbs_up_storm
 from residual_risk_telemetry import detect_residual_risk_7_client_retry_abuse
+from residual_risk_telemetry import detect_residual_risk_8_hnsw_tie_drift
 
 
 def test_detector_1_fires_above_threshold():
@@ -95,3 +96,15 @@ def test_detector_7_fires_above_retry_budget():
 def test_detector_7_silent_at_or_below_5():
     with patch("residual_risk_telemetry._client_retries_in_last_5min", return_value=5):
         assert detect_residual_risk_7_client_retry_abuse("t-1") is None
+
+
+def test_detector_8_fires_on_any_divergence():
+    with patch("residual_risk_telemetry._hnsw_consistency_divergence", return_value=1):
+        sig = detect_residual_risk_8_hnsw_tie_drift("t-1")
+    assert sig is not None
+    assert sig.severity == "critical"
+
+
+def test_detector_8_silent_at_zero():
+    with patch("residual_risk_telemetry._hnsw_consistency_divergence", return_value=0):
+        assert detect_residual_risk_8_hnsw_tie_drift("t-1") is None
