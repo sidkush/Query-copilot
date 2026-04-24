@@ -529,7 +529,13 @@ class AgentResult:
     dual_response: bool = False  # P1 NEMESIS fix: indicates dual-response was used
 
     def to_dict(self) -> dict:
+        # `type` is required so Chat.jsx has a dispatch handler when the run
+        # finishes with neither `final_answer` nor `sql` (e.g. zero-yield
+        # completion). Without it the sentinel matches no onStep branch and
+        # the feed hangs on "Reasoning · Live" until the 35s timeout, then
+        # flips to "Reasoning · Complete" with an empty steps array.
         return {
+            "type": "result",
             "steps": [s.to_dict() if isinstance(s, AgentStep) else s for s in self.steps],
             "final_answer": self.final_answer,
             "sql": self.sql,
