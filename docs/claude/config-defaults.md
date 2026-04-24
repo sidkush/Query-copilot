@@ -238,6 +238,25 @@ point here instead of duplicating values. Confirm against
 | `RESIDUAL_RISK_9_DEPRECATED_BYOK_PINNED_MAX` | `0` | Master row 9. |
 | `RESIDUAL_RISK_10_LOW_TRAFFIC_CACHE_MISS_MAX_PCT` | `30.0` | Master row 10. |
 
+### Ring 8 Agent Orchestration (Phase K)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_AGENT_PLANNER` | `False` | Master gate for `analytical_planner.py`. Off → `_tool_run_sql` is pre-K behavior. Demo tenant overrides to True. |
+| `FEATURE_AGENT_FEEDBACK_LOOP` | `False` | Wires `_handle_scope_violations_with_replan` into tool loop. Off → Phase C/D dead-code state preserved. |
+| `FEATURE_AGENT_HALLUCINATION_ABORT` | `False` | `SafeText` guard active. Off → agent output unfiltered. |
+| `FEATURE_AGENT_MODEL_LADDER` | `False` | `ModelLadder.select()` routes by role. Off → single-model path. |
+| `AGENT_STEP_CAP` | `20` | Max tool calls per user query. 21st call → safe_abort. |
+| `AGENT_WALL_CLOCK_TYPICAL_S` | `60.0` | Budget exhaustion → safe_abort with partial-plan banner. |
+| `AGENT_WALL_CLOCK_HARD_S` | `120.0` | Absolute ceiling; agent process killed. |
+| `AGENT_COST_CAP_USD` | `0.10` | Per-query Anthropic spend. Trips `chaos_isolation.CostBreaker`. |
+| `MODEL_LADDER_STEP_EXEC` | `claude-haiku-4-5-20251001` | Step execution tier. |
+| `MODEL_LADDER_PLAN_EMIT` | `claude-sonnet-4-6` | Plan emission tier. No extended-thinking. |
+| `MODEL_LADDER_RECOVERY` | `claude-opus-4-7-1m-20260115` | Recovery tier. Verify availability at deploy; update via model-version-sweep. |
+| `SEMANTIC_REGISTRY_BOOTSTRAP_ON_CONNECT` | `True` | Auto-seed registry on new connection. |
+| `PLANNER_MAX_CTE_COUNT` | `3` | Planner refuses plans with >3 CTEs; splits into follow-up. |
+| `PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL` | `True` | SSE emits `plan_artifact` event before any `run_sql` tool call. |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |
