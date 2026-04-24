@@ -852,6 +852,27 @@ class AgentEngine:
             except Exception:
                 self._safe_text = None
 
+    def _apply_safe_text(self, text: str):
+        """Phase K — filter agent output via SafeText. Returns None if blocked."""
+        if not settings.FEATURE_AGENT_HALLUCINATION_ABORT:
+            return text
+        if getattr(self, "_safe_text", None) is None:
+            return text
+        sanitised = self._safe_text.sanitize(text)
+        if sanitised is None and alert_manager is not None:
+            try:
+                tenant_id = getattr(self.connection_entry, "tenant_id", "unknown")
+                alert_manager.dispatch(
+                    rule_id="llm_confabulation_detected",
+                    tenant_id=tenant_id,
+                    severity="warning",
+                    observed_value=text[:200],
+                    threshold=0,
+                )
+            except Exception:
+                pass
+        return sanitised
+
     def _maybe_emit_plan(self, nl: str):
         """Phase K — invoke analytical planner if flag on. Returns AnalyticalPlan or None."""
         if not settings.FEATURE_AGENT_PLANNER:
