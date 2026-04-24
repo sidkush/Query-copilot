@@ -1,0 +1,47 @@
+{
+  "suite": "trap_capability_routing.jsonl",
+  "total": 10,
+  "passed": 0,
+  "per_question": {
+    "route-001": {
+      "passed": false,
+      "reason": "capability_route marker missing for postgresql.qualify_clause"
+    },
+    "route-002": {
+      "passed": false,
+      "reason": "capability_route marker missing for mysql.countif"
+    },
+    "route-003": {
+      "passed": false,
+      "reason": "capability_route marker missing for mssql.approx_count_distinct"
+    },
+    "route-004": {
+      "passed": false,
+      "reason": "capability_route marker missing for duckdb.qualify_clause"
+    },
+    "route-005": {
+      "passed": false,
+      "reason": "capability_route marker missing for mysql.window_functions"
+    },
+    "route-006": {
+      "passed": false,
+      "reason": "capability_route marker missing for redshift.recursive_cte"
+    },
+    "route-007": {
+      "passed": false,
+      "reason": "capability_route marker missing for duckdb.count_if"
+    },
+    "route-008": {
+      "passed": false,
+      "reason": "capability_route marker missing for snowflake.approx_count_distinct"
+    },
+    "route-009": {
+      "passed": false,
+      "reason": "capability_route marker missing for duckdb.ctes"
+    },
+    "route-010": {
+      "passed": false,
+      "reason": "capability_route marker missing for duckdb.turbo_safe"
+    }
+  }
+}

@@ -98,3 +98,7 @@ yarn-debug.log*
 !.data/claim_verification_baseline.json
 !.data/plan_cache_baseline.json
 !.data/cancel_propagation_baseline.json
+
+# Phase M-alt trap baselines
+!.data/transpile_regression_baseline.json
+!.data/capability_routing_baseline.json

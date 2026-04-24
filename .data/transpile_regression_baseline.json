@@ -1,0 +1,47 @@
+{
+  "suite": "trap_transpile_regression.jsonl",
+  "total": 10,
+  "passed": 0,
+  "per_question": {
+    "trans-001": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    },
+    "trans-002": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    },
+    "trans-003": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    },
+    "trans-004": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    },
+    "trans-005": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    },
+    "trans-006": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    },
+    "trans-007": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    },
+    "trans-008": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    },
+    "trans-009": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    },
+    "trans-010": {
+      "passed": false,
+      "reason": "missing transpile-ok marker for bigquery->duckdb"
+    }
+  }
+}
