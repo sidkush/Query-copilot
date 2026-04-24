@@ -272,7 +272,7 @@ class Settings(BaseSettings):
     FEATURE_AB_VARIANT_DEDUP: bool = Field(default=True)
     FEATURE_CANCEL_2PC: bool = Field(default=True)
     # ── Auth Version + SSO (Phase H — H27) ──
-    FEATURE_AUTH_UNIFIED_MIDDLEWARE: bool = Field(default=True)
+    FEATURE_AUTH_UNIFIED_MIDDLEWARE: bool = Field(default=False, description="H27 — unified auth middleware. Off by default; per-route Depends(get_current_user) remains. Flip True after full router audit.")
     JWT_LEEWAY_SECONDS: int = Field(default=5)
     NONCE_CACHE_TTL_SECONDS: int = Field(default=300)
     ASKDB_PCI_MODE: bool = Field(default=False, description="Strict mode: no demo user, audit fsync each write, Redis mandatory.")

@@ -492,3 +492,50 @@ def reject_promotion(candidate_id: str, body: _AckBody,
         "state": rec.state.value,
         "reject_reason": rec.reject_reason,
     }
+
+
+# ── Phase H — H23 Support-agent impersonation ceremony ──────────────
+from datetime import timedelta
+from fastapi import Request
+from pydantic import Field
+from audit_trail import log_agent_event
+
+
+class ImpersonateRequest(BaseModel):
+    target: str
+    justification: str = Field(..., min_length=10, description="Ticket / reason; >=10 chars.")
+
+
+def _impersonate_core(*, actor_email: str, target_email: str, justification: str) -> dict:
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        seconds=settings.SUPPORT_IMPERSONATION_TTL_SECONDS
+    )
+    log_agent_event(
+        email=target_email,
+        chat_id="impersonate",
+        event="support_impersonate",
+        actor_type="support",
+        details={
+            "actor_email": actor_email,
+            "justification": justification,
+            "expires_at": expires_at.isoformat(),
+        },
+    )
+    return {
+        "granted": True,
+        "expires_at": expires_at.isoformat(),
+        "actor_type": "support",
+    }
+
+
+@router.post("/impersonate")
+def impersonate(body: ImpersonateRequest, request: Request):
+    """H23 — support-agent impersonation with justification + TTL + audit."""
+    user = getattr(request.state, "user", {}) or {}
+    if "impersonate" not in (user.get("scope") or []):
+        raise HTTPException(status_code=403, detail="missing impersonate scope")
+    return _impersonate_core(
+        actor_email=user.get("email", ""),
+        target_email=body.target,
+        justification=body.justification,
+    )

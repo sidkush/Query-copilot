@@ -160,6 +160,12 @@ from transport_guards import TransportGuardMiddleware
 if settings.FEATURE_TRANSPORT_GUARDS:
     app.add_middleware(TransportGuardMiddleware)
 
+# H27 — Unified auth middleware. Off by default; per-route
+# Depends(get_current_user) is still the primary guard.
+if settings.FEATURE_AUTH_UNIFIED_MIDDLEWARE:
+    from middleware.auth_middleware import AuthMiddleware
+    app.add_middleware(AuthMiddleware)
+
 # CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
