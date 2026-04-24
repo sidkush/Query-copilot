@@ -175,31 +175,28 @@ def check_alert(alert_id: str, request: Request, user=Depends(get_current_user))
 
 
 def _send_slack_notification(alert: dict, value, threshold, operator, column):
-    """Fire-and-forget Slack webhook notification for a triggered alert."""
+    """Fire-and-forget Slack webhook — delegates to slack_dispatcher for retry + email fallback."""
+    from slack_dispatcher import SlackDispatcher, SlackPayload
     from config import settings as app_settings
-    if not app_settings.SLACK_WEBHOOK_URL:
-        return
-    try:
-        import requests
-        payload = {
-            "text": f":rotating_light: *Alert Triggered: {alert.get('name', 'Unnamed')}*",
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": (
-                            f":rotating_light: *Alert: {alert.get('name', 'Unnamed')}*\n"
-                            f"Column `{column}` value *{value}* {operator} threshold *{threshold}*\n"
-                            f"SQL: `{alert.get('sql', '')[:200]}`"
-                        ),
-                    },
-                },
-            ],
-        }
-        requests.post(app_settings.SLACK_WEBHOOK_URL, json=payload, timeout=5)
-    except Exception as e:
-        logger.warning(f"Slack notification failed: {e}")
+
+    webhook = alert.get("webhook_url") or ""
+    payload = SlackPayload(
+        rule_id=f"user_alert_{alert.get('id', 'unknown')}",
+        tenant_id=alert.get("tenant_id", alert.get("email", "unknown")),
+        severity="warn",
+        message=(
+            f"Column `{column}` value *{value}* {operator} threshold *{threshold}*\n"
+            f"SQL: `{(alert.get('sql') or '')[:200]}`"
+        ),
+        observed_value=float(value) if isinstance(value, (int, float)) else 0.0,
+        threshold=float(threshold) if isinstance(threshold, (int, float)) else 0.0,
+    )
+    disp = SlackDispatcher(
+        webhook_url=webhook,
+        max_retry=app_settings.ALERT_MAX_RETRY,
+        email_fallback=app_settings.ALERT_FALLBACK_EMAIL_ON_SLACK_FAIL,
+    )
+    disp.send(payload, recipient_email=alert.get("email"))
 
 
 @router.post("/parse")

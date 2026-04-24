@@ -1654,3 +1654,18 @@ def atomic_write_profile(path: Path, data: dict, *, expected_mtime_ns: Optional[
             tmp.unlink(missing_ok=True)
             raise TwoWriterConflict(f"mtime changed: expected={expected_mtime_ns} on-disk={current}")
     os.replace(tmp, path)
+
+
+def get_admin_email_for_tenant(tenant_id: str) -> str:
+    """Return admin email for tenant by scanning user profiles. Returns '' if not found."""
+    import glob as _glob
+    import json as _json
+    from pathlib import Path as _Path
+    for path in _Path(".data/user_data").glob("*/profile.json"):
+        try:
+            data = _json.loads(path.read_text())
+            if data.get("tenant_id") == tenant_id and data.get("is_admin"):
+                return data.get("email", "")
+        except Exception:
+            pass
+    return ""
