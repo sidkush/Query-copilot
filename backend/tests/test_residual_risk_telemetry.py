@@ -11,6 +11,7 @@ from residual_risk_telemetry import detect_residual_risk_3_dba_ddl_no_webhook
 from residual_risk_telemetry import detect_residual_risk_4_leap_day
 from residual_risk_telemetry import detect_residual_risk_5_10k_tables
 from residual_risk_telemetry import detect_residual_risk_6_thumbs_up_storm
+from residual_risk_telemetry import detect_residual_risk_7_client_retry_abuse
 
 
 def test_detector_1_fires_above_threshold():
@@ -83,3 +84,14 @@ def test_detector_6_fires_when_upvote_storm_flagged():
 def test_detector_6_silent_at_or_below_3():
     with patch("residual_risk_telemetry._adversarial_upvote_storm_count", return_value=3):
         assert detect_residual_risk_6_thumbs_up_storm("t-1") is None
+
+
+def test_detector_7_fires_above_retry_budget():
+    with patch("residual_risk_telemetry._client_retries_in_last_5min", return_value=6):
+        sig = detect_residual_risk_7_client_retry_abuse("t-1")
+    assert sig is not None
+
+
+def test_detector_7_silent_at_or_below_5():
+    with patch("residual_risk_telemetry._client_retries_in_last_5min", return_value=5):
+        assert detect_residual_risk_7_client_retry_abuse("t-1") is None

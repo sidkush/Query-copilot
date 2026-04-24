@@ -185,3 +185,29 @@ def detect_residual_risk_6_thumbs_up_storm(tenant_id: str) -> Optional[AlertSign
 
 
 _ALL_DETECTORS.append(detect_residual_risk_6_thumbs_up_storm)
+
+
+def _client_retries_in_last_5min(tenant_id: str) -> int:
+    try:
+        from waterfall_router import client_retries_last_5min
+        return client_retries_last_5min(tenant_id)
+    except Exception:
+        return 0
+
+
+def detect_residual_risk_7_client_retry_abuse(tenant_id: str) -> Optional[AlertSignal]:
+    n = _client_retries_in_last_5min(tenant_id)
+    threshold = settings.RESIDUAL_RISK_7_CLIENT_RETRIES_MAX_PER_5MIN
+    if n > threshold:
+        return AlertSignal(
+            rule_id="residual_risk_7_client_retry_abuse",
+            tenant_id=tenant_id,
+            severity="warn",
+            observed_value=float(n),
+            threshold=float(threshold),
+            message=f"Client retries {n} (>{threshold} in 5min). Runbook: server-side dedup.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_residual_risk_7_client_retry_abuse)
