@@ -298,6 +298,18 @@ class Settings(BaseSettings):
     SEMANTIC_REGISTRY_BOOTSTRAP_ON_CONNECT: bool = Field(default=True)
     PLANNER_MAX_CTE_COUNT: int = Field(default=3)
     PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL: bool = Field(default=True)
+    # ── Phase K Week-1 demo-safe baseline (GROUNDING_W1) ──
+    GROUNDING_W1_HARDCAP_ENFORCE: bool = Field(
+        default=False,
+        description=(
+            "Master gate for Week-1 grounding guards: two-tier hard-cap, "
+            "consecutive-tool-error consent card, empty-BoundSet banner, "
+            "red fallback banner. Off → pre-W1 heuristic + auto-extend to 100."
+        ),
+    )
+    W1_ANALYTICAL_CAP: int = Field(default=20, description="Hard tool-call cap for analytical workloads when W1 flag on. No auto-extend.")
+    W1_DASHBOARD_CAP: int = Field(default=40, description="Hard tool-call cap for dashboard workloads when W1 flag on. No auto-extend.")
+    W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD: int = Field(default=3, description="N consecutive run_sql errors → fire agent_checkpoint consent card (GAP A).")
     # ── Audit Ledger + Progressive UX + Plan Cache (Phase L) ──
     FEATURE_AUDIT_LEDGER: bool = Field(default=False)
     FEATURE_CLAIM_PROVENANCE: bool = Field(default=False)

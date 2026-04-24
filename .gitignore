@@ -102,3 +102,5 @@ yarn-debug.log*
 # Phase M-alt trap baselines
 !.data/transpile_regression_baseline.json
 !.data/capability_routing_baseline.json
+backend/.data/backups/
+backend/.data/agent_sessions.db

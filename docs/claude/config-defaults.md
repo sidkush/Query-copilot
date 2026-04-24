@@ -256,6 +256,10 @@ point here instead of duplicating values. Confirm against
 | `SEMANTIC_REGISTRY_BOOTSTRAP_ON_CONNECT` | `True` | Auto-seed registry on new connection. |
 | `PLANNER_MAX_CTE_COUNT` | `3` | Planner refuses plans with >3 CTEs; splits into follow-up. |
 | `PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL` | `True` | SSE emits `plan_artifact` event before any `run_sql` tool call. |
+| `GROUNDING_W1_HARDCAP_ENFORCE` | `False` | Master gate for Week-1 grounding (hard cap + consent card + banner). Flip to True after WAL backup. |
+| `W1_ANALYTICAL_CAP` | `20` | Hard tool-call cap for analytical workload; no auto-extend when flag on. |
+| `W1_DASHBOARD_CAP` | `40` | Hard tool-call cap for dashboard workload; no auto-extend when flag on. |
+| `W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD` | `3` | N consecutive `run_sql` errors → fire `agent_checkpoint` consent card (GAP A). |
 
 ### Audit Ledger + Progressive UX + Plan Cache (Phase L)
 
