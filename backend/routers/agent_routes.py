@@ -50,6 +50,10 @@ KNOWN_SSE_EVENT_TYPES = {
     "step_phase",
     "step_detail",
     "safe_abort",
+    # Phase L additions:
+    "claim_chip",
+    "result_preview",
+    "cancel_ack",
 }
 
 PLAN_ARTIFACT_SCHEMA = {
