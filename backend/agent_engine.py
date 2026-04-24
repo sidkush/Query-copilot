@@ -810,6 +810,48 @@ class AgentEngine:
         except Exception:
             pass
 
+        # Phase K — attach Ring 8 components (ModelLadder, AnalyticalPlanner, SafeText).
+        self._attach_ring8_components()
+
+    def _attach_ring8_components(self):
+        """Phase K — initialise ModelLadder + AnalyticalPlanner + SafeText if flags on."""
+        self._model_ladder = None
+        self._planner = None
+        self._safe_text = None
+
+        if settings.FEATURE_AGENT_MODEL_LADDER:
+            from model_ladder import ModelLadder
+            self._model_ladder = ModelLadder.from_settings()
+
+        if settings.FEATURE_AGENT_PLANNER:
+            try:
+                from analytical_planner import AnalyticalPlanner
+                from semantic_registry import SemanticRegistry
+                from anthropic_provider import AnthropicProvider
+
+                plan_model = (self._model_ladder.plan_emit
+                              if self._model_ladder else settings.MODEL_LADDER_PLAN_EMIT)
+                # Use provider if already attached to engine; otherwise create a
+                # placeholder provider. api_key="" avoids the None.encode() error.
+                _api_key = getattr(getattr(self, "provider", None), "api_key", None) or ""
+                provider = AnthropicProvider(
+                    api_key=_api_key,
+                    default_model=plan_model,
+                )
+                self._planner = AnalyticalPlanner(
+                    provider=provider,
+                    registry=SemanticRegistry(root=settings.SEMANTIC_REGISTRY_DIR),
+                )
+            except Exception:
+                self._planner = None
+
+        if settings.FEATURE_AGENT_HALLUCINATION_ABORT:
+            try:
+                from hallucination_abort import SafeText, enumerate_backend_error_phrases
+                self._safe_text = SafeText(known_error_phrases=enumerate_backend_error_phrases())
+            except Exception:
+                self._safe_text = None
+
     def _maybe_emit_plan(self, nl: str):
         """Phase K — invoke analytical planner if flag on. Returns AnalyticalPlan or None."""
         if not settings.FEATURE_AGENT_PLANNER:
