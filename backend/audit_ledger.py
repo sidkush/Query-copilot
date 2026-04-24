@@ -77,3 +77,33 @@ class AuditLedger:
                 except Exception:
                     continue
         return out
+
+@dataclass(frozen=True)
+class ChainVerifyResult:
+    ok: bool
+    broken_at_index: Optional[int]
+    reason: Optional[str] = None
+
+def _verify_single_entry(entry: AuditLedgerEntry) -> bool:
+    expected = compute_entry_hash(
+        claim_id=entry.claim_id, plan_id=entry.plan_id, query_id=entry.query_id,
+        tenant_id=entry.tenant_id, ts=entry.ts, sql_hash=entry.sql_hash,
+        rowset_hash=entry.rowset_hash, schema_hash=entry.schema_hash,
+        pii_redaction_applied=entry.pii_redaction_applied, prev_hash=entry.prev_hash,
+    )
+    return expected == entry.curr_hash
+
+def _verify_chain(self, tenant_id: str, year_month: str) -> ChainVerifyResult:
+    entries = self.read(tenant_id, year_month)
+    if not entries:
+        return ChainVerifyResult(ok=True, broken_at_index=None)
+    prev = GENESIS_HASH
+    for i, entry in enumerate(entries):
+        if entry.prev_hash != prev:
+            return ChainVerifyResult(ok=False, broken_at_index=i, reason=f"prev_hash mismatch at index {i}")
+        if not _verify_single_entry(entry):
+            return ChainVerifyResult(ok=False, broken_at_index=i, reason=f"curr_hash mismatch at index {i}")
+        prev = entry.curr_hash
+    return ChainVerifyResult(ok=True, broken_at_index=None)
+
+AuditLedger.verify_chain = _verify_chain

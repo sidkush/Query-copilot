@@ -76,3 +76,48 @@ def test_append_chains_to_previous_hash(tmp_path):
 def test_read_nonexistent_tenant_returns_empty(tmp_path):
     ledger = AuditLedger(root=tmp_path)
     assert ledger.read(tenant_id="never", year_month="2026-06") == []
+
+def test_verify_chain_returns_ok_on_intact(tmp_path):
+    ledger = AuditLedger(root=tmp_path)
+    prev = GENESIS_HASH
+    for i in range(5):
+        e = AuditLedgerEntry(
+            claim_id=f"c{i}", plan_id="p1", query_id=f"q{i}", tenant_id="t1",
+            ts=f"2026-06-04T10:0{i}:00+00:00",
+            sql_hash=f"a{i}", rowset_hash=f"b{i}", schema_hash="c",
+            pii_redaction_applied=True, prev_hash=prev, curr_hash="",
+        )
+        sealed = ledger.append(e)
+        prev = sealed.curr_hash
+    result = ledger.verify_chain(tenant_id="t1", year_month="2026-06")
+    assert result.ok is True
+    assert result.broken_at_index is None
+
+def test_verify_chain_detects_tamper(tmp_path):
+    ledger = AuditLedger(root=tmp_path)
+    prev = GENESIS_HASH
+    for i in range(3):
+        e = AuditLedgerEntry(
+            claim_id=f"c{i}", plan_id="p1", query_id=f"q{i}", tenant_id="t1",
+            ts=f"2026-06-04T10:0{i}:00+00:00",
+            sql_hash=f"a{i}", rowset_hash=f"b{i}", schema_hash="c",
+            pii_redaction_applied=True, prev_hash=prev, curr_hash="",
+        )
+        sealed = ledger.append(e)
+        prev = sealed.curr_hash
+    path = tmp_path / "t1" / "2026-06.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    import json as _j
+    tampered = _j.loads(lines[1])
+    tampered["rowset_hash"] = "TAMPERED"
+    lines[1] = _j.dumps(tampered, sort_keys=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = ledger.verify_chain(tenant_id="t1", year_month="2026-06")
+    assert result.ok is False
+    assert result.broken_at_index == 1
+
+def test_verify_chain_empty_returns_ok(tmp_path):
+    ledger = AuditLedger(root=tmp_path)
+    result = ledger.verify_chain(tenant_id="never", year_month="2026-06")
+    assert result.ok is True
+    assert result.broken_at_index is None
