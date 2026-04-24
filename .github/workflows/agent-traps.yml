@@ -139,6 +139,34 @@ jobs:
             .data/escalation_baseline.json \
             --db /tmp/eval_fixture.sqlite
 
+      - name: Run Phase L audit-integrity trap suite
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_audit_integrity.jsonl \
+            .data/audit_integrity_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run Phase L claim-verification trap suite
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_claim_verification.jsonl \
+            .data/claim_verification_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run Phase L plan-cache trap suite
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_plan_cache.jsonl \
+            .data/plan_cache_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run Phase L cancel-propagation trap suite
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_cancel_propagation.jsonl \
+            .data/cancel_propagation_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
       - name: Run 50-Q latency benchmark (p50<60s gate)
         run: |
           python -m backend.tests.bench_agent_latency \
