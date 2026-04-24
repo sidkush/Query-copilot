@@ -810,6 +810,16 @@ class AgentEngine:
         except Exception:
             pass
 
+    def _init_step_budget(self):
+        """Phase K — attach a StepBudget instance for the upcoming agent run."""
+        from config import settings
+        from step_budget import StepBudget
+        self._step_budget = StepBudget(
+            max_steps=settings.AGENT_STEP_CAP,
+            wall_clock_s=settings.AGENT_WALL_CLOCK_TYPICAL_S,
+            cost_cap_usd=settings.AGENT_COST_CAP_USD,
+        )
+
     def _run_scope_validator(self, sql: str, nl_question: str = ""):
         """Phase C — Ring 3 pre-exec check. Returns ValidatorResult. Fails open (H6)."""
         try:
@@ -1637,6 +1647,7 @@ class AgentEngine:
         """
         self._start_time = time.monotonic()
         self._absolute_start_time = time.monotonic()  # Never reset — cumulative cap
+        self._init_step_budget()  # Phase K — fresh budget per run
         self._steps = []
         self._result = AgentResult()
 
