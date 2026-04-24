@@ -23,6 +23,12 @@ from chart_recommender import recommend_chart_spec
 
 _logger = logging.getLogger(__name__)
 
+# Phase K — alert_manager is optional (Phase I); degrade gracefully if absent.
+try:
+    import alert_manager
+except Exception:
+    alert_manager = None  # type: ignore[assignment]
+
 # ── Tool Definitions (Anthropic format) ──────────────────────────
 
 TOOL_DEFINITIONS = [
@@ -2536,13 +2542,21 @@ class AgentEngine:
                 })
 
             # Phase C — Ring 3 pre-exec validator.
+            # Phase K — wire warnings into tool_result so next turn can self-correct.
             nl_q = getattr(self, "_current_nl_question", "") or ""
             scope_result = self._run_scope_validator(clean_sql, nl_question=nl_q)
+            scope_warnings_payload = None
             if scope_result.violations:
-                self._last_scope_warnings = [
+                scope_warnings_payload = [
                     {"rule": v.rule_id.value, "message": v.message}
                     for v in scope_result.violations
                 ]
+                self._last_scope_warnings = scope_warnings_payload
+
+            # Phase K — invoke existing Phase D replan controller (was dead code).
+            replan_hint = None
+            if settings.FEATURE_AGENT_FEEDBACK_LOOP and scope_warnings_payload:
+                replan_hint = self._handle_scope_violations_with_replan(clean_sql, nl_q)
 
             # ── Turbo Mode: try DuckDB twin first, fall back to live DB ──
             turbo_used = False
@@ -2654,13 +2668,18 @@ class AgentEngine:
             except Exception as e:
                 _logger.debug("Failed to record query pattern (non-fatal): %s", e)
 
-            return json.dumps({
+            payload = {
                 "columns": columns,
                 "rows": capped_rows,
                 "row_count": row_count,
                 "error": None,
                 "turbo_used": turbo_used,
-            }, default=str)
+            }
+            if settings.FEATURE_AGENT_FEEDBACK_LOOP and scope_warnings_payload:
+                payload["scope_warnings"] = scope_warnings_payload
+            if replan_hint is not None:
+                payload["replan_hint"] = replan_hint
+            return json.dumps(payload, default=str)
         except Exception as e:
             self._sql_retries += 1
             _logger.warning("run_sql failed (retry %d): %s", self._sql_retries, e)
