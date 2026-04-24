@@ -39,6 +39,7 @@ router = APIRouter(prefix="/api/v1/agent", tags=["agent"])
 # ---------------------------------------------------------------------------
 
 KNOWN_SSE_EVENT_TYPES = {
+    "agent_checkpoint",   # W1 Task 3 — GAP A consent card
     "message_delta",
     "tool_call",
     "tool_result",
