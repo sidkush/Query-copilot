@@ -279,6 +279,11 @@ class QueryMemory:
         c = self._counter.get(tenant_id, {"hits": 0, "total": 0})
         return (c["hits"] / c["total"]) if c["total"] else 0.0
 
+    def top10_precision_pct(self, tenant_id: str) -> float:
+        """Return top-10 retrieval precision for tenant. 100.0 if no data."""
+        c = self._counter.get(tenant_id, {})
+        return c.get("top10_precision_pct", 100.0)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

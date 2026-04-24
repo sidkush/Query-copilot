@@ -133,3 +133,29 @@ def detect_residual_risk_4_leap_day(tenant_id: str) -> Optional[AlertSignal]:
 
 
 _ALL_DETECTORS.append(detect_residual_risk_4_leap_day)
+
+
+def _top10_retrieval_precision_pct(tenant_id: str) -> float:
+    try:
+        from query_memory import QueryMemory
+        return QueryMemory().top10_precision_pct(tenant_id)
+    except Exception:
+        return 100.0  # assume full precision if unavailable
+
+
+def detect_residual_risk_5_10k_tables(tenant_id: str) -> Optional[AlertSignal]:
+    pct = _top10_retrieval_precision_pct(tenant_id)
+    threshold = settings.RESIDUAL_RISK_5_TOP10_PRECISION_MIN_PCT
+    if pct < threshold:
+        return AlertSignal(
+            rule_id="residual_risk_5_10k_tables",
+            tenant_id=tenant_id,
+            severity="warn",
+            observed_value=pct,
+            threshold=threshold,
+            message=f"Top-10 retrieval precision {pct:.1f}% < {threshold}%. Runbook: bespoke enterprise-tier strategy.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_residual_risk_5_10k_tables)
