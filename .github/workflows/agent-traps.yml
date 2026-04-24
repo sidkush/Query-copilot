@@ -167,6 +167,20 @@ jobs:
             .data/cancel_propagation_baseline.json \
             --db /tmp/eval_fixture.sqlite
 
+      - name: Run Phase M-alt transpile-regression trap
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_transpile_regression.jsonl \
+            .data/transpile_regression_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run Phase M-alt capability-routing trap
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_capability_routing.jsonl \
+            .data/capability_routing_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
       - name: Run 50-Q latency benchmark (p50<60s gate)
         run: |
           python -m backend.tests.bench_agent_latency \
