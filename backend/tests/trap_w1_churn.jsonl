@@ -1,0 +1,3 @@
+{"id": "w1-churn-001", "nl": "why are casual riders churning", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 20}}
+{"id": "w1-churn-002", "nl": "what percent of casual riders return next month", "expected_sql_contains": [], "oracle": {"type": "must_fire_checkpoint_on_error_cascade", "consecutive_errors": 3}}
+{"id": "w1-churn-003", "nl": "what is the bike adoption rate", "expected_sql_contains": [], "oracle": {"type": "must_prepend_empty_boundset_banner"}}
