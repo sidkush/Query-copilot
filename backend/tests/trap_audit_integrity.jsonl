@@ -1,0 +1,10 @@
+{"id": "audit-001", "nl": "run churn analysis and verify ledger chain", "expected_sql_contains": ["january_trips"], "oracle": {"type": "must_chain_verify", "tenant_id": "t1"}}
+{"id": "audit-002", "nl": "count rows and check audit entry written", "expected_sql_contains": ["january_trips"], "oracle": {"type": "must_chain_verify", "tenant_id": "t1"}}
+{"id": "audit-003", "nl": "tampered entry must fail verifier", "expected_sql_contains": [], "oracle": {"type": "must_chain_verify", "tenant_id": "t1", "expect_break": true}}
+{"id": "audit-004", "nl": "multi-claim synthesis must write multiple ledger entries", "expected_sql_contains": [], "oracle": {"type": "must_chain_verify", "tenant_id": "t1"}}
+{"id": "audit-005", "nl": "each claim links to query_id + rowset_hash", "expected_sql_contains": [], "oracle": {"type": "must_chain_verify", "tenant_id": "t1"}}
+{"id": "audit-006", "nl": "export endpoint returns per-tenant entries only", "expected_sql_contains": [], "oracle": {"type": "must_chain_verify", "tenant_id": "t1"}}
+{"id": "audit-007", "nl": "ledger prev_hash genesis on first entry", "expected_sql_contains": [], "oracle": {"type": "must_chain_verify", "tenant_id": "t1"}}
+{"id": "audit-008", "nl": "schema change does not break chain", "expected_sql_contains": [], "oracle": {"type": "must_chain_verify", "tenant_id": "t1"}}
+{"id": "audit-009", "nl": "fsync invariant holds across writes", "expected_sql_contains": [], "oracle": {"type": "must_chain_verify", "tenant_id": "t1"}}
+{"id": "audit-010", "nl": "ledger survives process restart", "expected_sql_contains": [], "oracle": {"type": "must_chain_verify", "tenant_id": "t1"}}
