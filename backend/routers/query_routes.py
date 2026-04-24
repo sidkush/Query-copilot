@@ -75,6 +75,19 @@ def _trial_quota_gate(user_email: str, plan: str):
         raise HTTPException(status_code=429, detail=f"trial quota exceeded ({cap}/day)")
 
 
+def _export_guarded(sql: str, *, scope_hint: dict) -> None:
+    """H26 — run Ring-3 ScopeValidator before streaming any export.
+
+    No-op when FEATURE_EXPORT_SCOPE_VALIDATION is disabled. Callers invoke
+    before handing SQL to the execution/streaming layer so CSV/Parquet
+    exports inherit the same scope guardrail as interactive runs.
+    """
+    if not settings.FEATURE_EXPORT_SCOPE_VALIDATION:
+        return
+    from scope_validator import ScopeValidator
+    ScopeValidator().validate(sql, scope_hint=scope_hint)
+
+
 def _rate_limit_key(email: str, conn_id: str) -> str:
     return f"{email}:{conn_id}"
 

@@ -573,6 +573,36 @@ async def agent_cancel(chat_id: str, request: Request,
     return {"status": "cancelled", "chat_id": chat_id}
 
 
+# ── Phase H — H26 two-phase cancel ──────────────────────────────────
+from agent_cancel_2pc import begin_cancel, commit_cancel, CancelNotPrepared
+
+
+@router.post("/cancel/prepare/{chat_id}")
+async def agent_cancel_prepare(chat_id: str, user: dict = Depends(get_current_user)):
+    """Phase 1 — mark chat as prepared for cancel. Commit must follow."""
+    begin_cancel(chat_id=chat_id)
+    return {"prepared": True, "chat_id": chat_id}
+
+
+@router.post("/cancel/commit/{chat_id}")
+async def agent_cancel_commit(chat_id: str, user: dict = Depends(get_current_user)):
+    """Phase 2 — actually stop the session; 409 if prepare never happened."""
+    email = user.get("email", "")
+    try:
+        commit_cancel(chat_id=chat_id)
+    except CancelNotPrepared:
+        raise HTTPException(status_code=409, detail="cancel not in prepared state")
+    with _sessions_lock:
+        session = _sessions.get(chat_id)
+    if session:
+        with session._lock:
+            if session.owner_email and session.owner_email != email:
+                raise HTTPException(403, "Not your session")
+            session._cancelled = True
+            session._user_response_event.set()
+    return {"committed": True, "chat_id": chat_id}
+
+
 @router.post("/continue")
 async def agent_continue(req: AgentContinueRequest, request: Request,
                          user: dict = Depends(get_current_user)):
