@@ -257,6 +257,24 @@ point here instead of duplicating values. Confirm against
 | `PLANNER_MAX_CTE_COUNT` | `3` | Planner refuses plans with >3 CTEs; splits into follow-up. |
 | `PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL` | `True` | SSE emits `plan_artifact` event before any `run_sql` tool call. |
 
+### Audit Ledger + Progressive UX + Plan Cache (Phase L)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_AUDIT_LEDGER` | `False` | Master gate for hash-chained per-claim ledger. Off → no audit writes. |
+| `FEATURE_CLAIM_PROVENANCE` | `False` | Scans agent synthesis for numeric spans + binds to tool-results. Off → synthesis unfiltered. |
+| `FEATURE_PROGRESSIVE_UX_FULL` | `False` | Frontend slot streaming + cancel + revise + ResultPreview + ClaimChip. |
+| `FEATURE_PLAN_CACHE` | `False` | Plan reuse via ChromaDB. Off → every Q calls Sonnet. |
+| `FEATURE_DEADLINE_PROPAGATION` | `False` | asyncio contextvar DEADLINE threaded through tool methods. |
+| `AUDIT_LEDGER_DIR` | `.data/audit_ledger` | Per-tenant `<tenant_id>/<YYYY-MM>.jsonl` files. Gitignored. |
+| `AUDIT_LEDGER_FLUSH_EVERY_N` | `1` | Fsync every N entries. Set >1 for higher throughput (weaker durability). |
+| `CLAIM_PROVENANCE_UNVERIFIED_MARKER` | `[unverified]` | Inline marker replacing unbound numeric spans in synthesis text. |
+| `PLAN_CACHE_COSINE_THRESHOLD` | `0.85` | Minimum cosine similarity to reuse a cached plan. Below → re-plan. |
+| `PLAN_CACHE_TTL_HOURS` | `168` | 7 days. Schema-change invalidation overrides TTL. |
+| `PLAN_CACHE_MAX_ENTRIES_PER_TENANT` | `500` | LRU eviction above this. |
+| `RESULT_PREVIEW_LIMIT_ROWS` | `50` | `LIMIT 50` probe streams while full query runs. |
+| `AGENT_CANCEL_GRACE_MS` | `2000` | Grace period after cancel before hard-kill. |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |
