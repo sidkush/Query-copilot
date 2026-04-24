@@ -40,6 +40,72 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Phase M-alt — dialect bridge integration
+# ---------------------------------------------------------------------------
+
+# Module-level imports so tests can patch `waterfall_router.settings` /
+# `waterfall_router.alert_manager` cleanly.
+from config import settings  # noqa: E402  (module-level for test patchability)
+
+try:
+    import alert_manager  # noqa: E402
+except Exception:  # pragma: no cover — alert_manager is optional at import time
+    alert_manager = None  # type: ignore[assignment]
+
+# Dialect name normalization — app db_type names -> sqlglot canonical names.
+# sqlglot 30.x uses "postgres" / "tsql"; the AskDB DBType enum uses
+# "postgresql" / "mssql". All other dialect names are identical between
+# the two vocabularies.
+_SQLGLOT_DIALECT_ALIAS: Dict[str, str] = {
+    "postgresql": "postgres",
+    "mssql": "tsql",
+}
+
+
+def _transpile_for_live_tier(
+    sql: str,
+    source_dialect: str,
+    target_dialect: str,
+    tenant_id: str,
+) -> str:
+    """Phase M-alt — thin wrapper around dialect_bridge with call-site telemetry.
+
+    Returns target-dialect SQL. On transpile failure, returns source SQL and
+    fires a ``transpile_failure`` alert (if alert_manager available + flag on).
+
+    The underlying ``dialect_bridge.transpile`` swallows sqlglot exceptions and
+    returns the source SQL unchanged. We detect that fallback here by comparing
+    the output to the input SQL when the src/tgt dialects differ, which lets
+    ops correlate quiet transpile regressions with tenant / dialect pairs.
+    """
+    if not settings.FEATURE_DIALECT_BRIDGE:
+        return sql
+    src = _SQLGLOT_DIALECT_ALIAS.get(source_dialect.lower(), source_dialect.lower())
+    tgt = _SQLGLOT_DIALECT_ALIAS.get(target_dialect.lower(), target_dialect.lower())
+    if src == tgt:
+        return sql
+
+    from dialect_bridge import transpile
+    out = transpile(sql, source=src, target=tgt)
+
+    # Detect fallback: dialect_bridge returns source SQL unchanged when
+    # sqlglot raises. Differing dialects + identical text = transpile failed.
+    if out == sql and settings.DIALECT_BRIDGE_ALERT_ON_FAILURE and alert_manager is not None:
+        try:
+            alert_manager.dispatch(
+                rule_id="transpile_failure",
+                tenant_id=tenant_id,
+                severity="warning",
+                observed_value=f"{source_dialect}->{target_dialect}",
+                threshold=0,
+            )
+        except Exception:
+            # Alert dispatch must never break the query path.
+            logger.exception("alert_manager.dispatch(transpile_failure) raised")
+    return out
+
+
+# ---------------------------------------------------------------------------
 # TierResult
 # ---------------------------------------------------------------------------
 
@@ -762,6 +828,11 @@ class LiveTier(BaseTier):
         # 1. Confirm the waterfall exhausted all faster tiers
         # 2. Provide decomposition hints if the query can be split
         # 3. (NEW) Try DataFusion local execution if a DuckDB twin exists
+        #
+        # Phase M-alt: dialect bridge injection point — see `_transpile_for_live_tier`
+        # at module scope. Invoked by `agent_engine.run_sql` before connector
+        # dispatch when source_dialect (LLM-emitted BigQuery) differs from the
+        # connection's target db_type.
 
         import os
         from config import settings
