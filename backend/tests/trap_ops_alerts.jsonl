@@ -1,0 +1,12 @@
+{"rule_id": "residual_risk_1_llm_pretraining_fn", "tenant_id": "t-trap", "fire_above": 2.0, "silent_at": 2.0, "severity": "warn"}
+{"rule_id": "residual_risk_2_anthropic_region_failover", "tenant_id": "t-trap", "fire_above": 0, "silent_at": 0, "severity": "critical"}
+{"rule_id": "residual_risk_3_dba_ddl_no_webhook", "tenant_id": "t-trap", "fire_above": 1.0, "silent_at": 1.0, "severity": "warn"}
+{"rule_id": "residual_risk_4_leap_day", "tenant_id": "t-trap", "fire_above": 100.0, "silent_at": 100.0, "severity": "warn"}
+{"rule_id": "residual_risk_5_10k_tables", "tenant_id": "t-trap", "fire_above": 70.0, "silent_at": 70.0, "severity": "warn"}
+{"rule_id": "residual_risk_6_thumbs_up_storm", "tenant_id": "t-trap", "fire_above": 3, "silent_at": 3, "severity": "warn"}
+{"rule_id": "residual_risk_7_client_retry_abuse", "tenant_id": "t-trap", "fire_above": 5, "silent_at": 5, "severity": "warn"}
+{"rule_id": "residual_risk_8_hnsw_tie_drift", "tenant_id": "t-trap", "fire_above": 0, "silent_at": 0, "severity": "warn"}
+{"rule_id": "residual_risk_9_byok_deprecated_model", "tenant_id": "t-trap", "fire_above": 0, "silent_at": 0, "severity": "warn"}
+{"rule_id": "residual_risk_10_low_traffic_cache_miss", "tenant_id": "t-trap", "fire_above": 30.0, "silent_at": 30.0, "severity": "warn"}
+{"rule_id": "ops_telemetry_source_missing", "tenant_id": "t-trap", "fire_above": 600, "silent_at": 600, "severity": "critical"}
+{"rule_id": "ops_alert_dispatch_failure", "tenant_id": "t-trap", "fire_above": 5, "silent_at": 5, "severity": "critical"}
