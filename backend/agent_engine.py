@@ -16,6 +16,7 @@ from typing import Any, Optional
 
 from model_provider import ModelProvider, ContentBlock
 
+from agent_park import ParkRegistry, park_for_user_response
 from config import settings
 from waterfall_router import WaterfallRouter, SchemaTier, build_default_router
 from query_memory import QueryMemory, anonymize_sql
@@ -566,6 +567,7 @@ class SessionMemory:
         self._waiting_for_user: bool = False  # True while agent is blocked on ask_user
         self._lock: threading.Lock = threading.Lock()  # Guards _running, _user_response, _waiting_for_user
         self._user_response_event: threading.Event = threading.Event()  # Replaces sleep-polling for ask_user
+        self.parks: ParkRegistry = ParkRegistry()  # Day 1: shadow mode; Day 2+ authoritative
 
     def add_turn(self, role: str, content: str):
         with self._lock:
@@ -1518,6 +1520,30 @@ class AgentEngine:
         if len(live_content) > 80:
             diff_preview += "..."
         return f"Updated: {diff_preview}"
+
+    async def _park_for_user_response(
+        self,
+        *,
+        kind: str,
+        expected_values: frozenset,
+        default_on_timeout: str,
+        deadline_seconds: float,
+        cancelled_predicate=lambda: False,
+    ) -> tuple[str, str]:
+        """
+        Async park primitive. Returns (choice, park_id).
+        Day 1: method exists for tests; not yet called from sync agent loop.
+        Day 2+: migration replaces legacy poll sites with await on this method.
+        See agent_park.py for threading-model docs.
+        """
+        return await park_for_user_response(
+            self.memory.parks,
+            kind=kind,
+            expected_values=expected_values,
+            default_on_timeout=default_on_timeout,
+            deadline_seconds=deadline_seconds,
+            cancelled_predicate=cancelled_predicate,
+        )
 
     @staticmethod
     def _sanitize_user_response(text: str) -> str:
@@ -2548,6 +2574,13 @@ class AgentEngine:
                             with self.memory._lock:
                                 self.memory._waiting_for_user = True
                                 self.memory._user_response_event.clear()
+                            # PARK_SHADOW site-2: arm shadow slot before yield (no behavior change)
+                            _shadow_ask = self.memory.parks.arm(
+                                "ask_user",
+                                frozenset(self._pending_options or []),
+                                "",
+                            )
+                            _logger.debug("PARK_SHADOW arm site=ask_user park_id=%s", _shadow_ask.park_id)
                             yield ask_step
                             # Block generator until user responds (Event-based, not polling)
                             user_wait_deadline = time.monotonic() + self.WALL_CLOCK_LIMIT * 10
@@ -2565,6 +2598,9 @@ class AgentEngine:
                                 self.memory._user_response = None
                                 self.memory._waiting_for_user = False
                             self._waiting_for_user = False
+                            # PARK_SHADOW site-2: discard shadow slot (legacy resolved)
+                            self.memory.parks.discard(_shadow_ask.park_id)
+                            _logger.debug("PARK_SHADOW resolved site=ask_user response=%r", user_resp[:40] if user_resp else "")
                             # Sanitize user response before adding to memory
                             user_resp = self._sanitize_user_response(user_resp)
                             self.memory.add_turn("user", user_resp)
@@ -2638,6 +2674,13 @@ class AgentEngine:
                         self.memory._waiting_for_user = True
                         self.memory._user_response_event.clear()
                         self.memory._user_response = None
+                        # PARK_SHADOW site-3: arm shadow slot before cascade wait (no behavior change)
+                        _shadow_cascade = self.memory.parks.arm(
+                            "w1_cascade",
+                            frozenset({"retry", "summarize", "change_approach"}),
+                            "summarize",
+                        )
+                        _logger.debug("PARK_SHADOW arm site=w1_cascade park_id=%s", _shadow_cascade.park_id)
                         # Wait for /respond to set _user_response
                         import time as _time
                         _deadline = _time.monotonic() + settings.AGENT_WALL_CLOCK_HARD_S
@@ -2651,6 +2694,9 @@ class AgentEngine:
                         self.memory._user_response = None
                         self._waiting_for_user = False
                         self.memory._waiting_for_user = False
+                        # PARK_SHADOW site-3: discard shadow slot (legacy resolved)
+                        self.memory.parks.discard(_shadow_cascade.park_id)
+                        _logger.debug("PARK_SHADOW resolved site=w1_cascade response=%r", user_choice)
                         self._consecutive_tool_errors = 0
                         if user_choice == "summarize":
                             break  # Exit loop, synthesize with what we have
@@ -3157,6 +3203,8 @@ class AgentEngine:
 
     def _tool_ask_user(self, question: str, options: list = None) -> str:
         """Pause the agent loop to ask the user a question."""
+        # PARK_SHADOW site-1 trigger: log that main-loop will arm a park slot
+        _logger.debug("PARK_SHADOW trigger site=ask_user question=%r", str(question)[:80])
         self._waiting_for_user = True
         self._pending_question = question
         self._pending_options = options
