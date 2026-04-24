@@ -962,6 +962,10 @@ export const api = {
 
   // Health
   health: () => request("/health"),
+
+  // Phase I — Ops / Cache stats dashboard (admin-only, per-tenant)
+  getCacheStats: () => request("/ops/cache-stats"),
+  getOpsAlerts: () => request("/ops/alerts"),
 };
 
 // Plan 8d T6 — sample rows for calc editor "Test Values" panel.

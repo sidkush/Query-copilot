@@ -21,6 +21,7 @@ const Billing = lazy(() => import("./pages/Billing"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminPromotions = lazy(() => import("./pages/AdminPromotions"));
+const CacheStatsDashboard = lazy(() => import("./pages/CacheStatsDashboard"));
 const AnalyticsShell = lazy(() => import("./pages/AnalyticsShell"));
 const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
@@ -132,6 +133,7 @@ function AnimatedRoutes() {
         <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
         <Route path="/admin" element={<PageTransition><AdminDashboard /></PageTransition>} />
         <Route path="/admin/promotions" element={<PageTransition><AdminPromotions /></PageTransition>} />
+        <Route path="/admin/cache-stats" element={<PageTransition><CacheStatsDashboard /></PageTransition>} />
 
         {/* Dev-only — A Phase 1 editor shell smoke-test route */}
         {import.meta.env.DEV && DevChartEditor && (
