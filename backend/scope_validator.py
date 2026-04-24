@@ -2,12 +2,32 @@
 
 Pre-execution deterministic check between SQL generation and execution.
 Fails open on sqlglot parse exception (H6). Each rule independently toggleable.
+
+Hardening (S4, 2026-04-24 adversarial):
+- Parse exception and per-rule exception both emit telemetry via
+  `_emit_telemetry(event=..., **kwargs)`. Default implementation logs at WARN;
+  residual-risk telemetry pipeline can monkey-patch to record metrics.
+- Exceptions are still non-blocking (fail-open preserves availability) but no
+  longer silent — ops can see which rule is degrading.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
+
+
+def _emit_telemetry(**event) -> None:
+    """Telemetry hook for scope validator degradation events.
+
+    Default sinks to logger.warning so running tests + ops get visibility.
+    Residual-risk telemetry module can monkey-patch this symbol to record
+    structured metrics.
+    """
+    logger.warning("scope_validator_event: %s", event)
 
 # sqlglot uses 'postgres' not 'postgresql', 'tsql' not 'mssql', etc.
 _DIALECT_ALIASES: dict = {
@@ -65,7 +85,13 @@ class ScopeValidator:
         try:
             import sqlglot
             ast = sqlglot.parse_one(sql, dialect=self.dialect)
-        except Exception:
+        except Exception as exc:
+            _emit_telemetry(
+                event="scope_validator_parse_failed",
+                dialect=self.dialect,
+                exception=type(exc).__name__,
+                message=str(exc)[:200],
+            )
             return ValidatorResult(violations=[], parse_failed=True)
 
         violations: list = []
@@ -74,7 +100,14 @@ class ScopeValidator:
                 vio = rule_fn(ast, sql, ctx, self.dialect)
                 if vio is not None:
                     violations.append(vio)
-            except Exception:
+            except Exception as exc:
+                _emit_telemetry(
+                    event="scope_validator_rule_failed",
+                    rule=getattr(rule_fn, "__name__", repr(rule_fn)),
+                    dialect=self.dialect,
+                    exception=type(exc).__name__,
+                    message=str(exc)[:200],
+                )
                 continue
 
         return ValidatorResult(violations=violations)
