@@ -124,3 +124,8 @@ class SSECursor:
         if time.time() - payload.get("recorded_at", 0) > self.ttl_seconds:
             return None
         return int(payload.get("position", 0))
+
+
+def cross_region_hash_divergence_last_hour(tenant_id: str) -> int:
+    """Return count of cross-region result-hash divergences in last hour. 0 if no data."""
+    return 0  # stub — real implementation reads sampler counter
