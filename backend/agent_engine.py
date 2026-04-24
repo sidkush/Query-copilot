@@ -772,6 +772,7 @@ class AgentEngine:
 
         # Per-run state
         self._tool_calls = 0
+        self._consecutive_tool_errors: int = 0
         self._sql_retries = 0
         self._max_tool_calls = self.MAX_TOOL_CALLS
         self._waiting_for_user = False
@@ -947,6 +948,96 @@ class AgentEngine:
             "type": "plan_artifact",
             **plan.to_dict(),
         }
+
+    def _classify_workload_cap(self, question: str) -> int:
+        """W1 Task 2 — two-tier hard cap when flag on; legacy heuristic when off."""
+        import unicodedata as _ud
+        q = _ud.normalize("NFKC", question or "").lower()
+        dashboard_keywords = {
+            "dashboard", "tile", "remove", "delete", "add tile",
+            "update tile", "create tile", "pin", "kpi",
+            "build dashboard", "create dashboard",
+        }
+        is_dashboard = any(kw in q for kw in dashboard_keywords)
+        if settings.GROUNDING_W1_HARDCAP_ENFORCE:
+            return settings.W1_DASHBOARD_CAP if is_dashboard else settings.W1_ANALYTICAL_CAP
+        complex_keywords = {
+            "why", "compare", "trend", "correlat", "over time", "vs",
+            "join", "across", "between", "analyze", "breakdown", "segment",
+            "cohort", "retention", "churn", "funnel",
+        }
+        is_complex = any(kw in q for kw in complex_keywords)
+        if is_dashboard:
+            return 20
+        if is_complex:
+            return 15
+        return 8
+
+    def _maybe_extend_budget(self) -> bool:
+        """W1 Task 2 — extension blocked when flag on; preserves legacy +10 when off."""
+        if settings.GROUNDING_W1_HARDCAP_ENFORCE:
+            return False
+        if self._max_tool_calls < self.MAX_TOOL_CALLS:
+            old_budget = self._max_tool_calls
+            self._max_tool_calls = min(self._max_tool_calls + 10, self.MAX_TOOL_CALLS)
+            _logger.info(f"Tool budget auto-extended: {old_budget} → {self._max_tool_calls}")
+            return True
+        return False
+
+    _ERROR_DETECT_MAX_DEPTH = 3
+
+    @staticmethod
+    def _looks_like_error(payload: object, _depth: int = 0) -> bool:
+        """Recursive error-shape detector (AMEND-01)."""
+        if not isinstance(payload, dict):
+            return False
+        keys_lower = {str(k).lower() for k in payload.keys()}
+        if {"error", "errors", "error_message", "error_code", "exception"} & keys_lower:
+            return True
+        status = payload.get("status")
+        if isinstance(status, str) and status.lower() in {"error", "failed", "failure"}:
+            return True
+        if _depth < AgentEngine._ERROR_DETECT_MAX_DEPTH:
+            for nested_key in ("result", "payload", "data", "response"):
+                nested = payload.get(nested_key)
+                if isinstance(nested, dict) and AgentEngine._looks_like_error(nested, _depth + 1):
+                    return True
+        return False
+
+    def _update_error_cascade_counter(self, tool_result_str: str) -> None:
+        """W1 Task 3 — increment on error, reset on success, leave on non-JSON."""
+        import json as _json
+        try:
+            payload = _json.loads(tool_result_str) if tool_result_str else None
+        except (ValueError, TypeError):
+            return
+        if not isinstance(payload, dict):
+            return
+        if self._looks_like_error(payload):
+            self._consecutive_tool_errors += 1
+        else:
+            self._consecutive_tool_errors = 0
+
+    def _should_fire_error_cascade_checkpoint(self) -> bool:
+        """W1 Task 3 — threshold gate (flag-on only)."""
+        if not settings.GROUNDING_W1_HARDCAP_ENFORCE:
+            return False
+        return self._consecutive_tool_errors >= settings.W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD
+
+    def _build_error_cascade_step(self) -> "AgentStep":
+        """W1 Task 3 — payload for the agent_checkpoint SSE event (GAP A)."""
+        return AgentStep(
+            type="agent_checkpoint",
+            content=(
+                f"{self._consecutive_tool_errors} consecutive tool errors. "
+                "Choose: [ Retry ] [ Change approach ] [ Summarize with what I have ]"
+            ),
+            tool_input={
+                "kind": "tool_error_cascade",
+                "consecutive_errors": self._consecutive_tool_errors,
+                "options": ["retry", "change_approach", "summarize"],
+            },
+        )
 
     def _apply_safe_text(self, text: str):
         """Phase K — filter agent output via SafeText. Returns None if blocked."""
@@ -1535,16 +1626,13 @@ class AgentEngine:
             raise AgentGuardrailError("Session cancelled by user")
 
         if self._tool_calls >= self._max_tool_calls:
-            if self._max_tool_calls < self.MAX_TOOL_CALLS:
-                old_budget = self._max_tool_calls
-                self._max_tool_calls = min(self._max_tool_calls + 10, self.MAX_TOOL_CALLS)
-                _logger.info(f"Tool budget auto-extended: {old_budget} → {self._max_tool_calls}")
+            if self._maybe_extend_budget():
                 ext_step = AgentStep(type="budget_extension",
                                      content=f"Tool budget extended to {self._max_tool_calls}")
                 self._steps.append(ext_step)
             else:
                 raise AgentGuardrailError(
-                    f"Maximum tool calls ({self.MAX_TOOL_CALLS}) exceeded"
+                    f"Step cap {self._max_tool_calls} hit — halting to prevent runaway."
                 )
 
         if self._phase_start_time > 0:
@@ -2200,12 +2288,8 @@ class AgentEngine:
                               "build dashboard", "create dashboard"}
         is_dashboard_request = any(kw in q_lower for kw in dashboard_keywords)
         is_complex = any(kw in q_lower for kw in complex_keywords)
-        if is_dashboard_request:
-            self._max_tool_calls = 20
-        elif is_complex:
-            self._max_tool_calls = 15
-        else:
-            self._max_tool_calls = 8
+        # W1 Task 2 — unified workload cap (flag on: 20/40 hard; flag off: legacy 8/15/20)
+        self._max_tool_calls = self._classify_workload_cap(question)
 
         # ── Build initial checklist (Task 3 — progress tracking) ──
         self._checklist = [
@@ -2502,6 +2586,43 @@ class AgentEngine:
                                 "content": str(tool_result) if tool_result else "",
                             })
                     messages.append({"role": "user", "content": tool_results_content})
+
+                    # W1 Task 3 — GAP A consecutive-error counter + checkpoint
+                    for blk in assistant_content:
+                        if blk.get("type") != "tool_use":
+                            continue
+                        if blk.get("name") != "run_sql":
+                            continue
+                        for s in self._steps:
+                            if s.tool_use_id == blk["id"]:
+                                self._update_error_cascade_counter(str(s.tool_result or ""))
+                                break
+                    if self._should_fire_error_cascade_checkpoint():
+                        checkpoint = self._build_error_cascade_step()
+                        self._steps.append(checkpoint)
+                        yield checkpoint
+                        # Park loop — reuse existing ask_user wait mechanism
+                        self._waiting_for_user = True
+                        self.memory._waiting_for_user = True
+                        self.memory._user_response_event.clear()
+                        self.memory._user_response = None
+                        # Wait for /respond to set _user_response
+                        import time as _time
+                        _deadline = _time.monotonic() + settings.AGENT_WALL_CLOCK_HARD_S
+                        while self.memory._user_response is None:
+                            remaining = _deadline - _time.monotonic()
+                            if remaining <= 0:
+                                break
+                            self.memory._user_response_event.wait(timeout=min(remaining, 5.0))
+                            self.memory._user_response_event.clear()
+                        user_choice = (self.memory._user_response or "summarize").strip().lower()
+                        self.memory._user_response = None
+                        self._waiting_for_user = False
+                        self.memory._waiting_for_user = False
+                        self._consecutive_tool_errors = 0
+                        if user_choice == "summarize":
+                            break  # Exit loop, synthesize with what we have
+                        # retry / change_approach → continue loop
 
                     # ── Sliding context compaction (Task 13) ──────────
                     # Every 6 tool calls, summarize old tool results to prevent
