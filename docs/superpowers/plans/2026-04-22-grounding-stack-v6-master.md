@@ -201,6 +201,16 @@ table=trips (live @ 2026-04-22T08:15Z, cache_age=4m, ttl=15m, stat_source=exact)
 
 **Catches:** 81-step improvisation cascade, hallucinated "connectivity" excuses, validator-warning dead-end, step/budget runaways, model-capability mismatches.
 
+### Ring 9 — Audit Provenance Ledger
+
+**File:** `backend/audit_ledger.py` (new) + `backend/claim_provenance.py` (new) + `backend/routers/audit_routes.py` (new) + `scripts/verify_audit_ledger.py` (new)
+
+**Responsibility:** Bind every rendered claim to its (query_id, rowset_hash, schema_hash, timestamp) via a hash-chained immutable JSONL ledger per (tenant, year-month). Unmatched numbers in agent synthesis render as `[unverified]` chips so users distinguish MEASURED from INFERRED. Admin export endpoint (admin-auth, per-tenant).
+
+**Architecture:** Each ledger entry's `curr_hash = sha256(canonical_json(entry))`. Chain invariant: `entry[i].prev_hash == entry[i-1].curr_hash`. Genesis: `prev_hash = "0"*64`. Verifier walks chain, reports first divergence. Compliance: SOC2 CC7.2, HIPAA 164.312(b), GDPR Art 30.
+
+**Catches:** LLM-confabulated numbers, synthesized statistics, audit-log tampering, cross-tenant data bleed in exports.
+
 ---
 
 ## The 27 Hardening Bands
@@ -266,6 +276,7 @@ Each phase ships with commit-sized task plan authored JIT. Exit criteria = next 
 | **I** — Operations Layer (P11) | 2 days | Alert Manager + Slack integration + Graphify + cache-stats dashboard | 12 residual-risk SLA alerts live; test-alert fires end-to-end |
 | **J** — Closeout (P12) | 1 day | User doc + admin doc + changelog tag + GA announce | Docs merged; stack v6 shipped |
 | **K** — Ring 8 CASL Agent Orchestration | 1 week | Ring 8 (planner + feedback loop + budgets + hallucination-abort + model ladder) + 4 trap suites + 50-Q bench + 4 feature flags + progressive UX | 4 Ring-8 trap baselines pass; p50<60s benchmark; all previously-passing pytest still green |
+| **L** — Audit Ledger + Progressive UX + Plan Cache | 1 week | Ring 9 (audit ledger + claim provenance) + full Progressive UX (cancel + revise + ResultPreview + SafeTextWrapper + ClaimChip) + PlanCache + DeadlinePropagator + 4 trap suites | 4 Phase L trap baselines pass; plan cache p50<3s on repeat Qs; audit chain verifier green on all committed ledgers |
 
 ---
 

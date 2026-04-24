@@ -22,6 +22,8 @@ The canon. Security invariants (never weaken), hardening status (33 findings res
 - **PCI/HIPAA modes are one-way** — once `ASKDB_PCI_MODE=True` at boot, demo login is hard-rejected; audit-log fsync per write; Redis mandatory.
 - **Cache-stats dashboard is admin-only and per-tenant** — `/api/v1/ops/cache-stats` requires `admin_routes.get_admin_user`; responses are scoped to the admin's `tenant_id`, or to an explicit `?tenant_id=` query param. No cross-tenant aggregates ever.
 - **Alert dispatch never contains raw SQL results** — alert payloads include `rule_id`, tenant_id, severity, threshold, observed value, and row count only. SQL text is truncated to 200 chars; result rows, column values, and PII-bearing fields never leave the backend via alert.
+- **Per-claim provenance** — every rendered numeric claim in agent synthesis must match a row returned by a recent tool_result; unmatched numbers render as `[unverified]` chips. `backend/claim_provenance.py::ClaimProvenance.bind` enforces this pre-render.
+- **Audit ledger hash-chain** — `.data/audit_ledger/<tenant_id>/<YYYY-MM>.jsonl` is append-only with per-entry sha256 chain. `scripts/verify_audit_ledger.py` walks the chain end-to-end; broken chain → alert + ops incident. Never rotate or rewrite past entries.
 
 ## Security Hardening Status
 
