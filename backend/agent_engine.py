@@ -852,6 +852,18 @@ class AgentEngine:
             except Exception:
                 self._safe_text = None
 
+    def _stream_plan_artifact(self):
+        """Phase K — yield one plan_artifact SSE event if a plan is ready."""
+        if not settings.PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL:
+            return
+        plan = getattr(self, "_current_plan", None)
+        if plan is None:
+            return
+        yield {
+            "type": "plan_artifact",
+            **plan.to_dict(),
+        }
+
     def _apply_safe_text(self, text: str):
         """Phase K — filter agent output via SafeText. Returns None if blocked."""
         if not settings.FEATURE_AGENT_HALLUCINATION_ABORT:
