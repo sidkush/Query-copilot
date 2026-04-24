@@ -17,6 +17,7 @@ import { MD_COMPONENTS_COMFY, REMARK_PLUGINS } from "../lib/agentMarkdown";
 import SQLPreview from "../components/SQLPreview";
 import AgentStepRenderer from "../components/agent/AgentStepRenderer";
 import ProvenanceChip from "../components/agent/ProvenanceChip";
+import PlanArtifact from "../components/agent/PlanArtifact";
 import ResultsTable from "../components/ResultsTable";
 import LegacyResultChart from "../components/dashboard/lib/LegacyResultChart";
 import ChartEditModal from "../components/dashboard/lib/ChartEditModal";
@@ -186,6 +187,7 @@ function DashboardChips({ question, onGenerate, schemaFocusOptions }) {
 export default function Chat() {
   const [input, setInput] = useState("");
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [generatingDashboard, setGeneratingDashboard] = useState(false);
@@ -536,6 +538,11 @@ export default function Chat() {
           if (step.__event === "provenance_chip") {
             const chipData = typeof step.data === "string" ? JSON.parse(step.data) : step;
             useStore.getState().setProvenanceChip(chipData);
+            return;
+          }
+
+          if (step.type === "plan_artifact") {
+            setCurrentPlan(step);
             return;
           }
 
@@ -1247,9 +1254,9 @@ export default function Chat() {
             />
             {/* Turbo Mode badge — shows when active connection has turbo enabled */}
             {resolvedConnId && turboStatus[resolvedConnId]?.enabled && !turboStatus[resolvedConnId]?.syncing && (
-              <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-900/30 text-cyan-400 border border-cyan-700/40" title="DuckDB Turbo Mode active — queries may use local replica for <100ms speed">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>
-                TURBO
+              <span className="turbo-header-badge" title="DuckDB Turbo Mode active — queries may use local replica for <100ms speed" aria-label="DuckDB Turbo Mode active">
+                <svg className="turbo-header-badge__bolt" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" /></svg>
+                <span className="turbo-header-badge__label">TURBO</span>
               </span>
             )}
           </div>
@@ -1337,6 +1344,8 @@ export default function Chat() {
             </div>
           )}
 
+          {currentPlan && <PlanArtifact plan={currentPlan} />}
+
           {messages.map((msg, i) => (
             <motion.div
               key={i}
@@ -1347,7 +1356,7 @@ export default function Chat() {
             >
               {msg.type === "user" && (
                 <div className="flex flex-col items-end">
-                  <div className="chat-bubble-user rounded-2xl rounded-tr-md px-5 py-3 max-w-xl text-[15px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                  <div className="chat-bubble-user rounded-2xl rounded-tr-md px-5 py-3 max-w-xl text-[15px] leading-relaxed">
                     {msg.content}
                   </div>
                   {msg.timestamp && <span className="text-[10px] mt-1 mr-1" style={{ color: 'var(--text-muted)' }}>{formatMessageTime(msg.timestamp)}</span>}
