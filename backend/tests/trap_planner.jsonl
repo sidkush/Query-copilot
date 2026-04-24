@@ -1,0 +1,10 @@
+{"id": "plan-001", "nl": "why are casual riders churning from certain stations more than others?", "expected_sql_contains": ["january_trips"], "oracle": {"type": "must_use_planner", "max_ctes": 3}}
+{"id": "plan-002", "nl": "cohort retention by signup month", "expected_sql_contains": [], "oracle": {"type": "must_use_planner", "max_ctes": 3}}
+{"id": "plan-003", "nl": "quarterly trend with YoY comparison", "expected_sql_contains": [], "oracle": {"type": "must_use_planner", "max_ctes": 3}}
+{"id": "plan-004", "nl": "top 10 stations by member vs casual ratio", "expected_sql_contains": [], "oracle": {"type": "must_use_planner", "max_ctes": 3}}
+{"id": "plan-005", "nl": "weekday vs weekend distinct rider comparison", "expected_sql_contains": [], "oracle": {"type": "must_use_planner", "max_ctes": 3}}
+{"id": "plan-006", "nl": "simple count all trips", "expected_sql_contains": ["COUNT", "january_trips"], "oracle": {"type": "must_query_table", "table": "january_trips"}}
+{"id": "plan-007", "nl": "what is the row count", "expected_sql_contains": ["COUNT"], "oracle": {"type": "must_query_table", "table": "january_trips"}}
+{"id": "plan-008", "nl": "segmentation by rider_type and station_id", "expected_sql_contains": [], "oracle": {"type": "must_use_planner", "max_ctes": 3}}
+{"id": "plan-009", "nl": "behavioral patterns in last 5 rides before churn", "expected_sql_contains": [], "oracle": {"type": "must_use_planner", "max_ctes": 3}}
+{"id": "plan-010", "nl": "average duration by hour-of-day and rider_type", "expected_sql_contains": [], "oracle": {"type": "must_use_planner", "max_ctes": 3}}

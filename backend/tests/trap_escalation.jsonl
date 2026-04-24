@@ -1,0 +1,10 @@
+{"id": "escal-001", "nl": "hello", "expected_sql_contains": [], "oracle": {"type": "must_escalate_model", "expected_tier": "step_exec"}}
+{"id": "escal-002", "nl": "count trips", "expected_sql_contains": ["COUNT"], "oracle": {"type": "must_escalate_model", "expected_tier": "step_exec"}}
+{"id": "escal-003", "nl": "cohort retention with 6-segment breakdown", "expected_sql_contains": [], "oracle": {"type": "must_escalate_model", "expected_tier": "plan_emit"}}
+{"id": "escal-004", "nl": "churn analysis with behavioral segmentation", "expected_sql_contains": [], "oracle": {"type": "must_escalate_model", "expected_tier": "plan_emit"}}
+{"id": "escal-005", "nl": "deeply nested recursive analysis with causality", "expected_sql_contains": [], "oracle": {"type": "must_escalate_model", "expected_tier": "recovery"}}
+{"id": "escal-006", "nl": "simple date range min max", "expected_sql_contains": ["MIN", "MAX"], "oracle": {"type": "must_escalate_model", "expected_tier": "step_exec"}}
+{"id": "escal-007", "nl": "list all riders", "expected_sql_contains": [], "oracle": {"type": "must_escalate_model", "expected_tier": "step_exec"}}
+{"id": "escal-008", "nl": "multi-level cohort-by-cohort retention curves", "expected_sql_contains": [], "oracle": {"type": "must_escalate_model", "expected_tier": "plan_emit"}}
+{"id": "escal-009", "nl": "propensity-score-adjusted station comparison", "expected_sql_contains": [], "oracle": {"type": "must_escalate_model", "expected_tier": "recovery"}}
+{"id": "escal-010", "nl": "what is the maximum date", "expected_sql_contains": ["MAX"], "oracle": {"type": "must_escalate_model", "expected_tier": "step_exec"}}
