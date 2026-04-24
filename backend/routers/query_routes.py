@@ -654,7 +654,8 @@ def execute_sql(req: ExecuteRequest, user: dict = Depends(get_current_user)):
     email = user["email"]
 
     # H20 Phase H — server-enforced trial quota (free plan only).
-    _trial_quota_gate(email, user.get("plan", "free"))
+    # Plan resolved from user_storage (JWT doesn't carry plan).
+    _trial_quota_gate(email, get_daily_usage(email).get("plan", "free"))
 
     # Plan 9a T5 — validate analytics contract BEFORE running the base SQL
     # so we fail fast with a 422 instead of wasting an engine round-trip.
