@@ -15,6 +15,7 @@ export default function ProvenanceChip({ chip }) {
     <motion.span
       className={`provenance-chip provenance-chip--${chip.trust}`}
       role="status"
+      aria-live="polite"
       aria-label={`Result trust: ${chip.label}`}
       initial={{ opacity: 0, y: -2 }}
       animate={{ opacity: 1, y: 0 }}

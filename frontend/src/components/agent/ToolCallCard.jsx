@@ -39,6 +39,7 @@ export default function ToolCallCard({ step, compact }) {
   const [expanded, setExpanded] = useState(false);
   const icon = TOOL_ICONS[step.tool_name] || '\u{1F527}';
   const label = TOOL_LABELS[step.tool_name] || step.tool_name;
+  const bodyId = `tool-body-${step.id || step.tool_name}`;
 
   let resultData = null;
   if (step.tool_result && step.tool_result !== 'null') {
@@ -53,6 +54,8 @@ export default function ToolCallCard({ step, compact }) {
     <div style={{ borderRadius: TOKENS.radius.md, border: `1px solid ${TOKENS.border.default}`, overflow: 'hidden' }}>
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        aria-controls={bodyId}
         className="w-full flex items-center gap-2 text-left"
         style={{ padding: compact ? '6px 10px' : '8px 12px', background: TOKENS.bg.surface, cursor: 'pointer', border: 'none' }}
       >
@@ -71,6 +74,7 @@ export default function ToolCallCard({ step, compact }) {
       <AnimatePresence>
         {expanded && (
           <motion.div
+            id={bodyId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

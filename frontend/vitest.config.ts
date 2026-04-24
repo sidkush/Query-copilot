@@ -37,6 +37,8 @@ export default defineConfig({
       'src/components/dashboard/__tests__/**/*.test.tsx',
       'src/components/agent/**/*.test.jsx',
       'src/components/agent/**/*.test.tsx',
+      'src/hooks/**/*.test.js',
+      'src/hooks/**/*.test.ts',
       'src/pages/**/*.test.jsx',
       'src/pages/**/*.test.tsx',
     ],

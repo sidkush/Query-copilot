@@ -44,20 +44,27 @@ export default function IntentEcho({ card, onAccept, onChoose }) {
                   className="intent-echo-primary"
                   onClick={onAccept}
                   autoFocus
+                  aria-label="Proceed with interpreted query"
                 >
                   Proceed
                 </button>
               )}
-              {mode === 'mandatory_choice' && interpretations.map((intp) => (
-                <button
-                  key={intp.id}
-                  type="button"
-                  className="intent-echo-pill"
-                  onClick={() => onChoose(intp.id)}
-                >
-                  {intp.text}
-                </button>
-              ))}
+              {mode === 'mandatory_choice' && (
+                <div role="radiogroup" aria-label="Choose interpretation">
+                  {interpretations.map((intp) => (
+                    <button
+                      key={intp.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={false}
+                      className="intent-echo-pill"
+                      onClick={() => onChoose(intp.id)}
+                    >
+                      {intp.text}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}

@@ -53,8 +53,29 @@ describe('IntentEcho', () => {
         onChoose={onChoose}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: /60 days/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /60 days/i }));
     expect(onChoose).toHaveBeenCalledWith('churn_60');
+  });
+
+  it('exposes accessible labels in mandatory_choice mode', () => {
+    render(
+      <IntentEcho
+        card={{
+          mode: 'mandatory_choice',
+          operational_definition: 'Show all orders',
+          interpretations: [
+            { id: 'a', text: 'This year' },
+            { id: 'b', text: 'Last 30 days' },
+          ],
+          warnings: [],
+          ambiguity: 0.9,
+        }}
+        onAccept={() => {}}
+        onChoose={() => {}}
+      />
+    );
+    expect(screen.getByRole('radiogroup', { name: /choose interpretation/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
   });
 
   it('renders warnings list when present', () => {

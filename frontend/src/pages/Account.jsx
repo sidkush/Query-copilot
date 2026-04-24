@@ -386,6 +386,15 @@ export default function Account() {
   const [deleting, setDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
+  const [motionPref, setMotionPref] = useState(() => {
+    if (typeof window === "undefined") return 150;
+    const raw = window.localStorage?.getItem("askdb.motion_speed_ms");
+    const n = raw == null ? 150 : Number(raw);
+    return Number.isFinite(n) && [0, 150, 300].includes(n) ? n : 150;
+  });
+  useEffect(() => {
+    try { window.localStorage?.setItem("askdb.motion_speed_ms", String(motionPref)); } catch { /* storage disabled */ }
+  }, [motionPref]);
   const navigate = useNavigate();
   const logout = useStore((s) => s.logout);
   const setConnections = useStore((s) => s.setConnections);
@@ -589,7 +598,60 @@ export default function Account() {
             {/* 6. API Configuration */}
             <ApiConfigSection />
 
-            {/* 7. Danger Zone */}
+            {/* 7. Motion (H22) */}
+            <StaggerItem>
+              <section
+                className="glass-card rounded-2xl p-6"
+                aria-labelledby="account-motion-label"
+              >
+                <h2
+                  id="account-motion-label"
+                  className="text-sm font-semibold mb-1"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Motion
+                </h2>
+                <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+                  Control how quickly UI elements animate. If your operating system
+                  reports reduced-motion, animations are disabled regardless.
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-labelledby="account-motion-label"
+                  className="flex flex-wrap gap-2"
+                >
+                  {[
+                    { id: 'off', label: 'Off', value: 0 },
+                    { id: 'slow', label: 'Slow', value: 300 },
+                    { id: 'normal', label: 'Normal', value: 150 },
+                  ].map((opt) => {
+                    const selected = motionPref === opt.value;
+                    return (
+                      <label
+                        key={opt.id}
+                        className="glass rounded-lg px-3 py-1.5 text-sm cursor-pointer flex items-center gap-2"
+                        style={{
+                          color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          borderColor: selected ? 'rgba(37,99,235,0.45)' : undefined,
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="motion"
+                          value={opt.value}
+                          checked={selected}
+                          onChange={() => setMotionPref(opt.value)}
+                          className="accent-blue-500"
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
+            </StaggerItem>
+
+            {/* 8. Danger Zone */}
             <StaggerItem>
               <div className="glass-card border-red-900/30 rounded-2xl p-6">
                 <h2 className="text-sm font-semibold text-red-400 mb-2">Danger zone</h2>

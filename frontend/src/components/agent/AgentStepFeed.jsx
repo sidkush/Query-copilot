@@ -120,15 +120,28 @@ function AgentStepFeedInner({ compact = false }) {
   }
 
   return (
-    <div
+    <section
       ref={scrollRef}
+      role="log"
       aria-live="polite"
-      aria-label="Agent execution steps"
+      aria-label="Agent activity"
+      className="agent-step-feed"
       style={{
         flex: 1, overflowY: "auto", padding: "18px 18px 22px",
         display: "flex", flexDirection: "column", gap: 14,
       }}
     >
+      <a
+        href="#feed-latest"
+        className="skip-to-latest"
+        style={{
+          position: "absolute", left: -9999, top: 0,
+        }}
+        onFocus={(e) => { e.currentTarget.style.left = "12px"; }}
+        onBlur={(e) => { e.currentTarget.style.left = "-9999px"; }}
+      >
+        Skip to latest step
+      </a>
       <AgentStepRenderer
         steps={agentSteps}
         loading={agentLoading}
@@ -138,6 +151,7 @@ function AgentStepFeedInner({ compact = false }) {
         verification={agentVerification}
         compact={compact}
       />
-    </div>
+      <span id="feed-latest" aria-hidden="true" />
+    </section>
   );
 }
