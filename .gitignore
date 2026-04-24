@@ -80,3 +80,15 @@ yarn-debug.log*
 
 # Phase H hardening-surface baseline — committed per H13
 !.data/hardening_surface_baseline.json
+
+# Phase K Ring-8 trap baselines — committed per H13
+!.data/hallucination_baseline.json
+!.data/budget_baseline.json
+!.data/planner_baseline.json
+!.data/escalation_baseline.json
+
+# Also negate backend/.data copies (alternate path)
+!backend/.data/hallucination_baseline.json
+!backend/.data/budget_baseline.json
+!backend/.data/planner_baseline.json
+!backend/.data/escalation_baseline.json
