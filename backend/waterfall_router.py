@@ -1475,4 +1475,4 @@ def vizcache_stats_for_tenant(tenant_id: str, tier: str) -> float:
 
 def client_retries_last_5min(tenant_id: str) -> int:
     """Return client retry count for tenant in last 5 min. 0 if no data."""
-    return 0  # stub — real impl reads SSE-cursor log
+    return 0  # stub - real impl reads SSE-cursor log

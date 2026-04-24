@@ -1669,3 +1669,24 @@ def get_admin_email_for_tenant(tenant_id: str) -> str:
         except Exception:
             pass
     return ""
+
+
+def list_tenant_ids() -> list[str]:
+    """Return all distinct tenant IDs from user profiles.
+
+    Scans ``.data/user_data/*/profile.json`` and collects every
+    non-empty ``tenant_id`` value.  Returns ``[]`` if the data
+    directory is absent or empty.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    tenant_ids: set[str] = set()
+    for p in _Path(".data/user_data").glob("*/profile.json"):
+        try:
+            data = _json.loads(p.read_text())
+            tid = data.get("tenant_id")
+            if tid:
+                tenant_ids.add(tid)
+        except Exception:
+            pass
+    return list(tenant_ids)

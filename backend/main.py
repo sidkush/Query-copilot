@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import auth_routes, query_routes, schema_routes, connection_routes, user_routes, chat_routes, admin_routes, dashboard_routes, alert_routes, agent_routes, behavior_routes, ml_routes, voice_routes, ml_pipeline_routes, chart_customization_routes, skill_routes, billing_routes
+from routers import auth_routes, query_routes, schema_routes, connection_routes, user_routes, chat_routes, admin_routes, dashboard_routes, alert_routes, agent_routes, behavior_routes, ml_routes, voice_routes, ml_pipeline_routes, chart_customization_routes, skill_routes, billing_routes, ops_routes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -43,6 +43,43 @@ async def lifespan(app: FastAPI):
         start_digest_scheduler()
     except Exception as exc:
         logger.warning(f"Digest scheduler failed to start: {exc}")
+    # ── Ops scheduler: residual-risk detectors + alert dedup rotate ──
+    # Reuse digest's BackgroundScheduler when available; fall back to a
+    # new one.  Both are apscheduler.schedulers.background.BackgroundScheduler.
+    try:
+        from residual_risk_telemetry import run_detectors_periodic
+        from alert_manager import get_alert_manager as _get_am
+        try:
+            from user_storage import list_tenant_ids as _list_tenants
+        except ImportError:
+            def _list_tenants():  # type: ignore[misc]
+                return []
+        try:
+            import digest as _digest
+            _ops_sched = getattr(_digest, "_scheduler", None)
+        except Exception:
+            _ops_sched = None
+        if _ops_sched is None or not getattr(_ops_sched, "running", False):
+            from apscheduler.schedulers.background import BackgroundScheduler as _BGSched
+            _ops_sched = _BGSched(daemon=True)
+            _ops_sched.start()
+        _ops_sched.add_job(
+            lambda: run_detectors_periodic(_list_tenants()),
+            "interval",
+            seconds=60,
+            id="residual_risk_detectors",
+            replace_existing=True,
+        )
+        _ops_sched.add_job(
+            lambda: _get_am().rotate_dedup_cache(),
+            "interval",
+            seconds=300,
+            id="alert_dedup_rotate",
+            replace_existing=True,
+        )
+        logger.info("Ops scheduler jobs registered (residual_risk_detectors + alert_dedup_rotate)")
+    except Exception as _ops_exc:
+        logger.warning("Ops scheduler not started: %s", _ops_exc)
     # ── Skill library (Plan 3 P3T5) ─────────────────────────────
     try:
         from skill_library import SkillLibrary
@@ -211,6 +248,7 @@ app.include_router(ml_pipeline_routes.router)
 app.include_router(chart_customization_routes.router)
 app.include_router(skill_routes.router)
 app.include_router(billing_routes.router)
+app.include_router(ops_routes.router)
 
 
 @app.get("/api/v1/health")
