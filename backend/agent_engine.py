@@ -810,6 +810,19 @@ class AgentEngine:
         except Exception:
             pass
 
+    def _maybe_emit_plan(self, nl: str):
+        """Phase K — invoke analytical planner if flag on. Returns AnalyticalPlan or None."""
+        if not settings.FEATURE_AGENT_PLANNER:
+            return None
+        if not hasattr(self, "_planner") or self._planner is None:
+            return None
+        try:
+            conn_id = getattr(self.connection_entry, "conn_id", "")
+            coverage = getattr(self.connection_entry, "coverage_cards", None) or []
+            return self._planner.plan(conn_id=conn_id, nl=nl, coverage_cards=coverage)
+        except Exception:
+            return None
+
     def _init_step_budget(self):
         """Phase K — attach a StepBudget instance for the upcoming agent run."""
         from config import settings
