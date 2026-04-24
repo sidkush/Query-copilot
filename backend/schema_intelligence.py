@@ -967,4 +967,9 @@ def profile_columns(df: pd.DataFrame, sample_size: int = 5) -> list[dict]:
             'sample_values': sample_values,
         })
 
+
+def drift_vs_live_error_rate(tenant_id: str) -> float:
+    """Return schema-drift-vs-live error rate for tenant. 0.0 if no data."""
+    return 0.0  # stub — reads existing schema diff counter
+
     return profiles

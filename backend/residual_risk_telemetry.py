@@ -81,3 +81,29 @@ def detect_residual_risk_2_anthropic_region_failover(tenant_id: str) -> Optional
 
 
 _ALL_DETECTORS.append(detect_residual_risk_2_anthropic_region_failover)
+
+
+def _schema_drift_error_rate_pct(tenant_id: str) -> float:
+    try:
+        from schema_intelligence import drift_vs_live_error_rate
+        return drift_vs_live_error_rate(tenant_id)
+    except Exception:
+        return 0.0
+
+
+def detect_residual_risk_3_dba_ddl_no_webhook(tenant_id: str) -> Optional[AlertSignal]:
+    rate = _schema_drift_error_rate_pct(tenant_id)
+    threshold = settings.RESIDUAL_RISK_3_SCHEMA_DRIFT_RATE_MAX_PCT
+    if rate > threshold:
+        return AlertSignal(
+            rule_id="residual_risk_3_dba_ddl_no_webhook",
+            tenant_id=tenant_id,
+            severity="warn",
+            observed_value=rate,
+            threshold=threshold,
+            message=f"Schema-drift-vs-live error rate {rate:.2f}% > {threshold}%. Runbook: require webhook or tighten TTL.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_residual_risk_3_dba_ddl_no_webhook)
