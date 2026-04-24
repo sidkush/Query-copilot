@@ -1,0 +1,10 @@
+{"id": "trans-001", "nl": "monthly bucket count via DATE_TRUNC", "expected_sql_contains": ["DATE_TRUNC"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "postgresql", "snowflake"]}}
+{"id": "trans-002", "nl": "approx distinct", "expected_sql_contains": ["APPROX"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "snowflake"]}}
+{"id": "trans-003", "nl": "countif conditional", "expected_sql_contains": ["COUNTIF"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "clickhouse"]}}
+{"id": "trans-004", "nl": "timestamp sub interval", "expected_sql_contains": ["TIMESTAMP_SUB"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "postgresql"]}}
+{"id": "trans-005", "nl": "window row_number", "expected_sql_contains": ["ROW_NUMBER"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "postgresql", "snowflake"]}}
+{"id": "trans-006", "nl": "qualify clause", "expected_sql_contains": ["QUALIFY"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "snowflake"]}}
+{"id": "trans-007", "nl": "date_diff days", "expected_sql_contains": ["DATE_DIFF"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "postgresql"]}}
+{"id": "trans-008", "nl": "multi-aggregate churn CTE", "expected_sql_contains": ["COUNT(DISTINCT"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "postgresql", "snowflake"]}}
+{"id": "trans-009", "nl": "nested CTEs 3 levels", "expected_sql_contains": ["WITH"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "postgresql"]}}
+{"id": "trans-010", "nl": "group by rollup", "expected_sql_contains": ["ROLLUP"], "oracle": {"type": "must_transpile_clean", "source": "bigquery", "targets": ["duckdb", "snowflake"]}}
