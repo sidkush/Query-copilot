@@ -288,3 +288,53 @@ def detect_residual_risk_10_low_traffic_cache_miss(tenant_id: str) -> Optional[A
 
 
 _ALL_DETECTORS.append(detect_residual_risk_10_low_traffic_cache_miss)
+
+
+import datetime as _dt
+
+
+def _seconds_since_last_emission(tenant_id: str) -> int:
+    from alert_manager import get_alert_manager
+    am = get_alert_manager()
+    return am.seconds_since_last_emission(tenant_id)
+
+
+def _is_business_hours(now: Optional[_dt.datetime] = None) -> bool:
+    now = now or _dt.datetime.utcnow()
+    return 0 <= now.weekday() <= 4 and 9 <= now.hour < 18  # UTC mon–fri 09–18
+
+
+def detect_ops_telemetry_source_missing(tenant_id: str) -> Optional[AlertSignal]:
+    secs = _seconds_since_last_emission(tenant_id)
+    window = settings.ALERT_TELEMETRY_MISSING_WINDOW_SECONDS
+    if secs > window and _is_business_hours():
+        return AlertSignal(
+            rule_id="ops_telemetry_source_missing",
+            tenant_id=tenant_id,
+            severity="critical",
+            observed_value=float(secs),
+            threshold=float(window),
+            message=f"No detector emission for {secs}s (>{window}). Runbook: page oncall; check detector threads.",
+        )
+    return None
+
+
+def detect_ops_alert_dispatch_failure(tenant_id: str) -> Optional[AlertSignal]:
+    from alert_manager import get_alert_manager
+    am = get_alert_manager()
+    n = am.dispatch_failure_count_last_hour(tenant_id)
+    budget = settings.ALERT_DISPATCH_FAIL_BUDGET
+    if n >= budget:
+        return AlertSignal(
+            rule_id="ops_alert_dispatch_failure",
+            tenant_id=tenant_id,
+            severity="critical",
+            observed_value=float(n),
+            threshold=float(budget),
+            message=f"Dispatch failure count {n} >= budget {budget}. Runbook: check webhook, SMTP, then Redis.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_ops_telemetry_source_missing)
+_ALL_DETECTORS.append(detect_ops_alert_dispatch_failure)

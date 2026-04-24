@@ -88,6 +88,15 @@ class AlertManager:
         return result
 
     def _dispatch(self, signal: AlertSignal) -> DispatchResult:
+        # ops_alert_dispatch_failure never retries — prevents feedback storms
+        if signal.rule_id == "ops_alert_dispatch_failure":
+            import logging as _logging
+            _logging.getLogger(__name__).critical(
+                "CRITICAL: alert dispatch failed repeatedly for tenant=%s — no Slack/email retry to avoid storm",
+                signal.tenant_id,
+            )
+            return DispatchResult(True, "log", None)
+
         from config import settings
         from slack_dispatcher import SlackDispatcher, SlackPayload
 
