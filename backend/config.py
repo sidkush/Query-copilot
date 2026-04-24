@@ -300,7 +300,7 @@ class Settings(BaseSettings):
     PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL: bool = Field(default=True)
     # ── Phase K Week-1 demo-safe baseline (GROUNDING_W1) ──
     GROUNDING_W1_HARDCAP_ENFORCE: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Master gate for Week-1 grounding guards: two-tier hard-cap, "
             "consecutive-tool-error consent card, empty-BoundSet banner, "
