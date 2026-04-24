@@ -116,6 +116,19 @@ class Settings(BaseSettings):
     CACHE_ENABLED: bool = Field(default=True)
     CACHE_TTL_SECONDS: int = Field(default=3600)
 
+    # ── Operations / Alert Manager (Phase I) ─────────────────────
+    FEATURE_ALERT_MANAGER: bool = Field(default=True, description="Master gate. Off -> detectors silent.")
+    ALERT_DEDUP_WINDOW_SECONDS: int = Field(default=300, description="H16 sliding dedup per (tenant_id, rule_id).")
+    ALERT_MULTI_HOUR_ACCUMULATOR_SECONDS: int = Field(default=3600, description="One fire per hour when signal stays hot.")
+    ALERT_MAX_RETRY: int = Field(default=3, description="Retry via jittered_backoff.")
+    ALERT_FALLBACK_EMAIL_ON_SLACK_FAIL: bool = Field(default=True)
+
+    # ── Operations / Residual Risk (Phase I) ─────────────────────
+    RESIDUAL_RISK_9_DEPRECATED_BYOK_PINNED_MAX: int = Field(
+        default=0,
+        description="Master row 9: alert when BYOK users pinned to deprecated models exceeds this.",
+    )
+
     model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @model_validator(mode="after")
