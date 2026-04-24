@@ -1,0 +1,20 @@
+{"id": "q001", "class": "simple", "sql": "SELECT * FROM trips WHERE started_at > '2024-01-01' LIMIT 100"}
+{"id": "q002", "class": "grouped_agg", "sql": "SELECT start_station_name, COUNT(*) AS rides FROM trips GROUP BY start_station_name ORDER BY rides DESC LIMIT 10"}
+{"id": "q003", "class": "approx", "sql": "SELECT APPROX_COUNT_DISTINCT(ride_id) AS approx_rides FROM trips"}
+{"id": "q004", "class": "multi_agg", "sql": "SELECT start_station_name, COUNT(DISTINCT CASE WHEN member_casual = 'casual' THEN ride_id END) AS casual_rides, COUNT(*) AS total FROM trips GROUP BY start_station_name"}
+{"id": "q005", "class": "date_trunc", "sql": "SELECT DATE_TRUNC(started_at, MONTH) AS month, COUNT(*) AS rides FROM trips GROUP BY month ORDER BY month"}
+{"id": "q006", "class": "timestamp_sub", "sql": "SELECT ride_id FROM trips WHERE started_at > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)"}
+{"id": "q007", "class": "window", "sql": "SELECT ride_id, start_station_name, ROW_NUMBER() OVER (PARTITION BY start_station_name ORDER BY started_at) AS rn FROM trips"}
+{"id": "q008", "class": "qualify", "sql": "SELECT ride_id, start_station_name FROM trips QUALIFY ROW_NUMBER() OVER (PARTITION BY start_station_name ORDER BY started_at DESC) = 1"}
+{"id": "q009", "class": "date_diff", "sql": "SELECT ride_id, DATE_DIFF(ended_at, started_at, MINUTE) AS duration_min FROM trips"}
+{"id": "q010", "class": "churn_cte", "sql": "WITH monthly AS (SELECT DATE_TRUNC(started_at, MONTH) AS month, member_casual, COUNT(DISTINCT ride_id) AS rides FROM trips GROUP BY month, member_casual) SELECT month, SUM(CASE WHEN member_casual = 'member' THEN rides END) AS members, SUM(CASE WHEN member_casual = 'casual' THEN rides END) AS casuals FROM monthly GROUP BY month"}
+{"id": "q011", "class": "except_distinct", "sql": "SELECT ride_id FROM trips EXCEPT DISTINCT SELECT ride_id FROM trips_archive"}
+{"id": "q012", "class": "recursive_cte", "sql": "WITH RECURSIVE counter AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM counter WHERE n < 10) SELECT n FROM counter"}
+{"id": "q013", "class": "subquery_limit", "sql": "SELECT * FROM (SELECT ride_id, started_at FROM trips ORDER BY started_at DESC LIMIT 500) AS recent WHERE started_at > '2024-06-01'"}
+{"id": "q014", "class": "case_multi", "sql": "SELECT ride_id, CASE WHEN duration_min < 5 THEN 'short' WHEN duration_min < 30 THEN 'medium' WHEN duration_min < 120 THEN 'long' ELSE 'extended' END AS bucket FROM trips"}
+{"id": "q015", "class": "join_two", "sql": "SELECT t.ride_id, s.station_name FROM trips AS t JOIN stations AS s ON t.start_station_id = s.station_id WHERE t.started_at > '2024-01-01'"}
+{"id": "q016", "class": "nested_cte", "sql": "WITH base AS (SELECT ride_id, start_station_name, started_at FROM trips WHERE started_at > '2024-01-01'), agg AS (SELECT start_station_name, COUNT(*) AS rides FROM base GROUP BY start_station_name) SELECT * FROM agg ORDER BY rides DESC LIMIT 10"}
+{"id": "q017", "class": "rollup", "sql": "SELECT start_station_name, member_casual, COUNT(*) AS rides FROM trips GROUP BY ROLLUP(start_station_name, member_casual)"}
+{"id": "q018", "class": "having", "sql": "SELECT start_station_name, COUNT(*) AS rides FROM trips GROUP BY start_station_name HAVING COUNT(*) > 100"}
+{"id": "q019", "class": "nulls_last", "sql": "SELECT ride_id, ended_at FROM trips ORDER BY ended_at DESC NULLS LAST LIMIT 50"}
+{"id": "q020", "class": "is_distinct_from", "sql": "SELECT ride_id FROM trips WHERE start_station_id IS DISTINCT FROM end_station_id"}
