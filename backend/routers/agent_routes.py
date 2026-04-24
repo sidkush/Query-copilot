@@ -35,6 +35,35 @@ _logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/agent", tags=["agent"])
 
 # ---------------------------------------------------------------------------
+# Phase K — SSE event schema additions.
+# ---------------------------------------------------------------------------
+
+KNOWN_SSE_EVENT_TYPES = {
+    "message_delta",
+    "tool_call",
+    "tool_result",
+    "error",
+    "done",
+    "provenance_chip",
+    # Ring 8 additions:
+    "plan_artifact",
+    "step_phase",
+    "step_detail",
+    "safe_abort",
+}
+
+PLAN_ARTIFACT_SCHEMA = {
+    "type": "object",
+    "required": ["plan_id", "ctes", "fallback"],
+    "properties": {
+        "plan_id": {"type": "string"},
+        "ctes": {"type": "array"},
+        "fallback": {"type": "boolean"},
+        "registry_hits": {"type": "array"},
+    },
+}
+
+# ---------------------------------------------------------------------------
 # B5: Chart performance telemetry — fire-and-forget JSONL log
 # ---------------------------------------------------------------------------
 
