@@ -1,0 +1,50 @@
+{"id": "bench-001", "nl": "how many rows in january_trips?", "class": "simple", "expected_step_range": [2, 5]}
+{"id": "bench-002", "nl": "total row count of january_trips", "class": "simple", "expected_step_range": [2, 5]}
+{"id": "bench-003", "nl": "list distinct rider types", "class": "simple", "expected_step_range": [2, 5]}
+{"id": "bench-004", "nl": "list distinct station ids", "class": "simple", "expected_step_range": [2, 5]}
+{"id": "bench-005", "nl": "min started_at in january_trips", "class": "simple", "expected_step_range": [2, 5]}
+{"id": "bench-006", "nl": "max started_at in january_trips", "class": "simple", "expected_step_range": [2, 5]}
+{"id": "bench-007", "nl": "count rows by rider_type", "class": "single_agg", "expected_step_range": [3, 6]}
+{"id": "bench-008", "nl": "average duration_sec across all trips", "class": "single_agg", "expected_step_range": [3, 6]}
+{"id": "bench-009", "nl": "sum of duration_sec by rider_type", "class": "single_agg", "expected_step_range": [3, 6]}
+{"id": "bench-010", "nl": "latest started_at per rider_type", "class": "single_agg", "expected_step_range": [3, 6]}
+{"id": "bench-011", "nl": "trips per day in last 30 days", "class": "single_agg", "expected_step_range": [3, 6]}
+{"id": "bench-012", "nl": "trips per week", "class": "single_agg", "expected_step_range": [3, 6]}
+{"id": "bench-013", "nl": "trips per month", "class": "single_agg", "expected_step_range": [3, 6]}
+{"id": "bench-014", "nl": "trips per year", "class": "single_agg", "expected_step_range": [3, 6]}
+{"id": "bench-015", "nl": "distinct station count per rider_type", "class": "single_agg", "expected_step_range": [3, 6]}
+{"id": "bench-016", "nl": "average duration_sec by hour of day", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-017", "nl": "trip counts by day of week and rider_type", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-018", "nl": "monthly trip counts broken out by rider_type", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-019", "nl": "top 10 stations by trip volume", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-020", "nl": "bottom 10 stations by trip volume", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-021", "nl": "rider_type distribution across months", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-022", "nl": "top 5 rider_types by avg duration", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-023", "nl": "trips per station per month", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-024", "nl": "trips by hour-of-day + day-of-week matrix", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-025", "nl": "weekday vs weekend trip comparison", "class": "grouped_agg", "expected_step_range": [4, 8]}
+{"id": "bench-026", "nl": "member vs casual share by month", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-027", "nl": "avg duration and distinct riders per station", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-028", "nl": "trips, riders, and duration trends by quarter", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-029", "nl": "peak-hour vs off-peak comparison (duration + count)", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-030", "nl": "YoY ridership growth by station", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-031", "nl": "season-adjusted trip volume", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-032", "nl": "member retention month-over-month", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-033", "nl": "station utilization variance", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-034", "nl": "average duration segmented by rider_type and time-of-day", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-035", "nl": "count of new vs returning riders per month", "class": "multi_agg", "expected_step_range": [5, 10]}
+{"id": "bench-036", "nl": "30-day churn rate per station", "class": "churn", "expected_step_range": [6, 12]}
+{"id": "bench-037", "nl": "60-day churn rate per rider_type", "class": "churn", "expected_step_range": [6, 12]}
+{"id": "bench-038", "nl": "which stations lose casual riders fastest?", "class": "churn", "expected_step_range": [6, 12]}
+{"id": "bench-039", "nl": "behavioral patterns in last 5 rides before churn", "class": "churn", "expected_step_range": [6, 12]}
+{"id": "bench-040", "nl": "compare churned vs retained casual riders", "class": "churn", "expected_step_range": [6, 12]}
+{"id": "bench-041", "nl": "cohort retention curves by signup month", "class": "cohort", "expected_step_range": [6, 12]}
+{"id": "bench-042", "nl": "LTV proxy by rider cohort", "class": "cohort", "expected_step_range": [6, 12]}
+{"id": "bench-043", "nl": "engagement decay by rider_type cohort", "class": "cohort", "expected_step_range": [6, 12]}
+{"id": "bench-044", "nl": "early-usage patterns that predict retention", "class": "cohort", "expected_step_range": [6, 12]}
+{"id": "bench-045", "nl": "station-type segmentation of rider behavior", "class": "cohort", "expected_step_range": [6, 12]}
+{"id": "bench-046", "nl": "station clusters by churn profile", "class": "cohort", "expected_step_range": [6, 12]}
+{"id": "bench-047", "nl": "ride-pattern inconsistency score per rider", "class": "cohort", "expected_step_range": [6, 12]}
+{"id": "bench-048", "nl": "geographic isolation effect on casual-rider churn", "class": "cohort", "expected_step_range": [6, 12]}
+{"id": "bench-049", "nl": "casual-to-member ratio vs station churn rate", "class": "cohort", "expected_step_range": [6, 12]}
+{"id": "bench-050", "nl": "full churn analysis across stations + rider_types + 5-ride signatures", "class": "cohort", "expected_step_range": [6, 12]}
