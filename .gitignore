@@ -77,3 +77,6 @@ yarn-debug.log*
 # Phase G retrieval-budget corpus + baseline — committed per H13
 !.data/retrieval_budget_corpus.jsonl
 !.data/retrieval_budget_baseline.json
+
+# Phase H hardening-surface baseline — committed per H13
+!.data/hardening_surface_baseline.json

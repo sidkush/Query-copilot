@@ -415,6 +415,37 @@ _CONTEXT_HANDLERS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Phase H — hardening-surface oracle. Answer text (produced by a mock or real
+# agent) must avoid every phrase in must_not_match AND include at least one
+# phrase from must_match_any. All comparisons are case-insensitive.
+# ---------------------------------------------------------------------------
+
+def must_pass_hardening_surface(
+    answer: str,
+    *,
+    must_not_match: list[str],
+    must_match_any: list[str],
+) -> bool:
+    text = answer.lower()
+    for bad in must_not_match:
+        if bad.lower() in text:
+            return False
+    for good in must_match_any:
+        if good.lower() in text:
+            return True
+    return False
+
+
+_CONTEXT_HANDLERS["must_pass_hardening_surface"] = (
+    lambda ctx: must_pass_hardening_surface(
+        ctx.get("answer", ""),
+        must_not_match=ctx.get("must_not_match", []),
+        must_match_any=ctx.get("must_match_any", []),
+    )
+)
+
+
 def grade_question(question: dict[str, Any], context: dict[str, Any]) -> bool:
     """Grade a Phase-F style question using a structured context dict.
 

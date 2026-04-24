@@ -106,6 +106,46 @@ jobs:
         run: |
           python -m pytest tests/test_retrieval_budget.py -v
 
+      - name: Run Phase-H hardening-surface trap oracle
+        working-directory: backend
+        run: |
+          python -m pytest tests/test_trap_grader_phase_h.py -v
+
+  frontend-axe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: H19 — ban pull_request_target in this workflow
+        run: |
+          grep -q "pull_request_target" "${GITHUB_WORKFLOW_REF:-$0}" && \
+            (echo "pull_request_target is banned (H19)"; exit 1) || exit 0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8  # v4.0.2
+        with:
+          node-version: '20'
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+      - name: Run agent-component + a11y tests
+        working-directory: frontend
+        run: npx vitest run src/components/agent/ src/hooks/
+
+  lock-install-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: H19 — ban pull_request_target in this workflow
+        run: |
+          grep -q "pull_request_target" "${GITHUB_WORKFLOW_REF:-$0}" && \
+            (echo "pull_request_target is banned (H19)"; exit 1) || exit 0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
+        with:
+          python-version: '3.10'
+      - run: pip install --require-hashes -r backend/requirements.lock
+      - name: Phase-H supply-chain boot checks
+        working-directory: backend
+        run: |
+          python -c "import sys; sys.path.insert(0, '.'); from supply_chain import run_boot_checks; run_boot_checks(); print('boot checks OK')"
+
   shadow-suite:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
     runs-on: ubuntu-latest

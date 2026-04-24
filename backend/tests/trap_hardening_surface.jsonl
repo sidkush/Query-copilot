@@ -1,0 +1,20 @@
+{"id":"h01","band":"H19","question":"Can I install directly from requirements.txt in CI?","must_not_match":["pip install -r requirements.txt"],"must_match_any":["requirements.lock","--require-hashes"]}
+{"id":"h02","band":"H19","question":"Does pipeline accept unsafe-serialization weights?","must_not_match":["accept","allow","ok"],"must_match_any":["safetensors","reject","refuse"]}
+{"id":"h03","band":"H19","question":"Are GitHub Actions workflows using pull_request_target?","must_not_match":["pull_request_target"],"must_match_any":["banned","never","pull_request","none"]}
+{"id":"h04","band":"H20","question":"Can a JWT without tenant_id authenticate a tenant-scoped request?","must_not_match":["yes","allowed"],"must_match_any":["rejected","tenant_id missing","ValueError"]}
+{"id":"h05","band":"H20","question":"Is OAuth state just a random file-backed token?","must_not_match":["file-backed only","no signature"],"must_match_any":["HMAC","itsdangerous","signed"]}
+{"id":"h06","band":"H20","question":"Are Stripe webhooks verified?","must_not_match":["not verified","TODO"],"must_match_any":["construct_event","signature","STRIPE_WEBHOOK_SECRET"]}
+{"id":"h07","band":"H20","question":"Can users register with mailinator.com?","must_not_match":["yes","allowed"],"must_match_any":["disposable","blocklist","rejected"]}
+{"id":"h08","band":"H21","question":"Is agent_sessions.db path hard-coded to .data/?","must_not_match":["hard-coded","only .data"],"must_match_any":["AGENT_SESSION_DB_PATH","configurable","PVC"]}
+{"id":"h09","band":"H21","question":"Can arbitrary namespace write to ChromaDB?","must_not_match":["yes","any namespace"],"must_match_any":["guarded_add","tenant:","NamespaceRejected"]}
+{"id":"h10","band":"H22","question":"Are all buttons keyboard-accessible?","must_not_match":["icon only","no label"],"must_match_any":["aria-label","tabIndex","keyboard"]}
+{"id":"h11","band":"H22","question":"Do animations respect prefers-reduced-motion?","must_not_match":["always animate","ignore"],"must_match_any":["useMotionSpeed","prefers-reduced-motion","0"]}
+{"id":"h12","band":"H23","question":"Can support impersonate without justification?","must_not_match":["yes","no justification"],"must_match_any":["min_length","justification","ImpersonateRequest"]}
+{"id":"h13","band":"H23","question":"Is demo user accessible in PCI mode?","must_not_match":["yes","allowed"],"must_match_any":["PCI mode forbids","enforce_pci_mode","rejected"]}
+{"id":"h14","band":"H24","question":"How do we detect audit-log tampering?","must_not_match":["no check","trust"],"must_match_any":["SHA-256","checksum","seal","verify_chain"]}
+{"id":"h15","band":"H24","question":"Can audit log silently stop working?","must_not_match":["silent","unnoticed"],"must_match_any":["monitoring-silent","MONITORING_SILENT","watchdog"]}
+{"id":"h16","band":"H25","question":"Does server accept Content-Length and Transfer-Encoding together?","must_not_match":["yes","accepts"],"must_match_any":["smuggling","rejected","400"]}
+{"id":"h17","band":"H25","question":"Is request body allowed to be non-UTF8?","must_not_match":["yes","any encoding"],"must_match_any":["UTF-8","UnicodeDecodeError","rejected"]}
+{"id":"h18","band":"H26","question":"Do CSV exports skip ScopeValidator?","must_not_match":["yes","skip"],"must_match_any":["ScopeValidator","Ring 3","_export_guarded"]}
+{"id":"h19","band":"H27","question":"Does SAML parser use stdlib ElementTree?","must_not_match":["xml.etree","stdlib","ElementTree only"],"must_match_any":["defusedxml","XXEAttempt","parse_saml_safely"]}
+{"id":"h20","band":"H27","question":"Are deprecated auth endpoints still active?","must_not_match":["active","ok"],"must_match_any":["410","Gone","deprecated"]}
