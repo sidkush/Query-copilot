@@ -340,6 +340,33 @@ def _check_must_abort_on_cancel(sql: str, oracle: dict):
     return False, f"aborted at step {step} >= cap {cap}"
 
 
+def _check_must_transpile_clean(sql: str, oracle: dict):
+    import re as _re
+    source = oracle.get("source", "")
+    targets = oracle.get("targets", [])
+    lc = sql.lower()
+    for tgt in targets:
+        marker = f"transpile_ok: {source}->{tgt}=true"
+        if marker.lower() not in lc:
+            return False, f"missing transpile-ok marker for {source}->{tgt}"
+    return True, f"all {len(targets)} transpile markers present"
+
+
+def _check_must_route_capability(sql: str, oracle: dict):
+    import re as _re
+    engine = oracle.get("engine", "")
+    feature = oracle.get("feature", "")
+    expect_block = bool(oracle.get("expect_block", False))
+    pattern = _re.compile(rf"capability_route:\s*{engine}\.{feature}\s*blocked=(true|false)", _re.I)
+    m = pattern.search(sql)
+    if not m:
+        return False, f"capability_route marker missing for {engine}.{feature}"
+    observed = m.group(1).lower() == "true"
+    if observed == expect_block:
+        return True, f"capability routing {engine}.{feature} = blocked:{observed}"
+    return False, f"capability routing {engine}.{feature}: got blocked:{observed}, expected blocked:{expect_block}"
+
+
 _HANDLERS = {
     "date_range": _check_date_range,
     "must_not_refuse": lambda sql, ora, _db: _check_must_not_refuse(sql, ora),
@@ -374,6 +401,9 @@ _HANDLERS = {
     "must_emit_unverified_chip": lambda sql, ora, _db: _check_must_emit_unverified_chip(sql, ora),
     "must_reuse_plan": lambda sql, ora, _db: _check_must_reuse_plan(sql, ora),
     "must_abort_on_cancel": lambda sql, ora, _db: _check_must_abort_on_cancel(sql, ora),
+    # Phase M-alt oracles.
+    "must_transpile_clean": lambda sql, ora, _db: _check_must_transpile_clean(sql, ora),
+    "must_route_capability": lambda sql, ora, _db: _check_must_route_capability(sql, ora),
 }
 
 
