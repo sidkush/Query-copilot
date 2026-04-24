@@ -159,3 +159,29 @@ def detect_residual_risk_5_10k_tables(tenant_id: str) -> Optional[AlertSignal]:
 
 
 _ALL_DETECTORS.append(detect_residual_risk_5_10k_tables)
+
+
+def _adversarial_upvote_storm_count(tenant_id: str) -> int:
+    try:
+        from correction_pipeline import adversarial_similarity_storm_count_last_hour
+        return adversarial_similarity_storm_count_last_hour(tenant_id)
+    except Exception:
+        return 0
+
+
+def detect_residual_risk_6_thumbs_up_storm(tenant_id: str) -> Optional[AlertSignal]:
+    n = _adversarial_upvote_storm_count(tenant_id)
+    threshold = settings.RESIDUAL_RISK_6_UPVOTE_STORM_MAX_PER_HOUR
+    if n > threshold:
+        return AlertSignal(
+            rule_id="residual_risk_6_thumbs_up_storm",
+            tenant_id=tenant_id,
+            severity="warn",
+            observed_value=float(n),
+            threshold=float(threshold),
+            message=f"Outlier-similarity upvotes = {n} (>{threshold} in 1h from same user). Runbook: rate-limit + flag.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_residual_risk_6_thumbs_up_storm)

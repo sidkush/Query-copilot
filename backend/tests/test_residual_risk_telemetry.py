@@ -10,6 +10,7 @@ from residual_risk_telemetry import detect_residual_risk_2_anthropic_region_fail
 from residual_risk_telemetry import detect_residual_risk_3_dba_ddl_no_webhook
 from residual_risk_telemetry import detect_residual_risk_4_leap_day
 from residual_risk_telemetry import detect_residual_risk_5_10k_tables
+from residual_risk_telemetry import detect_residual_risk_6_thumbs_up_storm
 
 
 def test_detector_1_fires_above_threshold():
@@ -71,3 +72,14 @@ def test_detector_5_fires_when_precision_drops():
 def test_detector_5_silent_at_or_above_threshold():
     with patch("residual_risk_telemetry._top10_retrieval_precision_pct", return_value=70.0):
         assert detect_residual_risk_5_10k_tables("t-1") is None
+
+
+def test_detector_6_fires_when_upvote_storm_flagged():
+    with patch("residual_risk_telemetry._adversarial_upvote_storm_count", return_value=4):
+        sig = detect_residual_risk_6_thumbs_up_storm("t-1")
+    assert sig is not None
+
+
+def test_detector_6_silent_at_or_below_3():
+    with patch("residual_risk_telemetry._adversarial_upvote_storm_count", return_value=3):
+        assert detect_residual_risk_6_thumbs_up_storm("t-1") is None

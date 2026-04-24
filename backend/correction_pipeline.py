@@ -20,10 +20,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-
 logger = logging.getLogger(__name__)
 
 
+<<<<<<< HEAD
 class RejectReason(Enum):
     FEATURE_DISABLED = "feature_disabled"
     ADVERSARIAL_STORM = "adversarial_storm"
@@ -151,3 +151,8 @@ def promote_to_examples(
     _append_ledger(ledger_root, candidate["tenant_id"],
                    {**base_row, "promoted": True, "doc_id": doc_id})
     return result
+
+
+def adversarial_similarity_storm_count_last_hour(tenant_id: str) -> int:
+    """Return count of adversarial upvote storms for tenant in last hour. 0 if no data."""
+    return 0  # stub — real impl reads promotion_ledger
