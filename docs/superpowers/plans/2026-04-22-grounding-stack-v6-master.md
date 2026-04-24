@@ -1,10 +1,10 @@
 # Grounding Stack v6 — Master Architectural Plan
 
-> **For agentic workers:** This is the MASTER architectural specification. Phase-level execution plans (Phases A–J) will be authored just-in-time as each phase approaches. Start execution with [`2026-04-22-phase-a-foundation.md`](2026-04-22-phase-a-foundation.md). Do NOT treat this master plan as an executable task list — it is the north star spec.
+> **For agentic workers:** This is the MASTER architectural specification. Phase-level execution plans (Phases A–K) will be authored just-in-time as each phase approaches. Start execution with [`2026-04-22-phase-a-foundation.md`](2026-04-22-phase-a-foundation.md). Do NOT treat this master plan as an executable task list — it is the north star spec.
 
 **Goal:** Eliminate the "AskDB agent trusts identifier names over empirical data" class of bugs (and its 45 related failure families) via a 7-Ring defense-in-depth architecture layered onto the existing 4-tier waterfall, hardened against ~370 adversarial attacks discovered across 6 rounds of red-team testing.
 
-**Architecture:** 7 orthogonal Rings handle: (1) empirical grounding, (2) prior-belief invariant, (3) pre-exec validator, (4) intent echo, (5) provenance + tier calibration, (6) multi-tenant isolation, (7) regression harness. 27 cross-cutting Hardening Bands (H1–H27) close specific failure modes. Each Ring is code-layer where possible (survives LLM drift). 10 phases (A–J) ship in ~5–6 weeks.
+**Architecture:** 7 orthogonal Rings handle: (1) empirical grounding, (2) prior-belief invariant, (3) pre-exec validator, (4) intent echo, (5) provenance + tier calibration, (6) multi-tenant isolation, (7) regression harness. 27 cross-cutting Hardening Bands (H1–H27) close specific failure modes. Each Ring is code-layer where possible (survives LLM drift). 11 phases (A–K) ship in ~5–6 weeks.
 
 **Tech Stack:** FastAPI + Claude Haiku 4.5 primary / Sonnet 4.6 fallback + ChromaDB + sentence-transformers/MiniLM-L6-v2 (post Phase A) + sqlglot + DuckDB + `dateutil.relativedelta` + react-vega + LaunchDarkly (flag matrix) + fcntl locking + Redis (rate limits + nonce cache).
 
@@ -191,6 +191,16 @@ table=trips (live @ 2026-04-22T08:15Z, cache_age=4m, ttl=15m, stat_source=exact)
 
 **Baseline:** `.data/eval_baseline.json` committed IN git (not gitignore); signed per-PR; PII scanner at commit-time blocks real-data capture.
 
+### Ring 8 — Agent Orchestration (CASL)
+
+**File:** `backend/analytical_planner.py` (new) + `backend/semantic_registry_bootstrap.py` (new) + `backend/step_budget.py` (new) + `backend/hallucination_abort.py` (new) + `backend/model_ladder.py` (new)
+
+**Responsibility:** Collapse multi-step improvisation into deterministic CASL-compiled plans. Wire Phase C/D dead code (ScopeValidator warnings → LLM, ReplanController into tool loop). Enforce hard step/wall-clock/cost budgets with asyncio deadline propagation. Block LLM-confabulated error strings via known-error whitelist. Route model by role (Haiku step-exec, Sonnet 4.6 plan emission, Opus 4.7 recovery).
+
+**Architecture:** NL compiles against populated `SemanticRegistry` → canonical metric refs → ≤3-CTE `AnalyticalPlan` → executes via existing Rings 1-7. Registry miss → fallback to pre-K free-form SQL path. Plan rendered as SSE `plan_artifact` before first SQL.
+
+**Catches:** 81-step improvisation cascade, hallucinated "connectivity" excuses, validator-warning dead-end, step/budget runaways, model-capability mismatches.
+
 ---
 
 ## The 27 Hardening Bands
@@ -239,7 +249,7 @@ Each Band closes a specific failure family discovered across adversarial rounds.
 
 ---
 
-## Phase sequence (A–J, ~5–6 weeks)
+## Phase sequence (A–K, ~5–6 weeks)
 
 Each phase ships with commit-sized task plan authored JIT. Exit criteria = next phase's preconditions. Each phase = one phase-plan file.
 
@@ -255,6 +265,7 @@ Each phase ships with commit-sized task plan authored JIT. Exit criteria = next 
 | **H** — Hardening Bands H19-H27 + Observability | 2–3 days | Supply chain + identity + infra + a11y + transport + auth version + SSO hardening | WCAG audit green; pen-test on new surface green |
 | **I** — Operations Layer (P11) | 2 days | Alert Manager + Slack integration + Graphify + cache-stats dashboard | 12 residual-risk SLA alerts live; test-alert fires end-to-end |
 | **J** — Closeout (P12) | 1 day | User doc + admin doc + changelog tag + GA announce | Docs merged; stack v6 shipped |
+| **K** — Ring 8 CASL Agent Orchestration | 1 week | Ring 8 (planner + feedback loop + budgets + hallucination-abort + model ladder) + 4 trap suites + 50-Q bench + 4 feature flags + progressive UX | 4 Ring-8 trap baselines pass; p50<60s benchmark; all previously-passing pytest still green |
 
 ---
 
