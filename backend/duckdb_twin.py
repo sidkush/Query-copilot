@@ -856,3 +856,17 @@ class DuckDBTwin:
         except OSError as exc:
             logger.error("delete_twin(%s): could not delete twin — %s", conn_id, exc)
             return False
+
+
+# Module-level hit counter for cache stats aggregator (Phase I).
+_turbo_hit_counter: dict = {}
+
+
+def turbo_tenant_hit_rate(tenant_id: str) -> float:
+    """Return fraction of turbo tier answered for tenant. 0.0 if no data."""
+    try:
+        hits = _turbo_hit_counter.get(tenant_id, {}).get("hits", 0)
+        total = _turbo_hit_counter.get(tenant_id, {}).get("total", 0)
+        return (hits / total) if total else 0.0
+    except Exception:
+        return 0.0

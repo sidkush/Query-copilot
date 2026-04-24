@@ -1453,3 +1453,20 @@ def build_default_router() -> WaterfallRouter:
         TurboTier(),
         LiveTier(),
     ])
+
+
+def vizcache_stats_for_tenant(tenant_id: str, tier: str) -> float:
+    """Return hit rate in [0,1] for (tenant_id, tier). 0.0 if no data."""
+    # VizCache._instance may not exist (no queries yet); degrade gracefully.
+    try:
+        inst = VizQLTier._instance if hasattr(VizQLTier, "_instance") else None
+        if inst is None:
+            return 0.0
+        counter = getattr(inst, "_counter", {})
+        key = (tenant_id, tier)
+        hits = counter.get((key, "hit"), 0)
+        misses = counter.get((key, "miss"), 0)
+        total = hits + misses
+        return (hits / total) if total else 0.0
+    except Exception:
+        return 0.0

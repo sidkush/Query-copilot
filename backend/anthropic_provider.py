@@ -292,3 +292,23 @@ class AnthropicProvider(ModelProvider):
         if cache and self.supports_prompt_caching():
             block["cache_control"] = {"type": "ephemeral"}
         return [block]
+
+
+# Module-level prompt-cache token counter for cache stats aggregator (Phase I).
+# Keyed by tenant_id -> {cache_read: int, total_input: int}
+_cache_token_counter: dict = {}
+
+
+def prompt_cache_hit_rate_for_tenant(tenant_id: str) -> float:
+    """Return prompt-cache hit token fraction for tenant. 0.0 if no data."""
+    try:
+        c = _cache_token_counter.get(tenant_id, {})
+        total = c.get("total_input", 0)
+        cached = c.get("cache_read", 0)
+        return (cached / total) if total else 0.0
+    except Exception:
+        return 0.0
+
+
+def prompt_cache_miss_rate_for_tenant(tenant_id: str) -> float:
+    return 1.0 - prompt_cache_hit_rate_for_tenant(tenant_id)

@@ -272,6 +272,12 @@ class QueryMemory:
             logger.exception("QueryMemory: failed to initialise ChromaDB client")
             self._chroma = None
             self._ef = None
+        from collections import defaultdict
+        self._counter: dict = defaultdict(lambda: {"hits": 0, "total": 0})
+
+    def tenant_hit_rate(self, tenant_id: str) -> float:
+        c = self._counter.get(tenant_id, {"hits": 0, "total": 0})
+        return (c["hits"] / c["total"]) if c["total"] else 0.0
 
     # ------------------------------------------------------------------
     # Internal helpers
