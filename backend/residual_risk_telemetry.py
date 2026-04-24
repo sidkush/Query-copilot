@@ -55,3 +55,29 @@ def detect_residual_risk_1_llm_pretraining_fn(tenant_id: str) -> Optional[AlertS
 
 
 _ALL_DETECTORS.append(detect_residual_risk_1_llm_pretraining_fn)
+
+
+def _cross_region_divergence_count(tenant_id: str) -> int:
+    """Compare result-hash across Anthropic regions from chaos_isolation sample log."""
+    try:
+        from chaos_isolation import cross_region_hash_divergence_last_hour
+        return cross_region_hash_divergence_last_hour(tenant_id)
+    except Exception:
+        return 0
+
+
+def detect_residual_risk_2_anthropic_region_failover(tenant_id: str) -> Optional[AlertSignal]:
+    n = _cross_region_divergence_count(tenant_id)
+    if n > 0:
+        return AlertSignal(
+            rule_id="residual_risk_2_anthropic_region_failover",
+            tenant_id=tenant_id,
+            severity="critical",
+            observed_value=float(n),
+            threshold=0.0,
+            message=f"Cross-region result-hash divergence count = {n}. Runbook: pin region per tenant.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_residual_risk_2_anthropic_region_failover)
