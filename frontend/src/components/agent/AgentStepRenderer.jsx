@@ -8,6 +8,7 @@ import TierWaterfall from './TierWaterfall';
 import ProgressiveResult from './ProgressiveResult';
 import PerformancePill from '../PerformancePill';
 import AgentQuestion from './AgentQuestion';
+import ToolErrorCascadeCard from './ToolErrorCascadeCard';
 import ReactMarkdown from 'react-markdown';
 import { MD_COMPONENTS, REMARK_PLUGINS, FONT_BODY, FONT_DISPLAY, FONT_MONO } from '../../lib/agentMarkdown';
 
@@ -142,13 +143,26 @@ function UserBubble({ step }) {
 
 /* ── error step ── */
 function ErrorStep({ step }) {
+  const isCapHit = typeof step?.content === 'string' && step.content.includes('Step cap');
   return (
     <div style={{
-      padding: '8px 12px',
+      padding: isCapHit ? '10px 14px' : '8px 12px',
       borderRadius: TOKENS.radius.md,
-      background: `${TOKENS.danger}0d`,
-      border: `1px solid ${TOKENS.danger}33`,
+      background: `color-mix(in oklab, ${TOKENS.danger} ${isCapHit ? '10%' : '6%'}, transparent)`,
+      border: `1px solid color-mix(in oklab, ${TOKENS.danger} ${isCapHit ? '45%' : '25%'}, transparent)`,
     }}>
+      {isCapHit && (
+        <div style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: TOKENS.danger,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          marginBottom: 4,
+        }}>
+          Agent halted — step cap reached
+        </div>
+      )}
       <span style={{ fontSize: '12px', color: TOKENS.danger }}>{step.content}</span>
     </div>
   );
@@ -582,6 +596,7 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
   chatId = null,
   verification = null,
   compact = false,
+  onResolved = null,
 }) {
   const updatePipelineStage = useStore((s) => s.updatePipelineStage);
   const agentContext = useStore((s) => s.agentContext);
@@ -778,6 +793,9 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
               {step.type === 'live_correction' && <LiveCorrectionStep step={step} />}
               {step.type === 'budget_extension' && <BudgetExtensionStep step={step} />}
               {step.type === 'ask_user' && <AskUserStep step={step} isActive={isActive} chatId={chatId} />}
+              {step.type === 'agent_checkpoint' && step?.tool_input?.kind === 'tool_error_cascade' && (
+                <ToolErrorCascadeCard chatId={chatId} step={step} onResolved={onResolved} />
+              )}
             </motion.div>
           );
         })}
