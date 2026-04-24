@@ -349,14 +349,26 @@ point here instead of duplicating values. Confirm against
 Default **ON**: `FEATURE_PREDICTIONS`, `FEATURE_ADAPTIVE_COMPLEXITY`,
 `FEATURE_INTENT_DISAMBIGUATION`, `FEATURE_ANALYST_TONE`,
 `FEATURE_TIME_PATTERNS`, `FEATURE_AGENT_DASHBOARD`,
-`FEATURE_PERMISSION_SYSTEM`.
+`FEATURE_PERMISSION_SYSTEM`, `FEATURE_ANALYST_PRO`.
 
-Default **OFF**: session tracking, consent flow, autocomplete, personas,
-insight chains, collaborative predictions, style matching, data prep,
-workflow templates, skill gaps, anomaly alerts, auto-switch, smart preload.
+Default **OFF**: `FEATURE_SESSION_TRACKING`, `FEATURE_CONSENT_FLOW`,
+`FEATURE_AUTOCOMPLETE`, `FEATURE_PERSONAS`, `FEATURE_INSIGHT_CHAINS`,
+`FEATURE_COLLABORATIVE`, `FEATURE_STYLE_MATCHING`, `FEATURE_DATA_PREP`,
+`FEATURE_WORKFLOW_TEMPLATES`, `FEATURE_SKILL_GAPS`,
+`FEATURE_ANOMALY_ALERTS`, `FEATURE_AUTO_SWITCH`, `FEATURE_SMART_PRELOAD`.
 
 Full list in `config.py`. Check enabled flag before changing predictive-
 intelligence behaviour.
+
+### Phase J closeout — flag coverage verifier
+
+`scripts/verify_phase_j.py` enforces that every `FEATURE_*` / `RULE_*` /
+`ECHO_*` / `COVERAGE_*` / `SCOPE_*` / `TENANT_*` / `SKEW_*` / `TIER_*` /
+`JITTER_*` / `SINGLEFLIGHT_*` / `COST_*` / `SSE_*` / `HLL_*` /
+`VIZQL_HEX_*` / `FISCAL_*` / `TURBO_LIVE_*` flag in `backend/config.py`
+has a backticked mention in this file. CI / pre-commit: run
+`python scripts/verify_phase_j.py` — exits non-zero on undocumented
+flags.
 
 ## See also
 - `security-core.md` — invariants that these constants enforce (read-only, 6-layer SQL validation, PII, JWT allowlist).
