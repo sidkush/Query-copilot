@@ -745,3 +745,11 @@ class QueryMemory:
             ]
             removed = before - len(self._promotion_ledger)
         return removed
+
+    def hnsw_consistency_divergence_last_hour(self, tenant_id: str) -> int:
+        """Return HNSW consistency divergence count for tenant. 0 if no data."""
+        return 0  # stub — real impl reads H9 sampler counter
+
+
+def hnsw_consistency_divergence_last_hour(tenant_id: str) -> int:
+    return QueryMemory().hnsw_consistency_divergence_last_hour(tenant_id)
