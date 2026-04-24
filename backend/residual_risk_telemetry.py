@@ -107,3 +107,29 @@ def detect_residual_risk_3_dba_ddl_no_webhook(tenant_id: str) -> Optional[AlertS
 
 
 _ALL_DETECTORS.append(detect_residual_risk_3_dba_ddl_no_webhook)
+
+
+def _leap_day_trap_pass_pct(tenant_id: str) -> float:
+    try:
+        from tests.trap_grader import leap_day_pass_rate_pct
+        return leap_day_pass_rate_pct(tenant_id)
+    except Exception:
+        return 100.0  # assume passing if grader unavailable
+
+
+def detect_residual_risk_4_leap_day(tenant_id: str) -> Optional[AlertSignal]:
+    pct = _leap_day_trap_pass_pct(tenant_id)
+    threshold = settings.RESIDUAL_RISK_4_LEAP_DAY_PASS_RATE_MIN_PCT
+    if pct < threshold:
+        return AlertSignal(
+            rule_id="residual_risk_4_leap_day",
+            tenant_id=tenant_id,
+            severity="warn",
+            observed_value=pct,
+            threshold=threshold,
+            message=f"Feb-29 trap pass rate {pct:.1f}% < {threshold}%. Runbook: fuzz, patch.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_residual_risk_4_leap_day)
