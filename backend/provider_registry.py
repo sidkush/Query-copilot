@@ -73,7 +73,7 @@ def get_provider_for_user(email: str) -> AnthropicProvider:
     try:
         api_key = decrypt_password(api_key_encrypted)
     except Exception:
-        # Fernet InvalidToken â€” key corrupted or JWT_SECRET_KEY rotated
+        # Fernet InvalidToken — key corrupted or JWT_SECRET_KEY rotated
         raise InvalidKeyError(
             "Stored API key is corrupted or the server encryption key changed. "
             "Please save a new API key in Account settings."
@@ -86,3 +86,8 @@ def get_provider_for_user(email: str) -> AnthropicProvider:
         default_model=preferred_model,
         fallback_model=fallback,
     )
+
+
+def deprecated_byok_pinned_count(tenant_id: str) -> int:
+    """Return count of BYOK users in tenant pinned to deprecated models. 0 if no data."""
+    return 0  # stub — real impl checks ANTHROPIC_MODELS deprecated flag

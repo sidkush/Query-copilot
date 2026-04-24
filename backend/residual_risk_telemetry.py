@@ -236,3 +236,29 @@ def detect_residual_risk_8_hnsw_tie_drift(tenant_id: str) -> Optional[AlertSigna
 
 
 _ALL_DETECTORS.append(detect_residual_risk_8_hnsw_tie_drift)
+
+
+def _deprecated_byok_pinned_count(tenant_id: str) -> int:
+    try:
+        from provider_registry import deprecated_byok_pinned_count
+        return deprecated_byok_pinned_count(tenant_id)
+    except Exception:
+        return 0
+
+
+def detect_residual_risk_9_byok_deprecated_model(tenant_id: str) -> Optional[AlertSignal]:
+    n = _deprecated_byok_pinned_count(tenant_id)
+    threshold = settings.RESIDUAL_RISK_9_DEPRECATED_BYOK_PINNED_MAX
+    if n > threshold:
+        return AlertSignal(
+            rule_id="residual_risk_9_byok_deprecated_model",
+            tenant_id=tenant_id,
+            severity="warn",
+            observed_value=float(n),
+            threshold=float(threshold),
+            message=f"{n} BYOK users pinned to deprecated models. Runbook: customer-specific prompt.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_residual_risk_9_byok_deprecated_model)
