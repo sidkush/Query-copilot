@@ -214,6 +214,30 @@ point here instead of duplicating values. Confirm against
 | `ASKDB_PCI_MODE` | `False` | H27 — strict mode. |
 | `ASKDB_HIPAA_MODE` | `False` | H27 — strict mode + write-time masking. |
 
+### Operations Layer (Phase I — P11)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_ALERT_MANAGER` | `True` | Off -> detectors silent, `alert_manager.fire()` no-ops. |
+| `ALERT_DEDUP_WINDOW_SECONDS` | `300` | H16 sliding dedup per `(tenant_id, rule_id)`. |
+| `ALERT_MULTI_HOUR_ACCUMULATOR_SECONDS` | `3600` | One fire per hour when signal stays hot. |
+| `ALERT_MAX_RETRY` | `3` | Retry via `chaos_isolation.jittered_backoff`. |
+| `ALERT_DISPATCH_FAIL_BUDGET` | `5` | Dispatch-failure count in 1 h before `ops_alert_dispatch_failure` fires. |
+| `SLACK_WEBHOOK_DEV_URL` | `""` | Dev channel for `scripts/test_alert_fire.py`. |
+| `ALERT_FALLBACK_EMAIL_ON_SLACK_FAIL` | `True` | Fall back to `digest._send_email()`. |
+| `FEATURE_CACHE_STATS_DASHBOARD` | `True` | Admin-only React page. |
+| `CACHE_STATS_REFRESH_SECONDS` | `60` | Frontend poll. |
+| `RESIDUAL_RISK_TELEMETRY_DIR` | `.data/residual_risk` | JSONL counters per `(tenant_id, rule_id)`. |
+| `ALERT_TELEMETRY_MISSING_WINDOW_SECONDS` | `600` | No emission in window -> `ops_telemetry_source_missing`. |
+| `RESIDUAL_RISK_1_TRAP_FN_RATE_MAX_PCT` | `2.0` | Master row 1. |
+| `RESIDUAL_RISK_3_SCHEMA_DRIFT_RATE_MAX_PCT` | `1.0` | Master row 3. |
+| `RESIDUAL_RISK_4_LEAP_DAY_PASS_RATE_MIN_PCT` | `100.0` | Master row 4. |
+| `RESIDUAL_RISK_5_TOP10_PRECISION_MIN_PCT` | `70.0` | Master row 5. |
+| `RESIDUAL_RISK_6_UPVOTE_STORM_MAX_PER_HOUR` | `3` | Master row 6. |
+| `RESIDUAL_RISK_7_CLIENT_RETRIES_MAX_PER_5MIN` | `5` | Master row 7. |
+| `RESIDUAL_RISK_9_DEPRECATED_BYOK_PINNED_MAX` | `0` | Master row 9. |
+| `RESIDUAL_RISK_10_LOW_TRAFFIC_CACHE_MISS_MAX_PCT` | `30.0` | Master row 10. |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |

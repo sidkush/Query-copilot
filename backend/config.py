@@ -278,6 +278,29 @@ class Settings(BaseSettings):
     ASKDB_PCI_MODE: bool = Field(default=False, description="Strict mode: no demo user, audit fsync each write, Redis mandatory.")
     ASKDB_HIPAA_MODE: bool = Field(default=False, description="Same as PCI + mandatory TLS + write-time PII masking on.")
 
+    # ── Operations Layer (Phase I — P11 / H16) ──
+    FEATURE_ALERT_MANAGER: bool = Field(default=True, description="Master gate. Off -> detectors silent, alert_manager.fire() no-ops with log.")
+    ALERT_DEDUP_WINDOW_SECONDS: int = Field(default=300, description="H16 sliding dedup per (tenant_id, rule_id). 5 min.")
+    ALERT_MULTI_HOUR_ACCUMULATOR_SECONDS: int = Field(default=3600, description="Fires once per hour even if signal stays hot.")
+    ALERT_MAX_RETRY: int = Field(default=3, description="Retry budget per dispatch via chaos_isolation.jittered_backoff.")
+    ALERT_DISPATCH_FAIL_BUDGET: int = Field(default=5, description="Failures in 1 h across all rules before ops_alert_dispatch_failure fires.")
+    SLACK_WEBHOOK_DEV_URL: str = Field(default="", description="Dev channel for test_alert_fire.py harness.")
+    ALERT_FALLBACK_EMAIL_ON_SLACK_FAIL: bool = Field(default=True, description="Fall back to digest._send_email() when Slack exhausted.")
+    FEATURE_CACHE_STATS_DASHBOARD: bool = Field(default=True)
+    CACHE_STATS_REFRESH_SECONDS: int = Field(default=60, description="Frontend poll interval.")
+    RESIDUAL_RISK_TELEMETRY_DIR: str = Field(default=".data/residual_risk", description="JSONL counters per (tenant_id, rule_id).")
+    ALERT_TELEMETRY_MISSING_WINDOW_SECONDS: int = Field(default=600, description="No emission in window -> ops_telemetry_source_missing. Business hours only.")
+    # ── Residual-risk thresholds (quote-for-quote from master plan lines 266–276) ──
+    RESIDUAL_RISK_1_TRAP_FN_RATE_MAX_PCT: float = Field(default=2.0, description="Master row 1: >2%.")
+    RESIDUAL_RISK_3_SCHEMA_DRIFT_RATE_MAX_PCT: float = Field(default=1.0, description="Master row 3: >1%.")
+    RESIDUAL_RISK_4_LEAP_DAY_PASS_RATE_MIN_PCT: float = Field(default=100.0, description="Master row 4: <100%.")
+    RESIDUAL_RISK_5_TOP10_PRECISION_MIN_PCT: float = Field(default=70.0, description="Master row 5: <70%.")
+    RESIDUAL_RISK_6_UPVOTE_STORM_MAX_PER_HOUR: int = Field(default=3, description="Master row 6: >3 in 1h from same user. Phase F ships detection; Phase I wires alert.")
+    RESIDUAL_RISK_7_CLIENT_RETRIES_MAX_PER_5MIN: int = Field(default=5, description="Master row 7: >5 in 5min.")
+    RESIDUAL_RISK_9_DEPRECATED_BYOK_PINNED_MAX: int = Field(default=0, description="Master row 9: >0.")
+    RESIDUAL_RISK_10_LOW_TRAFFIC_CACHE_MISS_MAX_PCT: float = Field(default=30.0, description="Master row 10: >30%.")
+    # Rows 2 + 8 use 'any divergence' — no threshold field; detectors test non-zero divergence counter.
+
     QUERY_MEMORY_ENABLED: bool = Field(default=True)
     QUERY_MEMORY_COLLECTION_PREFIX: str = Field(default="query_memory_")
     QUERY_MEMORY_TTL_HOURS: int = Field(default=168)  # 7 days

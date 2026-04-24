@@ -20,6 +20,8 @@ The canon. Security invariants (never weaken), hardening status (33 findings res
 - **Audit log is checksummed** — rotation writes sibling `.sha256` file; restart verifies chain.
 - **Transport guards always on** — CL-XOR-TE rejected at ASGI; HTTP/2 rapid-reset capped; SSE sets `X-Accel-Buffering: no`; non-UTF8 body rejected.
 - **PCI/HIPAA modes are one-way** — once `ASKDB_PCI_MODE=True` at boot, demo login is hard-rejected; audit-log fsync per write; Redis mandatory.
+- **Cache-stats dashboard is admin-only and per-tenant** — `/api/v1/ops/cache-stats` requires `admin_routes.get_admin_user`; responses are scoped to the admin's `tenant_id`, or to an explicit `?tenant_id=` query param. No cross-tenant aggregates ever.
+- **Alert dispatch never contains raw SQL results** — alert payloads include `rule_id`, tenant_id, severity, threshold, observed value, and row count only. SQL text is truncated to 200 chars; result rows, column values, and PII-bearing fields never leave the backend via alert.
 
 ## Security Hardening Status
 
