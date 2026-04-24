@@ -1,0 +1,14 @@
+{
+  "engine": "duckdb",
+  "supported_features": [
+    "qualify_clause",
+    "approx_count_distinct",
+    "count_if",
+    "window_functions",
+    "ctes",
+    "except_distinct",
+    "recursive_cte"
+  ],
+  "turbo_safe": true,
+  "notes": "Used as Turbo twin. Full QUALIFY + COUNT_IF support since DuckDB 0.9."
+}

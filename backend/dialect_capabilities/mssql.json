@@ -1,0 +1,11 @@
+{
+  "engine": "mssql",
+  "supported_features": [
+    "window_functions",
+    "ctes",
+    "recursive_cte",
+    "except_distinct"
+  ],
+  "turbo_safe": false,
+  "notes": "No APPROX_COUNT_DISTINCT (use COUNT(DISTINCT ...)), no QUALIFY, no COUNTIF."
+}

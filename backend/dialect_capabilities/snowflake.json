@@ -1,0 +1,13 @@
+{
+  "engine": "snowflake",
+  "supported_features": [
+    "qualify_clause",
+    "approx_count_distinct",
+    "window_functions",
+    "ctes",
+    "except_distinct",
+    "recursive_cte"
+  ],
+  "turbo_safe": false,
+  "notes": "Remote warehouse."
+}

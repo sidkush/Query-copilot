@@ -1,0 +1,11 @@
+{
+  "engine": "clickhouse",
+  "supported_features": [
+    "window_functions",
+    "ctes",
+    "approx_count_distinct",
+    "countif"
+  ],
+  "turbo_safe": false,
+  "notes": "Uses uniqExact (exact) or uniq (approx) for distinct count; countIf native. No QUALIFY."
+}
