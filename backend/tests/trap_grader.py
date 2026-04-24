@@ -296,6 +296,50 @@ def _check_must_escalate_model(sql: str, oracle: dict) -> tuple:
     return True, f"tier {tier!r} matches"
 
 
+def _check_must_chain_verify(sql: str, oracle: dict):
+    lc = sql.lower()
+    if "chain_ok=true" in lc:
+        return True, "chain ok"
+    if "chain_ok=false" in lc:
+        return False, "chain broken per marker"
+    return False, "chain verify marker missing"
+
+
+def _check_must_emit_unverified_chip(sql: str, oracle: dict):
+    import re as _re
+    m = _re.search(r"unverified_count\s*=\s*(\d+)", sql.lower())
+    if not m:
+        return False, "unverified_count marker missing"
+    count = int(m.group(1))
+    expected_chip = bool(oracle.get("expect_chip", False))
+    if expected_chip and count > 0:
+        return True, f"{count} unverified chips as expected"
+    if not expected_chip and count == 0:
+        return True, "no unverified chips as expected"
+    return False, f"count={count} vs expect_chip={expected_chip}"
+
+
+def _check_must_reuse_plan(sql: str, oracle: dict):
+    lc = sql.lower()
+    hit = "plan_cache: hit=true" in lc
+    expected = bool(oracle.get("expect_hit", False))
+    if hit == expected:
+        return True, f"hit={hit} matches expected"
+    return False, f"hit={hit} != expected {expected}"
+
+
+def _check_must_abort_on_cancel(sql: str, oracle: dict):
+    import re as _re
+    m = _re.search(r"aborted_at_step\s*=\s*(\d+)", sql.lower())
+    if not m:
+        return False, "aborted_at_step marker missing"
+    step = int(m.group(1))
+    cap = int(oracle.get("abort_step_before", 999))
+    if step < cap:
+        return True, f"aborted at step {step} < cap {cap}"
+    return False, f"aborted at step {step} >= cap {cap}"
+
+
 _HANDLERS = {
     "date_range": _check_date_range,
     "must_not_refuse": lambda sql, ora, _db: _check_must_not_refuse(sql, ora),
@@ -325,6 +369,11 @@ _HANDLERS = {
     "must_bound_steps":     lambda sql, ora, _db: _check_must_bound_steps(sql, ora),
     "must_use_planner":     lambda sql, ora, _db: _check_must_use_planner(sql, ora),
     "must_escalate_model":  lambda sql, ora, _db: _check_must_escalate_model(sql, ora),
+    # Phase L — provenance + cache + cancel oracles.
+    "must_chain_verify": lambda sql, ora, _db: _check_must_chain_verify(sql, ora),
+    "must_emit_unverified_chip": lambda sql, ora, _db: _check_must_emit_unverified_chip(sql, ora),
+    "must_reuse_plan": lambda sql, ora, _db: _check_must_reuse_plan(sql, ora),
+    "must_abort_on_cancel": lambda sql, ora, _db: _check_must_abort_on_cancel(sql, ora),
 }
 
 
