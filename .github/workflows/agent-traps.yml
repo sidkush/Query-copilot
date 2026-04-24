@@ -111,6 +111,40 @@ jobs:
         run: |
           python -m pytest tests/test_trap_grader_phase_h.py -v
 
+      - name: Run Ring-8 hallucination trap suite
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_hallucination.jsonl \
+            .data/hallucination_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run Ring-8 budget trap suite
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_budget.jsonl \
+            .data/budget_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run Ring-8 planner trap suite
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_planner.jsonl \
+            .data/planner_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run Ring-8 escalation trap suite
+        run: |
+          python -m backend.tests.run_traps \
+            backend/tests/trap_escalation.jsonl \
+            .data/escalation_baseline.json \
+            --db /tmp/eval_fixture.sqlite
+
+      - name: Run 50-Q latency benchmark (p50<60s gate)
+        run: |
+          python -m backend.tests.bench_agent_latency \
+            --corpus backend/tests/fixtures/bench_corpus.jsonl \
+            --fail-on-regression
+
   frontend-axe:
     runs-on: ubuntu-latest
     steps:
