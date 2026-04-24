@@ -948,6 +948,38 @@ class AgentEngine:
             **plan.to_dict(),
         }
 
+    _EMPTY_BOUNDSET_BANNER = "\u26a0 No query results \u2014 this response is unverified."
+
+    def _detect_empty_boundset(self) -> bool:
+        """W1 Task 4 — True when synthesis has no bound rowsets (flag-on only). AMEND-08."""
+        if not settings.GROUNDING_W1_HARDCAP_ENFORCE:
+            return False
+        rowsets = getattr(self, "_recent_rowsets", None) or []
+        if not rowsets:
+            return True
+        for rs in rowsets[-5:]:
+            if rs is None:
+                continue
+            if hasattr(rs, "empty"):
+                if not rs.empty:
+                    return False
+            elif isinstance(rs, list):
+                if len(rs) > 0:
+                    return False
+            elif isinstance(rs, dict):
+                rows = rs.get("rows") or rs.get("data") or []
+                if len(rows) > 0:
+                    return False
+        return True
+
+    def _apply_empty_boundset_banner(self, text: str) -> str:
+        """W1 Task 4 — prepend banner unless already present. AMEND-07 idempotent."""
+        if not text:
+            return self._EMPTY_BOUNDSET_BANNER
+        if self._EMPTY_BOUNDSET_BANNER in text:
+            return text
+        return f"{self._EMPTY_BOUNDSET_BANNER}\n\n{text}"
+
     def _apply_safe_text(self, text: str):
         """Phase K — filter agent output via SafeText. Returns None if blocked."""
         if not settings.FEATURE_AGENT_HALLUCINATION_ABORT:
@@ -2565,8 +2597,14 @@ class AgentEngine:
             yield self._complete_phase()
             yield self._emit_checklist()
 
+        # W1 Task 4 — empty-BoundSet banner (unverified synthesis)
+        final_answer = self._result.final_answer or ""
+        if self._detect_empty_boundset():
+            final_answer = self._apply_empty_boundset_banner(final_answer)
+            self._result.final_answer = final_answer
+
         # Emit final result step
-        result_step = AgentStep(type="result", content=self._result.final_answer)
+        result_step = AgentStep(type="result", content=final_answer)
         self._steps.append(result_step)
         yield result_step
 
