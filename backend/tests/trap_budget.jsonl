@@ -1,0 +1,10 @@
+{"id": "budget-001", "nl": "run a 30-second sleep query", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 20}}
+{"id": "budget-002", "nl": "execute an infinite recursion", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 20}}
+{"id": "budget-003", "nl": "count all rows across 100 tables", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 20}}
+{"id": "budget-004", "nl": "long multi-join across unindexed columns", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 20}}
+{"id": "budget-005", "nl": "expensive cross-product query", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 20}}
+{"id": "budget-006", "nl": "deliberately complex nested CTE scan", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 20}}
+{"id": "budget-007", "nl": "query that will exhaust wall-clock budget", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 20}}
+{"id": "budget-008", "nl": "simple count(*) on small table", "expected_sql_contains": ["COUNT(*)"], "oracle": {"type": "must_bound_steps", "max_steps": 10}}
+{"id": "budget-009", "nl": "list tables", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 5}}
+{"id": "budget-010", "nl": "schema inspection", "expected_sql_contains": [], "oracle": {"type": "must_bound_steps", "max_steps": 5}}
