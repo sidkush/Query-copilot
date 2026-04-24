@@ -1,21 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
+
+const QUERY = '(prefers-reduced-motion: reduce)';
+
+function subscribe(cb) {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const mql = window.matchMedia(QUERY);
+  mql.addEventListener?.('change', cb);
+  return () => mql.removeEventListener?.('change', cb);
+}
+
+function getSnapshot() {
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  return window.matchMedia(QUERY).matches;
+}
+
+function getServerSnapshot() {
+  return false;
+}
 
 // H22 — Returns motion speed in ms.
 // prefers-reduced-motion: reduce forces 0 regardless of userPref.
 export function useMotionSpeed({ userPref = 150 } = {}) {
-  const [speed, setSpeed] = useState(() => {
-    if (typeof window === 'undefined') return userPref;
-    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : userPref;
-  });
-
-  useEffect(() => {
-    const mql = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-    if (!mql) return;
-    const onChange = () => setSpeed(mql.matches ? 0 : userPref);
-    setSpeed(mql.matches ? 0 : userPref);
-    mql.addEventListener?.('change', onChange);
-    return () => mql.removeEventListener?.('change', onChange);
-  }, [userPref]);
-
-  return speed;
+  const reduced = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return reduced ? 0 : userPref;
 }
