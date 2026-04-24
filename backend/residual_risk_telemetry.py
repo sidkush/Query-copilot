@@ -262,3 +262,29 @@ def detect_residual_risk_9_byok_deprecated_model(tenant_id: str) -> Optional[Ale
 
 
 _ALL_DETECTORS.append(detect_residual_risk_9_byok_deprecated_model)
+
+
+def _prompt_cache_miss_pct(tenant_id: str) -> float:
+    try:
+        from anthropic_provider import prompt_cache_miss_rate_for_tenant
+        return prompt_cache_miss_rate_for_tenant(tenant_id) * 100.0
+    except Exception:
+        return 0.0
+
+
+def detect_residual_risk_10_low_traffic_cache_miss(tenant_id: str) -> Optional[AlertSignal]:
+    pct = _prompt_cache_miss_pct(tenant_id)
+    threshold = settings.RESIDUAL_RISK_10_LOW_TRAFFIC_CACHE_MISS_MAX_PCT
+    if pct > threshold:
+        return AlertSignal(
+            rule_id="residual_risk_10_low_traffic_cache_miss",
+            tenant_id=tenant_id,
+            severity="info",
+            observed_value=pct,
+            threshold=threshold,
+            message=f"Prompt-cache miss rate {pct:.1f}% > {threshold}%. Runbook: cache-warmer cron.",
+        )
+    return None
+
+
+_ALL_DETECTORS.append(detect_residual_risk_10_low_traffic_cache_miss)

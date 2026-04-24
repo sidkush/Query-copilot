@@ -14,6 +14,7 @@ from residual_risk_telemetry import detect_residual_risk_6_thumbs_up_storm
 from residual_risk_telemetry import detect_residual_risk_7_client_retry_abuse
 from residual_risk_telemetry import detect_residual_risk_8_hnsw_tie_drift
 from residual_risk_telemetry import detect_residual_risk_9_byok_deprecated_model
+from residual_risk_telemetry import detect_residual_risk_10_low_traffic_cache_miss
 
 
 def test_detector_1_fires_above_threshold():
@@ -120,3 +121,14 @@ def test_detector_9_fires_when_any_byok_user_pinned_to_deprecated():
 def test_detector_9_silent_at_zero():
     with patch("residual_risk_telemetry._deprecated_byok_pinned_count", return_value=0):
         assert detect_residual_risk_9_byok_deprecated_model("t-1") is None
+
+
+def test_detector_10_fires_above_30pct_miss():
+    with patch("residual_risk_telemetry._prompt_cache_miss_pct", return_value=35.0):
+        sig = detect_residual_risk_10_low_traffic_cache_miss("t-1")
+    assert sig is not None
+
+
+def test_detector_10_silent_at_or_below():
+    with patch("residual_risk_telemetry._prompt_cache_miss_pct", return_value=30.0):
+        assert detect_residual_risk_10_low_traffic_cache_miss("t-1") is None
