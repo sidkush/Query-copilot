@@ -527,6 +527,36 @@ def connect_database(req: ConnectRequest, request: Request, user: dict = Depends
                     )
                 except Exception as exc:
                     logger.warning("Coverage profiling failed (non-fatal): %s", exc)
+
+            # Phase K — bootstrap SemanticRegistry from schema.
+            if settings.SEMANTIC_REGISTRY_BOOTSTRAP_ON_CONNECT:
+                try:
+                    from semantic_registry_bootstrap import SemanticRegistryBootstrap
+                    from semantic_registry import SemanticRegistry
+                    bs = SemanticRegistryBootstrap()
+                    registry = SemanticRegistry()
+                    schema_dict = {
+                        "tables": [
+                            {
+                                "name": tbl.name,
+                                "columns": [
+                                    {"name": c.get("name", ""), "data_type": c.get("type", c.get("data_type", "TEXT"))}
+                                    for c in (tbl.columns or [])
+                                ],
+                            }
+                            for tbl in (schema_profile.tables or [])
+                        ],
+                    }
+                    defns = bs.from_schema(conn_id=cid, schema_profile=schema_dict)
+                    for defn in defns:
+                        registry.register(cid, defn)
+                    logger.info(
+                        "SemanticRegistry bootstrapped: %d defns for conn %s",
+                        len(defns), cid,
+                    )
+                except Exception as exc:
+                    logger.warning("Registry bootstrap failed (non-fatal): %s", exc)
+
         _threading.Thread(target=_bg_profile, args=(entry, connector, conn_id), daemon=True).start()
 
         # Behavior-based warm priorities (Task 4.3)
