@@ -92,3 +92,9 @@ yarn-debug.log*
 !backend/.data/budget_baseline.json
 !backend/.data/planner_baseline.json
 !backend/.data/escalation_baseline.json
+
+# Phase L trap baselines — committed per H13
+!.data/audit_integrity_baseline.json
+!.data/claim_verification_baseline.json
+!.data/plan_cache_baseline.json
+!.data/cancel_propagation_baseline.json
