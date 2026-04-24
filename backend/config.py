@@ -116,6 +116,9 @@ class Settings(BaseSettings):
     CACHE_ENABLED: bool = Field(default=True)
     CACHE_TTL_SECONDS: int = Field(default=3600)
 
+    # ── Residual-risk thresholds (Phase I) ────────────────────────
+    RESIDUAL_RISK_7_CLIENT_RETRIES_MAX_PER_5MIN: int = Field(default=5, description="Master row 7: >5 in 5min.")
+
     model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @model_validator(mode="after")
