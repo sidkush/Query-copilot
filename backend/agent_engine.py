@@ -2743,6 +2743,21 @@ class AgentEngine:
             rows = df.values.tolist()
             row_count = len(rows)
 
+            # Phase L — track recent rowsets for ClaimProvenance binding + AuditLedger.
+            import hashlib as _h, uuid as _u, json as _json
+            _query_id = str(_u.uuid4())
+            _sql_hash = _h.sha256(clean_sql.encode("utf-8")).hexdigest()
+            _rowset_hash = _h.sha256(_json.dumps(rows, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+            _schema_hash = _h.sha256(_json.dumps(columns, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+            if not hasattr(self, "_recent_rowsets"):
+                self._recent_rowsets = []
+            self._recent_rowsets.append({
+                "query_id": _query_id, "rows": rows, "columns": columns,
+                "sql_hash": _sql_hash, "rowset_hash": _rowset_hash, "schema_hash": _schema_hash,
+            })
+            if len(self._recent_rowsets) > 10:
+                self._recent_rowsets = self._recent_rowsets[-10:]
+
             # Cap individual cell values to prevent API cost amplification
             # (large TEXT columns could be 100KB+ per cell → $200+ API costs)
             _MAX_CELL_LEN = 1000
