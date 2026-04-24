@@ -41,6 +41,20 @@ DB enforcement, and 6-layer SQL validation. Active branch:
 - Every numeric constant lives in `config-defaults.md`. If you touch
   a value in code, update that file in the same commit.
 
+## Grounding Stack v6 (shipped)
+
+7 Rings + 27 Hardening Bands layered on top of the waterfall. Key invariants:
+
+- Ring 1 — `data_coverage.py` injects real row counts + date ranges; agents never infer scope from table names.
+- Ring 3 — `scope_validator.py` runs 10 rules between SQL gen + execution; fail-open on parse exception.
+- Ring 4 — `intent_echo.py` emits operational-definition card when ambiguity >= 0.3.
+- Ring 5 — `provenance_chip.py` emits trust chip BEFORE first streamed token.
+- Ring 6 — `tenant_fortress.py` composite-keys every cache/namespace/session. NEVER use user_id or conn_id alone as a cache key.
+- Tier universality — `waterfall_router.validate_scope()` runs Ring 3 at every tier.
+- Replan budget: 1 per query. Do not raise without updating `SCOPE_VALIDATOR_REPLAN_BUDGET`.
+
+See `docs/grounding-stack-v6/` for full docs + `docs/superpowers/plans/2026-04-22-grounding-stack-v6-master.md` for the architectural north star.
+
 ## VizQL codegen
 
 - `make proto` regenerates Python (`backend/vizql/proto/`) + TS
