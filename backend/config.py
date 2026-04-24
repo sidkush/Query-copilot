@@ -241,6 +241,8 @@ class Settings(BaseSettings):
     SKILL_ARCHIVAL_MIN_RETRIEVALS: int = Field(default=1, description="< N retrievals in the dormancy window -> archive.")
     SKILL_ARCHIVAL_ROOT: str = Field(default="askdb-skills/archive", description="Relative to repo root. Moved files preserve subdir.")
 
+    # ── Two-step HMAC binding (S5) ──
+    FEATURE_GENERATION_ID_BINDING: bool = Field(default=False, description="S5 — HMAC-bind /generate + /execute pair. Default off until frontend echoes generation_id.")
     # ── Supply Chain + Pipeline (Phase H — H19) ──
     FEATURE_SUPPLY_CHAIN_HARDENING: bool = Field(default=True, description="Off -> skip lock-file + safetensors checks at startup.")
     REQUIREMENTS_LOCK_PATH: str = Field(default="backend/requirements.lock", description="Relative to repo root.")
@@ -310,6 +312,9 @@ class Settings(BaseSettings):
     PLAN_CACHE_MAX_ENTRIES_PER_TENANT: int = Field(default=500)
     RESULT_PREVIEW_LIMIT_ROWS: int = Field(default=50)
     AGENT_CANCEL_GRACE_MS: int = Field(default=2000)
+    # ── Dialect Bridge (Phase M-alt) ──
+    FEATURE_DIALECT_BRIDGE: bool = Field(default=False)
+    DIALECT_BRIDGE_ALERT_ON_FAILURE: bool = Field(default=True)
     ALERT_DEDUP_WINDOW_SECONDS: int = Field(default=300, description="H16 sliding dedup per (tenant_id, rule_id). 5 min.")
     ALERT_MULTI_HOUR_ACCUMULATOR_SECONDS: int = Field(default=3600, description="Fires once per hour even if signal stays hot.")
     ALERT_MAX_RETRY: int = Field(default=3, description="Retry budget per dispatch via chaos_isolation.jittered_backoff.")

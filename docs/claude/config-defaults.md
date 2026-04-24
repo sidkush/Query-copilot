@@ -275,6 +275,13 @@ point here instead of duplicating values. Confirm against
 | `RESULT_PREVIEW_LIMIT_ROWS` | `50` | `LIMIT 50` probe streams while full query runs. |
 | `AGENT_CANCEL_GRACE_MS` | `2000` | Grace period after cancel before hard-kill. |
 
+### Dialect Bridge (Phase M-alt)
+
+| Constant | Value | Notes |
+|---|---|---|
+| `FEATURE_DIALECT_BRIDGE` | `False` | Master gate. Off → LiveTier executes on source dialect directly, no transpile. |
+| `DIALECT_BRIDGE_ALERT_ON_FAILURE` | `True` | Fire `transpile_failure` alert via alert_manager when sqlglot transpile raises. Keep True in prod for observability. |
+
 ### Agent system (`agent_engine.py`)
 
 | Constant | Value | Notes |
