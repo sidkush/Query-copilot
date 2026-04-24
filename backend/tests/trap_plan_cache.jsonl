@@ -1,0 +1,10 @@
+{"id": "cache-001", "nl": "churn analysis — first time", "expected_sql_contains": ["january_trips"], "oracle": {"type": "must_reuse_plan", "expect_hit": false}}
+{"id": "cache-002", "nl": "churn analysis — second time same tenant", "expected_sql_contains": ["january_trips"], "oracle": {"type": "must_reuse_plan", "expect_hit": true}}
+{"id": "cache-003", "nl": "paraphrase of churn Q — high cosine", "expected_sql_contains": ["january_trips"], "oracle": {"type": "must_reuse_plan", "expect_hit": true}}
+{"id": "cache-004", "nl": "completely different Q — cache miss", "expected_sql_contains": [], "oracle": {"type": "must_reuse_plan", "expect_hit": false}}
+{"id": "cache-005", "nl": "tenant isolation — cross-tenant cache must miss", "expected_sql_contains": [], "oracle": {"type": "must_reuse_plan", "expect_hit": false}}
+{"id": "cache-006", "nl": "schema change invalidates cache", "expected_sql_contains": [], "oracle": {"type": "must_reuse_plan", "expect_hit": false}}
+{"id": "cache-007", "nl": "TTL expiry — 7 days old cache", "expected_sql_contains": [], "oracle": {"type": "must_reuse_plan", "expect_hit": false}}
+{"id": "cache-008", "nl": "cosine just below 0.85 — miss", "expected_sql_contains": [], "oracle": {"type": "must_reuse_plan", "expect_hit": false}}
+{"id": "cache-009", "nl": "cosine 0.95 — hit", "expected_sql_contains": [], "oracle": {"type": "must_reuse_plan", "expect_hit": true}}
+{"id": "cache-010", "nl": "LRU eviction — oldest entry removed at cap", "expected_sql_contains": [], "oracle": {"type": "must_reuse_plan", "expect_hit": false}}

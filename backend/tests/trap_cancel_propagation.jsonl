@@ -1,0 +1,10 @@
+{"id": "cancel-001", "nl": "cancel mid-loop at step 3", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 5}}
+{"id": "cancel-002", "nl": "cancel immediately", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 2}}
+{"id": "cancel-003", "nl": "cancel after plan emission", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 3}}
+{"id": "cancel-004", "nl": "cancel during SQL execution", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 10}}
+{"id": "cancel-005", "nl": "cancel during synthesis", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 15}}
+{"id": "cancel-006", "nl": "no cancel — normal completion", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 999}}
+{"id": "cancel-007", "nl": "unknown plan_id returns 404", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 999}}
+{"id": "cancel-008", "nl": "cancel after safe_abort — idempotent", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 3}}
+{"id": "cancel-009", "nl": "cancel during tool_call — graceful exit", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 7}}
+{"id": "cancel-010", "nl": "grace period respects AGENT_CANCEL_GRACE_MS", "expected_sql_contains": [], "oracle": {"type": "must_abort_on_cancel", "abort_step_before": 4}}
