@@ -60,3 +60,16 @@ Details in `arch-query-intelligence.md`.
 - Agent system guardrails, auth, infra → `constraints-agent-auth.md` (always-loaded).
 - Dev workflow, journals, graphify → `dev-notes.md` (on-demand).
 - Numeric constants, ports, quotas, model IDs, flags → `config-defaults.md` (always-loaded).
+
+## Grounding Stack v6
+
+Layered on top of the waterfall to ensure answers stay anchored to real data:
+
+- **Ring 1** — `data_coverage.py` injects per-table real row counts + date ranges into the agent system prompt.
+- **Ring 3** — `scope_validator.py` runs 10 deterministic rules between SQL gen and execution.
+- **Ring 4** — `intent_echo.py` surfaces an operational-definition card when ambiguity is non-trivial.
+- **Ring 5** — `provenance_chip.py` emits a trust chip (Live/Turbo/Sample/Unverified) before each streamed answer.
+- **Ring 6** — `tenant_fortress.py` composite-keys every cache, namespace, session, and BYOK binding.
+- **Ring 7** — nine trap suites in `backend/tests/trap_*.jsonl` gate every PR.
+
+Enforced at every waterfall tier (H18 tier universality). See `docs/grounding-stack-v6/` for user + admin docs.
