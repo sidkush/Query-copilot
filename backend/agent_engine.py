@@ -948,6 +948,41 @@ class AgentEngine:
             **plan.to_dict(),
         }
 
+    def _classify_workload_cap(self, question: str) -> int:
+        """W1 Task 2 — two-tier hard cap when flag on; legacy heuristic when off."""
+        import unicodedata as _ud
+        q = _ud.normalize("NFKC", question or "").lower()
+        dashboard_keywords = {
+            "dashboard", "tile", "remove", "delete", "add tile",
+            "update tile", "create tile", "pin", "kpi",
+            "build dashboard", "create dashboard",
+        }
+        is_dashboard = any(kw in q for kw in dashboard_keywords)
+        if settings.GROUNDING_W1_HARDCAP_ENFORCE:
+            return settings.W1_DASHBOARD_CAP if is_dashboard else settings.W1_ANALYTICAL_CAP
+        complex_keywords = {
+            "why", "compare", "trend", "correlat", "over time", "vs",
+            "join", "across", "between", "analyze", "breakdown", "segment",
+            "cohort", "retention", "churn", "funnel",
+        }
+        is_complex = any(kw in q for kw in complex_keywords)
+        if is_dashboard:
+            return 20
+        if is_complex:
+            return 15
+        return 8
+
+    def _maybe_extend_budget(self) -> bool:
+        """W1 Task 2 — extension blocked when flag on; preserves legacy +10 when off."""
+        if settings.GROUNDING_W1_HARDCAP_ENFORCE:
+            return False
+        if self._max_tool_calls < self.MAX_TOOL_CALLS:
+            old_budget = self._max_tool_calls
+            self._max_tool_calls = min(self._max_tool_calls + 10, self.MAX_TOOL_CALLS)
+            _logger.info(f"Tool budget auto-extended: {old_budget} → {self._max_tool_calls}")
+            return True
+        return False
+
     def _apply_safe_text(self, text: str):
         """Phase K — filter agent output via SafeText. Returns None if blocked."""
         if not settings.FEATURE_AGENT_HALLUCINATION_ABORT:
@@ -1532,16 +1567,13 @@ class AgentEngine:
             raise AgentGuardrailError("Session cancelled by user")
 
         if self._tool_calls >= self._max_tool_calls:
-            if self._max_tool_calls < self.MAX_TOOL_CALLS:
-                old_budget = self._max_tool_calls
-                self._max_tool_calls = min(self._max_tool_calls + 10, self.MAX_TOOL_CALLS)
-                _logger.info(f"Tool budget auto-extended: {old_budget} → {self._max_tool_calls}")
+            if self._maybe_extend_budget():
                 ext_step = AgentStep(type="budget_extension",
                                      content=f"Tool budget extended to {self._max_tool_calls}")
                 self._steps.append(ext_step)
             else:
                 raise AgentGuardrailError(
-                    f"Maximum tool calls ({self.MAX_TOOL_CALLS}) exceeded"
+                    f"Step cap {self._max_tool_calls} hit — halting to prevent runaway."
                 )
 
         if self._phase_start_time > 0:
@@ -2197,12 +2229,8 @@ class AgentEngine:
                               "build dashboard", "create dashboard"}
         is_dashboard_request = any(kw in q_lower for kw in dashboard_keywords)
         is_complex = any(kw in q_lower for kw in complex_keywords)
-        if is_dashboard_request:
-            self._max_tool_calls = 20
-        elif is_complex:
-            self._max_tool_calls = 15
-        else:
-            self._max_tool_calls = 8
+        # W1 Task 2 — unified workload cap (flag on: 20/40 hard; flag off: legacy 8/15/20)
+        self._max_tool_calls = self._classify_workload_cap(question)
 
         # ── Build initial checklist (Task 3 — progress tracking) ──
         self._checklist = [
