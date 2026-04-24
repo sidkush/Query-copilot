@@ -277,6 +277,8 @@ Each phase ships with commit-sized task plan authored JIT. Exit criteria = next 
 | **J** — Closeout (P12) | 1 day | User doc + admin doc + changelog tag + GA announce | Docs merged; stack v6 shipped |
 | **K** — Ring 8 CASL Agent Orchestration | 1 week | Ring 8 (planner + feedback loop + budgets + hallucination-abort + model ladder) + 4 trap suites + 50-Q bench + 4 feature flags + progressive UX | 4 Ring-8 trap baselines pass; p50<60s benchmark; all previously-passing pytest still green |
 | **L** — Audit Ledger + Progressive UX + Plan Cache | 1 week | Ring 9 (audit ledger + claim provenance) + full Progressive UX (cancel + revise + ResultPreview + SafeTextWrapper + ClaimChip) + PlanCache + DeadlinePropagator + 4 trap suites | 4 Phase L trap baselines pass; plan cache p50<3s on repeat Qs; audit chain verifier green on all committed ledgers |
+| **M-alt** — sqlglot Dialect Bridge | 0.5 day | Thin transpile layer replacing Phase M Substrait compiler (RED gate 32%). `dialect_bridge.py` + `dialect_capabilities/` + 8 engine manifests + CI trap suites. `FEATURE_DIALECT_BRIDGE` default off. | 2 trap baselines pass; 25/25 Phase M-alt tests green; 20-analyst adversarial review PASS 7/7 clusters |
+| ~~Phase M (Substrait compiler)~~ | _deferred_ | RED exit gate 32% — substrait transpile coverage insufficient for production use. Replaced by Phase M-alt (sqlglot). | n/a |
 
 ---
 
