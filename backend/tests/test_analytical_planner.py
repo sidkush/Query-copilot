@@ -86,3 +86,44 @@ def test_planner_rejects_emission_over_3_ctes():
     planner = AnalyticalPlanner(provider=provider, registry=registry)
     plan = planner.plan(conn_id="c1", nl="too complex", coverage_cards=[])
     assert plan.fallback is True
+
+
+def test_planner_uses_cache_hit_and_skips_provider():
+    """Cache hit -> provider NOT called; returned plan equals cached."""
+    from analytical_planner import AnalyticalPlanner, AnalyticalPlan
+    from plan_cache import CachedPlan
+    from unittest.mock import MagicMock
+    provider = MagicMock()
+    registry = MagicMock()
+    registry.list_for_conn = MagicMock(return_value=["some_hit"])
+    cached_plan_obj = AnalyticalPlan(
+        plan_id="p-cached", ctes=[], fallback=False, registry_hits=["m1"],
+    )
+    cache = MagicMock()
+    cache.lookup = MagicMock(return_value=CachedPlan(plan=cached_plan_obj, similarity=0.95, cached_id="cid"))
+    planner = AnalyticalPlanner(provider=provider, registry=registry)
+    planner._cache = cache
+    plan = planner.plan(conn_id="c1", nl="churn analysis", coverage_cards=[])
+    assert plan.plan_id == "p-cached"
+    provider.invoke.assert_not_called()
+
+
+def test_planner_calls_provider_on_cache_miss():
+    from analytical_planner import AnalyticalPlanner
+    from unittest.mock import MagicMock
+    import json as _j
+    provider = MagicMock()
+    provider.invoke = MagicMock(return_value={
+        "content": _j.dumps({"ctes": [{"name": "c1", "description": "x", "sql": "SELECT 1"}], "registry_hits": []}),
+    })
+    registry = MagicMock()
+    registry.list_for_conn = MagicMock(return_value=["some_hit"])
+    cache = MagicMock()
+    cache.lookup = MagicMock(return_value=None)
+    cache.store = MagicMock()
+    planner = AnalyticalPlanner(provider=provider, registry=registry)
+    planner._cache = cache
+    plan = planner.plan(conn_id="c1", nl="novel question", coverage_cards=[])
+    provider.invoke.assert_called_once()
+    cache.store.assert_called_once()
+    assert plan.fallback is False

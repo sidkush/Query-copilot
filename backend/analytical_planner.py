@@ -60,9 +60,18 @@ class AnalyticalPlanner:
     def __init__(self, provider, registry):
         self._provider = provider
         self._registry = registry
+        self._cache = None
 
     def plan(self, conn_id: str, nl: str, coverage_cards: list) -> AnalyticalPlan:
         """Emit an AnalyticalPlan. Returns fallback=True on registry miss."""
+        # Phase L — plan cache first (short-circuits Sonnet call on hit).
+        if self._cache is not None:
+            try:
+                hit = self._cache.lookup(conn_id=conn_id, tenant_id="", nl=nl)
+                if hit is not None:
+                    return hit.plan
+            except Exception:
+                pass
         try:
             candidates = self._registry.list_for_conn(conn_id)
         except Exception:
@@ -120,9 +129,16 @@ class AnalyticalPlanner:
             )
             for c in raw_ctes
         ]
-        return AnalyticalPlan(
+        final_plan = AnalyticalPlan(
             plan_id=str(uuid.uuid4()),
             ctes=ctes,
             fallback=False,
             registry_hits=list(parsed.get("registry_hits", [])),
         )
+        # Phase L — write successful plan to cache.
+        if self._cache is not None:
+            try:
+                self._cache.store(conn_id=conn_id, tenant_id="", nl=nl, plan=final_plan)
+            except Exception:
+                pass
+        return final_plan
