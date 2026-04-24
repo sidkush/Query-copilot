@@ -1114,6 +1114,9 @@ class AgentEngine:
             + "The above is empirical profile data — treat it as ground truth "
             + "about what the database actually contains. Do NOT infer coverage "
             + "from table names; the profile is the source of truth.\n"
+            + "If a requested entity (column, metric, join key) is absent from "
+            + "<data_coverage>, you MUST pause and call ask_user before "
+            + "substituting a proxy. No silent substitution.\n"
         )
 
     def _build_legacy_system_prompt(self, question: str, prefetch_context: str) -> str:
