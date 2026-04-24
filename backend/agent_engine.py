@@ -883,6 +883,53 @@ class AgentEngine:
             except Exception:
                 self._safe_text = None
 
+        # Phase L — ClaimProvenance + AuditLedger
+        from config import settings as _s
+        self._claim_provenance = None
+        if _s.FEATURE_CLAIM_PROVENANCE:
+            from claim_provenance import ClaimProvenance
+            self._claim_provenance = ClaimProvenance(unverified_marker=_s.CLAIM_PROVENANCE_UNVERIFIED_MARKER)
+        self._audit_ledger = None
+        if _s.FEATURE_AUDIT_LEDGER:
+            from audit_ledger import AuditLedger
+            self._audit_ledger = AuditLedger(root=_s.AUDIT_LEDGER_DIR)
+
+    def _apply_claim_provenance(self, synthesis_text: str) -> str:
+        """Phase L — wrap unverified numbers in synthesis + log measured ones to ledger."""
+        if not settings.FEATURE_CLAIM_PROVENANCE:
+            return synthesis_text
+        if getattr(self, "_claim_provenance", None) is None:
+            return synthesis_text
+        recent = getattr(self, "_recent_rowsets", None) or []
+        bound = self._claim_provenance.bind(synthesis_text, recent)
+        if settings.FEATURE_AUDIT_LEDGER and getattr(self, "_audit_ledger", None) is not None:
+            from claim_provenance import extract_numeric_spans, match_claim
+            from audit_ledger import AuditLedgerEntry, GENESIS_HASH
+            from datetime import datetime, timezone
+            import uuid
+            tenant_id = getattr(self.connection_entry, "tenant_id", "unknown")
+            plan_id = getattr(getattr(self, "_current_plan", None), "plan_id", "no-plan")
+            prev_hash = self._last_ledger_hash if hasattr(self, "_last_ledger_hash") else GENESIS_HASH
+            for span in extract_numeric_spans(bound):
+                qid = match_claim(span.value, recent)
+                if qid is None:
+                    continue
+                matching = next((r for r in recent if r.get("query_id") == qid), {})
+                entry = AuditLedgerEntry(
+                    claim_id=str(uuid.uuid4()), plan_id=plan_id, query_id=qid,
+                    tenant_id=tenant_id, ts=datetime.now(timezone.utc).isoformat(),
+                    sql_hash=matching.get("sql_hash", ""), rowset_hash=matching.get("rowset_hash", ""),
+                    schema_hash=matching.get("schema_hash", ""), pii_redaction_applied=True,
+                    prev_hash=prev_hash, curr_hash="",
+                )
+                try:
+                    sealed = self._audit_ledger.append(entry)
+                    prev_hash = sealed.curr_hash
+                    self._last_ledger_hash = sealed.curr_hash
+                except Exception:
+                    pass
+        return bound
+
     def _stream_plan_artifact(self):
         """Phase K — yield one plan_artifact SSE event if a plan is ready."""
         if not settings.PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL:
@@ -2761,6 +2808,21 @@ class AgentEngine:
             columns = list(df.columns)
             rows = df.values.tolist()
             row_count = len(rows)
+
+            # Phase L — track recent rowsets for ClaimProvenance binding + AuditLedger.
+            import hashlib as _h, uuid as _u, json as _json
+            _query_id = str(_u.uuid4())
+            _sql_hash = _h.sha256(clean_sql.encode("utf-8")).hexdigest()
+            _rowset_hash = _h.sha256(_json.dumps(rows, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+            _schema_hash = _h.sha256(_json.dumps(columns, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+            if not hasattr(self, "_recent_rowsets"):
+                self._recent_rowsets = []
+            self._recent_rowsets.append({
+                "query_id": _query_id, "rows": rows, "columns": columns,
+                "sql_hash": _sql_hash, "rowset_hash": _rowset_hash, "schema_hash": _schema_hash,
+            })
+            if len(self._recent_rowsets) > 10:
+                self._recent_rowsets = self._recent_rowsets[-10:]
 
             # Cap individual cell values to prevent API cost amplification
             # (large TEXT columns could be 100KB+ per cell → $200+ API costs)

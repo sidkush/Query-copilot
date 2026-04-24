@@ -238,6 +238,8 @@ app.include_router(connection_routes.router)
 app.include_router(user_routes.router)
 app.include_router(chat_routes.router)
 app.include_router(admin_routes.router)
+from routers import audit_routes
+app.include_router(audit_routes.router)
 app.include_router(dashboard_routes.router)
 app.include_router(alert_routes.router)
 app.include_router(agent_routes.router)
