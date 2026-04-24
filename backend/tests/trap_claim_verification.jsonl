@@ -1,0 +1,10 @@
+{"id": "claim-001", "nl": "count rows — synthesis must cite query_id", "expected_sql_contains": ["COUNT"], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": false}}
+{"id": "claim-002", "nl": "claim 999 rows when DB has 500 — unverified chip", "expected_sql_contains": [], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": true}}
+{"id": "claim-003", "nl": "pattern-match unbound percentages", "expected_sql_contains": [], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": true}}
+{"id": "claim-004", "nl": "measured numbers from recent tool_result skip chip", "expected_sql_contains": [], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": false}}
+{"id": "claim-005", "nl": "year-like 2024 excluded from binding", "expected_sql_contains": [], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": false}}
+{"id": "claim-006", "nl": "5-section synthesis with mixed measured+inferred", "expected_sql_contains": [], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": true}}
+{"id": "claim-007", "nl": "LLM hallucinates +60% growth — unverified", "expected_sql_contains": [], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": true}}
+{"id": "claim-008", "nl": "exact MIN/MAX dates from query are verified", "expected_sql_contains": ["MIN", "MAX"], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": false}}
+{"id": "claim-009", "nl": "decimals match rowset within tolerance", "expected_sql_contains": [], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": false}}
+{"id": "claim-010", "nl": "LLM says 100% when rowset shows 99.8 — chip fires", "expected_sql_contains": [], "oracle": {"type": "must_emit_unverified_chip", "expect_chip": true}}
