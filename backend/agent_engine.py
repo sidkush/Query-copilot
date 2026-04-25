@@ -2104,6 +2104,8 @@ class AgentEngine:
             df = self.engine.db.execute_query(exec_sql)
             from pii_masking import mask_dataframe
             df = mask_dataframe(df)
+            import numpy as _np
+            df = df.replace([_np.nan, _np.inf, -_np.inf], None)
             columns = list(df.columns)
             rows = df.values.tolist()
             self._result.sql = clean_sql
@@ -3452,6 +3454,8 @@ class AgentEngine:
                 from pii_masking import mask_dataframe
                 df = mask_dataframe(df)
 
+            import numpy as _np
+            df = df.replace([_np.nan, _np.inf, -_np.inf], None)
             columns = list(df.columns)
             rows = df.values.tolist()
             row_count = len(rows)

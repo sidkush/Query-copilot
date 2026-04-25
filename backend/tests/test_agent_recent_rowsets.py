@@ -14,6 +14,7 @@ def test_tool_run_sql_records_rowset():
     df_mock = MagicMock()
     df_mock.columns = ["c"]
     df_mock.values.tolist = MagicMock(return_value=[[42]])
+    df_mock.replace.return_value = df_mock  # NaN sanitisation returns same df
     engine.engine.db = MagicMock()
     engine.engine.db.execute_query = MagicMock(return_value=df_mock)
     engine._sql_retries = 0
