@@ -312,13 +312,23 @@ class Settings(BaseSettings):
     W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD: int = Field(default=3, description="N consecutive run_sql errors → fire agent_checkpoint consent card (GAP A).")
     # ── Phase K Week-2 Day 3 Task 1 — Ring 4 Gate C schema-entity-mismatch ──
     W2_SCHEMA_MISMATCH_GATE_ENFORCE: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Master gate for Ring-4 Gate C schema-entity-mismatch consent card. "
             "When ON: NL referencing rider/user/customer/etc. entity with no "
             "matching id column in the connection schema parks the agent on an "
             "agent_checkpoint with options [station_proxy, abort]. Fail-closed "
             "on empty schema (AMEND-W2-06). OFF → pre-W2 behaviour."
+        ),
+    )
+    W2_GATE_C_PARK_TIMEOUT_S: float = Field(
+        default=300.0,
+        description=(
+            "User-interaction wait budget for Ring-4 Gate C park. The agent's "
+            "AGENT_WALL_CLOCK_HARD_S (120s) is a query-execution budget — too "
+            "short for a human to read a consent card and click. Park pulls "
+            "the user out of the query budget; this is the dedicated cap. "
+            "Default-on-timeout still 'abort' (AMEND-W2-08)."
         ),
     )
     # ── Audit Ledger + Progressive UX + Plan Cache (Phase L) ──

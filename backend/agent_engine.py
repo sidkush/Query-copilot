@@ -2427,7 +2427,11 @@ class AgentEngine:
                 _gc_slot.park_id, _gate_c_mismatch.canonical,
             )
             import time as _time_gc
-            _gc_deadline = _time_gc.monotonic() + settings.AGENT_WALL_CLOCK_HARD_S
+            # Park timeout is user-interaction, not query-execution. Use the
+            # dedicated W2_GATE_C_PARK_TIMEOUT_S (default 300s) instead of
+            # AGENT_WALL_CLOCK_HARD_S (120s query budget) — a consent card
+            # needs to wait for a human to read + click, not finish in 2 min.
+            _gc_deadline = _time_gc.monotonic() + settings.W2_GATE_C_PARK_TIMEOUT_S
             while self.memory._user_response is None:
                 _gc_remaining = _gc_deadline - _time_gc.monotonic()
                 if _gc_remaining <= 0:
@@ -2439,27 +2443,35 @@ class AgentEngine:
             self._waiting_for_user = False
             self.memory._waiting_for_user = False
             self.memory.parks.discard(_gc_slot.park_id)
-            # AMEND-W2-08: persist consent so the gate doesn't re-fire mid-session
+            if _gc_choice == "abort":
+                # Abort is NOT consent — user asked us to stop, so we stop.
+                # Do NOT add canonical to `_decided`: the next rider question
+                # in this chat must re-fire Gate C, otherwise an ungrounded
+                # answer flows because `_should_fire_schema_mismatch_checkpoint`
+                # sees the entity in the consented set and skips silently.
+                # Set final_answer only — the end-of-run SSE event from
+                # agent_routes (engine._result.to_dict()) carries this and
+                # AgentPanel renders it as a single `result` step. Yielding
+                # an intermediate AgentStep(type='result') here would arrive
+                # at AgentPanel.onStep first and trigger a duplicate render
+                # (intermediate step + final SSE both match the result branch).
+                self._result.final_answer = (
+                    f"Aborted: this connection's schema has no individual "
+                    f"{_gate_c_mismatch.canonical} identifier, so per-"
+                    f"{_gate_c_mismatch.canonical} analysis isn't possible. "
+                    "Reconnect a schema with the right id column or rephrase "
+                    "the question."
+                )
+                self._result.steps = self._steps
+                return
+            # AMEND-W2-08: persist consent ONLY on station_proxy — user
+            # accepted the proxy, so subsequent same-canonical questions in
+            # this chat reuse the choice without re-prompting.
             _decided = getattr(self.memory, "_schema_mismatch_decided", None)
             if _decided is None:
                 _decided = set()
                 self.memory._schema_mismatch_decided = _decided
             _decided.add(_gate_c_mismatch.canonical)
-            if _gc_choice == "abort":
-                _abort_step = AgentStep(
-                    type="result",
-                    content=(
-                        f"Aborted: this connection's schema has no individual "
-                        f"{_gate_c_mismatch.canonical} identifier, so per-"
-                        f"{_gate_c_mismatch.canonical} analysis isn't possible. "
-                        "Reconnect a schema with the right id column or rephrase "
-                        "the question."
-                    ),
-                )
-                self._steps.append(_abort_step)
-                yield _abort_step
-                self._result.final_answer = _abort_step.content
-                return
             # station_proxy: stash proxy phrase so the system prompt can hint it
             _gc_proxy = _gc_step.tool_input.get("proxy_suggestion")
             self.memory._schema_mismatch_proxy = _gc_proxy
