@@ -81,6 +81,53 @@ def test_note_is_directive_not_disclosure():
     assert "already" in lowered and "consent" in lowered
 
 
+def test_session_memory_initialises_consent_defaults():
+    """Regression: Edge case 2 — Gate C must NOT re-fire in the same chat
+    once the user has consented. The decided set has to live on
+    SessionMemory (not on a per-run AgentEngine attr) and has to exist by
+    default so reload code can restore deterministically."""
+    from agent_engine import SessionMemory
+    sm = SessionMemory("c1", owner_email="t@x.com")
+    assert sm._schema_mismatch_decided == set()
+    assert sm._schema_mismatch_proxy is None
+    assert sm._schema_mismatch_proxy_note is None
+
+
+def test_consent_round_trip_through_progress_dict():
+    """Regression: persistence path must round-trip the decided set so a
+    second rider question after reload skips Gate C."""
+    from agent_engine import SessionMemory
+    from routers.agent_routes import (
+        _merge_consent_into_progress,
+        _restore_consent_from_progress,
+    )
+    sm = SessionMemory("c1", owner_email="t@x.com")
+    sm._schema_mismatch_decided = {"person", "rider"}
+    sm._schema_mismatch_proxy = "user type (member vs casual)"
+    sm._schema_mismatch_proxy_note = "INSTRUCTION: ..."
+    progress: dict = {}
+    _merge_consent_into_progress(progress, sm)
+    assert progress["_schema_mismatch_decided"] == ["person", "rider"]
+    assert progress["_schema_mismatch_proxy"] == "user type (member vs casual)"
+
+    sm2 = SessionMemory("c1", owner_email="t@x.com")
+    _restore_consent_from_progress(sm2, progress)
+    assert sm2._schema_mismatch_decided == {"person", "rider"}
+    assert sm2._schema_mismatch_proxy == "user type (member vs casual)"
+    assert sm2._schema_mismatch_proxy_note == "INSTRUCTION: ..."
+
+
+def test_restore_tolerates_missing_keys():
+    """Pre-W3 sessions don't carry consent keys; restore must no-op
+    rather than raise."""
+    from agent_engine import SessionMemory
+    from routers.agent_routes import _restore_consent_from_progress
+    sm = SessionMemory("c1", owner_email="t@x.com")
+    _restore_consent_from_progress(sm, {})
+    assert sm._schema_mismatch_decided == set()
+    assert sm._schema_mismatch_proxy is None
+
+
 def test_proxy_columns_surface_in_note():
     eng = _engine()
     note = eng._build_proxy_framing_note(

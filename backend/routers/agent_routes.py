@@ -211,6 +211,24 @@ _active_agents_lock = threading.Lock()
 _MAX_SESSIONS = 100
 
 
+def _merge_consent_into_progress(progress: dict, memory: SessionMemory) -> None:
+    """W3-P1 — stash Gate C consent state into the progress dict so it
+    survives session_store save / load. Sorted list for stable equality."""
+    decided = getattr(memory, "_schema_mismatch_decided", None) or set()
+    progress["_schema_mismatch_decided"] = sorted(decided)
+    progress["_schema_mismatch_proxy"] = getattr(memory, "_schema_mismatch_proxy", None)
+    progress["_schema_mismatch_proxy_note"] = getattr(memory, "_schema_mismatch_proxy_note", None)
+
+
+def _restore_consent_from_progress(memory: SessionMemory, progress: dict) -> None:
+    """Inverse of `_merge_consent_into_progress`. Tolerates missing keys
+    (sessions saved before W3-P1 don't carry these)."""
+    decided = progress.get("_schema_mismatch_decided") or []
+    memory._schema_mismatch_decided = set(decided)
+    memory._schema_mismatch_proxy = progress.get("_schema_mismatch_proxy")
+    memory._schema_mismatch_proxy_note = progress.get("_schema_mismatch_proxy_note")
+
+
 def _get_or_create_session(chat_id: str, owner_email: str) -> SessionMemory:
     """Get existing session or create new one. Evicts oldest if at capacity.
     Validates ownership on existing sessions. Thread-safe via _sessions_lock.
@@ -235,6 +253,10 @@ def _get_or_create_session(chat_id: str, owner_email: str) -> SessionMemory:
                     session.add_turn("user", content)
                 elif step_type in ("result",) and content:
                     session.add_turn("assistant", content)
+            # W3-P1 — restore Gate C consent state so the second rider
+            # question in the same chat doesn't re-fire the gate after
+            # an LRU eviction or backend restart.
+            _restore_consent_from_progress(session, saved.get("progress") or {})
             _sessions[chat_id] = session
             _logger.debug("Restored session %s from SQLite (%d steps)", chat_id, len(saved.get("steps", [])))
             return session
@@ -409,7 +431,8 @@ async def agent_run(req: AgentRunRequest, request: Request,
         def _persist_session():
             """Save collected steps + progress to SQLite (Invariant-5)."""
             try:
-                progress = getattr(engine, '_progress', {})
+                progress = dict(getattr(engine, '_progress', {}) or {})
+                _merge_consent_into_progress(progress, engine.memory)
                 title = req.question[:80]
                 session_store.save_session(chat_id, email, title, _cap_collected_steps(collected_steps), progress)
             except Exception as exc:
@@ -790,7 +813,9 @@ async def agent_continue(req: AgentContinueRequest, request: Request,
         def _persist_session():
             try:
                 title = saved.get("title", goal[:80])
-                session_store.save_session(chat_id, email, title, _cap_collected_steps(collected_steps), engine._progress)
+                progress = dict(getattr(engine, '_progress', {}) or {})
+                _merge_consent_into_progress(progress, engine.memory)
+                session_store.save_session(chat_id, email, title, _cap_collected_steps(collected_steps), progress)
             except Exception as exc:
                 _logger.warning("Continue session persist failed for %s: %s", chat_id, exc)
 

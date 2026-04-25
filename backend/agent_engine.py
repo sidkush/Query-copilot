@@ -568,6 +568,13 @@ class SessionMemory:
         self._lock: threading.Lock = threading.Lock()  # Guards _running, _user_response, _waiting_for_user
         self._user_response_event: threading.Event = threading.Event()  # Replaces sleep-polling for ask_user
         self.parks: ParkRegistry = ParkRegistry()  # Day 1: shadow mode; Day 2+ authoritative
+        # W3-P1 — Gate C consent state lives on session memory so it
+        # survives across agent runs in the same chat. Initialised here
+        # (not lazy) so reload code can restore deterministically and
+        # tests can assert the default.
+        self._schema_mismatch_decided: set[str] = set()
+        self._schema_mismatch_proxy: Optional[str] = None
+        self._schema_mismatch_proxy_note: Optional[str] = None
 
     def add_turn(self, role: str, content: str):
         with self._lock:
