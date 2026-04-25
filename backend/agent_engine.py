@@ -1196,16 +1196,21 @@ class AgentEngine:
             return None
         proxy_phrase = proxy_suggestion or "the available proxy columns"
         lines = [
-            f"USER CONSENT: per-{canonical} analysis is not possible — "
-            f"this schema has no individual {canonical} id column.",
-            f"User accepted the proxy: {proxy_phrase}.",
-            f"Replan: do NOT GROUP BY or filter on a {canonical} id. "
-            f"Instead, group / filter using the proxy columns available "
-            f"in the schema.",
+            f"INSTRUCTION (Gate C resolved): The user has ALREADY consented "
+            f"to using {proxy_phrase} as the proxy for individual "
+            f"{canonical} identity in answering the ORIGINAL question.",
+            f"Proceed IMMEDIATELY: your next action MUST be a `run_sql` "
+            f"tool call using this proxy as the GROUP BY / filter dimension "
+            f"to answer the original question.",
+            f"Do NOT call `ask_user`. Do NOT ask any clarifying question. "
+            f"Do NOT re-explain the schema limitation — the user already "
+            f"acknowledged it and chose this proxy. Do NOT propose "
+            f"alternatives. Do NOT GROUP BY or filter on a per-{canonical} "
+            f"id (no such column exists in this schema).",
         ]
         if proxy_columns:
             cols = ", ".join(proxy_columns)
-            lines.append(f"Suggested proxy columns: {cols}.")
+            lines.append(f"Use these proxy columns in the SQL: {cols}.")
         return "\n".join(lines)
 
     _EMPTY_BOUNDSET_BANNER = "\u26a0 No query results \u2014 this response is unverified."

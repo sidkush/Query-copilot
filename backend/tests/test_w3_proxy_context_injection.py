@@ -54,6 +54,33 @@ def test_non_gate_c_kind_emits_no_note():
     assert note is None
 
 
+def test_note_is_directive_not_disclosure():
+    """Regression: agent must be told to run SQL, not re-explain the limit.
+
+    Earlier wording read like a disclosure — model treated it as context
+    to summarize back to the user instead of a directive to run SQL with
+    the proxy. Lock in directive phrasing.
+    """
+    eng = _engine()
+    note = eng._build_proxy_framing_note(
+        choice="station_proxy",
+        kind="schema_entity_mismatch",
+        canonical="rider",
+        proxy_suggestion="user type (member vs casual)",
+        proxy_columns=None,
+    )
+    assert note is not None
+    lowered = note.lower()
+    # must mandate run_sql as next action
+    assert "run_sql" in lowered
+    assert "must" in lowered or "immediately" in lowered
+    # must forbid re-explaining and ask_user
+    assert "do not re-explain" in lowered or "do not explain" in lowered
+    assert "do not call `ask_user`" in lowered or "do not ask" in lowered
+    # must reference the user's prior consent
+    assert "already" in lowered and "consent" in lowered
+
+
 def test_proxy_columns_surface_in_note():
     eng = _engine()
     note = eng._build_proxy_framing_note(
