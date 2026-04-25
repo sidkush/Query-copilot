@@ -331,6 +331,15 @@ class Settings(BaseSettings):
             "Default-on-timeout still 'abort' (AMEND-W2-08)."
         ),
     )
+    # ── Phase K Week-2 Day 3 Task 4 — Ring 3 fan-out DISTINCT-CTE branch ──
+    W2_FANOUT_DISTINCT_CTE_ENFORCE: bool = Field(
+        default=True,
+        description=(
+            "W2 Task 4 — extend RULE_FANOUT_INFLATION to flag SELECT DISTINCT "
+            "CTEs joined on multiple columns (one of which can be many-to-one). "
+            "Off → only the legacy COUNT(*) + JOIN check fires."
+        ),
+    )
     # ── Audit Ledger + Progressive UX + Plan Cache (Phase L) ──
     FEATURE_AUDIT_LEDGER: bool = Field(default=False)
     FEATURE_CLAIM_PROVENANCE: bool = Field(default=False)

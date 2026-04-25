@@ -188,24 +188,311 @@ def _rule_range_mismatch(ast, sql: str, ctx: dict, dialect: str):
 
 # ── Rule 2 — Fan-out inflation ───────────────────────────────────────
 
+# AMEND-W2-T4-03 — dialect-branched dedup suggestion table.
+# Keep narrow: only buckets that have empirical engine-side support.
+# Reference: dialect_capabilities/__init__.py for engine list authority.
+_QUALIFY_DIALECTS = frozenset(
+    {"bigquery", "snowflake", "databricks", "duckdb", "clickhouse"}
+)
+_DISTINCT_ON_DIALECTS = frozenset({"postgres", "postgresql"})
+_SUBQUERY_ROW_NUMBER_DIALECTS = frozenset(
+    {"mysql", "mariadb", "sqlite", "mssql", "tsql", "oracle"}
+)
+
+
+def _dedup_suggestion_for_dialect(dialect: str, pk_hint: Optional[str] = None) -> str:
+    """Return a dialect-appropriate dedup suggestion.
+
+    AMEND-W2-T4-03 — implementation requested by adversarial Pass #2.
+    `pk_hint` is the column users should partition by; falls back to
+    `<pk>` placeholder when caller cannot determine one.
+    """
+    pk = pk_hint or "<pk>"
+    d = (dialect or "").lower()
+    d = _DIALECT_ALIASES.get(d, d)
+    if d in _QUALIFY_DIALECTS:
+        return (
+            f"QUALIFY ROW_NUMBER() OVER (PARTITION BY {pk}) = 1 "
+            "to enforce uniqueness inside the CTE"
+        )
+    if d in _DISTINCT_ON_DIALECTS:
+        return (
+            f"DISTINCT ON ({pk}) ... ORDER BY {pk} (Postgres >= 9.5) "
+            "to enforce uniqueness inside the CTE"
+        )
+    if d in _SUBQUERY_ROW_NUMBER_DIALECTS:
+        return (
+            f"a ROW_NUMBER() subquery wrapper: "
+            f"SELECT ... FROM (SELECT ..., ROW_NUMBER() OVER "
+            f"(PARTITION BY {pk}) AS rn FROM <cte>) WHERE rn = 1"
+        )
+    # Conservative default: surface the QUALIFY hint with caveat.
+    return (
+        f"QUALIFY ROW_NUMBER() OVER (PARTITION BY {pk}) = 1 "
+        "(or a ROW_NUMBER subquery wrapper if your engine lacks QUALIFY)"
+    )
+
 
 @_register("RULE_FANOUT_INFLATION")
 def _rule_fanout_inflation(ast, sql: str, ctx: dict, dialect: str):
+    """Ring-3 fan-out detector.
+
+    Branches:
+      1. legacy_count_star — COUNT(*) over JOIN.
+      2. distinct_cte_multi_col — INNER JOIN on DISTINCT CTE with >=2
+         columns AND the JOIN condition references >=2 of those cols.
+      3. using_multi_col — JOIN ... USING(col_a, col_b) where both
+         sides are DISTINCT CTEs covering those cols.
+      4. group_by_cte — same as (2) but the CTE uses GROUP BY rather
+         than DISTINCT for dedup; functionally equivalent.
+
+    Tenant invariant (AMEND-W2-T4-06):
+        # DO NOT consume ctx["coverage_cards"] without tenant_fortress
+        # composite key — see AMEND-W2-T4-06.
+    """
     import sqlglot.expressions as exp
+    try:
+        from config import settings as _settings
+    except Exception:
+        _settings = None
 
     joins = list(ast.find_all(exp.Join))
+
+    # Branch 1 — legacy COUNT(*) + JOIN.
+    if joins:
+        for count in ast.find_all(exp.Count):
+            inner = count.args.get("this")
+            is_star = isinstance(inner, exp.Star)
+            is_distinct = bool(count.args.get("distinct"))
+            if is_star and not is_distinct:
+                _emit_telemetry(
+                    event="fanout_inflation_fired",
+                    branch="legacy_count_star",
+                    dialect=dialect,
+                )
+                return Violation(
+                    rule_id=RuleId.FANOUT_INFLATION,
+                    message="COUNT(*) across JOIN may inflate due to one-to-many row fan-out; use COUNT(DISTINCT <pk>).",
+                    evidence={"join_count": len(joins)},
+                )
+
+    # W2 branches gated by config flag (AMEND-W2-T4-13 anonymous skip
+    # + AMEND-W2-T4-08 recursive skip + AMEND-W2-T4-09 star skip
+    # + AMEND-W2-T4-15 quoted-identifier case).
+    if not getattr(_settings, "W2_FANOUT_DISTINCT_CTE_ENFORCE", False):
+        return None
     if not joins:
         return None
 
-    for count in ast.find_all(exp.Count):
-        inner = count.args.get("this")
-        is_star = isinstance(inner, exp.Star)
-        is_distinct = bool(count.args.get("distinct"))
-        if is_star and not is_distinct:
+    # Build CTE column-set map. Each entry: alias → set of col names
+    # (lowercase). For Alias nodes we record alias_or_name (output name)
+    # plus the underlying column source (AMEND-W2-T4-01).
+    cte_cols_map: dict[str, set[str]] = {}
+    saw_alias_rename = False  # AMEND-W2-T4-01 telemetry hook
+
+    with_clause = ast.args.get("with") or ast.args.get("with_") or ast.find(exp.With)
+    if with_clause is not None:
+        for cte in with_clause.expressions:
+            cte_alias = (cte.alias_or_name or "").lower()
+            if not cte_alias:
+                # AMEND-W2-T4-13 — anonymous CTE.
+                continue
+            inner = cte.this
+            # AMEND-W2-T4-08 — recursive CTE = Union expression.
+            if isinstance(inner, exp.Union):
+                _emit_telemetry(
+                    event="fanout_inflation_skip_recursive_cte",
+                    cte_alias=cte_alias,
+                )
+                continue
+            if not isinstance(inner, exp.Select):
+                continue
+
+            is_distinct = bool(inner.args.get("distinct"))
+            group_keys: set[str] = set()
+            grp = inner.args.get("group")
+            if grp is not None:
+                for ge in grp.expressions:
+                    if isinstance(ge, exp.Column):
+                        group_keys.add((ge.name or "").lower())
+                    else:
+                        nm = getattr(ge, "name", "") or ""
+                        if nm:
+                            group_keys.add(nm.lower())
+
+            # Skip CTEs that are neither DISTINCT nor GROUP BY-deduped.
+            if not is_distinct and not group_keys:
+                continue
+
+            cols: set[str] = set()
+            for proj in inner.expressions:
+                if isinstance(proj, exp.Star):
+                    # AMEND-W2-T4-09 — star projection: telemetry + skip.
+                    _emit_telemetry(
+                        event="fanout_inflation_star_skipped",
+                        cte_alias=cte_alias,
+                    )
+                    cols = set()
+                    break
+                # Output name (post-alias).
+                out_name = (proj.alias_or_name or "").lower()
+                if out_name:
+                    cols.add(out_name)
+                    # AMEND-W2-T4-15 — also store raw case for quoted-id
+                    # databases (Postgres/Snowflake "Foo_Bar" survives).
+                    raw = proj.alias_or_name or ""
+                    if raw and raw != out_name:
+                        cols.add(raw)
+                # Underlying column when projection is an alias of a column.
+                if isinstance(proj, exp.Alias):
+                    src = proj.this
+                    if isinstance(src, exp.Column):
+                        src_name = (src.name or "").lower()
+                        if src_name and src_name != out_name:
+                            cols.add(src_name)
+                            saw_alias_rename = True
+
+            if not cols:
+                continue
+
+            # GROUP BY keys must be present in the projected columns
+            # for the dedup to actually hold; otherwise it isn't a
+            # functional uniqueness guarantee.
+            if group_keys and not group_keys.issubset(cols):
+                continue
+
+            cte_cols_map[cte_alias] = cols
+
+    if not cte_cols_map:
+        return None
+
+    # Branch 2/3/4 — scan each join and fire when threshold met.
+    for join in joins:
+        rhs = join.this
+        # Source table name (resolves to CTE name when joining a CTE).
+        rhs_table_name = (
+            (rhs.name or "").lower() if hasattr(rhs, "name") else ""
+        )
+        # Local alias used for column references (e.g. INNER JOIN churned c → "c").
+        rhs_local_alias = (
+            (rhs.alias_or_name or "").lower()
+            if hasattr(rhs, "alias_or_name")
+            else ""
+        )
+
+        # Branch 3 — JOIN ... USING(col_a, col_b)
+        # AMEND-W2-T4-04 — sqlglot leaves col.table=="" on USING cols;
+        # walk join.args["using"] directly.
+        using = join.args.get("using")
+        if using:
+            using_names = {
+                ((u.name if hasattr(u, "name") else str(u)) or "").lower()
+                for u in using
+            }
+            using_names.discard("")
+
+            # Find lhs of join via parent Select's FROM arg.
+            parent = join.parent
+            lhs_table_name = ""
+            if parent is not None and hasattr(parent, "args"):
+                from_ = (
+                    parent.args.get("from")
+                    or parent.args.get("from_")
+                )
+                if from_ is None and hasattr(parent, "find"):
+                    from_ = parent.find(exp.From)
+                if from_ is not None:
+                    src = from_.this if hasattr(from_, "this") else from_
+                    if hasattr(src, "name"):
+                        lhs_table_name = (src.name or "").lower()
+
+            both_dedup = (
+                lhs_table_name in cte_cols_map
+                and rhs_table_name in cte_cols_map
+            )
+            if both_dedup:
+                lhs_cols = cte_cols_map[lhs_table_name]
+                rhs_cols = cte_cols_map[rhs_table_name]
+                shared = using_names & lhs_cols & rhs_cols
+                if len(shared) >= 2:
+                    suggestion = _dedup_suggestion_for_dialect(
+                        dialect, pk_hint=sorted(shared)[0]
+                    )
+                    _emit_telemetry(
+                        event="fanout_inflation_fired",
+                        branch="using_multi_col",
+                        dialect=dialect,
+                    )
+                    return Violation(
+                        rule_id=RuleId.FANOUT_INFLATION,
+                        message=(
+                            f"JOIN ... USING({', '.join(sorted(shared))}) on two "
+                            f"DISTINCT CTEs `{lhs_table_name}` + `{rhs_table_name}` "
+                            f"may inflate if any USING column is non-unique. "
+                            f"Consider {suggestion}."
+                        ),
+                        evidence={
+                            "lhs_cte": lhs_table_name,
+                            "rhs_cte": rhs_table_name,
+                            "using": sorted(shared),
+                            "branch": "using_multi_col",
+                        },
+                    )
+
+        # Branch 2/4 — JOIN ... ON c.col = t.col AND c.col2 = t.col2
+        if rhs_table_name not in cte_cols_map:
+            continue
+        cte_cols = cte_cols_map[rhs_table_name]
+        if len(cte_cols) < 2:
+            continue
+        on = join.args.get("on")
+        if on is None:
+            continue
+        used_cte_cols: set[str] = set()
+        for col in on.find_all(exp.Column):
+            tbl = (col.table or "").lower()
+            name = (col.name or "").lower()
+            # Match against the JOIN's local alias (what column refs use).
+            if tbl == rhs_local_alias and name in cte_cols:
+                used_cte_cols.add(name)
+        if len(used_cte_cols) >= 2:
+            # Decide branch label: distinct vs group-by.
+            branch_label = "distinct_cte_multi_col"
+            cte_node = None
+            if with_clause is not None:
+                for cte in with_clause.expressions:
+                    if (cte.alias_or_name or "").lower() == rhs_table_name:
+                        cte_node = cte
+                        break
+            if cte_node is not None and isinstance(cte_node.this, exp.Select):
+                if not bool(cte_node.this.args.get("distinct")) and cte_node.this.args.get("group"):
+                    branch_label = "group_by_cte"
+
+            suggestion = _dedup_suggestion_for_dialect(
+                dialect, pk_hint=sorted(used_cte_cols)[0]
+            )
+            _emit_telemetry(
+                event="fanout_inflation_fired",
+                branch=branch_label,
+                dialect=dialect,
+                alias_rename_observed=saw_alias_rename,
+            )
             return Violation(
                 rule_id=RuleId.FANOUT_INFLATION,
-                message="COUNT(*) across JOIN may inflate due to one-to-many row fan-out; use COUNT(DISTINCT <pk>).",
-                evidence={"join_count": len(joins)},
+                message=(
+                    f"INNER JOIN on dedup CTE `{rhs_table_name}` uses "
+                    f"{len(used_cte_cols)} columns; if any column is "
+                    f"non-unique within the CTE, rows multiply. "
+                    f"Either join on the primary key only, or rewrite "
+                    f"the CTE with {suggestion}."
+                ),
+                evidence={
+                    "cte_alias": rhs_table_name,
+                    "cte_columns": sorted(cte_cols),
+                    "join_columns": sorted(used_cte_cols),
+                    "branch": branch_label,
+                    "alias_rename_observed": saw_alias_rename,
+                },
             )
     return None
 

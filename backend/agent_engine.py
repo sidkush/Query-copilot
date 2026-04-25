@@ -1241,16 +1241,26 @@ class AgentEngine:
         return echo_to_sse_payload(card)
 
     def _handle_scope_violations_with_replan(self, sql: str, nl: str):
-        """Phase D — consume ReplanBudget on Ring-3 violations; return hint dict or None."""
+        """Phase D — consume ReplanBudget on Ring-3 violations; return hint dict or None.
+
+        AMEND-W2-T4-02 — distinguish "no violation" (return None) from
+        "budget exhausted with violations present" (return sentinel
+        dict with `budget_exhausted=True, tier="unverified"`). Bare
+        None on the latter would let the caller silently execute the
+        bad SQL.
+        """
         try:
-            from scope_validator import ScopeValidator
+            from scope_validator import ScopeValidator, _emit_telemetry
             from replan_budget import ReplanBudget
             from replan_controller import ReplanController
         except Exception:
             return None
 
         if not hasattr(self, "_replan_budget"):
-            self._replan_budget = ReplanBudget(max_replans=1)
+            from config import settings as _cfg
+            self._replan_budget = ReplanBudget(
+                max_replans=getattr(_cfg, "SCOPE_VALIDATOR_REPLAN_BUDGET", 1)
+            )
         if not hasattr(self, "_replan_controller"):
             self._replan_controller = ReplanController(budget=self._replan_budget)
 
@@ -1268,8 +1278,32 @@ class AgentEngine:
         except Exception:
             return None
 
+        had_violations = bool(result and getattr(result, "violations", None))
         hint = self._replan_controller.on_violation(result=result, original_sql=sql)
         if hint is None:
+            if had_violations:
+                # Budget exhausted: caller MUST NOT execute the SQL.
+                first_rule = result.violations[0].rule_id.value
+                try:
+                    _emit_telemetry(
+                        event="fanout_inflation_budget_exhausted"
+                        if first_rule == "fanout_inflation"
+                        else "scope_violation_budget_exhausted",
+                        rule_id=first_rule,
+                        violation_count=len(result.violations),
+                    )
+                except Exception:
+                    pass
+                return {
+                    "budget_exhausted": True,
+                    "tier": "unverified",
+                    "reason": first_rule,
+                    "context": "\n".join(
+                        f"- [{v.rule_id.value}] {v.message}"
+                        for v in result.violations
+                    ),
+                    "original_sql": sql,
+                }
             return None
         return {"reason": hint.reason, "context": hint.context, "original_sql": hint.original_sql}
 
@@ -3130,6 +3164,23 @@ class AgentEngine:
             replan_hint = None
             if settings.FEATURE_AGENT_FEEDBACK_LOOP and scope_warnings_payload:
                 replan_hint = self._handle_scope_violations_with_replan(clean_sql, nl_q)
+                # AMEND-W2-T4-02 — budget-exhausted with violations
+                # present must NOT silently execute. Surface to agent
+                # as a tool error so it can replan or surface to user.
+                if isinstance(replan_hint, dict) and replan_hint.get("budget_exhausted"):
+                    return json.dumps({
+                        "error": (
+                            "Scope-validator replan budget exhausted with "
+                            "outstanding violations; refusing to execute "
+                            "potentially incorrect SQL. Reason: "
+                            f"{replan_hint.get('reason')}"
+                        ),
+                        "tier": "unverified",
+                        "violations_context": replan_hint.get("context", ""),
+                        "columns": [],
+                        "rows": [],
+                        "row_count": 0,
+                    })
 
             # ── Turbo Mode: try DuckDB twin first, fall back to live DB ──
             turbo_used = False

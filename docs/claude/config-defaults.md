@@ -260,6 +260,9 @@ point here instead of duplicating values. Confirm against
 | `W1_ANALYTICAL_CAP` | `20` | Hard tool-call cap for analytical workload; no auto-extend when flag on. |
 | `W1_DASHBOARD_CAP` | `40` | Hard tool-call cap for dashboard workload; no auto-extend when flag on. |
 | `W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD` | `3` | N consecutive `run_sql` errors → fire `agent_checkpoint` consent card (GAP A). |
+| `W2_SCHEMA_MISMATCH_GATE_ENFORCE` | `True` | W2 T1 — Ring 4 Gate C schema-entity-mismatch consent card; off → pre-W2 behaviour. |
+| `W2_GATE_C_PARK_TIMEOUT_S` | `300.0` | W2 T1 — Gate C park wait budget; default-on-timeout is `abort`. |
+| `W2_FANOUT_DISTINCT_CTE_ENFORCE` | `True` | W2 T4 — extend Rule 2 to detect DISTINCT-CTE multi-column-join blow-up. |
 
 ### Audit Ledger + Progressive UX + Plan Cache (Phase L)
 

@@ -66,4 +66,9 @@ def test_replan_hint_returned_on_scope_violation():
         sql="SELECT * FROM january_trips WHERE started_at < '1900-01-01'",
         nl="old trips",
     )
-    assert hint2 is None
+    # AMEND-W2-T4-02 — budget exhausted with violations present must
+    # return a sentinel dict (not bare None) so the caller can refuse
+    # to execute the bad SQL.
+    assert isinstance(hint2, dict)
+    assert hint2.get("budget_exhausted") is True
+    assert hint2.get("tier") == "unverified"
