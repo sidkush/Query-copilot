@@ -58,6 +58,15 @@ _ADJECTIVAL_FOLLOWERS: frozenset[str] = frozenset({
     "class", "classes", "tier", "tiers", "group", "groups", "kind", "kinds",
 })
 
+# All surface forms across every canonical.  When an entity synonym is
+# immediately followed by ANOTHER entity surface form it is being used as an
+# adjectival modifier ("individual rider", "person user"), not as the entity
+# itself.  The following noun wins.  Computed here so it stays in sync with
+# CANONICAL_ENTITIES automatically.
+_ENTITY_SURFACE_FORMS: frozenset[str] = frozenset(
+    sf for forms in CANONICAL_ENTITIES.values() for sf in forms
+)
+
 
 ViewResolver = Callable[[str], Optional[list[str]]]
 
@@ -134,11 +143,17 @@ def _detect_entity(
         m = pattern.search(nl_norm)
         if not m:
             continue
-        # Adjectival follow-word check: if next word ∈ _ADJECTIVAL_FOLLOWERS,
-        # the entity term is being used as a modifier — skip.
+        # Adjectival follow-word check: if next word ∈ _ADJECTIVAL_FOLLOWERS
+        # OR ∈ _ENTITY_SURFACE_FORMS, the current token is being used as a
+        # modifier ("user type breakdown", "individual rider") — the following
+        # noun is the actual entity.  Skip this match and let the next
+        # candidate win ("individual rider" → skip "individual", match "rider").
         tail = nl_norm[m.end():].lstrip()
         next_word = re.match(r"[a-z]+", tail)
-        if next_word and next_word.group(0) in _ADJECTIVAL_FOLLOWERS:
+        if next_word and (
+            next_word.group(0) in _ADJECTIVAL_FOLLOWERS
+            or next_word.group(0) in _ENTITY_SURFACE_FORMS
+        ):
             continue
         return surface, canonical
     return None

@@ -568,13 +568,12 @@ class SessionMemory:
         self._lock: threading.Lock = threading.Lock()  # Guards _running, _user_response, _waiting_for_user
         self._user_response_event: threading.Event = threading.Event()  # Replaces sleep-polling for ask_user
         self.parks: ParkRegistry = ParkRegistry()  # Day 1: shadow mode; Day 2+ authoritative
-        # W3-P1 — Gate C consent state lives on session memory so it
-        # survives across agent runs in the same chat. Initialised here
-        # (not lazy) so reload code can restore deterministically and
-        # tests can assert the default.
-        self._schema_mismatch_decided: set[str] = set()
-        self._schema_mismatch_proxy: Optional[str] = None
-        self._schema_mismatch_proxy_note: Optional[str] = None
+        # W3-P1 gap-based consent: {canonical: {missing_suffix: proxy_column}}.
+        # Keyed by canonical + suffix so consent is scoped — "rider" consent
+        # never suppresses "person" Gate C. Initialised here (not lazy) so
+        # reload code can restore deterministically and tests can assert default.
+        self._schema_mismatch_consents: dict[str, dict[str, str]] = {}
+        self._consent_dirty: bool = False  # set True on mutation; cleared after persist
 
     def add_turn(self, role: str, content: str):
         with self._lock:
@@ -1150,7 +1149,7 @@ class AgentEngine:
             from schema_entity_mismatch import EntityDetector
         except Exception:
             return None
-        decided = getattr(self.memory, "_schema_mismatch_decided", set())
+        consents = getattr(self.memory, "_schema_mismatch_consents", {})
         cols = self._flatten_schema_columns()
         try:
             mismatch = EntityDetector().detect(question, cols)
@@ -1158,7 +1157,9 @@ class AgentEngine:
             return None
         if mismatch is None:
             return None
-        if mismatch.canonical in decided:
+        # Gap-based suppression: canonical-scoped so "rider" consent never
+        # silences "person" Gate C (P0 fix — no canonical scope collapse).
+        if consents.get(mismatch.canonical, {}).get("_id") is not None:
             return None
         return mismatch
 
@@ -1220,6 +1221,39 @@ class AgentEngine:
             cols = ", ".join(proxy_columns)
             lines.append(f"Use these proxy columns in the SQL: {cols}.")
         return "\n".join(lines)
+
+    def _derive_proxy_note_from_consents(self, consents: dict) -> "str | None":
+        """W3-P1 — rebuild framing note from stored gap-based consents.
+
+        Called at every run() start so the note is always fresh (never stale
+        from a previous query). Returns None when no consents are stored.
+
+        Schema-validation guard (P0): only injects the proxy if the stored
+        proxy column actually exists in the current connection's schema.
+        This prevents a stale proxy from a previous connection leaking into
+        a different DB's system prompt (cross-connection consent bleed).
+        """
+        if not consents:
+            return None
+        try:
+            current_cols = set(self._flatten_schema_columns())
+        except AttributeError:
+            # connection_entry absent (e.g. unit-test stub) — skip schema guard
+            current_cols = set()
+        for canonical, gaps in consents.items():
+            for suffix, proxy_col in gaps.items():
+                # Skip if the schema is known (non-empty) and the proxy column
+                # is no longer present — connection may have switched.
+                if current_cols and proxy_col not in current_cols:
+                    continue
+                return self._build_proxy_framing_note(
+                    choice="station_proxy",
+                    kind="schema_entity_mismatch",
+                    canonical=canonical,
+                    proxy_suggestion=proxy_col,
+                    proxy_columns=[proxy_col],
+                )
+        return None
 
     _EMPTY_BOUNDSET_BANNER = "\u26a0 No query results \u2014 this response is unverified."
 
@@ -2617,32 +2651,27 @@ class AgentEngine:
                 )
                 self._result.steps = self._steps
                 return
-            # AMEND-W2-08: persist consent ONLY on station_proxy — user
-            # accepted the proxy, so subsequent same-canonical questions in
-            # this chat reuse the choice without re-prompting.
-            _decided = getattr(self.memory, "_schema_mismatch_decided", None)
-            if _decided is None:
-                _decided = set()
-                self.memory._schema_mismatch_decided = _decided
-            _decided.add(_gate_c_mismatch.canonical)
-            # station_proxy: stash proxy phrase so the system prompt can hint it
-            _gc_proxy = _gc_step.tool_input.get("proxy_suggestion")
-            self.memory._schema_mismatch_proxy = _gc_proxy
-            # W3-P1 — build framing note so the next LLM call replans against
-            # proxy columns instead of re-running rider-level SQL. Stored on
-            # memory so the system_prompt build site (and any subsequent
-            # iteration) can read it without re-deriving from the park slot.
-            _gc_proxy_cols = _gc_step.tool_input.get("proxy_columns") or None
-            self.memory._schema_mismatch_proxy_note = self._build_proxy_framing_note(
-                choice=_gc_choice,
-                kind=_gc_step.tool_input.get("kind", ""),
-                canonical=_gate_c_mismatch.canonical,
-                proxy_suggestion=_gc_proxy,
-                proxy_columns=_gc_proxy_cols,
+            # W3-P1 gap-based consent: {canonical: {"_id": proxy_col}}.
+            # Validate proxy columns against live schema first (P0 — prevents
+            # prompt injection via schema column names).
+            _schema_col_set = set(self._flatten_schema_columns())
+            _raw_proxy_cols = _gc_step.tool_input.get("proxy_columns") or []
+            _safe_proxy_cols = [c for c in _raw_proxy_cols if c in _schema_col_set]
+            _gc_proxy_col = (
+                _safe_proxy_cols[0] if _safe_proxy_cols
+                else (_gc_step.tool_input.get("proxy_suggestion") or "")[:64]
             )
+            # Atomic store — build full nested dict entry, assign in one statement
+            # so a mid-stream persist never sees a partially-written consent.
+            _canon = _gate_c_mismatch.canonical
+            _existing = dict(getattr(self.memory, "_schema_mismatch_consents", {}))
+            _existing[_canon] = dict(_existing.get(_canon, {}))
+            _existing[_canon]["_id"] = _gc_proxy_col
+            self.memory._schema_mismatch_consents = _existing
+            self.memory._consent_dirty = True
             _logger.info(
-                "Gate C resolved: canonical=%s choice=%s proxy=%r",
-                _gate_c_mismatch.canonical, _gc_choice, _gc_proxy,
+                "Gate C resolved: canonical=%s choice=%s proxy_col=%r",
+                _canon, _gc_choice, _gc_proxy_col,
             )
 
         # ── Dynamic tool budget (Task 4) ──────────────────────────
@@ -2677,8 +2706,11 @@ class AgentEngine:
 
         # Plan 4 T1: composition extracted to _build_legacy_system_prompt.
         system_prompt = self._build_legacy_system_prompt(question, prefetch_context)
-        # W3-P1 — Gate C station_proxy framing note (built post-park-resolution).
-        _gc_note = getattr(self.memory, "_schema_mismatch_proxy_note", None)
+        # W3-P1 — derive framing note fresh from gap-based consents each run()
+        # so the note is never stale across sessions or schema changes (P0 fix).
+        _gc_note = self._derive_proxy_note_from_consents(
+            getattr(self.memory, "_schema_mismatch_consents", {})
+        )
         if _gc_note:
             system_prompt = f"{system_prompt}\n\n{_gc_note}"
 

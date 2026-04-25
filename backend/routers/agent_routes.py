@@ -212,21 +212,23 @@ _MAX_SESSIONS = 100
 
 
 def _merge_consent_into_progress(progress: dict, memory: SessionMemory) -> None:
-    """W3-P1 — stash Gate C consent state into the progress dict so it
-    survives session_store save / load. Sorted list for stable equality."""
-    decided = getattr(memory, "_schema_mismatch_decided", None) or set()
-    progress["_schema_mismatch_decided"] = sorted(decided)
-    progress["_schema_mismatch_proxy"] = getattr(memory, "_schema_mismatch_proxy", None)
-    progress["_schema_mismatch_proxy_note"] = getattr(memory, "_schema_mismatch_proxy_note", None)
+    """W3-P1 gap-based consent — stash {canonical: {suffix: proxy_col}} dict
+    into the progress blob so it survives session_store save / load."""
+    consents = getattr(memory, "_schema_mismatch_consents", {})
+    progress["_schema_mismatch_consents"] = consents
 
 
 def _restore_consent_from_progress(memory: SessionMemory, progress: dict) -> None:
-    """Inverse of `_merge_consent_into_progress`. Tolerates missing keys
-    (sessions saved before W3-P1 don't carry these)."""
-    decided = progress.get("_schema_mismatch_decided") or []
-    memory._schema_mismatch_decided = set(decided)
-    memory._schema_mismatch_proxy = progress.get("_schema_mismatch_proxy")
-    memory._schema_mismatch_proxy_note = progress.get("_schema_mismatch_proxy_note")
+    """Inverse of `_merge_consent_into_progress`. Tolerates missing keys and
+    migrates old-format sessions (pre-W3-P1 stored `_schema_mismatch_decided`
+    as a list of canonical strings with no proxy info)."""
+    raw = progress.get("_schema_mismatch_consents")
+    if isinstance(raw, dict):
+        memory._schema_mismatch_consents = raw
+    else:
+        # Old format or missing key — start fresh (no proxy info to recover).
+        memory._schema_mismatch_consents = {}
+    memory._consent_dirty = False
 
 
 def _get_or_create_session(chat_id: str, owner_email: str) -> SessionMemory:
@@ -505,10 +507,12 @@ async def agent_run(req: AgentRunRequest, request: Request,
                         _logger.debug("provenance chip emit skipped: %s", _exc)
                 yield f"data: {json.dumps(step_data, default=str)}\n\n"
                 # W3-P1 — persist immediately when Gate C resolves so the
-                # next run's _get_or_create_session sees _decided in SQLite
+                # next run's _get_or_create_session sees consents in SQLite
                 # even if the session object is reloaded between queries.
-                if engine.memory._schema_mismatch_decided:
+                # Dirty flag prevents amplified WAL writes on every step (P1 fix).
+                if getattr(engine.memory, "_consent_dirty", False):
                     _persist_session()
+                    engine.memory._consent_dirty = False
 
         except asyncio.CancelledError:
             _logger.debug("Agent SSE cancelled for %s", chat_id)

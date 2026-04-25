@@ -35,7 +35,7 @@ def _make_engine(columns: list[str] | None) -> AgentEngine:
         eng.connection_entry = SimpleNamespace(
             schema_profile=SimpleNamespace(tables=[tbl])
         )
-    eng.memory = SimpleNamespace(_schema_mismatch_decided=None)
+    eng.memory = SimpleNamespace(_schema_mismatch_consents={})
     return eng
 
 
@@ -83,9 +83,10 @@ def test_should_not_fire_when_flag_off():
 
 
 def test_should_not_fire_when_consent_already_decided():
-    """AMEND-W2-08 — once user resolved gate for canonical entity, suppress."""
+    """AMEND-W2-08 / W3-P1 — once user resolved gate for canonical entity, suppress.
+    Gap-based: consent keyed {canonical: {"_id": proxy_col}}."""
     eng = _make_engine(["ride_id", "started_at"])
-    eng.memory._schema_mismatch_decided = {"rider"}
+    eng.memory._schema_mismatch_consents = {"rider": {"_id": "ride_id"}}
     with patch("agent_engine.settings") as s:
         s.W2_SCHEMA_MISMATCH_GATE_ENFORCE = True
         result = eng._should_fire_schema_mismatch_checkpoint(
