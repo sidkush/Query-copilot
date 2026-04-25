@@ -308,6 +308,22 @@ class AnthropicProvider(ModelProvider):
             }
             if system:
                 stream_kwargs["system"] = system
+            # AMEND-W2-25/27 — extended thinking pass-through with budget clamp.
+            thinking_kwarg = kwargs.get("thinking")
+            if thinking_kwarg and isinstance(thinking_kwarg, dict):
+                budget = int(thinking_kwarg.get("budget_tokens") or 0)
+                # AMEND-W2-27 — budget_tokens must be < max_tokens. Clamp to
+                # max_tokens-256; if that drops below the API floor of 1024,
+                # drop the thinking kwarg entirely.
+                if budget >= max_tokens:
+                    budget = max_tokens - 256
+                if budget < 1024:
+                    thinking_kwarg = None
+                else:
+                    thinking_kwarg = dict(thinking_kwarg)
+                    thinking_kwarg["budget_tokens"] = budget
+            if thinking_kwarg:
+                stream_kwargs["thinking"] = thinking_kwarg
             with self._client.messages.stream(**stream_kwargs) as stream:
                 current_tool_id: Optional[str] = None
                 current_block_index = 0
@@ -334,6 +350,15 @@ class AnthropicProvider(ModelProvider):
                                     "type": "tool_use_start",
                                     "id": current_tool_id,
                                     "name": getattr(cb, "name", ""),
+                                    "block_index": current_block_index,
+                                }
+                            elif cb_type == "redacted_thinking":
+                                # AMEND-W2-25 — surface redacted blocks so caller
+                                # can echo them verbatim on the next turn (API
+                                # contract — replay must be byte-identical).
+                                yield {
+                                    "type": "redacted",
+                                    "data": getattr(cb, "data", "") or "",
                                     "block_index": current_block_index,
                                 }
                         elif et == "content_block_delta":

@@ -11,6 +11,7 @@ import AgentQuestion from './AgentQuestion';
 import ToolErrorCascadeCard from './ToolErrorCascadeCard';
 import SchemaMismatchCard from './SchemaMismatchCard';
 import SynthesisStreamingStep from './SynthesisStreamingStep';
+import ThinkingStreamStep from './ThinkingStreamStep';
 import ReactMarkdown from 'react-markdown';
 import { MD_COMPONENTS, REMARK_PLUGINS, FONT_BODY, FONT_DISPLAY, FONT_MONO } from '../../lib/agentMarkdown';
 
@@ -761,6 +762,17 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
           continue;
         }
       }
+      // W2 T3 — same coalesce rule for thinking_delta so a multi-event
+      // reasoning block renders as one collapsible section, not N rows.
+      if (s.type === 'thinking_delta') {
+        const last = out[out.length - 1];
+        if (last && last.type === 'thinking_delta' &&
+            (last.turn_id ?? null) === (s.turn_id ?? null) &&
+            (last.block_index ?? null) === (s.block_index ?? null)) {
+          out[out.length - 1] = { ...last, content: (last.content || '') + (s.content || '') };
+          continue;
+        }
+      }
       out.push(s);
     }
     return out;
@@ -821,6 +833,20 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
               )}
               {step.type === 'message_delta' && (
                 <SynthesisStreamingStep step={step} isStreaming={isLast && loading} />
+              )}
+              {step.type === 'thinking_delta' && (
+                <ThinkingStreamStep step={step} isStreaming={isLast && loading} />
+              )}
+              {step.type === 'redacted' && (
+                <div style={{
+                  padding: '4px 12px',
+                  fontSize: 11,
+                  fontStyle: 'italic',
+                  color: TOKENS.text.muted,
+                  opacity: 0.6,
+                }}>
+                  ▶ Thinking (encrypted)
+                </div>
               )}
               {step.type === 'stream_error' && <ErrorStep step={step} />}
               {step.type === 'tool_call' && <ToolCallCard step={step} compact={compact} />}

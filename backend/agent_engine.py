@@ -679,6 +679,49 @@ def _streaming_enabled(*, tool_calls: int) -> bool:
     return True
 
 
+# ── W2 T3 — extended-thinking budget helper (AMEND-W2-22, 26, 27) ────────
+
+def _compute_thinking_kwarg(*, used: int, model: str, max_tokens: int) -> Optional[dict]:
+    """Build the `thinking` kwarg for `complete_with_tools_stream`.
+
+    Returns a dict like ``{"type": "enabled", "budget_tokens": N}`` when all
+    gates pass, else ``None``. Folded amendments:
+
+      • AMEND-W2-17 — off entirely when FEATURE_CLAIM_PROVENANCE=True (T3
+        inherits T2's deterministic-output guard for downstream claim
+        binders).
+      • Config gate — W2_THINKING_STREAM_ENFORCE master switch.
+      • AMEND-W2-22 — capability allowlist (Sonnet/Opus only). Haiku silently
+        returns None even with full budget remaining.
+      • AMEND-W2-26 — cumulative budget; per-call budget is
+        min(W2_THINKING_BUDGET_TOKENS, W2_THINKING_TOTAL_BUDGET - used).
+        Returns None when remaining budget < 1024 (Anthropic API floor).
+      • AMEND-W2-27 — provider does the final clamp against max_tokens; this
+        helper trims to max_tokens-256 here as a defensive belt to avoid
+        round-tripping a known-bad value.
+    """
+    if not getattr(settings, "W2_THINKING_STREAM_ENFORCE", False):
+        return None
+    if getattr(settings, "FEATURE_CLAIM_PROVENANCE", False):
+        return None
+    # Capability allowlist via provider's static THINKING_CAPABLE set.
+    try:
+        from anthropic_provider import THINKING_CAPABLE  # type: ignore
+    except Exception:
+        return None
+    if (model or "") not in THINKING_CAPABLE:
+        return None
+    total = int(getattr(settings, "W2_THINKING_TOTAL_BUDGET", 8000))
+    per_call = int(getattr(settings, "W2_THINKING_BUDGET_TOKENS", 2000))
+    remaining = max(0, total - int(used or 0))
+    budget = min(per_call, remaining)
+    if max_tokens and budget >= max_tokens:
+        budget = max_tokens - 256
+    if budget < 1024:
+        return None
+    return {"type": "enabled", "budget_tokens": budget}
+
+
 # ── Agent Engine ─────────────────────────────────────────────────
 
 class AgentEngine:
@@ -798,6 +841,10 @@ class AgentEngine:
         self._tool_calls = 0
         self._consecutive_tool_errors: int = 0
         self._sql_retries = 0
+        # AMEND-W2-26 — cumulative extended-thinking-token budget tracker.
+        # Decremented per stream turn from final-message usage; helper
+        # `_compute_thinking_kwarg(used=…)` returns None once exhausted.
+        self._thinking_tokens_used: int = 0
         self._max_tool_calls = self.MAX_TOOL_CALLS
         self._waiting_for_user = False
         self._pending_question: Optional[str] = None
@@ -2680,6 +2727,13 @@ class AgentEngine:
                         self._steps.append(synth_step)
                         yield synth_step
 
+                        # AMEND-W2-22/26/27 — request extended thinking when
+                        # capability + cumulative budget allow.
+                        thinking_kwarg = _compute_thinking_kwarg(
+                            used=self._thinking_tokens_used,
+                            model=model,
+                            max_tokens=settings.MAX_TOKENS,
+                        )
                         try:
                             for ev in self.provider.complete_with_tools_stream(
                                 model=model,
@@ -2688,6 +2742,7 @@ class AgentEngine:
                                 tools=active_tools,
                                 max_tokens=settings.MAX_TOKENS,
                                 turn_id=getattr(self, "_session_id", None),
+                                thinking=thinking_kwarg,
                             ):
                                 et = ev.get("type")
                                 if et == "text_delta":
@@ -2698,9 +2753,32 @@ class AgentEngine:
                                     )
                                     yield delta_step
                                 elif et == "thinking_delta":
+                                    _t_text = ev.get("text", "") or ""
+                                    # AMEND-W2-26 — rough char→token estimate
+                                    # (≈4 chars/token) feeds the cumulative
+                                    # tracker so subsequent iterations request
+                                    # less budget.
+                                    self._thinking_tokens_used += max(
+                                        1, len(_t_text) // 4
+                                    )
                                     yield AgentStep(
                                         type="thinking_delta",
-                                        content=ev.get("text", ""),
+                                        content=_t_text,
+                                    )
+                                elif et == "redacted":
+                                    # AMEND-W2-25 — surface as a step so the
+                                    # caller (frontend + replay) can echo the
+                                    # encrypted block verbatim on the next
+                                    # turn. Anthropic API contract: redacted
+                                    # blocks must replay byte-identical.
+                                    yield AgentStep(
+                                        type="redacted",
+                                        content=ev.get("data", "") or "",
+                                    )
+                                elif et == "signature_delta":
+                                    yield AgentStep(
+                                        type="signature_delta",
+                                        content=ev.get("signature", "") or "",
                                     )
                                 elif et == "stream_error":
                                     stream_failed = True

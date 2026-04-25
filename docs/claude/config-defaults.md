@@ -266,6 +266,8 @@ point here instead of duplicating values. Confirm against
 | `W2_SYNTHESIS_STREAMING_ENFORCE` | `True` | W2 T2 — stream final-synthesis tokens via `message_delta` SSE. Off → single result event after full synthesis (blank-screen UX). |
 | `W2_MAX_STREAM_BYTES` | `2_000_000` | W2 T2 — per-stream byte cap; overflow yields `stream_error` and aborts the stream (AMEND-W2-14). |
 | `W2_THINKING_TOTAL_BUDGET` | `8_000` | W2 T2/T3 — cumulative extended-thinking-token budget across all tool-loop iterations of one query (AMEND-W2-26). |
+| `W2_THINKING_STREAM_ENFORCE` | `True` | W2 T3 — request Anthropic extended thinking and stream `thinking_delta` blocks as SSE. Off → no thinking blocks requested. |
+| `W2_THINKING_BUDGET_TOKENS` | `2_000` | W2 T3 — per-call thinking budget (Anthropic API minimum 1024). Clamped per AMEND-W2-27 when `max_tokens` is small. SDK floor: `anthropic>=0.49,<0.60`. |
 
 ### Audit Ledger + Progressive UX + Plan Cache (Phase L)
 

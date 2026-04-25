@@ -64,6 +64,8 @@ KNOWN_SSE_EVENT_TYPES.update({
     "synthesizing",       # W2 T2 — phase step at synthesis start
     "stream_error",       # W2 T2 — AMEND-W2-14 byte-cap abort
     "message_stop",       # W2 T2 — AMEND-W2-19 per-block stop signal
+    "redacted",           # W2 T3 — AMEND-W2-25 redacted_thinking blocks
+    "signature_delta",    # W2 T3 — AMEND-W2-25 thinking-block signatures
 })
 
 # ---------------------------------------------------------------------------

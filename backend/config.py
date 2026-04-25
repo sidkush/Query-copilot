@@ -364,6 +364,23 @@ class Settings(BaseSettings):
             "max(1024, total - used); thinking dropped when exhausted."
         ),
     )
+    # ── Phase K Week-2 Day 3 Task 3 — Thinking SSE pass-through ──
+    W2_THINKING_STREAM_ENFORCE: bool = Field(
+        default=True,
+        description=(
+            "W2 Task 3 — request Anthropic extended thinking and stream "
+            "thinking_delta blocks as SSE so the agent's reasoning is visible. "
+            "Off → no thinking blocks requested or streamed."
+        ),
+    )
+    W2_THINKING_BUDGET_TOKENS: int = Field(
+        default=2_000,
+        description=(
+            "Per-call thinking budget. Floor 1024 (Anthropic API minimum); "
+            "actual budget per turn is min(this, W2_THINKING_TOTAL_BUDGET - used) "
+            "and is further clamped per AMEND-W2-27 if max_tokens is small."
+        ),
+    )
     # ── Audit Ledger + Progressive UX + Plan Cache (Phase L) ──
     FEATURE_AUDIT_LEDGER: bool = Field(default=False)
     FEATURE_CLAIM_PROVENANCE: bool = Field(default=False)
