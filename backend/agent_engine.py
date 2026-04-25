@@ -1150,7 +1150,7 @@ class AgentEngine:
             from schema_entity_mismatch import EntityDetector
         except Exception:
             return None
-        decided = getattr(self.memory, "_schema_mismatch_decided", None) or set()
+        decided = getattr(self.memory, "_schema_mismatch_decided", set())
         cols = self._flatten_schema_columns()
         try:
             mismatch = EntityDetector().detect(question, cols)
