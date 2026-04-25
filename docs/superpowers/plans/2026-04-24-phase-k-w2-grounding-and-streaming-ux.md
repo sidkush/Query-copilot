@@ -10,6 +10,12 @@
 
 **Tech Stack:** FastAPI + SSE, asyncio + threading.Lock (never held across await), Anthropic SDK `messages.stream()` with thinking + tools, sqlglot AST, React + Zustand, pytest-anyio + pytest-xdist + hypothesis (race harness).
 
+## Status: COMPLETE — 2026-04-25
+
+All four W2 tasks shipped on branch `phase-m-alt` (commits `cfa182c`→`00d9857`).
+T1 Gate C, T2 synthesis streaming, T3 thinking SSE, T4 DISTINCT-CTE fan-out.
+Regression baseline: 2163 passed, 1 skipped. Day 4 flag flip + Day 5 cleanup deferred — see trigger at `docs/superpowers/plans/triggers/phase-k-w2-day4-cleanup.md`.
+
 ---
 
 ## 5-Day Cadence (Council-Locked)
@@ -1319,6 +1325,54 @@ git add backend/scope_validator.py backend/config.py backend/.env.example \
         docs/claude/config-defaults.md
 git commit -m "feat(phase-k-w2): extend RULE_FANOUT_INFLATION with DISTINCT-CTE branch"
 ```
+
+### Adversarial T4 Amendments — fold before implementation
+
+Run date: 2026-04-24. Source: `docs/ultraflow/specs/UFSD-2026-04-24-phase-k-w2-adversarial.md` §"UFSD adversarial-testing — T4 Pass". 20 operatives, 7/7 clusters, FRAGILE verdict, 6 P0 + 5 P1 + 4 P2. Fold every amendment into Step 4 code OR Step 2 tests OR a new Step 4b (dialect emit table) BEFORE first commit. No SYSTEMIC BROKEN; T4 proceeds in-place.
+
+#### P0 — must fix in code before commit
+
+- **AMEND-W2-T4-01 (V1 alias-rename FN)** — Outer subquery alias rewrites bypass `col.table == rhs_alias` match. Add a CTE-projection alias map: when scanning `inner_select.expressions`, also record `Alias(this=Column(name=...))` so outer references via either the projected name OR the underlying source column trigger membership. Document remaining FN on `JOIN (SELECT ... FROM cte) c2` re-aliasing as known-limitation; emit `fanout_inflation_unverified_warning` instead of silent miss. Add test `test_distinct_cte_alias_rename_in_outer_subquery_warns_or_fires`.
+- **AMEND-W2-T4-02 (V4 replan loop)** — Pin `agent_engine._handle_scope_violations_with_replan` semantics: `ReplanController.on_violation` returning None means EITHER "no violation" OR "budget exhausted". Caller MUST distinguish via `result.violations` non-empty AND `hint is None`. On budget exhaustion + violation present, surface `provenance_chip` with `tier="unverified"` + log `_emit_telemetry(event="fanout_inflation_budget_exhausted")`. Bad SQL must NOT execute on the silent-None path. Add integration test `test_fanout_replan_budget_exhausted_does_not_execute`.
+- **AMEND-W2-T4-03 (V5 QUALIFY-to-MySQL)** — Already flagged Pass #1 as AMEND-W2-28; T4 sketch did NOT fold. Add a dialect-branched suggestion table:
+  ```
+  bigquery, snowflake, databricks, duckdb, clickhouse  -> "QUALIFY ROW_NUMBER() OVER (PARTITION BY <pk>) = 1"
+  postgres                                              -> "DISTINCT ON (<pk>) ... ORDER BY <pk>" (>=9.5)
+  mysql, mariadb, sqlite, mssql, oracle                 -> "ROW_NUMBER() OVER (PARTITION BY <pk>) subquery wrapper: SELECT ... FROM (SELECT ..., ROW_NUMBER() OVER (PARTITION BY <pk>) rn FROM <cte>) WHERE rn = 1"
+  ```
+  Implement in new helper `_dedup_suggestion_for_dialect(dialect: str, pk_hint: str | None) -> str`. Inject into Violation.message via f-string. Add 5 tests: one per dialect bucket. Reference `dialect_capabilities/__init__.py` for engine list authority.
+- **AMEND-W2-T4-04 (V7 USING ambiguity)** — sqlglot leaves `col.table == ""` on USING columns. Walker filter rejects them. Fix: when JOIN has `using` arg (`join.args.get("using")`), iterate USING column names directly; for each USING col `name`, check membership in BOTH lhs and rhs CTE column sets if both are DISTINCT CTEs. Fire if 2+ USING cols match. Add test `test_join_using_two_distinct_ctes_flagged`.
+- **AMEND-W2-T4-05 (V3 GROUP BY untracked)** — Plan §58 D3-E claims coverage; Step-4 sketch does not implement. Extend CTE inspection: in addition to `inner_select.args.get("distinct")`, ALSO trigger when CTE has `inner_select.args.get("group")` AND the GROUP BY column set is a subset of the JOIN-condition column set on the CTE side. Pure DISTINCT-on-projection and GROUP BY are equivalent dedup mechanisms here. Add test `test_group_by_cte_outer_join_fans_out`.
+- **AMEND-W2-T4-06 (V8 tenant cross-leak defensive)** — Current sketch does NOT consume `ctx["coverage_cards"]` in Rule 2 — not exploitable today. Lock invariant: add inline comment `# DO NOT consume ctx["coverage_cards"] without tenant_fortress composite key — see AMEND-W2-T4-06`. Add test `test_rule_fanout_inflation_does_not_read_coverage_cards` that injects a sentinel coverage card and asserts unchanged behavior.
+
+#### P1 — fix inline; ≤10 min each
+
+- **AMEND-W2-T4-07** — Document fail-open invariant in T4 commit message: per-rule iteration over `with_clause.expressions` MUST stay inside `validate()`'s outer try/except + per-rule try/except. Reviewer must reject any T4 refactor that relocates AST iteration outside protected scope. No code change; commit-message + comment.
+- **AMEND-W2-T4-08** — Recursive CTE: `cte.this` may be `exp.Union`. Add explicit `if isinstance(cte.this, exp.Union): _emit_telemetry(event="fanout_inflation_skip_recursive_cte"); continue`. Document scope: recursive CTEs intentionally out-of-scope.
+- **AMEND-W2-T4-09** — `SELECT DISTINCT t.*` star projection: `inner_select.expressions = [exp.Star()]`, `.alias_or_name == ""`. When detected, emit `_emit_telemetry(event="fanout_inflation_star_skipped", cte_alias=...)` and continue (do not silently drop). Document as known limitation.
+- **AMEND-W2-T4-10** — Add Step-2 test `test_distinct_only_no_group_by_two_col_join_flagged` to prove DISTINCT-only path works (existing test redundantly uses GROUP BY too).
+- **AMEND-W2-T4-11** — Add Step-2 wrapper test `test_fanout_rule_through_validate_fail_open_on_raise` that monkey-patches the rule to raise and asserts `ValidatorResult.parse_failed` semantics + telemetry emission. Confirms prod-path fail-open.
+
+#### P2 — document or defer
+
+- **AMEND-W2-T4-12** — Audit `replan_controller.py` callsites; confirm explicit `ReplanBudget(max_replans=settings.SCOPE_VALIDATOR_REPLAN_BUDGET)`. Trivial grep — fold into Step 6.
+- **AMEND-W2-T4-13** — Skip CTE if `cte.alias_or_name == ""` to prevent anonymous-CTE alias collision in `distinct_cte_cols` dict.
+- **AMEND-W2-T4-14** — Add `_emit_telemetry(event="fanout_inflation_fired", dialect=..., branch="legacy_count_star|distinct_cte_multi_col|using_multi_col|group_by_cte")` on each fire path for residual-risk dashboard.
+- **AMEND-W2-T4-15** — Quoted-identifier case: try `name.lower()` AND `name` raw both for Postgres/Snowflake `"Station_ID"` style. Belt-and-braces.
+
+#### Fold checklist (gate before T4 commit)
+
+- [ ] Step 1 unchanged
+- [ ] Step 2 tests extended with: `test_distinct_only_no_group_by_two_col_join_flagged`, `test_distinct_cte_alias_rename_in_outer_subquery_warns_or_fires`, `test_join_using_two_distinct_ctes_flagged`, `test_group_by_cte_outer_join_fans_out`, `test_rule_fanout_inflation_does_not_read_coverage_cards`, `test_fanout_replan_budget_exhausted_does_not_execute`, `test_fanout_rule_through_validate_fail_open_on_raise`, plus 5 dialect-branched suggestion tests (bigquery / postgres / mysql / sqlite / mssql)
+- [ ] Step 4 code: alias-projection map (T4-01) + USING handling (T4-04) + GROUP BY branch (T4-05) + recursive-CTE skip (T4-08) + star-projection telemetry (T4-09) + anonymous-CTE skip (T4-13) + fire-path telemetry (T4-14) + quoted-identifier case (T4-15) + tenant invariant comment (T4-06)
+- [ ] Step 4b NEW: `_dedup_suggestion_for_dialect()` helper + injection into Violation.message (T4-03)
+- [ ] Step 4c NEW: caller-side budget-exhaustion handling in `agent_engine._handle_scope_violations_with_replan` (T4-02)
+- [ ] Step 6 regression: full Ring 3 suite + adversarial replay of the 13 reproduce SQLs above
+- [ ] Commit message references AMEND-W2-T4-01..15
+
+#### Escalation
+
+None. T4 proceeds in-place. Surface remains FRAGILE (not BROKEN) due to fundamental limits of pure-AST static analysis without uniqueness statistics — documented as known-limitation, observable via `fanout_inflation_unverified_warning` telemetry rather than silent FN.
 
 ---
 
