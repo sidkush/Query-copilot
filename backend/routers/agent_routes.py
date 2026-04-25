@@ -504,6 +504,11 @@ async def agent_run(req: AgentRunRequest, request: Request,
                     except Exception as _exc:
                         _logger.debug("provenance chip emit skipped: %s", _exc)
                 yield f"data: {json.dumps(step_data, default=str)}\n\n"
+                # W3-P1 — persist immediately when Gate C resolves so the
+                # next run's _get_or_create_session sees _decided in SQLite
+                # even if the session object is reloaded between queries.
+                if engine.memory._schema_mismatch_decided:
+                    _persist_session()
 
         except asyncio.CancelledError:
             _logger.debug("Agent SSE cancelled for %s", chat_id)

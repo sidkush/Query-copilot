@@ -1175,6 +1175,7 @@ class AgentEngine:
                 "canonical": mismatch.canonical,
                 "options": list(interp.options),
                 "proxy_suggestion": interp.proxy_suggestion,
+                "proxy_columns": list(mismatch.proxy_suggestions or ()),
                 "park_id": park_id,
             },
         )

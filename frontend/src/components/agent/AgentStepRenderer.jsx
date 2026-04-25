@@ -781,10 +781,10 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
   // Dedup: skip result steps that duplicate a recent live_correction or cached_result
   const deduped = coalescedSteps.filter((step, i) => {
     if (step.type === 'result' && step.content) {
-      const recentStart = Math.max(0, i - 5);
+      const recentStart = Math.max(0, i - 10);
       return !coalescedSteps.slice(recentStart, i).some(
         (prev) =>
-          (prev.type === 'live_correction' || prev.type === 'cached_result') &&
+          (prev.type === 'live_correction' || prev.type === 'cached_result' || prev.type === 'result') &&
           prev.content === step.content,
       );
     }
