@@ -2405,14 +2405,10 @@ class AgentEngine:
         # Resolution lives in the ParkRegistry; default-on-timeout = "abort".
         _gate_c_mismatch = self._should_fire_schema_mismatch_checkpoint(question)
         if _gate_c_mismatch is not None:
-            import uuid as _uuid_gc
-            _gc_park_id = f"gate_c_{_uuid_gc.uuid4().hex[:12]}"
-            _gc_step = self._build_schema_mismatch_step(_gate_c_mismatch, _gc_park_id)
-            self._steps.append(_gc_step)
-            yield _gc_step
-            # Park: arm before waiting (arm-before-yield invariant honoured —
-            # the SSE consumer sees `agent_checkpoint` before the registry slot
-            # opens, but the registry resolves only via /respond, so race is OK).
+            # Arm BEFORE building/yielding the step so the step's park_id
+            # matches the registry slot's park_id. Mirrors W1 cascade
+            # pattern (line 2831). Otherwise /respond returns 422 because
+            # the frontend echoes back a park_id the registry never armed.
             self._waiting_for_user = True
             self.memory._waiting_for_user = True
             self.memory._user_response_event.clear()
@@ -2422,6 +2418,9 @@ class AgentEngine:
                 frozenset({"station_proxy", "abort"}),
                 "abort",
             )
+            _gc_step = self._build_schema_mismatch_step(_gate_c_mismatch, _gc_slot.park_id)
+            self._steps.append(_gc_step)
+            yield _gc_step
             _logger.info(
                 "PARK arm site=w2_gate_c park_id=%s canonical=%s",
                 _gc_slot.park_id, _gate_c_mismatch.canonical,
