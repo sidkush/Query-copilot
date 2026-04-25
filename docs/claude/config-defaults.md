@@ -263,6 +263,9 @@ point here instead of duplicating values. Confirm against
 | `W2_SCHEMA_MISMATCH_GATE_ENFORCE` | `True` | W2 T1 — Ring 4 Gate C schema-entity-mismatch consent card; off → pre-W2 behaviour. |
 | `W2_GATE_C_PARK_TIMEOUT_S` | `300.0` | W2 T1 — Gate C park wait budget; default-on-timeout is `abort`. |
 | `W2_FANOUT_DISTINCT_CTE_ENFORCE` | `True` | W2 T4 — extend Rule 2 to detect DISTINCT-CTE multi-column-join blow-up. |
+| `W2_SYNTHESIS_STREAMING_ENFORCE` | `True` | W2 T2 — stream final-synthesis tokens via `message_delta` SSE. Off → single result event after full synthesis (blank-screen UX). |
+| `W2_MAX_STREAM_BYTES` | `2_000_000` | W2 T2 — per-stream byte cap; overflow yields `stream_error` and aborts the stream (AMEND-W2-14). |
+| `W2_THINKING_TOTAL_BUDGET` | `8_000` | W2 T2/T3 — cumulative extended-thinking-token budget across all tool-loop iterations of one query (AMEND-W2-26). |
 
 ### Audit Ledger + Progressive UX + Plan Cache (Phase L)
 

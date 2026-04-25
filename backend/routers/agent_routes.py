@@ -56,6 +56,15 @@ KNOWN_SSE_EVENT_TYPES = {
     "result_preview",
     "cancel_ack",
 }
+# AMEND-W2-18 — extend via .update() so wholesale `=` reassignment cannot
+# silently drop the pre-W2 events above. Adding any new W2 SSE type MUST go
+# through this update() block to preserve the prior allowlist.
+KNOWN_SSE_EVENT_TYPES.update({
+    "thinking_delta",     # W2 T3 — extended-thinking block deltas
+    "synthesizing",       # W2 T2 — phase step at synthesis start
+    "stream_error",       # W2 T2 — AMEND-W2-14 byte-cap abort
+    "message_stop",       # W2 T2 — AMEND-W2-19 per-block stop signal
+})
 
 # ---------------------------------------------------------------------------
 # Phase L — active agent session registry for cancel signalling.
@@ -265,6 +274,7 @@ class AgentRunRequest(BaseModel):
 class AgentRespondRequest(BaseModel):
     chat_id: str
     response: str
+    park_id: Optional[str] = None  # Phase K W2: present when frontend received park_id in ask_user SSE step
 
 
 class AgentContinueRequest(BaseModel):
@@ -601,7 +611,25 @@ async def agent_respond(req: AgentRespondRequest,
 
         if session._user_response is not None:
             raise HTTPException(409, "A response has already been submitted")
-        session._user_response = req.response[:2000]  # Cap length
+
+    # Phase K W2 Day 2: when flag enabled AND park_id present, route through
+    # ParkRegistry. Slot is armed in the agent loop; resolve() validates vocab
+    # + sets slot.event. The hybrid wait loop in agent_engine also checks
+    # _user_response below for backward compat.
+    capped = req.response[:2000]
+    if settings.PARK_V2_ASK_USER and req.park_id:
+        ok = session.parks.resolve(req.park_id, capped, allow_freetext=True)
+        if not ok:
+            raise HTTPException(422, "Stale or unknown park_id")
+        # Mirror to legacy fields so the sync wait loop unblocks
+        with session._lock:
+            session._user_response = capped
+            session._user_response_event.set()
+        return {"status": "ok", "chat_id": req.chat_id, "park_id": req.park_id}
+
+    # Legacy path — unchanged when flag off or park_id absent
+    with session._lock:
+        session._user_response = capped
         session._user_response_event.set()  # Wake up Event-waiting thread
     return {"status": "ok", "chat_id": req.chat_id}
 

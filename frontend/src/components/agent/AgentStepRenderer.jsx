@@ -10,6 +10,7 @@ import PerformancePill from '../PerformancePill';
 import AgentQuestion from './AgentQuestion';
 import ToolErrorCascadeCard from './ToolErrorCascadeCard';
 import SchemaMismatchCard from './SchemaMismatchCard';
+import SynthesisStreamingStep from './SynthesisStreamingStep';
 import ReactMarkdown from 'react-markdown';
 import { MD_COMPONENTS, REMARK_PLUGINS, FONT_BODY, FONT_DISPLAY, FONT_MONO } from '../../lib/agentMarkdown';
 
@@ -744,11 +745,32 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
     return out;
   })();
 
+  // W2 T2 — coalesce consecutive `message_delta` steps into a single virtual
+  // step with concatenated content. Backend yields one delta per Anthropic
+  // text_delta event; rendering each one separately would flood the feed.
+  // Preserve turn_id + block_index from the first delta of the run.
+  const coalescedSteps = (() => {
+    const out = [];
+    for (const s of mergedSteps) {
+      if (s.type === 'message_delta') {
+        const last = out[out.length - 1];
+        if (last && last.type === 'message_delta' &&
+            (last.turn_id ?? null) === (s.turn_id ?? null) &&
+            (last.block_index ?? null) === (s.block_index ?? null)) {
+          out[out.length - 1] = { ...last, content: (last.content || '') + (s.content || '') };
+          continue;
+        }
+      }
+      out.push(s);
+    }
+    return out;
+  })();
+
   // Dedup: skip result steps that duplicate a recent live_correction or cached_result
-  const deduped = mergedSteps.filter((step, i) => {
+  const deduped = coalescedSteps.filter((step, i) => {
     if (step.type === 'result' && step.content) {
       const recentStart = Math.max(0, i - 5);
-      return !mergedSteps.slice(recentStart, i).some(
+      return !coalescedSteps.slice(recentStart, i).some(
         (prev) =>
           (prev.type === 'live_correction' || prev.type === 'cached_result') &&
           prev.content === step.content,
@@ -785,6 +807,22 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
             >
               {step.type === 'user_query' && <UserBubble step={step} />}
               {step.type === 'thinking' && <ThinkingStep step={step} isActive={isActive} />}
+              {step.type === 'synthesizing' && (
+                <div style={{
+                  padding: '6px 12px',
+                  fontSize: 11.5,
+                  color: TOKENS.text.muted,
+                  fontFamily: FONT_BODY,
+                  fontStyle: 'italic',
+                  letterSpacing: '0.005em',
+                }}>
+                  {step.content || 'Synthesizing analysis…'}
+                </div>
+              )}
+              {step.type === 'message_delta' && (
+                <SynthesisStreamingStep step={step} isStreaming={isLast && loading} />
+              )}
+              {step.type === 'stream_error' && <ErrorStep step={step} />}
               {step.type === 'tool_call' && <ToolCallCard step={step} compact={compact} />}
               {step.type === 'result' && <ResultStep step={step} verification={verification} />}
               {step.type === 'error' && <ErrorStep step={step} />}

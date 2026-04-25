@@ -54,6 +54,18 @@ from model_provider import (
 logger = logging.getLogger(__name__)
 
 
+# AMEND-W2-22 — capability gate. Models that accept the `thinking` kwarg
+# without 400-ing. Anthropic adds capability per model family; this set
+# is checked via `provider.supports_extended_thinking(model)` before the
+# agent passes a thinking parameter into messages.create / messages.stream.
+THINKING_CAPABLE: frozenset = frozenset({
+    "claude-sonnet-4-5-20250514",
+    "claude-sonnet-4-6",
+    "claude-opus-4-7-1m-20260115",
+    "claude-opus-4-7",
+})
+
+
 class _CircuitBreaker:
     """Simple circuit breaker: after N consecutive failures, block calls for cooldown_sec + jitter."""
 
@@ -247,6 +259,206 @@ class AnthropicProvider(ModelProvider):
         except anthropic.APIError as e:
             self._breaker.record_failure()
             raise RuntimeError(f"AI service error: {str(e)}")
+
+    def supports_extended_thinking(self, model: str) -> bool:
+        """AMEND-W2-22 — capability gate. Returns True only for models known
+        to accept the `thinking` kwarg without raising 400. Default-deny so a
+        new model is never assumed capable until added to THINKING_CAPABLE.
+        """
+        return (model or "") in THINKING_CAPABLE
+
+    def complete_with_tools_stream(
+        self, *, model: str, system: str, messages: list,
+        tools: list, max_tokens: int, **kwargs
+    ):
+        """W2 T2a — streaming tool-use completion (AMEND-W2-12..14, 19, 21, 23).
+
+        Yields dicts:
+            {"type": "text_delta",            "text": str, "turn_id":..., "block_index": int}
+            {"type": "thinking_delta",        "text": str, "turn_id":..., "block_index": int}
+            {"type": "tool_use_start",        "id": str, "name": str, "block_index": int}
+            {"type": "tool_use_input_delta",  "id": str, "partial_json": str, "block_index": int}
+            {"type": "message_stop",          "block_index": int}     # content_block_stop
+            {"type": "stream_error",          "reason": str}          # AMEND-14 byte cap
+            {"type": "error",                 "message": str, "classification": "client_error"|"server_error"}
+            {"type": "final",                 "blocks": list[ContentBlock], "stop_reason":..., "usage":..., "salvaged_text": str}
+
+        Optional kwargs:
+            cancel_check: callable -> bool. AMEND-W2-13 — invoked after each event;
+                True returns early so the SDK __exit__ can close the HTTP socket.
+            max_stream_bytes: int. AMEND-W2-14 override of settings.W2_MAX_STREAM_BYTES.
+            turn_id: str. AMEND-W2-19 — propagated onto every text/thinking delta.
+        """
+        from config import settings as _settings
+
+        cancel_check = kwargs.get("cancel_check")
+        max_bytes = kwargs.get("max_stream_bytes", getattr(_settings, "W2_MAX_STREAM_BYTES", 2_000_000))
+        turn_id = kwargs.get("turn_id")
+
+        self._check_breaker()
+        accumulated_bytes = 0
+        accumulated_text: list[str] = []
+        emitted_error = False
+        try:
+            stream_kwargs: dict = {
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": messages,
+                "tools": tools or [],
+            }
+            if system:
+                stream_kwargs["system"] = system
+            with self._client.messages.stream(**stream_kwargs) as stream:
+                current_tool_id: Optional[str] = None
+                current_block_index = 0
+                aborted_byte_cap = False
+                try:
+                    for event in stream:
+                        if cancel_check is not None:
+                            try:
+                                if cancel_check():
+                                    return
+                            except Exception:
+                                pass
+
+                        et = getattr(event, "type", "")
+                        idx = getattr(event, "index", current_block_index)
+
+                        if et == "content_block_start":
+                            current_block_index = idx
+                            cb = getattr(event, "content_block", None)
+                            cb_type = getattr(cb, "type", "") if cb is not None else ""
+                            if cb_type == "tool_use":
+                                current_tool_id = getattr(cb, "id", None)
+                                yield {
+                                    "type": "tool_use_start",
+                                    "id": current_tool_id,
+                                    "name": getattr(cb, "name", ""),
+                                    "block_index": current_block_index,
+                                }
+                        elif et == "content_block_delta":
+                            current_block_index = idx
+                            delta = getattr(event, "delta", None)
+                            dt = getattr(delta, "type", "")
+                            if dt == "text_delta":
+                                text = getattr(delta, "text", "") or ""
+                                accumulated_bytes += len(text.encode("utf-8", errors="ignore"))
+                                if accumulated_bytes > max_bytes:
+                                    yield {
+                                        "type": "stream_error",
+                                        "reason": f"byte cap exceeded ({accumulated_bytes} > {max_bytes})",
+                                    }
+                                    aborted_byte_cap = True
+                                    break
+                                accumulated_text.append(text)
+                                yield {
+                                    "type": "text_delta",
+                                    "text": text,
+                                    "turn_id": turn_id,
+                                    "block_index": current_block_index,
+                                }
+                            elif dt == "thinking_delta":
+                                yield {
+                                    "type": "thinking_delta",
+                                    "text": getattr(delta, "thinking", "") or "",
+                                    "turn_id": turn_id,
+                                    "block_index": current_block_index,
+                                }
+                            elif dt == "input_json_delta":
+                                yield {
+                                    "type": "tool_use_input_delta",
+                                    "id": current_tool_id,
+                                    "partial_json": getattr(delta, "partial_json", "") or "",
+                                    "block_index": current_block_index,
+                                }
+                            elif dt == "signature_delta":
+                                # AMEND-W2-25 hook — surface signature for thinking
+                                # block reconstruction. Caller can choose to ignore.
+                                yield {
+                                    "type": "signature_delta",
+                                    "signature": getattr(delta, "signature", "") or "",
+                                    "block_index": current_block_index,
+                                }
+                        elif et == "content_block_stop":
+                            current_block_index = idx
+                            yield {"type": "message_stop", "block_index": current_block_index}
+                            current_tool_id = None
+                except anthropic.BadRequestError as e:
+                    # AMEND-W2-23 — 400 is a deterministic client bug. Do NOT
+                    # touch the breaker; classify so the caller can route the
+                    # error without a 30s account-wide blackout.
+                    emitted_error = True
+                    yield {
+                        "type": "error",
+                        "message": str(e),
+                        "classification": "client_error",
+                    }
+                    return
+                except anthropic.APIError as e:
+                    # AMEND-W2-12 — disposition: yield error event AND record
+                    # breaker failure. Caller treats absence of `final` as
+                    # StreamIncompleteError.
+                    emitted_error = True
+                    self._breaker.record_failure()
+                    yield {
+                        "type": "error",
+                        "message": str(e),
+                        "classification": "server_error",
+                    }
+                    return
+
+                if aborted_byte_cap or emitted_error:
+                    return
+
+                final_msg = stream.get_final_message()
+                blocks = []
+                for block in final_msg.content:
+                    bt = getattr(block, "type", "")
+                    if bt == "text":
+                        blocks.append(ContentBlock(type="text", text=block.text))
+                    elif bt == "tool_use":
+                        blocks.append(ContentBlock(
+                            type="tool_use",
+                            tool_name=block.name,
+                            tool_input=block.input,
+                            tool_use_id=block.id,
+                        ))
+                self._breaker.record_success()
+                _emit_cache_stats(model, final_msg.usage)
+                yield {
+                    "type": "final",
+                    "blocks": blocks,
+                    "stop_reason": final_msg.stop_reason or "end_turn",
+                    "usage": {
+                        "input_tokens": final_msg.usage.input_tokens,
+                        "output_tokens": final_msg.usage.output_tokens,
+                    },
+                    # AMEND-W2-21 — caller reconciles streamed text against
+                    # final_msg text and prefers streamed on divergence.
+                    "salvaged_text": "".join(accumulated_text),
+                }
+        except anthropic.AuthenticationError:
+            raise InvalidKeyError("Invalid Anthropic API key")
+        except anthropic.PermissionDeniedError:
+            raise InvalidKeyError("API key lacks required permissions")
+        except anthropic.BadRequestError as e:
+            # AMEND-W2-23 — handle 400 raised at stream construction (before
+            # iteration). Same classification: do not trip breaker.
+            yield {
+                "type": "error",
+                "message": str(e),
+                "classification": "client_error",
+            }
+        except anthropic.APIError as e:
+            self._breaker.record_failure()
+            yield {
+                "type": "error",
+                "message": str(e),
+                "classification": "server_error",
+            }
+        finally:
+            # Drop accumulator reference to release memory promptly under cap.
+            accumulated_text.clear()
 
     def validate_key(self) -> bool:
         """Cheap 1-token call to verify the API key is valid."""

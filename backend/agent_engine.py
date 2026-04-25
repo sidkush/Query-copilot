@@ -14,7 +14,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from model_provider import ModelProvider, ContentBlock
+from model_provider import ModelProvider, ContentBlock, ProviderToolResponse
 
 from agent_park import ParkRegistry, park_for_user_response
 from config import settings
@@ -655,6 +655,28 @@ def _format_coverage_card_block(card) -> str:
         else:
             lines.append(f"  {cc.column} distinct={dn} sample=(unavailable)")
     return "\n".join(lines)
+
+
+# ── W2 T2 — synthesis-streaming gate (AMEND-W2-17) ──────────────
+
+def _streaming_enabled(*, tool_calls: int) -> bool:
+    """W2 T2 — central predicate for `use_stream` in the agent loop.
+
+    Folded amendments:
+      • AMEND-W2-17 — gate streaming OFF when FEATURE_CLAIM_PROVENANCE=True;
+        per-token claim binding lands in W3, until then streaming bypasses
+        the per-claim provenance invariant (security-core.md non-negotiable).
+      • Config gate — settings.W2_SYNTHESIS_STREAMING_ENFORCE master switch.
+      • First-iteration guard — never stream the planner; only the
+        synthesis turn (after at least one tool call) streams.
+    """
+    if not getattr(settings, "W2_SYNTHESIS_STREAMING_ENFORCE", False):
+        return False
+    if getattr(settings, "FEATURE_CLAIM_PROVENANCE", False):
+        return False
+    if tool_calls <= 0:
+        return False
+    return True
 
 
 # ── Agent Engine ─────────────────────────────────────────────────
@@ -2606,17 +2628,145 @@ class AgentEngine:
                 self._steps.append(step)
                 yield step
 
+                # W2 T2 — synthesis-token streaming. Active only after at least
+                # one tool call (planner/first-turn never streams), and only
+                # when settings + provider capability allow. AMEND-W2-15
+                # suppresses the legacy thinking-step for the same iteration so
+                # the streamed text is the single source on screen.
+                use_stream = (
+                    _streaming_enabled(tool_calls=self._tool_calls)
+                    and hasattr(self.provider, "complete_with_tools_stream")
+                )
+                streamed_text_this_iter = False
+                streamed_blocks: list = []
+                streamed_stop_reason = "end_turn"
+                streamed_usage: dict = {}
+                streamed_salvage = ""
+                stream_failed = False
+
                 try:
                     # Plan 4 T3: payload is str (flag off, legacy compat) or
                     # list-of-blocks with cache_control (flag on, 4-breakpoint).
                     _sys_payload = self._build_system_payload(system_prompt, question)
-                    response = self.provider.complete_with_tools(
-                        model=model,
-                        system=_sys_payload,
-                        messages=messages,
-                        tools=active_tools,
-                        max_tokens=settings.MAX_TOKENS,
-                    )
+                    if use_stream:
+                        # AMEND-W2-16 — banner-first: if synthesis enters with
+                        # an empty-BoundSet condition (no successful tool
+                        # results), the unverified-data banner must reach the
+                        # UI ahead of any model text. Cheap heuristic: zero
+                        # tool_result steps in the run so far → emit banner.
+                        try:
+                            had_tool_result = any(
+                                getattr(s, "type", "") == "tool_result"
+                                for s in getattr(self, "_steps", [])
+                            )
+                        except Exception:
+                            had_tool_result = True
+                        if not had_tool_result:
+                            banner = AgentStep(
+                                type="message_delta",
+                                content=(
+                                    "[Note] No verified rows were retrieved by tools "
+                                    "before this synthesis began; downstream text is "
+                                    "unverified-scope. "
+                                ),
+                            )
+                            self._steps.append(banner)
+                            yield banner
+
+                        synth_step = AgentStep(
+                            type="synthesizing",
+                            content="Synthesizing analysis…",
+                        )
+                        self._steps.append(synth_step)
+                        yield synth_step
+
+                        try:
+                            for ev in self.provider.complete_with_tools_stream(
+                                model=model,
+                                system=_sys_payload,
+                                messages=messages,
+                                tools=active_tools,
+                                max_tokens=settings.MAX_TOKENS,
+                                turn_id=getattr(self, "_session_id", None),
+                            ):
+                                et = ev.get("type")
+                                if et == "text_delta":
+                                    streamed_text_this_iter = True
+                                    delta_step = AgentStep(
+                                        type="message_delta",
+                                        content=ev.get("text", ""),
+                                    )
+                                    yield delta_step
+                                elif et == "thinking_delta":
+                                    yield AgentStep(
+                                        type="thinking_delta",
+                                        content=ev.get("text", ""),
+                                    )
+                                elif et == "stream_error":
+                                    stream_failed = True
+                                    yield AgentStep(
+                                        type="error",
+                                        content=ev.get("reason", "stream cap reached"),
+                                    )
+                                    break
+                                elif et == "error":
+                                    classification = ev.get("classification", "server_error")
+                                    if classification == "client_error":
+                                        # AMEND-W2-23 — fall through to the
+                                        # non-streaming path below; do not
+                                        # treat as a server failure.
+                                        stream_failed = True
+                                        break
+                                    raise RuntimeError(ev.get("message", "stream error"))
+                                elif et == "final":
+                                    streamed_blocks = ev.get("blocks", []) or []
+                                    streamed_stop_reason = ev.get("stop_reason", "end_turn")
+                                    streamed_usage = ev.get("usage", {}) or {}
+                                    streamed_salvage = ev.get("salvaged_text", "") or ""
+                        except RuntimeError as e:
+                            if not escalated:
+                                _logger.warning(
+                                    "Primary stream failed, escalating to %s: %s",
+                                    self.fallback_model, e,
+                                )
+                                model = self.fallback_model
+                                escalated = True
+                                continue
+                            raise
+
+                        if streamed_blocks and not stream_failed:
+                            # AMEND-W2-21 — prefer streamed text on divergence.
+                            if streamed_salvage:
+                                for blk in streamed_blocks:
+                                    if (
+                                        getattr(blk, "type", "") == "text"
+                                        and getattr(blk, "text", "") != streamed_salvage
+                                    ):
+                                        try:
+                                            blk.text = streamed_salvage
+                                        except Exception:
+                                            pass
+                            response = ProviderToolResponse(
+                                content_blocks=streamed_blocks,
+                                stop_reason=streamed_stop_reason,
+                                usage=streamed_usage or {"input_tokens": 0, "output_tokens": 0},
+                            )
+                        else:
+                            response = self.provider.complete_with_tools(
+                                model=model,
+                                system=_sys_payload,
+                                messages=messages,
+                                tools=active_tools,
+                                max_tokens=settings.MAX_TOKENS,
+                            )
+                    else:
+                        response = self.provider.complete_with_tools(
+                            model=model,
+                            system=_sys_payload,
+                            messages=messages,
+                            tools=active_tools,
+                            max_tokens=settings.MAX_TOKENS,
+                        )
                 except RuntimeError as e:
                     if not escalated:
                         _logger.warning("Primary model failed, escalating to %s: %s",
@@ -2657,6 +2807,13 @@ class AgentEngine:
                         # Final text response from Claude
                         content = block.text.strip()
                         self._result.final_answer = content
+
+                        # AMEND-W2-15 — when streaming already shipped the
+                        # text via message_delta this iteration, suppress the
+                        # legacy thinking-step emit so the UI does not
+                        # duplicate (stream + thinking-step + result-step).
+                        if streamed_text_this_iter:
+                            continue
 
                         # Extract first sentence as brief thinking for UI
                         brief = content.split('.')[0] + '.' if content and '.' in content else content

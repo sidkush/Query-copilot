@@ -340,6 +340,30 @@ class Settings(BaseSettings):
             "Off → only the legacy COUNT(*) + JOIN check fires."
         ),
     )
+    # ── Phase K Week-2 Day 3 Task 2 — Synthesis token streaming ──
+    W2_SYNTHESIS_STREAMING_ENFORCE: bool = Field(
+        default=True,
+        description=(
+            "W2 Task 2 — stream final-synthesis tokens via message_delta SSE. "
+            "Off → single result event after full synthesis (blank-screen UX)."
+        ),
+    )
+    W2_MAX_STREAM_BYTES: int = Field(
+        default=2_000_000,
+        description=(
+            "AMEND-W2-14 — per-stream byte cap. On overflow, provider yields "
+            "a stream_error event and aborts to prevent OOM from runaway model "
+            "+ double-accumulator. 2 MB ≈ 500k tokens of UTF-8 prose."
+        ),
+    )
+    W2_THINKING_TOTAL_BUDGET: int = Field(
+        default=8_000,
+        description=(
+            "AMEND-W2-26 — cumulative extended-thinking-token budget across all "
+            "tool-loop iterations of a single query. Per-call budget is "
+            "max(1024, total - used); thinking dropped when exhausted."
+        ),
+    )
     # ── Audit Ledger + Progressive UX + Plan Cache (Phase L) ──
     FEATURE_AUDIT_LEDGER: bool = Field(default=False)
     FEATURE_CLAIM_PROVENANCE: bool = Field(default=False)
