@@ -9,6 +9,7 @@ import ProgressiveResult from './ProgressiveResult';
 import PerformancePill from '../PerformancePill';
 import AgentQuestion from './AgentQuestion';
 import ToolErrorCascadeCard from './ToolErrorCascadeCard';
+import SchemaMismatchCard from './SchemaMismatchCard';
 import ReactMarkdown from 'react-markdown';
 import { MD_COMPONENTS, REMARK_PLUGINS, FONT_BODY, FONT_DISPLAY, FONT_MONO } from '../../lib/agentMarkdown';
 
@@ -512,8 +513,9 @@ function VerificationBadge({ verification }) {
 /* ── ask_user step (interactive if active, muted echo when done) ── */
 function AskUserStep({ step, isActive, chatId }) {
   const options = Array.isArray(step.tool_input) ? step.tool_input : null;
+  const parkId = step?.metadata?.park_id || null;
   if (isActive) {
-    return <AgentQuestion question={step.content} options={options} chatId={chatId} />;
+    return <AgentQuestion question={step.content} options={options} chatId={chatId} parkId={parkId} />;
   }
   return (
     <div
@@ -593,6 +595,7 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
   loading = false,
   waiting = null,
   waitingOptions = null,
+  waitingParkId = null,
   chatId = null,
   verification = null,
   compact = false,
@@ -796,6 +799,9 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
               {step.type === 'agent_checkpoint' && step?.tool_input?.kind === 'tool_error_cascade' && (
                 <ToolErrorCascadeCard chatId={chatId} step={step} onResolved={onResolved} />
               )}
+              {step.type === 'agent_checkpoint' && step?.tool_input?.kind === 'schema_entity_mismatch' && (
+                <SchemaMismatchCard chatId={chatId} step={step} onResolved={onResolved} />
+              )}
             </motion.div>
           );
         })}
@@ -803,7 +809,7 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
 
       {/* Agent question at bottom when waiting */}
       {waiting && (
-        <AgentQuestion question={waiting} options={waitingOptions} chatId={chatId} />
+        <AgentQuestion question={waiting} options={waitingOptions} chatId={chatId} parkId={waitingParkId} />
       )}
     </>
   );

@@ -1041,6 +1041,68 @@ class AgentEngine:
             },
         )
 
+    # ── W2 T1d: Ring 4 Gate C — schema-entity-mismatch ────────────────────
+    def _flatten_schema_columns(self) -> list[str]:
+        """Collect every column name across all tables in the schema profile."""
+        cols: list[str] = []
+        profile = getattr(self.connection_entry, "schema_profile", None)
+        if profile is None:
+            return cols
+        for tbl in (profile.tables or []):
+            for c in (tbl.columns or []):
+                if isinstance(c, dict):
+                    name = c.get("name")
+                else:
+                    name = getattr(c, "name", None)
+                if name:
+                    cols.append(str(name))
+        return cols
+
+    def _should_fire_schema_mismatch_checkpoint(self, question: str):
+        """W2 T1d — return EntityMismatch | None.
+
+        Fail-closed semantics (AMEND-W2-06): empty schema + entity term → still
+        return the mismatch so the user is warned rather than silently letting
+        the agent invent a substitution.
+
+        Consent persistence (AMEND-W2-08): once the user has resolved the gate
+        for a canonical entity in this session, suppress repeat parking.
+        """
+        if not settings.W2_SCHEMA_MISMATCH_GATE_ENFORCE:
+            return None
+        try:
+            from schema_entity_mismatch import EntityDetector
+        except Exception:
+            return None
+        decided = getattr(self.memory, "_schema_mismatch_decided", None) or set()
+        cols = self._flatten_schema_columns()
+        try:
+            mismatch = EntityDetector().detect(question, cols)
+        except Exception:
+            return None
+        if mismatch is None:
+            return None
+        if mismatch.canonical in decided:
+            return None
+        return mismatch
+
+    def _build_schema_mismatch_step(self, mismatch, park_id: str) -> "AgentStep":
+        """W2 T1d — payload for the Gate C agent_checkpoint SSE event."""
+        from disclosure_builder import DisclosureBuilder
+        interp = DisclosureBuilder().build(mismatch, self._flatten_schema_columns())
+        return AgentStep(
+            type="agent_checkpoint",
+            content=interp.user_facing_text,
+            tool_input={
+                "kind": "schema_entity_mismatch",
+                "entity_term": mismatch.entity_term,
+                "canonical": mismatch.canonical,
+                "options": list(interp.options),
+                "proxy_suggestion": interp.proxy_suggestion,
+                "park_id": park_id,
+            },
+        )
+
     _EMPTY_BOUNDSET_BANNER = "\u26a0 No query results \u2014 this response is unverified."
 
     def _detect_empty_boundset(self) -> bool:
@@ -2337,6 +2399,75 @@ class AgentEngine:
         except Exception as e:
             _logger.debug("Schema prefetch failed (non-fatal): %s", e)
 
+        # ── W2 T1d: Ring 4 Gate C schema-entity-mismatch ──────────
+        # Fires once per query when the NL references a person-class entity
+        # (rider/user/customer/...) but the schema has no matching id column.
+        # Resolution lives in the ParkRegistry; default-on-timeout = "abort".
+        _gate_c_mismatch = self._should_fire_schema_mismatch_checkpoint(question)
+        if _gate_c_mismatch is not None:
+            import uuid as _uuid_gc
+            _gc_park_id = f"gate_c_{_uuid_gc.uuid4().hex[:12]}"
+            _gc_step = self._build_schema_mismatch_step(_gate_c_mismatch, _gc_park_id)
+            self._steps.append(_gc_step)
+            yield _gc_step
+            # Park: arm before waiting (arm-before-yield invariant honoured —
+            # the SSE consumer sees `agent_checkpoint` before the registry slot
+            # opens, but the registry resolves only via /respond, so race is OK).
+            self._waiting_for_user = True
+            self.memory._waiting_for_user = True
+            self.memory._user_response_event.clear()
+            self.memory._user_response = None
+            _gc_slot = self.memory.parks.arm(
+                "w2_gate_c",
+                frozenset({"station_proxy", "abort"}),
+                "abort",
+            )
+            _logger.info(
+                "PARK arm site=w2_gate_c park_id=%s canonical=%s",
+                _gc_slot.park_id, _gate_c_mismatch.canonical,
+            )
+            import time as _time_gc
+            _gc_deadline = _time_gc.monotonic() + settings.AGENT_WALL_CLOCK_HARD_S
+            while self.memory._user_response is None:
+                _gc_remaining = _gc_deadline - _time_gc.monotonic()
+                if _gc_remaining <= 0:
+                    break
+                self.memory._user_response_event.wait(timeout=min(_gc_remaining, 5.0))
+                self.memory._user_response_event.clear()
+            _gc_choice = (self.memory._user_response or "abort").strip().lower()
+            self.memory._user_response = None
+            self._waiting_for_user = False
+            self.memory._waiting_for_user = False
+            self.memory.parks.discard(_gc_slot.park_id)
+            # AMEND-W2-08: persist consent so the gate doesn't re-fire mid-session
+            _decided = getattr(self.memory, "_schema_mismatch_decided", None)
+            if _decided is None:
+                _decided = set()
+                self.memory._schema_mismatch_decided = _decided
+            _decided.add(_gate_c_mismatch.canonical)
+            if _gc_choice == "abort":
+                _abort_step = AgentStep(
+                    type="result",
+                    content=(
+                        f"Aborted: this connection's schema has no individual "
+                        f"{_gate_c_mismatch.canonical} identifier, so per-"
+                        f"{_gate_c_mismatch.canonical} analysis isn't possible. "
+                        "Reconnect a schema with the right id column or rephrase "
+                        "the question."
+                    ),
+                )
+                self._steps.append(_abort_step)
+                yield _abort_step
+                self._result.final_answer = _abort_step.content
+                return
+            # station_proxy: stash proxy phrase so the system prompt can hint it
+            _gc_proxy = _gc_step.tool_input.get("proxy_suggestion")
+            self.memory._schema_mismatch_proxy = _gc_proxy
+            _logger.info(
+                "Gate C resolved: canonical=%s choice=%s proxy=%r",
+                _gate_c_mismatch.canonical, _gc_choice, _gc_proxy,
+            )
+
         # ── Dynamic tool budget (Task 4) ──────────────────────────
         q_lower = question.lower()
         complex_keywords = {"why", "compare", "trend", "correlat", "over time", "vs",
@@ -2562,10 +2693,20 @@ class AgentEngine:
 
                         # Check if agent is waiting for user
                         if self._waiting_for_user:
+                            # Phase K W2 Day 2: arm park slot BEFORE building/yielding
+                            # the SSE step so park_id is embedded in the payload the
+                            # frontend echoes back via /respond.
+                            _shadow_ask = self.memory.parks.arm(
+                                "ask_user",
+                                frozenset(self._pending_options or []),
+                                "",
+                            )
+                            _logger.debug("PARK_SHADOW arm site=ask_user park_id=%s", _shadow_ask.park_id)
                             ask_step = AgentStep(
                                 type="ask_user",
                                 content=self._pending_question or "",
                                 tool_input=self._pending_options,
+                                metadata={"park_id": _shadow_ask.park_id},
                             )
                             self._steps.append(ask_step)
                             # Set memory flag BEFORE yielding — closes race where
@@ -2574,17 +2715,12 @@ class AgentEngine:
                             with self.memory._lock:
                                 self.memory._waiting_for_user = True
                                 self.memory._user_response_event.clear()
-                            # PARK_SHADOW site-2: arm shadow slot before yield (no behavior change)
-                            _shadow_ask = self.memory.parks.arm(
-                                "ask_user",
-                                frozenset(self._pending_options or []),
-                                "",
-                            )
-                            _logger.debug("PARK_SHADOW arm site=ask_user park_id=%s", _shadow_ask.park_id)
                             yield ask_step
-                            # Block generator until user responds (Event-based, not polling)
+                            # Block generator until user responds. Hybrid wake-up:
+                            # legacy path sets _user_response; PARK_V2 path resolves
+                            # the slot which sets slot.response. Either unblocks.
                             user_wait_deadline = time.monotonic() + self.WALL_CLOCK_LIMIT * 10
-                            while self.memory._user_response is None:
+                            while self.memory._user_response is None and _shadow_ask.response is None:
                                 if self.memory._cancelled:
                                     raise AgentGuardrailError("Session cancelled by client disconnect")
                                 remaining = user_wait_deadline - time.monotonic()
@@ -2592,9 +2728,9 @@ class AgentEngine:
                                     raise AgentGuardrailError("Timed out waiting for user response")
                                 # Wait on Event — releases thread to OS (no busy-loop)
                                 self.memory._user_response_event.wait(timeout=min(remaining, 5.0))
-                            # Resume with user response
+                            # Resume with user response — prefer slot.response when armed
                             with self.memory._lock:
-                                user_resp = self.memory._user_response
+                                user_resp = self.memory._user_response or _shadow_ask.response
                                 self.memory._user_response = None
                                 self.memory._waiting_for_user = False
                             self._waiting_for_user = False

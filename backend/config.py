@@ -310,6 +310,17 @@ class Settings(BaseSettings):
     W1_ANALYTICAL_CAP: int = Field(default=20, description="Hard tool-call cap for analytical workloads when W1 flag on. No auto-extend.")
     W1_DASHBOARD_CAP: int = Field(default=40, description="Hard tool-call cap for dashboard workloads when W1 flag on. No auto-extend.")
     W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD: int = Field(default=3, description="N consecutive run_sql errors → fire agent_checkpoint consent card (GAP A).")
+    # ── Phase K Week-2 Day 3 Task 1 — Ring 4 Gate C schema-entity-mismatch ──
+    W2_SCHEMA_MISMATCH_GATE_ENFORCE: bool = Field(
+        default=False,
+        description=(
+            "Master gate for Ring-4 Gate C schema-entity-mismatch consent card. "
+            "When ON: NL referencing rider/user/customer/etc. entity with no "
+            "matching id column in the connection schema parks the agent on an "
+            "agent_checkpoint with options [station_proxy, abort]. Fail-closed "
+            "on empty schema (AMEND-W2-06). OFF → pre-W2 behaviour."
+        ),
+    )
     # ── Audit Ledger + Progressive UX + Plan Cache (Phase L) ──
     FEATURE_AUDIT_LEDGER: bool = Field(default=False)
     FEATURE_CLAIM_PROVENANCE: bool = Field(default=False)
@@ -324,6 +335,8 @@ class Settings(BaseSettings):
     PLAN_CACHE_MAX_ENTRIES_PER_TENANT: int = Field(default=500)
     RESULT_PREVIEW_LIMIT_ROWS: int = Field(default=50)
     AGENT_CANCEL_GRACE_MS: int = Field(default=2000)
+    # ── Phase K Week 2 — Park primitive cutover ──
+    PARK_V2_ASK_USER: bool = Field(default=True, description="When True, /respond routes responses through ParkRegistry.resolve via park_id; when False, legacy _user_response_event path is authoritative. Day 2 cutover: 2026-04-24.")
     # ── Dialect Bridge (Phase M-alt) ──
     FEATURE_DIALECT_BRIDGE: bool = Field(default=False)
     DIALECT_BRIDGE_ALERT_ON_FAILURE: bool = Field(default=True)
