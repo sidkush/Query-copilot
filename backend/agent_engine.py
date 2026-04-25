@@ -1172,6 +1172,42 @@ class AgentEngine:
             },
         )
 
+    def _build_proxy_framing_note(
+        self,
+        *,
+        choice: str,
+        kind: str,
+        canonical: str,
+        proxy_suggestion: str | None,
+        proxy_columns: list[str] | None = None,
+    ) -> str | None:
+        """W3-P1 — framing note injected into system prompt after Gate C
+        resolves with `station_proxy`. Tells the model the requested
+        per-`canonical` entity has no id column and to replan against the
+        proxy columns instead of inventing a rider/user/customer id.
+
+        Returns None when the choice is not `station_proxy` or the kind is
+        not the Gate C schema-entity-mismatch — keeps the injection
+        Gate-C-specific so generic `ask_user` flows remain untouched.
+        """
+        if choice != "station_proxy":
+            return None
+        if kind != "schema_entity_mismatch":
+            return None
+        proxy_phrase = proxy_suggestion or "the available proxy columns"
+        lines = [
+            f"USER CONSENT: per-{canonical} analysis is not possible — "
+            f"this schema has no individual {canonical} id column.",
+            f"User accepted the proxy: {proxy_phrase}.",
+            f"Replan: do NOT GROUP BY or filter on a {canonical} id. "
+            f"Instead, group / filter using the proxy columns available "
+            f"in the schema.",
+        ]
+        if proxy_columns:
+            cols = ", ".join(proxy_columns)
+            lines.append(f"Suggested proxy columns: {cols}.")
+        return "\n".join(lines)
+
     _EMPTY_BOUNDSET_BANNER = "\u26a0 No query results \u2014 this response is unverified."
 
     def _detect_empty_boundset(self) -> bool:
@@ -2579,6 +2615,18 @@ class AgentEngine:
             # station_proxy: stash proxy phrase so the system prompt can hint it
             _gc_proxy = _gc_step.tool_input.get("proxy_suggestion")
             self.memory._schema_mismatch_proxy = _gc_proxy
+            # W3-P1 — build framing note so the next LLM call replans against
+            # proxy columns instead of re-running rider-level SQL. Stored on
+            # memory so the system_prompt build site (and any subsequent
+            # iteration) can read it without re-deriving from the park slot.
+            _gc_proxy_cols = _gc_step.tool_input.get("proxy_columns") or None
+            self.memory._schema_mismatch_proxy_note = self._build_proxy_framing_note(
+                choice=_gc_choice,
+                kind=_gc_step.tool_input.get("kind", ""),
+                canonical=_gate_c_mismatch.canonical,
+                proxy_suggestion=_gc_proxy,
+                proxy_columns=_gc_proxy_cols,
+            )
             _logger.info(
                 "Gate C resolved: canonical=%s choice=%s proxy=%r",
                 _gate_c_mismatch.canonical, _gc_choice, _gc_proxy,
@@ -2616,6 +2664,10 @@ class AgentEngine:
 
         # Plan 4 T1: composition extracted to _build_legacy_system_prompt.
         system_prompt = self._build_legacy_system_prompt(question, prefetch_context)
+        # W3-P1 — Gate C station_proxy framing note (built post-park-resolution).
+        _gc_note = getattr(self.memory, "_schema_mismatch_proxy_note", None)
+        if _gc_note:
+            system_prompt = f"{system_prompt}\n\n{_gc_note}"
 
         # ── Lightweight plan generation (Task 7) ────────────────────
         if (is_dashboard_request or is_complex) and not self._progress.get("completed"):

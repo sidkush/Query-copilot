@@ -33,7 +33,9 @@ def test_tool_run_sql_records_rowset():
     import agent_engine as _ae
     _ae.settings = MagicMock()
     _ae.settings.FEATURE_AGENT_FEEDBACK_LOOP = False
-    engine._tool_run_sql("SELECT 42")
+    with patch("user_storage.get_daily_usage", return_value={"unlimited": True, "remaining": 1, "daily_limit": 0}), \
+         patch("user_storage.increment_query_stats", return_value=None):
+        engine._tool_run_sql("SELECT 42")
     assert len(engine._recent_rowsets) == 1
     rs = engine._recent_rowsets[0]
     assert "query_id" in rs
