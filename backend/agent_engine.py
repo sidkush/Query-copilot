@@ -31,6 +31,19 @@ try:
 except Exception:
     alert_manager = None  # type: ignore[assignment]
 
+# T11-revised — domain reframe vocabulary. When the user's question contains
+# any of these terms AND Gate C resolves with `station_proxy`, the framing
+# note appends a REFRAMING line so the model labels its output as
+# proxy-level (e.g. station-level abandonment) rather than entity-level
+# (per-rider abandonment).
+DOMAIN_REFRAME_TERMS = frozenset({
+    "churn", "retention", "cohort", "return", "returning", "returned",
+    "inactive", "dormant", "lapsed", "abandonment", "attrition",
+    "drop-off", "dropoff", "drop off", "winback", "reactivation",
+    "loyalty", "ltv", "lifetime value", "stickiness", "engagement",
+    "dau", "mau", "wau", "acquisition", "conversion",
+})
+
 # ── Tool Definitions (Anthropic format) ──────────────────────────
 
 TOOL_DEFINITIONS = [
@@ -1281,6 +1294,7 @@ class AgentEngine:
         canonical: str,
         proxy_suggestion: str | None,
         proxy_columns: list[str] | None = None,
+        question: str = "",
     ) -> str | None:
         """W3-P1 — framing note injected into system prompt after Gate C
         resolves with `station_proxy`. Tells the model the requested
@@ -1290,6 +1304,12 @@ class AgentEngine:
         Returns None when the choice is not `station_proxy` or the kind is
         not the Gate C schema-entity-mismatch — keeps the injection
         Gate-C-specific so generic `ask_user` flows remain untouched.
+
+        T11-revised — when `question` contains a `DOMAIN_REFRAME_TERMS`
+        token (after `safe_for_prompt` + casefold), append a REFRAMING
+        line so the model labels its output as proxy-level instead of
+        entity-level (e.g. "station-level abandonment", not "per-rider
+        abandonment").
         """
         if choice != "station_proxy":
             return None
@@ -1312,9 +1332,33 @@ class AgentEngine:
         if proxy_columns:
             cols = ", ".join(proxy_columns)
             lines.append(f"Use these proxy columns in the SQL: {cols}.")
+        # T11-revised — domain reframe: detect first matching term and
+        # tell the model how to label the output.
+        if question:
+            try:
+                normalized = safe_for_prompt(question).casefold()
+            except Exception:
+                normalized = ""
+            if normalized:
+                detected_term = None
+                for term in DOMAIN_REFRAME_TERMS:
+                    if term in normalized:
+                        detected_term = term
+                        break
+                if detected_term:
+                    lines.append(
+                        f"REFRAMING: Since {proxy_phrase} is the proxy for "
+                        f"individual {canonical} identity, "
+                        f"'{detected_term}' in this analysis means "
+                        f"'{proxy_phrase} {detected_term}' "
+                        f"(e.g. station-level abandonment, not per-rider "
+                        f"abandonment). Label all output accordingly."
+                    )
         return "\n".join(lines)
 
-    def _derive_proxy_note_from_consents(self, consents: dict) -> "str | None":
+    def _derive_proxy_note_from_consents(
+        self, consents: dict, question: str = ""
+    ) -> "str | None":
         """W3-P1 — rebuild framing note from stored gap-based consents.
 
         Called at every run() start so the note is always fresh (never stale
@@ -1324,6 +1368,9 @@ class AgentEngine:
         proxy column actually exists in the current connection's schema.
         This prevents a stale proxy from a previous connection leaking into
         a different DB's system prompt (cross-connection consent bleed).
+
+        T11-revised — `question` is forwarded to `_build_proxy_framing_note`
+        so the REFRAMING line can be appended when a domain term is detected.
         """
         if not consents:
             return None
@@ -1344,6 +1391,7 @@ class AgentEngine:
                     canonical=canonical,
                     proxy_suggestion=proxy_col,
                     proxy_columns=[proxy_col],
+                    question=question,
                 )
         return None
 
@@ -2933,8 +2981,11 @@ class AgentEngine:
         system_prompt = self._build_legacy_system_prompt(question, prefetch_context)
         # W3-P1 — derive framing note fresh from gap-based consents each run()
         # so the note is never stale across sessions or schema changes (P0 fix).
+        # T11-revised — forward the per-run safe question so the REFRAMING
+        # line is added when a domain term is present.
         _gc_note = self._derive_proxy_note_from_consents(
-            getattr(self.memory, "_schema_mismatch_consents", {})
+            getattr(self.memory, "_schema_mismatch_consents", {}),
+            question=getattr(self, "_run_question", "") or "",
         )
         if _gc_note:
             system_prompt = f"{system_prompt}\n\n{_gc_note}"
