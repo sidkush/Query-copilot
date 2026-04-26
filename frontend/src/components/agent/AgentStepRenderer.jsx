@@ -458,9 +458,12 @@ function TierRoutingStep({ step, isActive }) {
 
 /* ── result step with markdown + performance pill ── */
 function ResultStep({ step, verification }) {
+  // Pre-fix sessions persisted the sentinel `result_data` which carries
+  // `final_answer` instead of `content`. Fall back so old chats still render.
+  const _text = step.content || step.final_answer || '';
   return (
     <div className="agent-bubble-assistant" style={{ borderRadius: 16, padding: '14px 16px' }}>
-      {step.content && (
+      {_text && (
         <div className="agent-result-md" style={{
           fontSize: 12.5, color: TOKENS.text.primary,
           maxHeight: 520, overflowY: 'auto', overflowX: 'hidden',
@@ -468,7 +471,7 @@ function ResultStep({ step, verification }) {
           fontFamily: FONT_BODY, lineHeight: 1.55,
           letterSpacing: '-0.005em',
         }}>
-          <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MD_COMPONENTS}>{step.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={MD_COMPONENTS}>{_text}</ReactMarkdown>
         </div>
       )}
       {verification && <VerificationBadge verification={verification} />}
@@ -778,14 +781,22 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
     return out;
   })();
 
-  // Dedup: skip result steps that duplicate a recent live_correction or cached_result
+  // Dedup: skip result steps that duplicate a recent live_correction or
+  // cached_result. The backend persists both an AgentStep(type="result",
+  // content=final_answer) AND historically also persisted a sentinel
+  // result_data (final_answer + sql + columns + rows, no `content`).
+  // To handle pre-fix sessions still in storage, compare on `content`
+  // OR `final_answer` cross-field.
+  const _resultText = (s) => s?.content || s?.final_answer || null;
   const deduped = coalescedSteps.filter((step, i) => {
-    if (step.type === 'result' && step.content) {
+    if (step.type === 'result') {
+      const text = _resultText(step);
+      if (!text) return true;
       const recentStart = Math.max(0, i - 10);
       return !coalescedSteps.slice(recentStart, i).some(
         (prev) =>
           (prev.type === 'live_correction' || prev.type === 'cached_result' || prev.type === 'result') &&
-          prev.content === step.content,
+          _resultText(prev) === text,
       );
     }
     return true;

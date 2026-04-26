@@ -475,7 +475,15 @@ async def agent_run(req: AgentRunRequest, request: Request,
                     # Send final result
                     result_data = _strip_record_batch(engine._result.to_dict())
                     result_data["chat_id"] = chat_id
-                    collected_steps.append(result_data)
+                    # Don't persist the sentinel: agent already yielded a
+                    # `type="result"` AgentStep with content=final_answer
+                    # (agent_engine.py:3292). Persisting both produces a
+                    # duplicate result card on history replay because the
+                    # sentinel has no `content` field, so the renderer's
+                    # dedup filter (AgentStepRenderer.jsx:782) skips it.
+                    # The sentinel still goes over SSE for the live consumer
+                    # (Chat.jsx:633 needs sql + final_answer to build the
+                    # sql_preview and assistant messages).
                     yield f"data: {json.dumps(result_data, default=str)}\n\n"
                     # Persist completed session to SQLite
                     _persist_session()
@@ -854,7 +862,8 @@ async def agent_continue(req: AgentContinueRequest, request: Request,
                 if step is None:
                     result_data = _strip_record_batch(engine._result.to_dict())
                     result_data["chat_id"] = chat_id
-                    collected_steps.append(result_data)
+                    # Sentinel intentionally NOT persisted — see /run handler
+                    # for rationale (duplicate result card on history replay).
                     yield f"data: {json.dumps(result_data, default=str)}\n\n"
                     _persist_session()
                     break
