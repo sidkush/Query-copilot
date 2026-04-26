@@ -3379,7 +3379,14 @@ class AgentEngine:
 
                 for block in content_blocks:
                     if block.type == "text" and block.text.strip():
-                        # Final text response from Claude
+                        # Final text response from Claude.
+                        # T8 wiring point: insert SafeText filter here before _set_final_answer.
+                        #   content = block.text.strip()
+                        #   filtered = self._apply_safe_text(content)
+                        #   if filtered is None:
+                        #       self._set_final_answer("", source="hallucination_abort")
+                        #       return  # _ABORT_SOURCES guard suppresses unverified banner
+                        #   content = filtered
                         content = block.text.strip()
                         self._set_final_answer(content, source="synthesis_stream")
 
