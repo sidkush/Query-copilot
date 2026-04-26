@@ -14,10 +14,31 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname
 logger = logging.getLogger(__name__)
 
 
+def _log_security_flag_matrix() -> None:
+    """T9.5 — emit resolved security-flag state at startup so operators know
+    which invariants are active without reading config files."""
+    flags = {
+        "FEATURE_CLAIM_PROVENANCE": settings.FEATURE_CLAIM_PROVENANCE,
+        "FEATURE_AUDIT_LEDGER": settings.FEATURE_AUDIT_LEDGER,
+        "FEATURE_AGENT_FEEDBACK_LOOP": settings.FEATURE_AGENT_FEEDBACK_LOOP,
+        "FEATURE_AGENT_HALLUCINATION_ABORT": settings.FEATURE_AGENT_HALLUCINATION_ABORT,
+        "FEATURE_AGENT_MODEL_LADDER": settings.FEATURE_AGENT_MODEL_LADDER,
+        "FEATURE_DEADLINE_PROPAGATION": settings.FEATURE_DEADLINE_PROPAGATION,
+        "W2_SCHEMA_MISMATCH_GATE_ENFORCE": settings.W2_SCHEMA_MISMATCH_GATE_ENFORCE,
+        "PARK_V2_ASK_USER": getattr(settings, "PARK_V2_ASK_USER", False),
+    }
+    active = sum(bool(v) for v in flags.values())
+    logger.info("[SECURITY FLAGS] Active: %d/%d — %s", active, len(flags), {k: v for k, v in flags.items() if v})
+    inactive = [k for k, v in flags.items() if not v]
+    if inactive:
+        logger.warning("[SECURITY FLAGS] INACTIVE: %s", inactive)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup — no auto DB connection; user connects via /api/connections/connect
     logger.info("Starting AskDB backend (lazy mode — waiting for user to connect a database)...")
+    _log_security_flag_matrix()
     # H19 — Phase H: supply-chain boot checks (lock file exists; safetensors-only).
     from supply_chain import run_boot_checks
     run_boot_checks()
