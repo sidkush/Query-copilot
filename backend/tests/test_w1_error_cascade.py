@@ -29,9 +29,9 @@ def test_counter_initialises_to_zero():
 
 def test_counter_increments_on_error_result():
     agent = _make_agent()
-    agent._update_error_cascade_counter(json.dumps({"error": "boom"}))
+    agent._update_error_cascade_counter(json.dumps({"error": "column foo not found"}))
     assert agent._consecutive_tool_errors == 1
-    agent._update_error_cascade_counter(json.dumps({"error": "boom"}))
+    agent._update_error_cascade_counter(json.dumps({"error": "column foo not found"}))
     assert agent._consecutive_tool_errors == 2
 
 
@@ -55,7 +55,7 @@ def test_checkpoint_triggered_at_threshold(monkeypatch):
     monkeypatch.setattr(settings, "W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD", 3)
     agent = _make_agent()
     for _ in range(3):
-        agent._update_error_cascade_counter(json.dumps({"error": "boom"}))
+        agent._update_error_cascade_counter(json.dumps({"error": "column foo not found"}))
     assert agent._should_fire_error_cascade_checkpoint() is True
 
 
@@ -64,7 +64,7 @@ def test_checkpoint_not_triggered_when_flag_off(monkeypatch):
     monkeypatch.setattr(settings, "GROUNDING_W1_HARDCAP_ENFORCE", False)
     agent = _make_agent()
     for _ in range(5):
-        agent._update_error_cascade_counter(json.dumps({"error": "boom"}))
+        agent._update_error_cascade_counter(json.dumps({"error": "column foo not found"}))
     assert agent._should_fire_error_cascade_checkpoint() is False
 
 

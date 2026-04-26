@@ -25,7 +25,7 @@ def test_analytical_cap_is_20_when_flag_on(monkeypatch):
     from config import settings
     monkeypatch.setattr(settings, "GROUNDING_W1_HARDCAP_ENFORCE", True)
     agent = _make_agent()
-    cap = agent._classify_workload_cap("why are casual riders churning")
+    cap = agent._classify_workload_cap("why did orders drop last quarter")
     assert cap == 20
 
 
@@ -41,7 +41,7 @@ def test_legacy_heuristic_when_flag_off(monkeypatch):
     from config import settings
     monkeypatch.setattr(settings, "GROUNDING_W1_HARDCAP_ENFORCE", False)
     agent = _make_agent()
-    cap = agent._classify_workload_cap("why are casual riders churning")
+    cap = agent._classify_workload_cap("why did orders drop last quarter")
     assert cap in (8, 15, 20)
 
 

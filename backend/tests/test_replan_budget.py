@@ -24,6 +24,17 @@ def test_reset_restores_budget():
     assert b.remaining() == 1
 
 
+def test_budget_2_allows_two_replans():
+    b = ReplanBudget(max_replans=2)
+    assert b.remaining() == 2
+    b.consume("rule_fired:range_mismatch")
+    assert b.remaining() == 1
+    b.consume("rule_fired:fanout_inflation")
+    assert b.remaining() == 0
+    with pytest.raises(BudgetExceeded):
+        b.consume("rule_3")
+
+
 def test_history_tracks_reasons():
     b = ReplanBudget(max_replans=2)
     b.consume("rule_1")
