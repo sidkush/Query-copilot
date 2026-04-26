@@ -382,8 +382,8 @@ class Settings(BaseSettings):
         ),
     )
     # ── Audit Ledger + Progressive UX + Plan Cache (Phase L) ──
-    FEATURE_AUDIT_LEDGER: bool = Field(default=False)
-    FEATURE_CLAIM_PROVENANCE: bool = Field(default=False)
+    FEATURE_AUDIT_LEDGER: bool = Field(default=True)
+    FEATURE_CLAIM_PROVENANCE: bool = Field(default=True)
     FEATURE_PROGRESSIVE_UX_FULL: bool = Field(default=False)
     FEATURE_PLAN_CACHE: bool = Field(default=False)
     FEATURE_DEADLINE_PROPAGATION: bool = Field(default=False)

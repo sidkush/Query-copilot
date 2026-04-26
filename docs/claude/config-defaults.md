@@ -274,8 +274,8 @@ point here instead of duplicating values. Confirm against
 
 | Constant | Value | Notes |
 |---|---|---|
-| `FEATURE_AUDIT_LEDGER` | `False` | Master gate for hash-chained per-claim ledger. Off → no audit writes. |
-| `FEATURE_CLAIM_PROVENANCE` | `False` | Scans agent synthesis for numeric spans + binds to tool-results. Off → synthesis unfiltered. |
+| `FEATURE_AUDIT_LEDGER` | `True` | Master gate for hash-chained per-claim ledger. Off → no audit writes. Requires `AUDIT_HMAC_KEY` env var. |
+| `FEATURE_CLAIM_PROVENANCE` | `True` | Scans agent synthesis for numeric spans + binds to tool-results. Off → synthesis unfiltered. |
 | `FEATURE_PROGRESSIVE_UX_FULL` | `False` | Frontend slot streaming + cancel + revise + ResultPreview + ClaimChip. |
 | `FEATURE_PLAN_CACHE` | `False` | Plan reuse via ChromaDB. Off → every Q calls Sonnet. |
 | `FEATURE_DEADLINE_PROPAGATION` | `False` | asyncio contextvar DEADLINE threaded through tool methods. |
