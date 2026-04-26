@@ -44,6 +44,12 @@ DOMAIN_REFRAME_TERMS = frozenset({
     "dau", "mau", "wau", "acquisition", "conversion",
 })
 
+# T19 — domain terms used for prompt hints only, NOT for budget inflation
+DOMAIN_ANALYSIS_KEYWORDS = frozenset({
+    "churn", "retention", "cohort", "funnel", "attrition",
+    "dropoff", "drop-off", "abandonment", "ltv", "lifetime value",
+})
+
 # ── Tool Definitions (Anthropic format) ──────────────────────────
 
 TOOL_DEFINITIONS = [
@@ -1113,7 +1119,6 @@ class AgentEngine:
         complex_keywords = {
             "why", "compare", "trend", "correlat", "over time", "vs",
             "join", "across", "between", "analyze", "breakdown", "segment",
-            "cohort", "retention", "churn", "funnel",
         }
         is_complex = any(kw in q for kw in complex_keywords)
         if is_dashboard:
