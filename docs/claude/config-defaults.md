@@ -32,6 +32,7 @@ point here instead of duplicating values. Confirm against
 | `_MANDATORY_BLOCKED` | `{DROP, DELETE, UPDATE, INSERT, ALTER, TRUNCATE, CREATE, GRANT, REVOKE, MERGE}` | Force-appended to `BLOCKED_KEYWORDS` if missing. |
 | `_SAFE_JWT_ALGORITHMS` | `{HS256, HS384, HS512}` | Allowlist enforced at startup; unsafe values (incl. `none`) forced to `HS256`. |
 | `JWT_ALGORITHM` default | `HS256` | |
+| `FEATURE_GENERATION_ID_BINDING` | `False` | S5 — HMAC-bind /generate + /execute pair. Off until frontend echoes generation_id. |
 
 ### Data Coverage (Phase B — Ring 1)
 

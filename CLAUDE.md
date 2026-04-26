@@ -51,7 +51,7 @@ DB enforcement, and 6-layer SQL validation. Active branch:
 - Ring 5 — `provenance_chip.py` emits trust chip BEFORE first streamed token.
 - Ring 6 — `tenant_fortress.py` composite-keys every cache/namespace/session. NEVER use user_id or conn_id alone as a cache key.
 - Tier universality — `waterfall_router.validate_scope()` runs Ring 3 at every tier.
-- Replan budget: 1 per query. Do not raise without updating `SCOPE_VALIDATOR_REPLAN_BUDGET`.
+- Replan budget: 2 per query (raised from 1 — T13, 2026-04-26). Field(ge=1, le=5). Update `SCOPE_VALIDATOR_REPLAN_BUDGET` in config.py if changed.
 
 See `docs/grounding-stack-v6/` for full docs + `docs/superpowers/plans/2026-04-22-grounding-stack-v6-master.md` for the architectural north star.
 

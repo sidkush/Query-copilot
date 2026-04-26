@@ -388,7 +388,7 @@ class Settings(BaseSettings):
     FEATURE_PLAN_CACHE: bool = Field(default=False)
     FEATURE_DEADLINE_PROPAGATION: bool = Field(default=False)
     AUDIT_LEDGER_DIR: str = Field(default=".data/audit_ledger")
-    AUDIT_LEDGER_FLUSH_EVERY_N: int = Field(default=1)
+    AUDIT_LEDGER_FLUSH_EVERY_N: int = Field(default=1, ge=1, le=100)
     CLAIM_PROVENANCE_UNVERIFIED_MARKER: str = Field(default="[unverified]")
     PLAN_CACHE_COSINE_THRESHOLD: float = Field(default=0.85)
     PLAN_CACHE_TTL_HOURS: int = Field(default=168)
