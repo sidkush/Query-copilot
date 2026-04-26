@@ -286,7 +286,7 @@ class Settings(BaseSettings):
     # ── Ring 8 Agent Orchestration (Phase K) ──
     FEATURE_AGENT_PLANNER: bool = Field(default=False)
     FEATURE_AGENT_FEEDBACK_LOOP: bool = Field(default=True)
-    FEATURE_AGENT_HALLUCINATION_ABORT: bool = Field(default=False)
+    FEATURE_AGENT_HALLUCINATION_ABORT: bool = Field(default=True)
     FEATURE_AGENT_MODEL_LADDER: bool = Field(default=False)
     AGENT_STEP_CAP: int = Field(default=20)
     AGENT_WALL_CLOCK_TYPICAL_S: float = Field(default=60.0)

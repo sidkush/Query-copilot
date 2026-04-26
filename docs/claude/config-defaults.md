@@ -244,7 +244,7 @@ point here instead of duplicating values. Confirm against
 |---|---|---|
 | `FEATURE_AGENT_PLANNER` | `False` | Master gate for `analytical_planner.py`. Off → `_tool_run_sql` is pre-K behavior. Demo tenant overrides to True. |
 | `FEATURE_AGENT_FEEDBACK_LOOP` | `True` | Wires `_handle_scope_violations_with_replan` into tool loop. Off → Phase C/D dead-code state preserved. |
-| `FEATURE_AGENT_HALLUCINATION_ABORT` | `False` | `SafeText` guard active. Off → agent output unfiltered. |
+| `FEATURE_AGENT_HALLUCINATION_ABORT` | `True` | `SafeText` guard active. Off → agent output unfiltered. |
 | `FEATURE_AGENT_MODEL_LADDER` | `False` | `ModelLadder.select()` routes by role. Off → single-model path. |
 | `AGENT_STEP_CAP` | `20` | Max tool calls per user query. 21st call → safe_abort. |
 | `AGENT_WALL_CLOCK_TYPICAL_S` | `60.0` | Budget exhaustion → safe_abort with partial-plan banner. |
