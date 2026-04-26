@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from model_provider import ModelProvider, ContentBlock, ProviderToolResponse
+from prompt_safety import safe_for_prompt
 
 from agent_park import ParkRegistry, park_for_user_response
 from config import settings
@@ -1408,12 +1409,12 @@ class AgentEngine:
         except Exception:
             return None
 
-        if not hasattr(self, "_replan_budget"):
+        if not getattr(self, "_replan_budget", None):
             from config import settings as _cfg
             self._replan_budget = ReplanBudget(
                 max_replans=getattr(_cfg, "SCOPE_VALIDATOR_REPLAN_BUDGET", 1)
             )
-        if not hasattr(self, "_replan_controller"):
+        if not getattr(self, "_replan_controller", None):
             self._replan_controller = ReplanController(budget=self._replan_budget)
 
         try:
@@ -2242,6 +2243,20 @@ class AgentEngine:
         self._steps = []
         self._result = AgentResult()
 
+        # PRE-T0d: reset per-run counters so a new run never starts pre-tripped.
+        # _consecutive_tool_errors and _thinking_tokens_used are lazy-attached on
+        # first use; force them to 0 here so run N+1 is always clean.
+        self._consecutive_tool_errors = 0
+        self._thinking_tokens_used = 0
+        self._empty_boundset_note_emitted = False
+        # Reset lazy replan objects so budget is fresh each run.
+        self._replan_budget = None
+        self._replan_controller = None
+        # Snapshot question and consent state so mutations during this run don't
+        # leak into the next run (F15/F16 cross-run consent/question bleed).
+        self._run_question = safe_for_prompt(question)
+        self._run_consents = dict(getattr(self.memory, "_schema_mismatch_consents", {}))
+
         # Reject concurrent runs on the same session (atomic check-and-set)
         with self.memory._lock:
             if self.memory._running:
@@ -2619,12 +2634,21 @@ class AgentEngine:
             # AGENT_WALL_CLOCK_HARD_S (120s query budget) — a consent card
             # needs to wait for a human to read + click, not finish in 2 min.
             _gc_deadline = _time_gc.monotonic() + settings.W2_GATE_C_PARK_TIMEOUT_S
+            _gc_timed_out = False
             while self.memory._user_response is None:
                 _gc_remaining = _gc_deadline - _time_gc.monotonic()
                 if _gc_remaining <= 0:
+                    _gc_timed_out = True
                     break
                 self.memory._user_response_event.wait(timeout=min(_gc_remaining, 5.0))
                 self.memory._user_response_event.clear()
+            if _gc_timed_out and self.memory._user_response is None:
+                _logger.warning(
+                    "Gate C park timeout after %.1fs (park_id=%s canonical=%s) "
+                    "— defaulting to abort",
+                    settings.W2_GATE_C_PARK_TIMEOUT_S,
+                    _gc_slot.park_id, _gate_c_mismatch.canonical,
+                )
             _gc_choice = (self.memory._user_response or "abort").strip().lower()
             self.memory._user_response = None
             self._waiting_for_user = False
@@ -2805,7 +2829,15 @@ class AgentEngine:
                                 getattr(s, "type", "") == "tool_result"
                                 for s in getattr(self, "_steps", [])
                             )
-                        except Exception:
+                        except Exception as _hbe:
+                            # Default True (assume success) so the banner does
+                            # NOT fire on inspection failure — but log so the
+                            # blind-spot is visible in telemetry.
+                            _logger.warning(
+                                "had_tool_result inspection failed: %s — "
+                                "defaulting to True (suppressing unverified banner)",
+                                _hbe,
+                            )
                             had_tool_result = True
                         if not had_tool_result:
                             banner = AgentStep(
