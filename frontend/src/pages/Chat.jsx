@@ -951,7 +951,16 @@ export default function Chat() {
   const handleApprove = async (sql, question, connId, originalSql = null) => {
     setExecuting(true);
     try {
-      const cid = connId || resolvedConnId;
+      // The stored connId may be stale: chat history persists the conn_id
+      // from when the query first ran, but `app.state.connections` is
+      // in-memory and re-keys on every backend restart. After a restart
+      // (or a manual disconnect), the historical UUID no longer maps to
+      // any live registration → 404 on /execute.
+      // Prefer the stored connId ONLY if it's still alive — preserves
+      // intent when the user has multiple connections open. Otherwise
+      // fall back to the currently active connection.
+      const storedAlive = connId && liveConnIds.has(connId);
+      const cid = storedAlive ? connId : (resolvedConnId || connId);
       const result = await api.executeSQL(sql, question, cid, originalSql);
       if (result.error) {
         const errMsg = { type: "error", content: result.error };
