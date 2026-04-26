@@ -158,6 +158,12 @@ class AuditLedger:
         """Auto-resolve prev_hash from the latest existing entry for this tenant
         (walks prior months) and commit under thread + file lock so concurrent
         writers in the same or different processes don't interleave the chain."""
+        tid = entry.tenant_id
+        if not tid or tid.strip().lower() in ("", "unknown"):
+            raise ValueError(
+                f"Audit ledger write rejected: tenant_id is '{tid}'. "
+                "Cross-tenant contamination prevented."
+            )
         with self._tenant_lock(entry.tenant_id):
             with self._tenant_filelock(entry.tenant_id):
                 prev = self._latest_prev_hash(entry.tenant_id)
