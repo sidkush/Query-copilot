@@ -192,14 +192,14 @@ class Settings(BaseSettings):
     FEATURE_DRIFT_DETECTOR: bool = Field(default=True)
     FISCAL_YEAR_START_MONTH: int = Field(default=1)
     # ── Provenance + Tier Calibration (Phase E — Ring 5) ──
-    FEATURE_PROVENANCE_CHIP: bool = Field(default=True)
+    FEATURE_PROVENANCE_CHIP: bool = Field(default=True)  # DEPRECATED — always-on; flag is no-op (Ring 5 chip always emitted correctly)
     SKEW_GUARD_P99_P50_RATIO: float = Field(default=10.0)
     TIER_PROMOTE_KEYWORDS: str = Field(
         default="exact,last hour,today,fraud rate,incident,live",
         description="Comma-separated NL triggers that force live execution."
     )
     # ── Tenant Fortress (Phase E — Ring 6 / H7) ──
-    FEATURE_TENANT_FORTRESS: bool = Field(default=True)
+    FEATURE_TENANT_FORTRESS: bool = Field(default=True)  # DEPRECATED — always-on; flag is no-op (composite keys always used correctly)
     TENANT_EU_REGIONS: str = Field(default="eu,fr,de,ie,nl,pl,es,it")
     # ── Chaos Isolation (Phase E — H8) ──
     FEATURE_CHAOS_ISOLATION: bool = Field(default=True)

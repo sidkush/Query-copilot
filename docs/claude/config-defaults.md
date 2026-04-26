@@ -83,10 +83,10 @@ point here instead of duplicating values. Confirm against
 
 | Constant | Value | Notes |
 |---|---|---|
-| `FEATURE_PROVENANCE_CHIP` | `True` | Emit provenance_chip SSE event before first token. |
+| `FEATURE_PROVENANCE_CHIP` | `True` | Emit provenance_chip SSE event before first token. (DEPRECATED — no-op) |
 | `SKEW_GUARD_P99_P50_RATIO` | `10.0` | Ratio trigger for "add median alongside mean" in summaries. |
 | `TIER_PROMOTE_KEYWORDS` | `exact,last hour,today,fraud rate,incident,live` | Force live execution on match. |
-| `FEATURE_TENANT_FORTRESS` | `True` | `(tenant, conn, user)` composite keys everywhere. |
+| `FEATURE_TENANT_FORTRESS` | `True` | `(tenant, conn, user)` composite keys everywhere. (DEPRECATED — no-op) |
 | `TENANT_EU_REGIONS` | `eu,fr,de,ie,nl,pl,es,it` | Tenants whose region_hint matches → EU Anthropic endpoint. |
 | `FEATURE_CHAOS_ISOLATION` | `True` | Jitter + singleflight + cost breaker + SSE cursor. |
 | `JITTER_BASE_MS` | `50` | Exponential backoff base for retry. |
