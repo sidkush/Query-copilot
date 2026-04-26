@@ -2161,6 +2161,9 @@ class AgentEngine:
                 "- For analysis requests: each task is one query/analysis step\n"
                 "- Propose 3-10 tasks based on the available schema\n"
                 "- Each task title should be concise (under 60 chars)\n\n"
+                f"CONSTRAINT: Generate tasks ONLY for the literal user question: \"{question}\". "
+                "Do NOT propose adjacent analyses (churn, retention, trend, cluster, forecast). "
+                "If the question needs only one query, return a one-task plan.\n\n"
                 f"Available schema:\n{schema_context[:3000]}\n"
             )
             messages_for_plan = [{
