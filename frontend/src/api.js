@@ -662,7 +662,10 @@ export const api = {
                 const data = JSON.parse(dataLine);
                 if (eventName) data.__event = eventName;
                 onStep(data);
-              } catch { /* skip malformed */ }
+              } catch (err) {
+                console.warn('SSE parse failed', { err, dataLine: (dataLine || '').slice(0, 200) });
+                onStep({ type: 'stream_error', content: 'Malformed SSE event' });
+              }
             }
           }
         }
@@ -693,11 +696,14 @@ export const api = {
     return { close: () => controller.abort() };
   },
 
-  agentRespond: (chatId, response) =>
-    request("/agent/respond", {
+  agentRespond: (chatId, response, parkId = null) => {
+    const body = { chat_id: chatId, response };
+    if (parkId) body.park_id = parkId;
+    return request("/agent/respond", {
       method: "POST",
-      body: JSON.stringify({ chat_id: chatId, response }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
 
   agentCancel: (chatId) =>
     request(`/agent/cancel/${chatId}`, { method: "POST" }),

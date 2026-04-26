@@ -496,6 +496,7 @@ export default function Chat() {
       "thinking", "tool_call", "tool_result", "tier_routing", "tier_hit",
       "plan", "progress", "cached_result", "live_correction",
       "budget_extension", "ask_user", "agent_checkpoint",
+      "signature_delta", "verification", "phase_start", "phase_complete", "sql-generation",
     ]);
 
     // Push a step into the message feed. Locate by stable __id because the
@@ -529,6 +530,13 @@ export default function Chat() {
       // When turbo/memory tier answers instantly, resolve early and skip the
       // redundant final_answer message that the backend may still emit.
       let resolvedViaTurbo = false;
+      // Cross-event dedupe: backend can emit the same final_answer on more
+      // than one SSE step (e.g. an interim `synthesizing` step carrying
+      // final_answer + a trailing `result` step with the same text). Without
+      // this guard, addMessage(ansMsg) fires twice and the chat shows the
+      // analysis card stacked on itself.
+      let _lastFinalAnswerAdded = null;
+      let _lastSqlAdded = null;
       addMessage(agentStepMsg);
 
       await new Promise((resolve, reject) => {
@@ -635,7 +643,8 @@ export default function Chat() {
             useStore.getState().clearProvenanceChip();
 
             if (!resolvedViaTurbo) {
-              if (step.sql) {
+              if (step.sql && step.sql !== _lastSqlAdded) {
+                _lastSqlAdded = step.sql;
                 const _agentLatency =
                   step.elapsed_ms ?? step.metadata?.query_ms ?? null;
                 const sqlMsg = {
@@ -650,7 +659,8 @@ export default function Chat() {
                 addMessage(sqlMsg);
                 if (chatId) api.appendMessage(chatId, sqlMsg).catch(() => {});
               }
-              if (step.final_answer) {
+              if (step.final_answer && step.final_answer !== _lastFinalAnswerAdded) {
+                _lastFinalAnswerAdded = step.final_answer;
                 const ansMsg = {
                   type: "assistant",
                   content: step.final_answer,
@@ -1417,7 +1427,15 @@ export default function Chat() {
                   <div className="text-xs text-[var(--text-muted)]">
                     {msg.dbLabel && <span className="text-blue-400 font-medium">[{msg.dbLabel}] </span>}
                     Generated with {msg.model}
-                    {Number.isFinite(Number(msg.latency)) && ` in ${Math.round(msg.latency)}ms`}
+                    {(() => {
+                      // Tight guard: render only on a finite, non-negative number.
+                      // Number(undefined) = NaN handled; Number(null) = 0 also
+                      // suppressed (don't render "in 0ms" for unknown latency).
+                      const _lat = Number(msg.latency);
+                      return Number.isFinite(_lat) && _lat > 0
+                        ? ` in ${Math.round(_lat)}ms`
+                        : null;
+                    })()}
                   </div>
                   <SQLPreview
                     sql={msg.sql}
@@ -1534,7 +1552,13 @@ export default function Chat() {
                           )}
                         </span>
                         <span className="chat-artifact__stat ml-auto">
-                          {msg.rowCount.toLocaleString()} row{msg.rowCount !== 1 ? 's' : ''} · {Math.round(msg.latency)}ms
+                          {msg.rowCount.toLocaleString()} row{msg.rowCount !== 1 ? 's' : ''}
+                          {(() => {
+                            const _lat = Number(msg.latency);
+                            return Number.isFinite(_lat) && _lat > 0
+                              ? ` · ${Math.round(_lat)}ms`
+                              : null;
+                          })()}
                         </span>
                       </div>
                       <div className="px-5 py-4 agent-result-md chat-md-comfy">
