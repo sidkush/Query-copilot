@@ -2819,44 +2819,16 @@ class AgentEngine:
                     # list-of-blocks with cache_control (flag on, 4-breakpoint).
                     _sys_payload = self._build_system_payload(system_prompt, question)
                     if use_stream:
-                        # AMEND-W2-16 — banner-first: if synthesis enters with
-                        # an empty-BoundSet condition (no successful tool
-                        # results), the unverified-data banner must reach the
-                        # UI ahead of any model text. Cheap heuristic: zero
-                        # tool_result steps in the run so far → emit banner.
-                        try:
-                            had_tool_result = any(
-                                getattr(s, "type", "") == "tool_result"
-                                for s in getattr(self, "_steps", [])
-                            )
-                        except Exception as _hbe:
-                            # Default True (assume success) so the banner does
-                            # NOT fire on inspection failure — but log so the
-                            # blind-spot is visible in telemetry.
-                            _logger.warning(
-                                "had_tool_result inspection failed: %s — "
-                                "defaulting to True (suppressing unverified banner)",
-                                _hbe,
-                            )
-                            had_tool_result = True
-                        if not had_tool_result:
-                            banner = AgentStep(
-                                type="message_delta",
-                                content=(
-                                    "[Note] No verified rows were retrieved by tools "
-                                    "before this synthesis began; downstream text is "
-                                    "unverified-scope. "
-                                ),
-                            )
-                            self._steps.append(banner)
-                            yield banner
-
-                        synth_step = AgentStep(
-                            type="synthesizing",
-                            content="Synthesizing analysis…",
-                        )
-                        self._steps.append(synth_step)
-                        yield synth_step
+                        # T5 — REMOVED mid-loop banner + synthesizing yield.
+                        # Pre-T5 behaviour emitted an "[Note] No verified rows"
+                        # message_delta and a synthesizing step here. Both have
+                        # been moved to end-of-run: the empty-boundset banner
+                        # is applied via _apply_empty_boundset_banner once the
+                        # run is finished, so the UI gets a single coherent
+                        # final-answer event instead of a stream of fragments
+                        # that may misrepresent partial state.
+                        # (Tests assert the absence of these mid-loop yields:
+                        #  tests/test_t5_banner.py)
 
                         # AMEND-W2-22/26/27 — request extended thinking when
                         # capability + cumulative budget allow.
