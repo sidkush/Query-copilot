@@ -12,9 +12,19 @@ import logging
 import secrets
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
+
+
+def _canon_email(email: str) -> str:
+    """Canonicalize email for _active_agents/_sessions keying.
+
+    A2 adversarial fold: prevents case/whitespace bypass of per-user concurrency
+    cap. Strip + lower; never write raw email into _active_agents.
+    """
+    return (email or "").strip().lower()
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Query as FQuery
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -67,6 +77,8 @@ KNOWN_SSE_EVENT_TYPES.update({
     "redacted",           # W2 T3 — AMEND-W2-25 redacted_thinking blocks
     "signature_delta",    # W2 T3 — AMEND-W2-25 thinking-block signatures
     "stream_end",         # T16 — explicit stream termination signal
+    "gate_c_timeout",     # 2026-04-26 Bug 1 — explicit consent timeout signal so frontend resets dialog cleanly
+    "gate_c_park_lost",   # 2026-04-26 A8 fold — backend restart lost park slot; frontend should reset dialog
 })
 
 # ---------------------------------------------------------------------------
@@ -207,9 +219,20 @@ _waterfall_router = build_default_router()
 
 _sessions: dict[str, SessionMemory] = {}
 _sessions_lock = threading.Lock()  # Guards all _sessions dict mutations
-_active_agents: dict[str, int] = {}  # email -> count of active sessions
+_active_agents: dict[str, int] = {}  # canon_email -> count of active sessions
 _active_agents_lock = threading.Lock()
 _MAX_SESSIONS = 100
+
+# A12 adversarial fold: dedicated executor for agent runs. Default
+# loop.run_in_executor(None, ...) uses the global ThreadPoolExecutor
+# (THREAD_POOL_MAX_WORKERS=32) shared with ALL FastAPI sync I/O. A long
+# Gate C park blocks the worker thread on threading.Event.wait(); 33
+# concurrent parks starve every other request. Dedicated bounded pool
+# isolates the blast radius.
+_AGENT_EXECUTOR = ThreadPoolExecutor(
+    max_workers=settings.AGENT_EXECUTOR_MAX_WORKERS,
+    thread_name_prefix="agent-run",
+)
 
 
 def _merge_consent_into_progress(progress: dict, memory: SessionMemory) -> None:
@@ -364,23 +387,18 @@ async def agent_run(req: AgentRunRequest, request: Request,
     """Start an agent run, streaming AgentStep events via SSE."""
     from main import app
 
-    email = user.get("email", "")
+    email = _canon_email(user.get("email", ""))  # A2 fold — canonical key
     if not req.question.strip():
         raise HTTPException(400, "Question cannot be empty")
 
-    # Enforce per-user concurrency cap
-    max_concurrent = settings.AGENT_MAX_CONCURRENT_PER_USER
-    with _active_agents_lock:
-        current = _active_agents.get(email, 0)
-        if current >= max_concurrent:
-            raise HTTPException(
-                429,
-                f"Maximum {max_concurrent} concurrent agent sessions. "
-                "Please wait for a running query to complete or cancel it."
-            )
-        _active_agents[email] = current + 1
+    # A1/A7 adversarial fold — ALL synchronous validation BEFORE
+    # touching _active_agents counter. Original ordering incremented
+    # at L381 then could raise at 384/391/402/403; counter perma-leaked.
+    # New ordering: validate everything that can raise sync, THEN
+    # increment, THEN start the SSE generator (which has its own
+    # try/finally for decrement).
 
-    connections = app.state.connections.get(email, {})
+    connections = app.state.connections.get(email, {}) or app.state.connections.get(user.get("email", ""), {})
     if not connections:
         raise HTTPException(400, "No active database connections")
 
@@ -392,8 +410,8 @@ async def agent_run(req: AgentRunRequest, request: Request,
     else:
         entry = next(iter(connections.values()))
 
-    # Session — use cryptographic nonce if generating new chat_id
-    chat_id = req.chat_id or f"agent_{email}_{int(time.time())}_{secrets.token_hex(16)}"
+    # Session — use time_ns to avoid Y2038 (A18 fold)
+    chat_id = req.chat_id or f"agent_{email}_{int(time.time_ns())}_{secrets.token_hex(16)}"
     try:
         memory = _get_or_create_session(chat_id, owner_email=email)
     except ValueError as e:
@@ -401,6 +419,43 @@ async def agent_run(req: AgentRunRequest, request: Request,
         if "capacity" in msg:
             raise HTTPException(503, msg)
         raise HTTPException(403, "Session belongs to a different user")
+
+    # Per-user concurrency counter check FIRST (no state mutation yet).
+    max_concurrent = settings.AGENT_MAX_CONCURRENT_PER_USER
+    with _active_agents_lock:
+        current = _active_agents.get(email, 0)
+        if current >= max_concurrent:
+            raise HTTPException(
+                429,
+                f"Maximum {max_concurrent} concurrent agent sessions. "
+                "Please wait for a running query to complete or cancel it."
+            )
+        # A9 fold (REVISED) — fast-path 409 check ONLY, no SET. The prior
+        # revision ALSO set `memory._running = True` here to close a
+        # TOCTOU window, but that collided with engine.run's own
+        # check-and-set at line 2777: engine.run saw `_running=True`
+        # (from this handler) and treated it as "another agent active",
+        # yielding an error and returning before any actual work.
+        # Result: every /run failed immediately with "Another agent run
+        # is active on this session" — chat-dead regression observed in
+        # screenshot smoke.
+        #
+        # Correct ownership: /run handler does only the cheap reject (so
+        # we don't burn an executor slot on an obvious duplicate); the
+        # authoritative atomic check-and-set lives inside engine.run's
+        # `with memory._lock`. The TOCTOU window between this check and
+        # engine.run's set is microseconds and bounded — if two /run
+        # requests both pass, only one wins inside engine.run's lock;
+        # the other yields a clean error AgentStep.
+        # A4 fold defense: clamp negative values.
+        with memory._lock:
+            if memory._running:
+                raise HTTPException(
+                    409,
+                    "An agent run is already active on this chat. Wait for it to "
+                    "complete or cancel it before starting a new one."
+                )
+        _active_agents[email] = max(0, current) + 1
 
     # Use module-level singleton router (P0 fix: avoids per-request ChromaDB client creation)
     waterfall_router = _waterfall_router
@@ -462,7 +517,9 @@ async def agent_run(req: AgentRunRequest, request: Request,
                     )
 
             loop = asyncio.get_event_loop()
-            loop.run_in_executor(None, _run_agent_with_queue)
+            # A12 fold — dedicated _AGENT_EXECUTOR (max_workers=8) so
+            # park-blocked threads can't starve FastAPI's global pool.
+            loop.run_in_executor(_AGENT_EXECUTOR, _run_agent_with_queue)
 
             while True:
                 try:
@@ -546,12 +603,64 @@ async def agent_run(req: AgentRunRequest, request: Request,
             # Persist partial progress even on error
             _persist_session()
         finally:
+            # P0 demo blocker fix (post-smoke screenshot diagnosis):
+            #
+            # When the SSE stream ends (clean completion, client disconnect,
+            # network blip, or unhandled error in the worker thread), the
+            # event_generator unwinds — but the executor thread running
+            # `engine.run` may still be iterating, holding `memory._running=True`
+            # via engine.run's own finally. That makes every subsequent /run
+            # on the same chat_id 409 ("Another agent run is active"), and
+            # the chat is permanently dead until process restart.
+            #
+            # Fix mirrors the Claude/ChatGPT model: the session lock lives
+            # only as long as the active stream. When the stream ends, we
+            # signal cancel + force-clear `_running`. The worker thread sees
+            # `_cancelled=True` at the next poll and exits gracefully; if
+            # it's mid-tool-call, engine.run's own finally re-asserts
+            # `_running=False` (idempotent — no harm).
+            #
+            # Race: a brand-new /run can fire on the same chat between this
+            # release and the worker thread actually exiting. Bounded by:
+            #   (a) 1-2s typical worker drain (cancel-aware loops),
+            #   (b) SessionMemory._lock serializing engine.run init.
+            # Acceptable trade vs. permanently-stuck chats.
+            if memory:
+                try:
+                    with memory._lock:
+                        memory._cancelled = True
+                        memory._running = False
+                        memory._waiting_for_user = False
+                    # Wake any threading.Event waiters so the worker can
+                    # observe `_cancelled` and exit fast (Gate C wait loop,
+                    # ask_user park).
+                    try:
+                        memory._user_response_event.set()
+                    except Exception:
+                        pass
+                    # Wake any ParkRegistry slots so consent-armed loops break.
+                    try:
+                        for slot in list(memory.parks._slots.values()):
+                            try:
+                                slot.event.set()
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                except Exception:
+                    _logger.exception("force-release of memory._running failed")
+
+            # A4/A2 fold — clamp to non-negative so a stray double-decrement
+            # elsewhere can't leave _active_agents[email]=-1 (which would
+            # then satisfy `current < cap` forever, denying the cap).
+            # email here is already _canon_email() from line ~370.
             with _active_agents_lock:
                 count = _active_agents.get(email, 1)
-                if count <= 1:
+                new_count = max(0, count - 1)
+                if new_count <= 0:
                     _active_agents.pop(email, None)
                 else:
-                    _active_agents[email] = count - 1
+                    _active_agents[email] = new_count
 
     return StreamingResponse(
         event_generator(),
@@ -631,19 +740,25 @@ async def chart_stream(
 async def agent_respond(req: AgentRespondRequest,
                         user: dict = Depends(get_current_user)):
     """Send a user response to a waiting agent."""
-    email = user.get("email", "")
+    email = _canon_email(user.get("email", ""))  # A2 fold
     with _sessions_lock:
         session = _sessions.get(req.chat_id)
     if not session:
-        raise HTTPException(404, "No active agent session")
+        # A8 fold — backend restart lost the in-memory session. Frontend
+        # likely holds a stale park_id. Return 410 Gone so frontend can
+        # reset the dialog UI rather than retry indefinitely.
+        raise HTTPException(410, "Session is no longer active. Please re-ask the question.")
 
     if not req.response or not req.response.strip():
         raise HTTPException(400, "Response cannot be empty")
 
     # All state checks inside the lock to close TOCTOU window
     with session._lock:
-        # Ownership check — prevent cross-user session injection
-        if session.owner_email and session.owner_email != email:
+        # Ownership check — prevent cross-user session injection.
+        # D7 fold (P0): treat empty owner_email as DENY, not as bypass.
+        # Compare canonical against canonicalized stored owner.
+        _stored_owner = _canon_email(session.owner_email or "")
+        if not _stored_owner or _stored_owner != email:
             raise HTTPException(403, "Session belongs to a different user")
 
         # Reject responses when agent isn't waiting — prevents response pre-loading
@@ -683,16 +798,24 @@ async def agent_respond(req: AgentRespondRequest,
 async def agent_cancel(chat_id: str, request: Request,
                        user: dict = Depends(get_current_user)):
     """Cancel a running agent session."""
-    email = user.get("email", "")
+    email = _canon_email(user.get("email", ""))  # A2 fold
     with _sessions_lock:
         session = _sessions.get(chat_id)
     if not session:
         raise HTTPException(404, "Session not found")
     with session._lock:
-        if session.owner_email and session.owner_email != email:
+        # D7 fold (P0): empty owner_email = DENY (not bypass).
+        _stored_owner = _canon_email(session.owner_email or "")
+        if not _stored_owner or _stored_owner != email:
             raise HTTPException(403, "Not your session")
         session._cancelled = True
         session._user_response_event.set()  # Wake up Event-waiting thread on cancel
+        # A17 fold — also wake any park slots awaiting cancel-aware predicate
+        for slot in list(session.parks._slots.values()):
+            try:
+                slot.event.set()
+            except Exception:
+                pass
     return {"status": "cancelled", "chat_id": chat_id}
 
 
@@ -710,7 +833,8 @@ async def agent_cancel_prepare(chat_id: str, user: dict = Depends(get_current_us
 @router.post("/cancel/commit/{chat_id}")
 async def agent_cancel_commit(chat_id: str, user: dict = Depends(get_current_user)):
     """Phase 2 — actually stop the session; 409 if prepare never happened."""
-    email = user.get("email", "")
+    # D7 fold (P0): canonicalize email + treat empty owner as DENY.
+    email = _canon_email(user.get("email", ""))
     try:
         commit_cancel(chat_id=chat_id)
     except CancelNotPrepared:
@@ -719,7 +843,8 @@ async def agent_cancel_commit(chat_id: str, user: dict = Depends(get_current_use
         session = _sessions.get(chat_id)
     if session:
         with session._lock:
-            if session.owner_email and session.owner_email != email:
+            _stored_owner = _canon_email(session.owner_email or "")
+            if not _stored_owner or _stored_owner != email:
                 raise HTTPException(403, "Not your session")
             session._cancelled = True
             session._user_response_event.set()
@@ -853,7 +978,9 @@ async def agent_continue(req: AgentContinueRequest, request: Request,
                     asyncio.run_coroutine_threadsafe(queue.put(None), loop)
 
             loop = asyncio.get_event_loop()
-            loop.run_in_executor(None, _run_agent_with_queue)
+            # A12 fold — dedicated _AGENT_EXECUTOR (max_workers=8) so
+            # park-blocked threads can't starve FastAPI's global pool.
+            loop.run_in_executor(_AGENT_EXECUTOR, _run_agent_with_queue)
 
             while True:
                 try:
@@ -895,6 +1022,30 @@ async def agent_continue(req: AgentContinueRequest, request: Request,
             yield f"data: {json.dumps({'type': 'error', 'content': safe_msg}, default=str)}\n\n"
             _persist_session()
         finally:
+            # P0 demo blocker fix — mirror /run finally: force-release
+            # `memory._running` so a worker thread that outlives the SSE
+            # stream does not leave the chat permanently 409-locked. See
+            # /run finally for full rationale.
+            if memory:
+                try:
+                    with memory._lock:
+                        memory._cancelled = True
+                        memory._running = False
+                        memory._waiting_for_user = False
+                    try:
+                        memory._user_response_event.set()
+                    except Exception:
+                        pass
+                    try:
+                        for slot in list(memory.parks._slots.values()):
+                            try:
+                                slot.event.set()
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                except Exception:
+                    _logger.exception("force-release of memory._running failed in /continue")
             _decrement_active()
 
     return StreamingResponse(

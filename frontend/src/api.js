@@ -42,7 +42,17 @@ async function request(path, options = {}) {
         store.useStore.getState().setApiKeyStatus({ ...current, valid: false });
       } catch { /* store not available */ }
     }
-    throw new Error(data.detail || "Request failed");
+    // D12 fold (frontend) — typed errors for agent endpoints so callers
+    // can branch on .code without parsing message strings:
+    //   410 Gone        → session_expired (Bug 1+2 — backend restart lost park)
+    //   409 Conflict    → run_active     (2nd /run on same chat_id)
+    //   422 stale park  → park_stale     (consent dialog already resolved)
+    const err = new Error(data.detail || "Request failed");
+    err.status = res.status;
+    if (res.status === 410) err.code = "session_expired";
+    else if (res.status === 409) err.code = "run_active";
+    else if (res.status === 422 && /park/i.test(data.detail || "")) err.code = "park_stale";
+    throw err;
   }
   return data;
 }

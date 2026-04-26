@@ -62,6 +62,7 @@ point here instead of duplicating values. Confirm against
 | `RULE_VIEW_WALKER` | `True` | Rule 8 — recursive view resolution; card check at base. |
 | `RULE_CONJUNCTION_SELECTIVITY` | `False` | Rule 9 — EXPLAIN-backed estimate; off until Phase E. |
 | `RULE_EXPRESSION_PREDICATE` | `True` | Rule 10 — non-literal WHERE → mark unverified-scope. |
+| `RULE_AGGREGATE_IN_GROUP_BY` | `True` | **Rule 11** (2026-04-26, Bug 4) — block aggregate fn (AVG/SUM/COUNT/MAX/MIN) inside GROUP BY expression. Excludes window aggs + ancestor scalar subquery aggs. |
 
 ### Intent Echo (Phase D — Ring 4)
 
@@ -262,7 +263,7 @@ point here instead of duplicating values. Confirm against
 | `W1_DASHBOARD_CAP` | `40` | Hard tool-call cap for dashboard workload; no auto-extend when flag on. |
 | `W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD` | `3` | N consecutive `run_sql` errors → fire `agent_checkpoint` consent card (GAP A). |
 | `W2_SCHEMA_MISMATCH_GATE_ENFORCE` | `True` | W2 T1 — Ring 4 Gate C schema-entity-mismatch consent card; off → pre-W2 behaviour. |
-| `W2_GATE_C_PARK_TIMEOUT_S` | `300.0` | W2 T1 — Gate C park wait budget; default-on-timeout is `abort`. |
+| `W2_GATE_C_PARK_TIMEOUT_S` | `1800.0` (Optional[float]) | **2026-04-26 Bug 1+2 fix** — raised from 300s → 1800s (= AGENT_SESSION_HARD_CAP). Set `None` to wait until SSE disconnect or session-hard-cap. NEVER truly infinite (A12/A14/A15 adversarial folds: thread-pool starvation, BYOK drift, PCI fsync hot, Y2038 chat_id collision all bound by session-hard-cap). On timeout, agent emits explicit `gate_c_timeout` SSE event, decrements `_active_agents`, discards park slot — clean abort, no zombie. |
 | `W2_FANOUT_DISTINCT_CTE_ENFORCE` | `True` | W2 T4 — extend Rule 2 to detect DISTINCT-CTE multi-column-join blow-up. |
 | `W2_SYNTHESIS_STREAMING_ENFORCE` | `True` | W2 T2 — stream final-synthesis tokens via `message_delta` SSE. Off → single result event after full synthesis (blank-screen UX). |
 | `W2_MAX_STREAM_BYTES` | `2_000_000` | W2 T2 — per-stream byte cap; overflow yields `stream_error` and aborts the stream (AMEND-W2-14). |
@@ -292,8 +293,15 @@ point here instead of duplicating values. Confirm against
 
 | Constant | Value | Notes |
 |---|---|---|
-| `FEATURE_DIALECT_BRIDGE` | `False` | Master gate. Off → LiveTier executes on source dialect directly, no transpile. |
-| `DIALECT_BRIDGE_ALERT_ON_FAILURE` | `True` | Fire `transpile_failure` alert via alert_manager when sqlglot transpile raises. Keep True in prod for observability. |
+| `FEATURE_DIALECT_BRIDGE` | `True` | **Flipped 2026-04-26** after baseline-rebuild ceremony (A20 fold). LiveTier transpiles source→target via sqlglot; scope_validator Rule 7 enforces target-dialect parseability. |
+| `DIALECT_BRIDGE_ALERT_ON_FAILURE` | `False` | **Staged rollout (A15 fold).** Defaults False to avoid first-day alert storm; flip True per-tenant via tenant_overrides.json after bake-in. |
+| `DIALECT_BRIDGE_ALERT_RATE_LIMIT_PER_HOUR` | `5` | A15 fold — caps `transpile_failure` alerts per `(tenant, source->target)` pair to N per hour even when ALERT_ON_FAILURE is on. |
+| `SQL_MAX_LEN_BYTES` | `100_000` | A6/A11 fold — hard cap on SQL byte length BEFORE any sqlglot.parse call. Reject queries beyond as `SQL_TOO_LARGE` violation. Defends scope_validator + dialect_bridge + correction_reviewer + query_decomposer from O(n) AST walk DoS + RecursionError on deep CTE. |
+| `SQL_MAX_AST_DEPTH` | `200` | A6/A11 fold — hard cap on AST recursion depth used by Rule 11 + view walker. |
+| `RULE_AGGREGATE_IN_GROUP_BY` | `True` | **Rule 11** — Bug 4 root fix. Block SQL where GROUP BY expression contains an aggregate (CASE WHEN AVG(x)>0 used directly in GROUP BY). Excludes window aggregates (`SUM(x) OVER (...)`) and ancestor scalar subquery aggregates. Severity = block; replans via Rule-7 path. |
+| `FEATURE_PARK_RESTORE_NOTIFY` | `True` | A8 fold — on backend restart, frontend gets explicit `gate_c_park_lost` SSE event so dialog UI resets cleanly instead of polling a dead park_id. |
+| `FEATURE_DIALECT_CORRECTION_INJECT` | `True` | Bug 4 — when agent tool_error matches a dialect-specific pattern (e.g., "aggregate functions are not allowed in GROUP BY"), inject sanitized `<dialect_correction>` block into next-iteration system prompt. A1/A5 fold: tool_error is NFKC-normalized + length-capped (500 char) + HTML-escaped + nonce-fenced. |
+| `AGENT_EXECUTOR_MAX_WORKERS` | `8` | A12 fold — dedicated `ThreadPoolExecutor` for agent runs. Prevents park-blocked threads from starving FastAPI's global default executor (32 workers shared with all sync I/O). |
 
 ### Agent system (`agent_engine.py`)
 

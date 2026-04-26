@@ -14,6 +14,7 @@ Invariant-1: Every sub-query produced here MUST be validated as SELECT-only by
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Dict, List, Optional
@@ -22,6 +23,38 @@ import sqlglot
 from sqlglot import exp
 
 logger = logging.getLogger(__name__)
+
+
+# A20 fold — module-level dialect contextvar. QueryDecomposer.__init__
+# sets this from connection_entry.db_type so module-level helpers
+# (`_parse_group_by_columns`, `_extract_primary_table`, etc.) parse
+# with dialect awareness without the costly refactor of threading the
+# param through every call signature.
+_DECOMPOSER_DIALECT: ContextVar[str] = ContextVar("_DECOMPOSER_DIALECT", default="")
+
+
+def _parse_kwargs() -> dict:
+    """Build kwargs dict for sqlglot.parse / parse_one based on the
+    current dialect contextvar. Empty dict when no dialect set
+    (preserves pre-fix ANSI behaviour for back-compat callers)."""
+    try:
+        from dialect_bridge import normalize_dialect
+        d = normalize_dialect(_DECOMPOSER_DIALECT.get())
+    except Exception:
+        d = ""
+    return {"dialect": d} if d else {}
+
+
+def _sql_size_ok(sql: str) -> bool:
+    """A6/A11 fold — pre-parse size guard."""
+    try:
+        from config import settings as _cfg
+        _max = int(getattr(_cfg, "SQL_MAX_LEN_BYTES", 100_000))
+    except Exception:
+        _max = 100_000
+    if not isinstance(sql, str):
+        return False
+    return len(sql.encode("utf-8", errors="ignore")) <= _max
 
 # Maximum number of sub-queries produced by a single decomposition.
 MAX_SUB_QUERIES = 10
@@ -86,7 +119,7 @@ def _parse_group_by_columns(sql: str) -> List[str]:
     Returns an empty list when the SQL cannot be parsed or contains no GROUP BY.
     """
     try:
-        statements = sqlglot.parse(sql)
+        statements = sqlglot.parse(sql, **_parse_kwargs()) if _sql_size_ok(sql) else []
     except sqlglot.errors.ParseError as exc:
         logger.debug("_parse_group_by_columns: parse error — %s", exc)
         return []
@@ -229,7 +262,7 @@ def _add_where_clause(sql: str, column: str, value: str) -> str:
     or parameterise as appropriate for their dialect).
     """
     try:
-        statements = sqlglot.parse(sql)
+        statements = sqlglot.parse(sql, **_parse_kwargs()) if _sql_size_ok(sql) else []
         if not statements:
             raise ValueError("No statements parsed")
 
@@ -285,7 +318,7 @@ def _extract_primary_table(sql: str) -> str:
     Returns an empty string when it cannot be determined.
     """
     try:
-        statements = sqlglot.parse(sql)
+        statements = sqlglot.parse(sql, **_parse_kwargs()) if _sql_size_ok(sql) else []
         if not statements:
             return ""
         stmt = statements[0]
@@ -303,7 +336,7 @@ def _extract_primary_table(sql: str) -> str:
 def _count_joins(sql: str) -> int:
     """Return the number of explicit JOIN clauses in *sql* using sqlglot AST."""
     try:
-        statements = sqlglot.parse(sql)
+        statements = sqlglot.parse(sql, **_parse_kwargs()) if _sql_size_ok(sql) else []
         if not statements:
             return 0
         stmt = statements[0]
@@ -337,6 +370,27 @@ class QueryDecomposer:
     before executing (Invariant-1).
     """
 
+    def __init__(self, dialect: str = ""):
+        """A20 fold — accept dialect string at construction (e.g.,
+        'bigquery', 'snowflake', 'postgresql'). Module-level helpers
+        read this via the _DECOMPOSER_DIALECT contextvar; methods set
+        the contextvar around their parse-using regions so module
+        helpers see the right dialect. Empty string preserves
+        pre-fix ANSI parse behaviour."""
+        self.dialect = (dialect or "").lower()
+
+    def _scoped_dialect(self):
+        """Context manager (returns a token-bearing object) that sets
+        the module dialect contextvar for the duration of a method."""
+        token = _DECOMPOSER_DIALECT.set(self.dialect)
+
+        class _Tok:
+            def __enter__(self_inner):
+                return self_inner
+            def __exit__(self_inner, *a):
+                _DECOMPOSER_DIALECT.reset(token)
+        return _Tok()
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -365,8 +419,14 @@ class QueryDecomposer:
         if schema_profile is None:
             return False
 
+        # A20 fold — set dialect contextvar so all helpers parse with
+        # the connection's dialect.
+        with self._scoped_dialect():
+            return self._can_decompose_inner(sql, schema_profile)
+
+    def _can_decompose_inner(self, sql: str, schema_profile: Any) -> bool:
         try:
-            statements = sqlglot.parse(sql)
+            statements = sqlglot.parse(sql, **_parse_kwargs()) if _sql_size_ok(sql) else []
         except sqlglot.errors.ParseError as exc:
             logger.debug("can_decompose: parse error — %s", exc)
             return False
@@ -459,22 +519,24 @@ class QueryDecomposer:
         Invariant: all returned ``SubQuery.sql`` values are SELECT-only by
         construction.  Callers must still validate before executing.
         """
-        if not self.can_decompose(sql, schema_profile):
-            return []
+        # A20 fold — set dialect contextvar across the whole decomposition.
+        with self._scoped_dialect():
+            if not self._can_decompose_inner(sql, schema_profile):
+                return []
 
-        group_cols = _parse_group_by_columns(sql)
-        if not group_cols:
-            return []
+            group_cols = _parse_group_by_columns(sql)
+            if not group_cols:
+                return []
 
-        primary_table = _extract_primary_table(sql)
-        first_col = group_cols[0]
+            primary_table = _extract_primary_table(sql)
+            first_col = group_cols[0]
 
-        # --- Strategy 1: categorical ------------------------------------------
-        if not _is_date_column(first_col, schema_profile):
-            return self._decompose_categorical(sql, first_col, primary_table, schema_profile)
+            # --- Strategy 1: categorical ------------------------------------------
+            if not _is_date_column(first_col, schema_profile):
+                return self._decompose_categorical(sql, first_col, primary_table, schema_profile)
 
-        # --- Strategy 2: date / timestamp -------------------------------------
-        return self._decompose_date(sql, first_col, primary_table, schema_profile)
+            # --- Strategy 2: date / timestamp -------------------------------------
+            return self._decompose_date(sql, first_col, primary_table, schema_profile)
 
     def merge_results(self, sub_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -722,7 +784,7 @@ def _add_in_clause(sql: str, column: str, values: List[str]) -> str:
     Falls back to string injection on parse failure.
     """
     try:
-        statements = sqlglot.parse(sql)
+        statements = sqlglot.parse(sql, **_parse_kwargs()) if _sql_size_ok(sql) else []
         if not statements:
             raise ValueError("No statements parsed")
         stmt = statements[0]
@@ -763,7 +825,7 @@ def _add_date_range_clause(sql: str, column: str, start: str, end: str) -> str:
     using sqlglot.  Falls back to string injection on parse failure.
     """
     try:
-        statements = sqlglot.parse(sql)
+        statements = sqlglot.parse(sql, **_parse_kwargs()) if _sql_size_ok(sql) else []
         if not statements:
             raise ValueError("No statements parsed")
         stmt = statements[0]

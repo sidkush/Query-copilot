@@ -113,15 +113,46 @@ class AgentSessionStore:
                 conn.close()
 
     def load_session(self, chat_id: str, email: str) -> Optional[dict]:
-        """Load a session by chat_id. Returns None if not found or wrong email (Invariant-3)."""
+        """Load a session by chat_id. Returns None if not found or wrong email (Invariant-3).
+
+        D17 adversarial fold (P0) — case/whitespace migration fallback.
+        Pre-2026-04-26 sessions stored email as raw JWT.sub (e.g., "User@X.com").
+        Post-canonicalization, callers pass _canon_email="user@x.com" which
+        misses the legacy row → user's chat history vanishes silently. Fix:
+        try canonical lookup first, then fall back to case-insensitive match
+        AND auto-rewrite the row to canonical so the next save converges.
+        """
         conn = self._connect()
         try:
             row = conn.execute(
                 "SELECT * FROM sessions WHERE chat_id = ? AND email = ?",
                 (chat_id, email),
             ).fetchone()
+            if row:
+                return self._row_to_dict(row)
+            # D17 fallback — case-insensitive + trim match for legacy rows.
+            # Only invoked when canonical-exact missed.
+            row = conn.execute(
+                "SELECT * FROM sessions WHERE chat_id = ? AND lower(trim(email)) = ?",
+                (chat_id, (email or "").strip().lower()),
+            ).fetchone()
             if not row:
                 return None
+            # Auto-migrate: rewrite the email column to canonical form so
+            # subsequent queries hit the fast path. Best-effort; failure
+            # to migrate must not block the read.
+            try:
+                conn.execute(
+                    "UPDATE sessions SET email = ? WHERE chat_id = ? AND email = ?",
+                    (email, chat_id, row["email"]),
+                )
+                conn.commit()
+                _logger.info(
+                    "agent_session_store: migrated legacy email %r → %r for chat %s",
+                    row["email"], email, chat_id,
+                )
+            except Exception:
+                _logger.exception("session email migration failed for %s", chat_id)
             return self._row_to_dict(row)
         finally:
             conn.close()

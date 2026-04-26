@@ -25,6 +25,14 @@ const INTERNAL_TYPES = new Set([
   'verification',
 ]);
 
+// AMEND-W2-16 banner sentinel. Backend yields it as a `message_delta` step
+// (not a distinct type) on every synthesis iteration that enters with an
+// empty BoundSet — including iterations where the next tool call succeeds.
+// Suppress from the live reasoning feed; the final answer carries inline
+// `[unverified]` chips per ClaimProvenance for any unbound numeric span.
+const UNVERIFIED_BANNER_MARKER =
+  'No verified rows were retrieved by tools before this synthesis began';
+
 /* ── framer-motion variants for step entry/exit ── */
 const STEP_VARIANTS = {
   initial: { opacity: 0, y: 12, filter: 'blur(4px)' },
@@ -167,6 +175,75 @@ function ErrorStep({ step }) {
         </div>
       )}
       <span style={{ fontSize: '12px', color: TOKENS.danger }}>{step.content}</span>
+    </div>
+  );
+}
+
+/* ── Bug 1+2 fix — Gate C consent timeout banner ──
+   Backend emits `gate_c_timeout` SSE step just before defaulting to
+   "abort" when the consent dialog expires. Without this banner the
+   prior SchemaMismatchCard sits frozen and the user has no signal
+   that the window closed. The clear-input side effect lives in
+   AgentPanel's onStep handler (calls clearAgentWaiting). */
+function GateCTimeoutBanner({ step }) {
+  const seconds = Math.round(step?.metadata?.timeout_seconds || 0);
+  return (
+    <div style={{
+      padding: '10px 14px',
+      borderRadius: TOKENS.radius.md,
+      background: `color-mix(in oklab, ${TOKENS.warning || '#d97706'} 8%, transparent)`,
+      border: `1px solid color-mix(in oklab, ${TOKENS.warning || '#d97706'} 30%, transparent)`,
+    }}>
+      <div style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: TOKENS.warning || '#d97706',
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase',
+        marginBottom: 4,
+      }}>
+        Consent dialog timed out
+      </div>
+      <span style={{ fontSize: 12, color: TOKENS.text?.primary || '#1f2937' }}>
+        {step?.content || 'No response received within the consent window.'}
+        {seconds > 0 && (
+          <span style={{ color: TOKENS.text?.muted || '#6b7280', marginLeft: 6 }}>
+            (waited {seconds >= 60 ? `${Math.round(seconds / 60)}m` : `${seconds}s`})
+          </span>
+        )}
+        <span style={{ display: 'block', marginTop: 4, color: TOKENS.text?.muted || '#6b7280' }}>
+          Please re-ask the question to continue.
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/* ── D16-3 — backend-restart park-slot lost banner.
+   Emitted (in a future PR) when load_session restores from SQLite but
+   the in-memory ParkRegistry is empty — the prior dialog's park_id is
+   stale and /respond would 422. Tells the user to re-ask. */
+function GateCParkLostBanner({ step }) {
+  return (
+    <div style={{
+      padding: '10px 14px',
+      borderRadius: TOKENS.radius.md,
+      background: `color-mix(in oklab, ${TOKENS.warning || '#d97706'} 8%, transparent)`,
+      border: `1px solid color-mix(in oklab, ${TOKENS.warning || '#d97706'} 30%, transparent)`,
+    }}>
+      <div style={{
+        fontSize: 11,
+        fontWeight: 700,
+        color: TOKENS.warning || '#d97706',
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase',
+        marginBottom: 4,
+      }}>
+        Session resumed — consent state lost
+      </div>
+      <span style={{ fontSize: 12, color: TOKENS.text?.primary || '#1f2937' }}>
+        {step?.content || 'The previous consent dialog is no longer valid. Please re-ask the question.'}
+      </span>
     </div>
   );
 }
@@ -713,8 +790,17 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
     }
   }, [steps, agentContext, updatePipelineStage]);
 
-  // Filter visible steps
-  const visibleSteps = steps.filter((s) => !INTERNAL_TYPES.has(s.type));
+  // Filter visible steps. Also drops the unverified-banner message_delta
+  // (rendered repeatedly mid-loop while the agent retries failed tools).
+  const visibleSteps = steps.filter((s) => {
+    if (INTERNAL_TYPES.has(s.type)) return false;
+    if (
+      s.type === 'message_delta' &&
+      typeof s.content === 'string' &&
+      s.content.includes(UNVERIFIED_BANNER_MARKER)
+    ) return false;
+    return true;
+  });
 
   // Merge duplicate tool_call steps sharing a tool_use_id.
   // Backend yields each tool_call twice — first without tool_result, then again
@@ -742,9 +828,20 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
             out[prevIdx] = { ...prev, ...s };
           }
         }
-      } else {
-        out.push(s);
+        continue;
       }
+      // Coalesce consecutive `thinking` steps with identical content. The
+      // backend re-emits "Analyzing..." at the top of every tool-loop
+      // iteration; without merging, a 38-step run renders 10+ identical
+      // thinking cards back-to-back.
+      if (s.type === 'thinking') {
+        const last = out[out.length - 1];
+        if (last && last.type === 'thinking' &&
+            (last.content || '') === (s.content || '')) {
+          continue;
+        }
+      }
+      out.push(s);
     }
     return out;
   })();
@@ -876,6 +973,20 @@ const AgentStepRenderer = memo(function AgentStepRenderer({
               )}
               {step.type === 'agent_checkpoint' && step?.tool_input?.kind === 'schema_entity_mismatch' && (
                 <SchemaMismatchCard chatId={chatId} step={step} onResolved={onResolved} />
+              )}
+              {/* Bug 1+2 fix — render an explicit timeout banner instead of
+                  letting the prior SchemaMismatchCard sit there frozen.
+                  Backend emits this just before defaulting to "abort" so
+                  the user has a clear signal the consent window expired. */}
+              {step.type === 'gate_c_timeout' && (
+                <GateCTimeoutBanner step={step} />
+              )}
+              {/* D16-3 — emitted on backend restart when in-memory park
+                  slot was lost; tells the frontend to wipe the dialog and
+                  invite the user to retry. Currently unwired backend-side
+                  (separate PR), but handler renders correctly when fired. */}
+              {step.type === 'gate_c_park_lost' && (
+                <GateCParkLostBanner step={step} />
               )}
             </motion.div>
           );

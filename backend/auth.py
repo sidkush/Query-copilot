@@ -308,6 +308,8 @@ def create_admin_token(data: dict, expires_delta: Optional[timedelta] = None) ->
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode["exp"] = expire
+    to_encode["aud"] = "askdb-admin"
+    to_encode["iss"] = "askdb"
     secret = settings.ADMIN_JWT_SECRET_KEY or settings.JWT_SECRET_KEY
     return jwt.encode(to_encode, secret, algorithm=settings.JWT_ALGORITHM)
 
@@ -322,7 +324,12 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         email: str = payload.get("sub")
-        if not email:
+        # D7 adversarial fold (P0) — reject empty / whitespace-only / None.
+        # Without this guard, a JWT with `sub=" "` passes `if not email`
+        # (truthy), then _canon_email(" ") = "" elsewhere, and a session
+        # with empty owner_email skips ownership checks (`if session.owner_email and ...`)
+        # at /respond, /cancel, /cancel/commit — full impersonation surface.
+        if not email or not isinstance(email, str) or not email.strip():
             raise HTTPException(status_code=401, detail="Invalid token")
         return {"email": email, "name": payload.get("name", "")}
     except JWTError:

@@ -769,6 +769,21 @@ class AgentEngine:
     MAX_SQL_RETRIES = 3
 
     # ── SQL Dialect Hints (Task 8) ────────────────────────────────
+    # UNIVERSAL RULE prepended to every dialect's hints below — Bug 4
+    # root fix. The CASE+AGG-in-GROUP-BY pattern is ANSI-illegal but the
+    # agent kept generating it because no per-dialect doc said "don't".
+    _UNIVERSAL_SQL_RULES = [
+        "NEVER place an aggregate function (AVG, SUM, COUNT, MAX, MIN) "
+        "directly inside a GROUP BY expression or inside a CASE that is "
+        "then used in GROUP BY. Standard SQL forbids it. Pattern: wrap "
+        "the aggregate-derived column in an inner subquery, then GROUP "
+        "BY the outer alias. Wrong: GROUP BY CASE WHEN AVG(x)>30 THEN 'a' "
+        "ELSE 'b' END. Right: SELECT bucket FROM (SELECT ..., CASE WHEN "
+        "avg_x>30 THEN 'a' ELSE 'b' END AS bucket FROM (SELECT ..., "
+        "AVG(x) AS avg_x FROM t GROUP BY ...) i) GROUP BY bucket.",
+        "Window aggregates (SUM(x) OVER (...)) are valid in GROUP BY; "
+        "ordinary aggregates are not.",
+    ]
     DIALECT_HINTS = {
         "bigquery": [
             "Use APPROX_QUANTILES instead of PERCENTILE_CONT WITHIN GROUP",
@@ -857,6 +872,43 @@ class AgentEngine:
             "Use from_unixtime() for Unix timestamp conversion",
             "Use format_datetime() for date formatting",
             "Use approx_distinct() instead of COUNT(DISTINCT) for large tables",
+        ],
+        # A20 fold — 5 dialects previously missing from hints, falling
+        # through to ANSI. Each one now gets its own quirks documented.
+        "presto": [
+            "Use INTERVAL '30' DAY (single-quoted) for date arithmetic",
+            "Use date_add('day', -30, current_date) for date arithmetic",
+            "Use from_unixtime() for Unix timestamp conversion",
+            "Use approx_distinct() for COUNT(DISTINCT) on large tables",
+            "No FULL OUTER JOIN; use UNION of LEFT/RIGHT JOIN",
+        ],
+        "mariadb": [
+            "Use LIMIT instead of TOP",
+            "Use backticks for identifiers",
+            "GROUP BY requires non-aggregated SELECT columns when sql_mode=ONLY_FULL_GROUP_BY",
+            "Use STR_TO_DATE for parsing date strings",
+            "JSON_TABLE supported (10.6+); fallback to JSON_EXTRACT before",
+        ],
+        "sap_hana": [
+            "Use TO_VARCHAR / TO_DATE for date formatting",
+            "Use ADD_DAYS / ADD_MONTHS / DAYS_BETWEEN for date arithmetic",
+            "Identifiers are UPPERCASE unless double-quoted",
+            "Use CURRENT_UTCTIMESTAMP not CURRENT_TIMESTAMP for UTC",
+            "Use SERIES_GENERATE_INTEGER for sequences",
+        ],
+        "ibm_db2": [
+            "Use FETCH FIRST N ROWS ONLY instead of LIMIT N",
+            "Use TIMESTAMPDIFF/TIMESTAMP_DIFF for date arithmetic",
+            "Use VALUES (1),(2) for inline rowsets",
+            "Use COALESCE not NVL",
+            "Use SYSIBM.SYSDUMMY1 for dual-table SELECT",
+        ],
+        "supabase": [
+            "Supabase = managed PostgreSQL — use Postgres dialect",
+            "Use :: for type casting (e.g., column::text)",
+            "ILIKE for case-insensitive matching",
+            "Use DISTINCT ON for deduplication",
+            "RLS may filter rows silently — check for unexpectedly empty results",
         ],
     }
 
@@ -1164,6 +1216,43 @@ class AgentEngine:
         "does not exist", "no such table", "no such column", "ambiguous",
         "parse error", "invalid identifier",
     })
+
+    # Bug 4 + A13 fold — dialect-specific error → corrective guidance map.
+    # Pattern matched against lowercased error text. When a hit triggers,
+    # the corresponding correction is sanitized (escape <>, length-cap,
+    # collision-resistant fence) and injected into next-iteration prompt.
+    # Match by SUBSTRING (not exact phrase) — A13 noted GCP wording drift,
+    # so we use anchor words common across all major engines.
+    # A13-final fold — substring patterns tightened to anchor phrases
+    # that engines specifically emit on the bug-pattern. Loose substrings
+    # like ("aggregate", "group by") false-positive on natural-language
+    # error envelopes ("failed to aggregate metrics for group by region").
+    # Each entry now requires multiple anchor-phrase fragments that occur
+    # together only in genuine engine errors.
+    _DIALECT_CORRECTION_PATTERNS = (
+        # BigQuery / Postgres / DuckDB phrasing.
+        (("aggregate functions are not allowed in",),
+         "Your last SQL placed an aggregate function (AVG/SUM/COUNT/MAX/MIN) "
+         "directly in a GROUP BY/WHERE/CHECK clause — illegal in standard "
+         "SQL. FIX: wrap the aggregate-derived column in an inner subquery "
+         "and GROUP BY the outer alias. Example: SELECT bucket FROM "
+         "(SELECT ..., CASE WHEN avg_x > 30 THEN 'big' ELSE 'small' END AS "
+         "bucket FROM (SELECT ..., AVG(x) AS avg_x FROM t GROUP BY ...) "
+         "inner) GROUP BY bucket."),
+        # Snowflake-specific phrasing.
+        (("non-aggregate operations are not allowed inside an aggregate function",),
+         "Snowflake rejected an aggregate-of-aggregate. FIX: pre-compute the "
+         "inner aggregate in a subquery, then aggregate at the outer level."),
+        # Snowflake / BigQuery / Redshift phrasing on missing GROUP BY column.
+        (("must appear in the group by clause",),
+         "Every non-aggregated SELECT column must appear in GROUP BY. FIX: "
+         "list all such columns explicitly, or wrap in MIN/MAX/ANY_VALUE."),
+        # MSSQL-specific phrasing.
+        (("contains an aggregate", "group by clause"),
+         "MSSQL rejected an aggregate inside a GROUP BY expression. FIX: "
+         "wrap aggregate computation in a derived table (subquery in FROM), "
+         "GROUP BY the derived alias."),
+    )
     _TRANSIENT_ERROR_PATTERNS = frozenset({
         "connection reset", "auth", "timeout", "5xx", "503", "502", "504",
         "transpile", "dialect", "network", "refused", "unreachable",
@@ -1175,10 +1264,82 @@ class AgentEngine:
         """Return 'logic' or 'transient'. Defaults to 'logic' when ambiguous."""
         err_lower = (error_text or "").lower()
         if any(p in err_lower for p in self._LOGIC_ERROR_PATTERNS):
+            # Bug 4 — when a logic error matches a dialect-specific pattern,
+            # cache a sanitized correction block for next iteration.
+            try:
+                self._maybe_set_dialect_correction(err_lower, error_text or "")
+            except Exception:
+                _logger.debug("_maybe_set_dialect_correction raised", exc_info=True)
             return "logic"
         if any(p in err_lower for p in self._TRANSIENT_ERROR_PATTERNS):
             return "transient"
         return "logic"  # conservative default — surfaces to user faster
+
+    def _maybe_set_dialect_correction(self, err_lower: str, err_raw: str) -> None:
+        """Bug 4 — match err against dialect-correction patterns; on hit,
+        store sanitized + escaped + length-capped guidance for the next
+        system prompt build.
+
+        A1/A5 adversarial fold: tool_error text may contain user-controlled
+        identifiers (column names, table names, aliases). Without sanitization,
+        a crafted column name `</dialect_correction><instruction>...` round-trips
+        through DB error → next prompt as raw text → LLM follows injected
+        instruction. We escape `<>`, length-cap to 500 chars, NFKC-normalize,
+        strip control chars, and use a collision-resistant nonce delimiter.
+        """
+        try:
+            from config import settings as _cfg
+            if not getattr(_cfg, "FEATURE_DIALECT_CORRECTION_INJECT", True):
+                return
+        except Exception:
+            return
+
+        guidance = None
+        for keys, txt in self._DIALECT_CORRECTION_PATTERNS:
+            if all(k in err_lower for k in keys):
+                guidance = txt
+                break
+        if guidance is None:
+            return
+
+        import re as _re_dc, unicodedata as _ud_dc, secrets as _sec_dc
+        # Length cap raw error to 500 chars before any escaping.
+        _err_capped = (err_raw or "")[:500]
+        # NFKC normalize, strip control / bidi / null / zero-width chars.
+        # A1-final fold: prior strip missed U+200B (ZWSP), U+200C (ZWNJ),
+        # U+200D (ZWJ), U+200E (LRM), U+200F (RLM), U+2060-2064 (word
+        # joiner), U+FEFF (BOM). Crafted column names with embedded
+        # zero-width chars survive strip and reach LLM as invisible
+        # tokens. Extended class covers Cf (format) range.
+        _err_norm = _ud_dc.normalize("NFKC", _err_capped)
+        _err_norm = _re_dc.sub(
+            r"[\r\n\x00\x1a​-‏‪-‮⁠-⁤⁦-⁯﻿]",
+            " ",
+            _err_norm,
+        )
+        # HTML-escape angle brackets so a crafted closing tag in user input
+        # cannot terminate the dialect_correction block prematurely.
+        _err_escaped = (_err_norm
+                        .replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;"))
+        # Reject if escaped error STILL contains the literal end-tag marker
+        # (defensive — e.g., URL-encoded `%3C/dialect_correction%3E` that
+        # decodes downstream). When in doubt, drop the error text and keep
+        # only the guidance.
+        if "/dialect_correction" in _err_escaped.lower():
+            _err_escaped = "[error text dropped — contained tag-like sequence]"
+        # Collision-resistant fence delimiter: random 8-byte nonce per emit.
+        # A1-final fold: closing tag must be valid form `</tag>` (no
+        # attribute on close tag — that's invalid XML and a bare
+        # `</dialect_correction>` would close the block early).
+        _nonce = _sec_dc.token_hex(4)
+        self._dialect_correction = (
+            f"\n\n<dialect_correction_{_nonce}>\n"
+            f"GUIDANCE: {guidance}\n"
+            f"LAST_ERROR: {_err_escaped}\n"
+            f"</dialect_correction_{_nonce}>\n"
+        )
 
     @property
     def _consecutive_tool_errors(self) -> int:
@@ -1236,6 +1397,11 @@ class AgentEngine:
         else:
             self._consecutive_logic_errors = 0
             self._consecutive_transient_errors = 0
+            # Bug 4 — clear dialect correction on a successful tool result.
+            # Once the agent recovers, the corrective guidance should not
+            # bleed into unrelated future iterations.
+            if getattr(self, "_dialect_correction", None):
+                self._dialect_correction = None
 
     def _should_fire_error_cascade_checkpoint(self) -> bool:
         """T20-revised — cascade checkpoint on consecutive logic errors only."""
@@ -1706,7 +1872,15 @@ class AgentEngine:
                     "original_sql": sql,
                 }
             return None
-        return {"reason": hint.reason, "context": hint.context, "original_sql": hint.original_sql}
+        # A16-final fold — propagate full rule_ids tuple alongside the
+        # legacy `reason` (= first violation). Audit ledger consumers
+        # see the entire violation set, not just the first rule.
+        return {
+            "reason": hint.reason,
+            "context": hint.context,
+            "original_sql": hint.original_sql,
+            "rule_ids": list(getattr(hint, "rule_ids", ()) or (hint.reason,)),
+        }
 
     def _build_data_coverage_block(self, table_names=None) -> str:
         """Phase B — render <data_coverage> block for the system prompt.
@@ -1821,22 +1995,63 @@ class AgentEngine:
             system_prompt += chart_type_context
 
         # ── Dialect-aware SQL hints (Task 8 + T14: db_type allowlist) ──
-        db_type = getattr(self.connection_entry, 'db_type', '') or ''
-        db_type_str = (
-            db_type.lower() if isinstance(db_type, str)
-            else getattr(db_type, "value", str(db_type)).lower()
+        # A1/A5 adversarial fold — sanitize db_type before f-string into
+        # system prompt. Without this, a crafted db_type containing CRLF
+        # or `</system>` splits the prompt and injects a fake system turn.
+        # Also NFKC normalize + ASCII-fold + reject homoglyphs.
+        import re as _re_san
+        import unicodedata as _ud_san
+        _raw_db_type = getattr(self.connection_entry, 'db_type', '') or ''
+        if isinstance(_raw_db_type, str):
+            _db_type_candidate = _raw_db_type
+        else:
+            _db_type_candidate = getattr(_raw_db_type, "value", str(_raw_db_type))
+        # Strip control chars, RTL/bidi overrides, null bytes, and CRLF.
+        _db_type_candidate = _re_san.sub(
+            r"[\r\n\x00\x1a‪-‮⁦-⁩]",
+            "",
+            str(_db_type_candidate),
         )
-        hints = self.DIALECT_HINTS.get(db_type_str)
-        if hints is None:
+        # NFKC normalize (collapses fullwidth → ASCII, etc.) + lowercase.
+        db_type_str = _ud_san.normalize("NFKC", _db_type_candidate).strip().lower()
+        # Allowlist: must be a known DBType. Unknown → ANSI fallback,
+        # never echo crafted string back into prompt.
+        try:
+            from config import DBType as _DBType
+            _ALLOWLIST = {dt.value.lower() for dt in _DBType}
+        except Exception:
+            _ALLOWLIST = set()
+        if db_type_str and db_type_str not in _ALLOWLIST:
             _logger.warning(
-                "db_type '%s' has no dialect hints; using ANSI SQL fallback", db_type_str
+                "Sanitized db_type %r not in DBType allowlist — falling back to ANSI",
+                db_type_str,
             )
+            db_type_str = ""
+        hints = self.DIALECT_HINTS.get(db_type_str) if db_type_str else None
+        if hints is None:
+            if db_type_str:
+                _logger.warning(
+                    "db_type '%s' has no dialect hints; using ANSI SQL fallback",
+                    db_type_str,
+                )
             hints = ["Use ANSI SQL; avoid vendor-specific functions"]
-        if hints:
-            system_prompt += (
-                f"\n\nSQL DIALECT ({db_type_str.upper()}):\n"
-                + "\n".join(f"- {h}" for h in hints) + "\n"
-            )
+        # Bug 4 root fix — prepend universal rules (no-aggs-in-GROUP-BY)
+        # to every dialect's hint list.
+        all_hints = list(self._UNIVERSAL_SQL_RULES) + list(hints)
+        # Header label is db_type or 'ANSI' for unknown — never the raw user input.
+        _header = (db_type_str or "ansi").upper()
+        system_prompt += (
+            f"\n\nSQL DIALECT ({_header}):\n"
+            + "\n".join(f"- {h}" for h in all_hints) + "\n"
+        )
+
+        # D23-final fold (P0 cost) — `<dialect_correction>` block moved
+        # to the END of system_prompt (just before return) so its
+        # transient mutations don't bust Anthropic prompt cache markers
+        # placed earlier (identity, dialect hints, coverage card, etc.).
+        # Mid-prompt injection invalidated ~3-8K tokens of cached prefix
+        # on every error→correction toggle, causing 2-5× cost spike on
+        # retry-heavy sessions.
 
         # ── Voice mode response style ─────────────────────────────
         if self._voice_mode:
@@ -1891,6 +2106,15 @@ class AgentEngine:
             f"Tool budget: iteration {_tc}/{_max_tc}.\n"
             "</scope_fence>\n"
         )
+
+        # D23-final fold — append `<dialect_correction>` LAST so per-turn
+        # mutations don't bust prompt-cache prefix markers above.
+        # `isinstance(..., str)` guard (vs. truthy check) prevents test
+        # MagicMock attrs from coercing system_prompt to non-string via
+        # __radd__, which previously broke test_scope_fence_in_system_prompt.
+        _dc_block = getattr(self, "_dialect_correction", None)
+        if isinstance(_dc_block, str) and _dc_block:
+            system_prompt += _dc_block
 
         return system_prompt
 
@@ -2516,6 +2740,15 @@ class AgentEngine:
         self._absolute_start_time = time.monotonic()  # Never reset — cumulative cap
         self._init_step_budget()  # Phase K — fresh budget per run
         self._steps = []
+        # Bug 3 + A20 fold — clear stale per-run progress state. Without this,
+        # `completed` / `pending` lists carry forward from a previous incomplete
+        # run, so a 503 raised between runs surfaces a stale SQL artifact in the
+        # UI (the "scope fence bypassed" symptom). `goal` is reset at L3112,
+        # `total_tool_calls` at L3113.
+        self._tool_calls = 0
+        if isinstance(getattr(self, "_progress", None), dict):
+            self._progress["completed"] = []
+            self._progress["pending"] = []
         self._result = AgentResult()
 
         # PRE-T0d: reset per-run counters so a new run never starts pre-tripped.
@@ -2527,6 +2760,8 @@ class AgentEngine:
         self._consecutive_transient_errors = 0
         self._thinking_tokens_used = 0
         self._empty_boundset_note_emitted = False
+        # Bug 4 — fresh dialect-correction state per run.
+        self._dialect_correction = None
         # Reset lazy replan objects so budget is fresh each run.
         self._replan_budget = None
         self._replan_controller = None
@@ -3002,39 +3237,108 @@ class AgentEngine:
                 frozenset({"station_proxy", "abort"}),
                 "abort",
             )
-            _gc_step = self._build_schema_mismatch_step(_gate_c_mismatch, _gc_slot.park_id)
-            self._steps.append(_gc_step)
-            yield _gc_step
-            _logger.info(
+            # D15/D19 adversarial fold (P0) — wrap ALL Gate C lifecycle
+            # below in try/finally. Without this, GeneratorExit raised at
+            # the inner `yield` (SSE consumer disconnect) propagates out
+            # before the manual parks.discard at the end → slot leaks.
+            # Across many disconnects, ParkRegistry._slots grows
+            # unbounded until SessionMemory LRU eviction (up to 100
+            # sessions × 20 step-cap × N parks per session).
+            _gc_park_id_for_finally = _gc_slot.park_id
+            try:
+              _gc_step = self._build_schema_mismatch_step(_gate_c_mismatch, _gc_slot.park_id)
+              self._steps.append(_gc_step)
+              yield _gc_step
+              _logger.info(
                 "PARK arm site=w2_gate_c park_id=%s canonical=%s",
                 _gc_slot.park_id, _gate_c_mismatch.canonical,
-            )
-            import time as _time_gc
-            # Park timeout is user-interaction, not query-execution. Use the
-            # dedicated W2_GATE_C_PARK_TIMEOUT_S (default 300s) instead of
-            # AGENT_WALL_CLOCK_HARD_S (120s query budget) — a consent card
-            # needs to wait for a human to read + click, not finish in 2 min.
-            _gc_deadline = _time_gc.monotonic() + settings.W2_GATE_C_PARK_TIMEOUT_S
-            _gc_timed_out = False
-            while self.memory._user_response is None:
-                _gc_remaining = _gc_deadline - _time_gc.monotonic()
-                if _gc_remaining <= 0:
-                    _gc_timed_out = True
-                    break
-                self.memory._user_response_event.wait(timeout=min(_gc_remaining, 5.0))
-                self.memory._user_response_event.clear()
-            if _gc_timed_out and self.memory._user_response is None:
-                _logger.warning(
-                    "Gate C park timeout after %.1fs (park_id=%s canonical=%s) "
-                    "— defaulting to abort",
-                    settings.W2_GATE_C_PARK_TIMEOUT_S,
-                    _gc_slot.park_id, _gate_c_mismatch.canonical,
-                )
-            _gc_choice = (self.memory._user_response or "abort").strip().lower()
-            self.memory._user_response = None
-            self._waiting_for_user = False
-            self.memory._waiting_for_user = False
-            self.memory.parks.discard(_gc_slot.park_id)
+              )
+              import time as _time_gc
+              import math as _math_gc
+            # Park timeout is user-interaction, not query-execution.
+            # A4/A15/A17/A18 adversarial fold:
+            #   - Type is now Optional[float] in config (Pydantic-safe).
+            #   - None => wait until session-hard-cap (NEVER truly infinite —
+            #     bounds thread-pool starvation, BYOK drift, PCI fsync hot,
+            #     Y2038 chat_id collision, audit chain rotation drift).
+            #   - Loop now checks `self._is_cancelled()` AND
+            #     `self.memory._cancelled` so /cancel and SSE-disconnect
+            #     unblock immediately instead of waiting for full deadline.
+              _gc_timeout_cfg = settings.W2_GATE_C_PARK_TIMEOUT_S
+              _gc_session_cap = float(getattr(settings, "AGENT_SESSION_HARD_CAP", 1800.0))
+              # A4-final fold: NaN/inf/<=0 reject. Pydantic Optional[float]
+              # accepts "NaN" / "Infinity" via env override; min(nan, 1800) =
+              # nan; deadline = monotonic + nan = nan; `nan <= 0` = False;
+              # loop never exits via timeout. Hard-clamp to a finite sane
+              # value; log + clamp rather than raising at boot.
+              if _gc_timeout_cfg is None:
+                  _gc_effective = _gc_session_cap
+              else:
+                  _cfg_f = float(_gc_timeout_cfg)
+                  if not _math_gc.isfinite(_cfg_f) or _cfg_f <= 0:
+                      _logger.warning(
+                          "W2_GATE_C_PARK_TIMEOUT_S=%r is non-finite or <=0; clamping to %ss",
+                          _gc_timeout_cfg, _gc_session_cap,
+                      )
+                      _cfg_f = _gc_session_cap
+                  _gc_effective = min(_cfg_f, _gc_session_cap)
+              _gc_deadline = _time_gc.monotonic() + _gc_effective
+              _gc_timed_out = False
+              _gc_cancelled = False
+              while self.memory._user_response is None:
+                  # A17 fold — cancel-first check inside the loop. Without this,
+                  # a /cancel POST sets memory._cancelled but the wait keeps
+                  # spinning until deadline; with indefinite (1800s) wait that
+                  # becomes a 30-min zombie.
+                  if self.memory._cancelled or self._is_cancelled():
+                      _gc_cancelled = True
+                      break
+                  _gc_remaining = _gc_deadline - _time_gc.monotonic()
+                  if _gc_remaining <= 0:
+                      _gc_timed_out = True
+                      break
+                  # Cap inner wait at 1s so cancel signals are honored within
+                  # AGENT_CANCEL_GRACE_MS (2000ms).
+                  self.memory._user_response_event.wait(timeout=min(_gc_remaining, 1.0))
+                  self.memory._user_response_event.clear()
+              if _gc_timed_out and self.memory._user_response is None:
+                  _logger.warning(
+                      "Gate C park timeout after %.1fs (park_id=%s canonical=%s) "
+                      "— emitting gate_c_timeout event + abort",
+                      _gc_effective, _gc_slot.park_id, _gate_c_mismatch.canonical,
+                  )
+                  # A8/A14 fold — emit explicit timeout event so frontend can
+                  # reset dialog UI (vs. silently hanging). Bug 1+2 root fix.
+                  try:
+                      yield AgentStep(
+                          type="gate_c_timeout",
+                          content="Consent dialog timed out without response.",
+                          metadata={
+                              "park_id": _gc_slot.park_id,
+                              "canonical": _gate_c_mismatch.canonical,
+                              "timeout_seconds": _gc_effective,
+                          },
+                      )
+                  except Exception:
+                      _logger.debug("gate_c_timeout SSE emit failed", exc_info=True)
+              # D18-final fold (P2 UX) — cancel beats response: if user
+              # pressed Cancel while clicking "station_proxy", honor cancel.
+              if self.memory._cancelled or self._is_cancelled():
+                  _gc_choice = "abort"
+              else:
+                  _gc_choice = (self.memory._user_response or "abort").strip().lower()
+              self.memory._user_response = None
+            finally:
+              # D15/D19 fold (P0) — guarantee park slot discarded + flags
+              # cleared even on GeneratorExit (SSE consumer disconnect).
+              # Without this, ParkRegistry._slots leaks one slot per
+              # mid-yield disconnect, accumulating up to LRU eviction.
+              try:
+                  self.memory.parks.discard(_gc_park_id_for_finally)
+              except Exception:
+                  _logger.debug("park slot discard failed in finally", exc_info=True)
+              self._waiting_for_user = False
+              self.memory._waiting_for_user = False
             if _gc_choice == "abort":
                 # Abort is NOT consent — user asked us to stop, so we stop.
                 # Do NOT add canonical to `_decided`: the next rider question

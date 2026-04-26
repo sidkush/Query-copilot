@@ -31,5 +31,17 @@ def test_violation_has_rule_id_and_message():
     assert "started_at" in vio.message
 
 
-def test_rule_id_enum_has_ten_members():
-    assert len(list(RuleId)) == 10
+def test_rule_id_enum_has_expected_members():
+    """Contract: RuleId expands forward — Rules 1-10 (original Ring 3 set) plus
+    AGGREGATE_IN_GROUP_BY (Rule 11, 2026-04-26 Bug 4) and SQL_TOO_LARGE
+    (pre-parse size guard, A6/A11 fold). Update this list when adding rules."""
+    expected = {
+        "range_mismatch", "fanout_inflation", "limit_before_order",
+        "timezone_naive", "soft_delete_missing", "negation_as_join",
+        "dialect_fallthrough", "view_walker", "conjunction_selectivity",
+        "expression_predicate",
+        "aggregate_in_group_by",  # Rule 11
+        "sql_too_large",          # pre-parse size / recursion guard
+    }
+    actual = {m.value for m in RuleId}
+    assert actual == expected, f"missing={expected - actual}, extra={actual - expected}"

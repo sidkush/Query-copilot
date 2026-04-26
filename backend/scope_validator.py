@@ -56,6 +56,8 @@ class RuleId(Enum):
     VIEW_WALKER = "view_walker"
     CONJUNCTION_SELECTIVITY = "conjunction_selectivity"
     EXPRESSION_PREDICATE = "expression_predicate"
+    AGGREGATE_IN_GROUP_BY = "aggregate_in_group_by"  # Rule 11 — Bug 4 root fix
+    SQL_TOO_LARGE = "sql_too_large"  # A6/A11 fold — pre-parse size guard
 
 
 @dataclass(frozen=True)
@@ -82,9 +84,48 @@ class ScopeValidator:
         self.dialect = _normalize_dialect(dialect)
 
     def validate(self, sql: str, ctx: dict) -> ValidatorResult:
+        # A6/A11 adversarial fold — pre-parse size guard. Without this,
+        # sqlglot.parse_one on 10MB SQL or 5K-deep CTE causes RecursionError
+        # (uncaught, fail-open returns empty violations -> scope fence
+        # bypassed).
+        try:
+            from config import settings as _cfg
+            _max_bytes = int(getattr(_cfg, "SQL_MAX_LEN_BYTES", 100_000))
+        except Exception:
+            _max_bytes = 100_000
+        if isinstance(sql, str) and len(sql.encode("utf-8", errors="ignore")) > _max_bytes:
+            _emit_telemetry(
+                event="scope_validator_sql_too_large",
+                dialect=self.dialect,
+                sql_bytes=len(sql.encode("utf-8", errors="ignore")),
+                limit=_max_bytes,
+            )
+            return ValidatorResult(
+                violations=[Violation(
+                    rule_id=RuleId.SQL_TOO_LARGE,
+                    message=f"SQL exceeds {_max_bytes}-byte cap — refusing to parse (DoS guard).",
+                    severity="block",
+                    evidence={"sql_bytes": len(sql.encode("utf-8", errors="ignore")), "limit": _max_bytes},
+                )],
+            )
         try:
             import sqlglot
             ast = sqlglot.parse_one(sql, dialect=self.dialect)
+        except RecursionError as exc:
+            # A6/A11 fold — explicit RecursionError from deep nesting.
+            # Block, do NOT fail-open (could mask DML smuggled in deep CTE).
+            _emit_telemetry(
+                event="scope_validator_recursion_error",
+                dialect=self.dialect,
+            )
+            return ValidatorResult(
+                violations=[Violation(
+                    rule_id=RuleId.SQL_TOO_LARGE,
+                    message="SQL AST too deep — refused.",
+                    severity="block",
+                    evidence={"reason": "recursion_limit"},
+                )],
+            )
         except Exception as exc:
             _emit_telemetry(
                 event="scope_validator_parse_failed",
@@ -92,6 +133,33 @@ class ScopeValidator:
                 exception=type(exc).__name__,
                 message=str(exc)[:200],
             )
+            # A6 fold — defense in depth: if SQL contains DML keywords,
+            # block instead of fail-open. The 6-layer SQL validator catches
+            # this independently, but redundant defense closes the smuggle
+            # window where a malformed SQL parses on src-dialect but bypasses
+            # rule walks.
+            # D10-final fold (P0): strip string literals + line comments
+            # before DML keyword scan, otherwise legitimate
+            # `SELECT 'no DELETE allowed' AS warning` triggers a false
+            # block on parse-failure paths (e.g., dialect mismatch).
+            import re as _re_dml
+            _sql_stripped = _re_dml.sub(r"'(?:[^']|'')*'", "''", sql or "")
+            _sql_stripped = _re_dml.sub(r'"(?:[^"]|"")*"', '""', _sql_stripped)
+            _sql_stripped = _re_dml.sub(r"--[^\n]*", "", _sql_stripped)
+            _sql_stripped = _re_dml.sub(r"/\*[\s\S]*?\*/", "", _sql_stripped)
+            if _re_dml.search(
+                r"(?i)\b(drop|delete|update|insert|alter|truncate|create|grant|revoke|merge)\b",
+                _sql_stripped,
+            ):
+                return ValidatorResult(
+                    violations=[Violation(
+                        rule_id=RuleId.SQL_TOO_LARGE,
+                        message="Unparseable SQL containing DML keywords — refused.",
+                        severity="block",
+                        evidence={"reason": "parse_failed_with_dml"},
+                    )],
+                    parse_failed=True,
+                )
             return ValidatorResult(violations=[], parse_failed=True)
 
         violations: list = []
@@ -667,7 +735,7 @@ def _rule_view_walker(ast, sql: str, ctx: dict, dialect: str):
     for ref in referenced:
         if ref not in views:
             continue
-        base = _resolve_view_base(ref, views, depth=0, max_depth=5)
+        base = _resolve_view_base(ref, views, depth=0, max_depth=5, dialect=dialect)
         if not base:
             continue
         if base.lower() not in card_by_table:
@@ -703,7 +771,10 @@ def _rule_view_walker(ast, sql: str, ctx: dict, dialect: str):
     return None
 
 
-def _resolve_view_base(name: str, views: dict, depth: int, max_depth: int):
+def _resolve_view_base(name: str, views: dict, depth: int, max_depth: int, dialect: str = "sqlite"):
+    """A20 fold — accept dialect param so view-walker recursive parse uses
+    the connection's dialect. Default kept as sqlite for back-compat with
+    callers that still pass 4 args."""
     import sqlglot
     import sqlglot.expressions as exp
 
@@ -713,14 +784,14 @@ def _resolve_view_base(name: str, views: dict, depth: int, max_depth: int):
     if not view_sql:
         return name
     try:
-        vast = sqlglot.parse_one(view_sql)
+        vast = sqlglot.parse_one(view_sql, dialect=dialect)
     except Exception:
         return None
     for tbl in vast.find_all(exp.Table):
         nm = (tbl.name or "").lower()
         if nm and nm != name.lower():
             if nm in views:
-                return _resolve_view_base(nm, views, depth + 1, max_depth)
+                return _resolve_view_base(nm, views, depth + 1, max_depth, dialect)
             return nm
     return None
 
@@ -783,5 +854,112 @@ def _rule_expression_predicate(ast, sql: str, ctx: dict, dialect: str):
                     rule_id=RuleId.EXPRESSION_PREDICATE,
                     message=f"WHERE clause contains a computed expression ({type(lhs).__name__}); scope cannot be validated against DataCoverageCard.",
                     evidence={"lhs_type": type(lhs).__name__},
+                )
+    return None
+
+
+# ── Rule 11 — Aggregate in GROUP BY (Bug 4 root fix) ─────────────────
+# Catches the BigQuery-rejected pattern:
+#     GROUP BY tm.member_casual, user_segment
+# where user_segment = CASE WHEN AVG(...) > 30 THEN ... — aggregate
+# nested in CASE used directly in GROUP BY. BigQuery and standard SQL
+# both reject; the agent currently writes it because no rule catches it.
+#
+# Adversarial folds:
+#   A4/A6/A11  — RecursionError-safe walk; AST cap pre-checked above.
+#   A6  — empty GROUP BY () (grouping sets) returns None (legal).
+#   A16 — exclude exp.Window descendants (window aggs are valid).
+#   A16 — exclude exp.Subquery descendants (uncorrelated scalar
+#         subquery aggs are valid in GROUP BY; their evaluation context
+#         is independent of the outer aggregate scope).
+
+
+@_register("RULE_AGGREGATE_IN_GROUP_BY")
+def _rule_aggregate_in_group_by(ast, sql: str, ctx: dict, dialect: str):
+    import sqlglot.expressions as exp
+
+    # Aggregate node classes. AggFunc is sqlglot's parent for Avg/Sum/Count/
+    # Max/Min/etc., but explicit list catches subclasses sqlglot may not
+    # inherit-mark in older versions.
+    _AGG_TYPES = (exp.AggFunc, exp.Avg, exp.Sum, exp.Count, exp.Max, exp.Min)
+
+    try:
+        groups = list(ast.find_all(exp.Group))
+    except RecursionError:
+        return Violation(
+            rule_id=RuleId.AGGREGATE_IN_GROUP_BY,
+            message="AST too deep for aggregate-in-GROUP-BY check.",
+            severity="block",
+            evidence={"reason": "recursion_limit"},
+        )
+
+    for grp in groups:
+        # AMEND-A6 — empty GROUP BY () (grouping sets) is legal.
+        grp_exprs = list(grp.expressions or [])
+        if not grp_exprs:
+            continue
+        for grp_expr in grp_exprs:
+            # Walk THIS expression only (not the whole AST). We don't use
+            # `find_all` on the AST root because that would catch agg
+            # functions in unrelated SELECT projections.
+            try:
+                candidates = [grp_expr] + list(grp_expr.find_all(*_AGG_TYPES))
+            except RecursionError:
+                return Violation(
+                    rule_id=RuleId.AGGREGATE_IN_GROUP_BY,
+                    message="AST too deep for aggregate-in-GROUP-BY check.",
+                    severity="block",
+                    evidence={"reason": "recursion_limit"},
+                )
+            for node in candidates:
+                if not isinstance(node, _AGG_TYPES):
+                    continue
+                # AMEND-A16 — window aggregate (SUM(x) OVER (...)) is
+                # valid in GROUP BY: the windowed result is a scalar per
+                # row, evaluated outside the GROUP scope.
+                if node.find_ancestor(exp.Window) is not None:
+                    continue
+                # D10-final fold (P0) — scalar-subquery FP fix:
+                # Legal: GROUP BY (SELECT MAX(t2.x) FROM t2) — scalar
+                # subquery returns a constant; aggregating it as the
+                # GROUP key is valid SQL.
+                # Illegal: GROUP BY CASE WHEN AVG(t.x)>30 THEN 'a' END —
+                # bare aggregate in GROUP BY's own evaluation scope.
+                # Distinguish: if the agg node has a Subquery ancestor
+                # AND that Subquery is a STRICT DESCENDANT of grp_expr
+                # (not grp_expr itself), the agg is shielded inside a
+                # nested scalar query → skip. If grp_expr IS the
+                # Subquery, the agg is inside it but represents the
+                # whole group expression → still legal scalar form.
+                anc_subq = node.find_ancestor(exp.Subquery)
+                if anc_subq is not None:
+                    # Agg is inside SOME subquery. Whether that subquery
+                    # is grp_expr itself or an ancestor of grp_expr or
+                    # a descendant of grp_expr, it is shielded from the
+                    # outer group's aggregation scope. SKIP — legal.
+                    continue
+                _emit_telemetry(
+                    event="aggregate_in_group_by_fired",
+                    dialect=dialect,
+                    agg_type=type(node).__name__,
+                )
+                _agg_name = type(node).__name__.upper()
+                return Violation(
+                    rule_id=RuleId.AGGREGATE_IN_GROUP_BY,
+                    message=(
+                        f"GROUP BY expression contains aggregate {_agg_name}(...). "
+                        "BigQuery, Snowflake, Postgres, and standard SQL reject "
+                        "this. Wrap the aggregate-derived column in an inner "
+                        "subquery and GROUP BY the outer alias."
+                    ),
+                    severity="block",
+                    evidence={
+                        "agg_type": _agg_name,
+                        "fix_pattern": (
+                            "SELECT ..., CASE WHEN avg_col > 30 THEN 'big' ELSE 'small' END AS bucket "
+                            "FROM (SELECT ..., AVG(x) AS avg_col FROM t GROUP BY ...) i "
+                            "GROUP BY bucket"
+                        ),
+                    },
                 )
     return None

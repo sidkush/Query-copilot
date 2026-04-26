@@ -23,29 +23,48 @@ logger = logging.getLogger(__name__)
 Classification = Literal["safe_dedup", "schema_change", "semantic_change"]
 
 
-def _table_set(sql: str) -> set[str]:
+def _table_set(sql: str, dialect: str = "") -> set[str]:
+    """A1/A20 fold — dialect param threaded so identifier quoting
+    (e.g., BigQuery backticks, Snowflake double-quotes) parses correctly.
+    Empty `dialect` falls back to ANSI (sqlglot default), preserving
+    pre-fix behaviour for callers that don't have connection context."""
     if not sql:
         return set()
+    # A6/A11 fold — pre-parse size guard to bound parse cost and
+    # prevent uncaught RecursionError on adversarial input.
     try:
-        parsed = sqlglot.parse_one(sql)
-        return {t.name.lower() for t in parsed.find_all(sqlglot.exp.Table)}
+        from config import settings as _cfg
+        _max = int(getattr(_cfg, "SQL_MAX_LEN_BYTES", 100_000))
     except Exception:
+        _max = 100_000
+    if len(sql.encode("utf-8", errors="ignore")) > _max:
+        return set()
+    try:
+        kwargs = {"dialect": dialect} if dialect else {}
+        parsed = sqlglot.parse_one(sql, **kwargs)
+        return {t.name.lower() for t in parsed.find_all(sqlglot.exp.Table)}
+    except (Exception, RecursionError):
         return set()
 
 
 def classify(record: dict) -> Classification:
-    orig_tables = _table_set(record.get("original_sql", ""))
-    corr_tables = _table_set(record.get("corrected_sql", ""))
+    # A1/A20 fold — extract dialect from record if available (set by
+    # the queue writer at correction-submit time). Falls back to "" so
+    # records written before the dialect-tag rollout still classify.
+    dialect = (record.get("dialect") or "").lower()
+    orig_tables = _table_set(record.get("original_sql", ""), dialect=dialect)
+    corr_tables = _table_set(record.get("corrected_sql", ""), dialect=dialect)
     if orig_tables != corr_tables:
         return "schema_change"
     try:
-        a = sqlglot.parse_one(record["original_sql"]).find(sqlglot.exp.Select)
-        b = sqlglot.parse_one(record["corrected_sql"]).find(sqlglot.exp.Select)
+        kwargs = {"dialect": dialect} if dialect else {}
+        a = sqlglot.parse_one(record["original_sql"], **kwargs).find(sqlglot.exp.Select)
+        b = sqlglot.parse_one(record["corrected_sql"], **kwargs).find(sqlglot.exp.Select)
         a_cols = tuple(str(e) for e in a.expressions) if a else ()
         b_cols = tuple(str(e) for e in b.expressions) if b else ()
         if a_cols == b_cols:
             return "safe_dedup"
-    except Exception:
+    except (Exception, RecursionError):
         pass
     return "semantic_change"
 

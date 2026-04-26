@@ -321,14 +321,18 @@ class Settings(BaseSettings):
             "on empty schema (AMEND-W2-06). OFF → pre-W2 behaviour."
         ),
     )
-    W2_GATE_C_PARK_TIMEOUT_S: float = Field(
-        default=300.0,
+    W2_GATE_C_PARK_TIMEOUT_S: Optional[float] = Field(
+        default=1800.0,
         description=(
-            "User-interaction wait budget for Ring-4 Gate C park. The agent's "
-            "AGENT_WALL_CLOCK_HARD_S (120s) is a query-execution budget — too "
-            "short for a human to read a consent card and click. Park pulls "
-            "the user out of the query budget; this is the dedicated cap. "
-            "Default-on-timeout still 'abort' (AMEND-W2-08)."
+            "User-interaction wait budget for Ring-4 Gate C park. Raised "
+            "from 300s -> 1800s (= AGENT_SESSION_HARD_CAP) so a human has a "
+            "real chance to read + click before the slot reaps. Set None to "
+            "wait until SSE disconnect or session hard cap, whichever comes "
+            "first (NEVER truly infinite — adversarial findings A12/A14/A15: "
+            "thread-pool starvation, BYOK drift, PCI fsync hot, Y2038 chat_id "
+            "all bound by session-hard-cap regardless). On timeout: clean "
+            "abort path now (A17 fold) — slot discards, _active_agents "
+            "decrements, frontend gets explicit `gate_c_timeout` SSE event."
         ),
     )
     # ── Phase K Week-2 Day 3 Task 4 — Ring 3 fan-out DISTINCT-CTE branch ──
@@ -398,8 +402,15 @@ class Settings(BaseSettings):
     # ── Phase K Week 2 — Park primitive cutover ──
     PARK_V2_ASK_USER: bool = Field(default=True, description="When True, /respond routes responses through ParkRegistry.resolve via park_id; when False, legacy _user_response_event path is authoritative. Day 2 cutover: 2026-04-24.")
     # ── Dialect Bridge (Phase M-alt) ──
-    FEATURE_DIALECT_BRIDGE: bool = Field(default=False)
-    DIALECT_BRIDGE_ALERT_ON_FAILURE: bool = Field(default=True)
+    FEATURE_DIALECT_BRIDGE: bool = Field(default=True, description="Phase M-alt cutover 2026-04-26: enable sqlglot transpile in LiveTier + scope_validator Rule 7. Was False since Phase M-alt; flipped after baseline-rebuild ceremony per A20 fold.")
+    DIALECT_BRIDGE_ALERT_ON_FAILURE: bool = Field(default=False, description="STAGED ROLLOUT (A15 fold): start False, flip to True per-tenant via tenant_overrides.json after bake-in. Avoids first-day alert storm.")
+    DIALECT_BRIDGE_ALERT_RATE_LIMIT_PER_HOUR: int = Field(default=5, description="A15 fold: cap transpile_failure alerts per (tenant, source->target) pair to N per hour to prevent storm even when ALERT_ON_FAILURE on.")
+    SQL_MAX_LEN_BYTES: int = Field(default=100_000, ge=1024, le=10_000_000, description="Hard cap on SQL byte length BEFORE any sqlglot.parse call (A6/A11 fold). ge=1024 prevents '0 blocks all SQL' misconfig.")
+    SQL_MAX_AST_DEPTH: int = Field(default=200, description="Advisory cap on AST recursion depth. Defense in depth — primary protection is SQL_MAX_LEN_BYTES (size cap blocks long-enough nesting before parse). Future: wire via sys.setrecursionlimit guard once measured against trap suite.")
+    RULE_AGGREGATE_IN_GROUP_BY: bool = Field(default=True, description="Rule 11 — block SQL where GROUP BY expression contains aggregate (CASE WHEN AVG(x)>0 THEN ... grouped on the CASE itself). Excludes window aggs and uncorrelated subquery aggs.")
+    FEATURE_PARK_RESTORE_NOTIFY: bool = Field(default=True, description="On backend restart, emit `gate_c_park_lost` SSE event so frontend can reset dialog UI cleanly instead of polling a dead park_id.")
+    FEATURE_DIALECT_CORRECTION_INJECT: bool = Field(default=True, description="When agent tool_error matches a dialect-specific pattern (e.g., 'aggregate functions are not allowed in GROUP BY'), inject a sanitized <dialect_correction> block into next-turn system prompt. A1/A5 fold: db_type sanitized + tool_error length-capped + tags escaped + collision-resistant nonce fence.")
+    AGENT_EXECUTOR_MAX_WORKERS: int = Field(default=8, ge=1, le=256, description="A12 fold: dedicated thread pool for agent runs. ge=1 prevents ValueError at module import; le=256 caps host CPU pressure.")
     ALERT_DEDUP_WINDOW_SECONDS: int = Field(default=300, description="H16 sliding dedup per (tenant_id, rule_id). 5 min.")
     ALERT_MULTI_HOUR_ACCUMULATOR_SECONDS: int = Field(default=3600, description="Fires once per hour even if signal stays hot.")
     ALERT_MAX_RETRY: int = Field(default=3, description="Retry budget per dispatch via chaos_isolation.jittered_backoff.")

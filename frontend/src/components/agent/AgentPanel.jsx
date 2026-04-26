@@ -491,7 +491,14 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
       }
 
       if (step.type === "ask_user") {
-        setAgentWaiting(step.content, step.tool_input || step.options);
+        setAgentWaiting(step.content, step.tool_input || step.options, step?.metadata?.park_id || null);
+      } else if (step.type === "gate_c_timeout" || step.type === "gate_c_park_lost") {
+        // Bug 1+2 fix — clear the frozen consent dialog so the input
+        // box re-enables. AgentStepRenderer already shows the timeout
+        // banner; here we just unwedge state.
+        addAgentStep(step);
+        useStore.getState().clearAgentWaiting();
+        setAgentLoading(false);
       } else if (step.type === "error") {
         addAgentStep(step);
         useStore.getState().clearAgentWaiting();
@@ -559,7 +566,14 @@ export default function AgentPanel({ connId, onClose, defaultDock = "float", emb
       }
 
       if (step.type === "ask_user") {
-        setAgentWaiting(step.content, step.tool_input || step.options);
+        setAgentWaiting(step.content, step.tool_input || step.options, step?.metadata?.park_id || null);
+      } else if (step.type === "gate_c_timeout" || step.type === "gate_c_park_lost") {
+        // Bug 1+2 fix — clear the frozen consent dialog so the input
+        // box re-enables. AgentStepRenderer already shows the timeout
+        // banner; here we just unwedge state.
+        addAgentStep(step);
+        useStore.getState().clearAgentWaiting();
+        setAgentLoading(false);
       } else if (step.type === "error") {
         addAgentStep(step);
         useStore.getState().clearAgentWaiting();
