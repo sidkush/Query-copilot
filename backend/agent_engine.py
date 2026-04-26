@@ -3119,6 +3119,13 @@ class AgentEngine:
                 )
                 self._steps.append(plan_step)
                 yield plan_step
+                # T17 — emit plan_artifact SSE event before first run_sql
+                if settings.PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL:
+                    yield AgentStep(
+                        type="plan_artifact",
+                        content=plan.get("summary", ""),
+                        tool_input=plan.get("tasks", []),
+                    )
                 # Inject plan into system prompt
                 plan_tasks_text = json.dumps(plan.get("tasks", []), indent=1)
                 system_prompt += (
