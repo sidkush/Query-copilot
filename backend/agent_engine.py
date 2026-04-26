@@ -785,6 +785,60 @@ class AgentEngine:
             "ILIKE for case-insensitive matching",
             "Use DISTINCT ON for deduplication",
         ],
+        "duckdb": [
+            "Use INTERVAL N DAY syntax (e.g. INTERVAL 30 DAY)",
+            "Use EPOCH or epoch_ms() for Unix timestamps",
+            "STRFTIME('%Y-%m-%d', col) for date formatting",
+            "QUALIFY window_func OVER (...) for window filtering",
+        ],
+        "sqlite": [
+            "Use datetime('now', '-30 days') for date arithmetic",
+            "No FULL OUTER JOIN — use UNION of LEFT JOIN and RIGHT JOIN",
+            "Use strftime('%Y-%m-%d', col) for date formatting",
+            "Weak typing: compare numbers as numbers, not strings",
+        ],
+        "clickhouse": [
+            "Use INTERVAL 30 DAY for date arithmetic",
+            "Use toDate() / toDateTime() for type conversion",
+            "Use countIf() instead of SUM(CASE WHEN ...)",
+            "Use formatDateTime for date formatting",
+            "MergeTree tables: always filter on partition key for performance",
+        ],
+        "redshift": [
+            "Use DATEADD(day, -30, CURRENT_DATE) for date arithmetic",
+            "Use DATEDIFF(day, start, end) not DATE_DIFF",
+            "Use GETDATE() not CURRENT_TIMESTAMP",
+            "LISTAGG for string aggregation (not STRING_AGG)",
+            "Use ILIKE for case-insensitive matching",
+        ],
+        "databricks": [
+            "Use INTERVAL 30 DAYS (plural) for date arithmetic",
+            "Use date_trunc() for date truncation",
+            "Use date_add() / date_sub() for date math",
+            "Delta tables: use CURRENT_TIMESTAMP() not NOW()",
+            "Use backticks for identifiers with spaces",
+        ],
+        "cockroachdb": [
+            "Syntax is mostly PostgreSQL-compatible",
+            "Use :: for type casting (e.g., column::text)",
+            "ILIKE for case-insensitive matching",
+            "Use gen_random_uuid() for UUID generation",
+            "Avoid SELECT ... FOR UPDATE on large tables (contention)",
+        ],
+        "oracle": [
+            "Use INTERVAL '30' DAY (single-quoted) for date arithmetic",
+            "Use SYSDATE / CURRENT_TIMESTAMP not NOW()",
+            "Use NVL() instead of COALESCE() for two-arg case",
+            "Identifiers are UPPERCASE unless double-quoted",
+            "Use ROWNUM or FETCH FIRST N ROWS ONLY for row limiting",
+        ],
+        "trino": [
+            "Use INTERVAL '30' DAY (single-quoted) for date arithmetic",
+            "Use date_add('day', -30, current_date) for date arithmetic",
+            "Use from_unixtime() for Unix timestamp conversion",
+            "Use format_datetime() for date formatting",
+            "Use approx_distinct() instead of COUNT(DISTINCT) for large tables",
+        ],
     }
 
     SYSTEM_PROMPT = (
@@ -1432,6 +1486,33 @@ class AgentEngine:
             return None
 
         had_violations = bool(result and getattr(result, "violations", None))
+
+        # T13 — oscillation guard: if violations are not REDUCING across
+        # successive replans, abort early without consuming another budget
+        # slot. Prevents a stuck loop where the model regenerates the same
+        # broken SQL repeatedly.
+        if not hasattr(self, "_replan_violation_history"):
+            self._replan_violation_history = []
+
+        current_vset = frozenset(
+            v.rule_id.value for v in (getattr(result, "violations", None) or [])
+        )
+        if self._replan_violation_history:
+            prev_vset = self._replan_violation_history[-1]
+            # Oscillation: same or more violations than before.
+            if current_vset and len(current_vset) >= len(prev_vset):
+                _logger.warning(
+                    "Replan oscillation detected: %s -> %s", prev_vset, current_vset
+                )
+                return {
+                    "budget_exhausted": True,
+                    "tier": "unverified",
+                    "reason": "replan_oscillation_detected",
+                    "context": f"Violations not reducing: {sorted(current_vset)}",
+                    "original_sql": sql,
+                }
+        self._replan_violation_history.append(current_vset)
+
         hint = self._replan_controller.on_violation(result=result, original_sql=sql)
         if hint is None:
             if had_violations:
@@ -1572,12 +1653,21 @@ class AgentEngine:
         if chart_type_context:
             system_prompt += chart_type_context
 
-        # ── Dialect-aware SQL hints (Task 8) ──────────────────────
+        # ── Dialect-aware SQL hints (Task 8 + T14: db_type allowlist) ──
         db_type = getattr(self.connection_entry, 'db_type', '') or ''
-        hints = self.DIALECT_HINTS.get(db_type.lower(), [])
+        db_type_str = (
+            db_type.lower() if isinstance(db_type, str)
+            else getattr(db_type, "value", str(db_type)).lower()
+        )
+        hints = self.DIALECT_HINTS.get(db_type_str)
+        if hints is None:
+            _logger.warning(
+                "db_type '%s' has no dialect hints; using ANSI SQL fallback", db_type_str
+            )
+            hints = ["Use ANSI SQL; avoid vendor-specific functions"]
         if hints:
             system_prompt += (
-                f"\n\nSQL DIALECT ({db_type.upper()}):\n"
+                f"\n\nSQL DIALECT ({db_type_str.upper()}):\n"
                 + "\n".join(f"- {h}" for h in hints) + "\n"
             )
 
@@ -2252,6 +2342,8 @@ class AgentEngine:
         # Reset lazy replan objects so budget is fresh each run.
         self._replan_budget = None
         self._replan_controller = None
+        # T13 — reset per-run violation history for oscillation guard.
+        self._replan_violation_history = []
         # Snapshot question and consent state so mutations during this run don't
         # leak into the next run (F15/F16 cross-run consent/question bleed).
         self._run_question = safe_for_prompt(question)

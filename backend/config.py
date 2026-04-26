@@ -166,7 +166,7 @@ class Settings(BaseSettings):
     # ── Scope Validator (Phase C — Ring 3) ──
     FEATURE_SCOPE_VALIDATOR: bool = Field(default=True)
     SCOPE_VALIDATOR_FAIL_OPEN: bool = Field(default=True)
-    SCOPE_VALIDATOR_REPLAN_BUDGET: int = Field(default=1)
+    SCOPE_VALIDATOR_REPLAN_BUDGET: int = Field(default=2, ge=1, le=5)
     RULE_RANGE_MISMATCH: bool = Field(default=True)
     RULE_FANOUT_INFLATION: bool = Field(default=True)
     RULE_LIMIT_BEFORE_ORDER: bool = Field(default=True)
