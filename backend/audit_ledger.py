@@ -3,12 +3,16 @@
 Hardening (S2, 2026-04-24 adversarial):
 - Per-tenant `threading.Lock` serializes concurrent appends so the chain never
   interleaves.
+- `filelock.FileLock` prevents cross-process chain races on shared filesystems.
 - `append_chained(entry)` auto-resolves `prev_hash` from the last entry of the
   most recent month file for the tenant (including cross-month rollover) instead
-  of forcing callers to pass `GENESIS_HASH` into a new month.
+  of forcing callers to pass a genesis hash into a new month.
 - HMAC-SHA256 sidecar `<file>.jsonl.hmac` written after every append; keyed by
-  `AUDIT_HMAC_KEY` env with fallback to `JWT_SECRET_KEY` (logged warning on
-  fallback). `verify_sidecar()` fails-closed when sidecar is missing.
+  `AUDIT_HMAC_KEY` env (required when FEATURE_AUDIT_LEDGER=True).
+  `verify_sidecar()` fails-closed when sidecar is missing.
+- Genesis hash is per-tenant HMAC(key, tenant_id) — not the predictable 64-zero
+  string — so an attacker without the key cannot forge a valid genesis entry.
+- `hmac.compare_digest` used for all hash comparisons (timing-safe).
 """
 from __future__ import annotations
 import hashlib
@@ -22,24 +26,45 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
 
+import filelock as _filelock
+
 logger = logging.getLogger(__name__)
 
+_UNCONFIGURED_SENTINEL = "audit-ledger-unconfigured-do-not-rely"
+
+# Kept for backward compat only — new chains use _genesis_hash(tenant_id).
 GENESIS_HASH = "0" * 64
 
 
 def _hmac_key() -> bytes:
     key = os.environ.get("AUDIT_HMAC_KEY") or ""
     if not key:
-        fallback = os.environ.get("JWT_SECRET_KEY") or ""
-        if fallback:
-            logger.warning("AUDIT_HMAC_KEY unset; falling back to JWT_SECRET_KEY. Set AUDIT_HMAC_KEY for cryptographic separation.")
-            key = fallback
+        feature_on = os.environ.get("FEATURE_AUDIT_LEDGER", "").lower() in ("1", "true", "yes")
+        if feature_on:
+            raise RuntimeError(
+                "AUDIT_HMAC_KEY must be set when FEATURE_AUDIT_LEDGER=True. "
+                "Refusing to operate with unconfigured HMAC key."
+            )
+        fallback = os.environ.get("JWT_SECRET_KEY") or _UNCONFIGURED_SENTINEL
+        if fallback != _UNCONFIGURED_SENTINEL:
+            logger.warning(
+                "AUDIT_HMAC_KEY unset; falling back to JWT_SECRET_KEY. "
+                "Set AUDIT_HMAC_KEY for cryptographic separation."
+            )
         else:
-            # Fail-closed: no usable key. Return empty so HMAC still deterministic;
-            # verify_sidecar will succeed on untampered data but provides no
-            # cryptographic guarantee without a real key.
-            key = "audit-ledger-unconfigured-do-not-rely"
+            logger.warning(
+                "AUDIT_HMAC_KEY and JWT_SECRET_KEY both unset; using dev sentinel. "
+                "HMAC provides no cryptographic guarantee."
+            )
+        return fallback.encode("utf-8")
     return key.encode("utf-8")
+
+
+def _genesis_hash(tenant_id: str) -> str:
+    """Per-tenant salted genesis derived from HMAC(key, tenant_id).
+    Prevents an attacker from forging a valid first entry without the key."""
+    key = _hmac_key()
+    return hmac.new(key, tenant_id.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def _compute_sidecar(path: Path) -> str:
@@ -87,6 +112,11 @@ class AuditLedger:
         with AuditLedger._locks_guard:
             return AuditLedger._locks[tenant_id]
 
+    def _tenant_filelock(self, tenant_id: str) -> _filelock.FileLock:
+        lock_path = self.root / tenant_id / ".audit.lock"
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        return _filelock.FileLock(str(lock_path), timeout=30)
+
     def _path(self, tenant_id, year_month):
         return self.root / tenant_id / f"{year_month}.jsonl"
 
@@ -98,10 +128,10 @@ class AuditLedger:
 
     def _latest_prev_hash(self, tenant_id: str) -> str:
         """Walk month files for tenant in reverse chronological order and return
-        the most recent entry's curr_hash. Enables cross-month chain continuity."""
+        the most recent entry's curr_hash. Falls back to per-tenant genesis."""
         tenant_dir = self.root / tenant_id
         if not tenant_dir.exists():
-            return GENESIS_HASH
+            return _genesis_hash(tenant_id)
         months = sorted(
             [p.stem for p in tenant_dir.glob("*.jsonl")],
             reverse=True,
@@ -110,7 +140,7 @@ class AuditLedger:
             entries = self.read(tenant_id, ym)
             if entries:
                 return entries[-1].curr_hash
-        return GENESIS_HASH
+        return _genesis_hash(tenant_id)
 
     def _write_sidecar(self, tenant_id, year_month):
         path = self._path(tenant_id, year_month)
@@ -121,70 +151,40 @@ class AuditLedger:
         os.replace(tmp, sidecar)
 
     def append(self, entry: AuditLedgerEntry) -> AuditLedgerEntry:
-        year_month = self._year_month_from_ts(entry.ts)
-        path = self._path(entry.tenant_id, year_month)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with self._tenant_lock(entry.tenant_id):
-            curr_hash = compute_entry_hash(
-                claim_id=entry.claim_id, plan_id=entry.plan_id, query_id=entry.query_id,
-                tenant_id=entry.tenant_id, ts=entry.ts, sql_hash=entry.sql_hash,
-                rowset_hash=entry.rowset_hash, schema_hash=entry.schema_hash,
-                pii_redaction_applied=entry.pii_redaction_applied, prev_hash=entry.prev_hash,
-            )
-            sealed = AuditLedgerEntry(
-                claim_id=entry.claim_id, plan_id=entry.plan_id, query_id=entry.query_id,
-                tenant_id=entry.tenant_id, ts=entry.ts, sql_hash=entry.sql_hash,
-                rowset_hash=entry.rowset_hash, schema_hash=entry.schema_hash,
-                pii_redaction_applied=entry.pii_redaction_applied,
-                prev_hash=entry.prev_hash, curr_hash=curr_hash,
-            )
-            line = json.dumps(asdict(sealed), sort_keys=True) + "\n"
-            fd = os.open(str(path), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
-            try:
-                os.write(fd, line.encode("utf-8"))
-                os.fsync(fd)
-            finally:
-                os.close(fd)
-            self._write_sidecar(entry.tenant_id, year_month)
-        return sealed
+        """Delegates to append_chained so all write paths use the same hardened logic."""
+        return self.append_chained(entry)
 
     def append_chained(self, entry: AuditLedgerEntry) -> AuditLedgerEntry:
         """Auto-resolve prev_hash from the latest existing entry for this tenant
-        (walks prior months) and commit under the per-tenant lock so concurrent
-        writers don't interleave. Caller can leave `prev_hash` empty/None."""
+        (walks prior months) and commit under thread + file lock so concurrent
+        writers in the same or different processes don't interleave the chain."""
         with self._tenant_lock(entry.tenant_id):
-            prev = self._latest_prev_hash(entry.tenant_id)
-            rebound = AuditLedgerEntry(
-                claim_id=entry.claim_id, plan_id=entry.plan_id, query_id=entry.query_id,
-                tenant_id=entry.tenant_id, ts=entry.ts, sql_hash=entry.sql_hash,
-                rowset_hash=entry.rowset_hash, schema_hash=entry.schema_hash,
-                pii_redaction_applied=entry.pii_redaction_applied,
-                prev_hash=prev, curr_hash="",
-            )
-            year_month = self._year_month_from_ts(rebound.ts)
-            path = self._path(rebound.tenant_id, year_month)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            curr_hash = compute_entry_hash(
-                claim_id=rebound.claim_id, plan_id=rebound.plan_id, query_id=rebound.query_id,
-                tenant_id=rebound.tenant_id, ts=rebound.ts, sql_hash=rebound.sql_hash,
-                rowset_hash=rebound.rowset_hash, schema_hash=rebound.schema_hash,
-                pii_redaction_applied=rebound.pii_redaction_applied, prev_hash=rebound.prev_hash,
-            )
-            sealed = AuditLedgerEntry(
-                claim_id=rebound.claim_id, plan_id=rebound.plan_id, query_id=rebound.query_id,
-                tenant_id=rebound.tenant_id, ts=rebound.ts, sql_hash=rebound.sql_hash,
-                rowset_hash=rebound.rowset_hash, schema_hash=rebound.schema_hash,
-                pii_redaction_applied=rebound.pii_redaction_applied,
-                prev_hash=rebound.prev_hash, curr_hash=curr_hash,
-            )
-            line = json.dumps(asdict(sealed), sort_keys=True) + "\n"
-            fd = os.open(str(path), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
-            try:
-                os.write(fd, line.encode("utf-8"))
-                os.fsync(fd)
-            finally:
-                os.close(fd)
-            self._write_sidecar(rebound.tenant_id, year_month)
+            with self._tenant_filelock(entry.tenant_id):
+                prev = self._latest_prev_hash(entry.tenant_id)
+                year_month = self._year_month_from_ts(entry.ts)
+                path = self._path(entry.tenant_id, year_month)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                curr_hash = compute_entry_hash(
+                    claim_id=entry.claim_id, plan_id=entry.plan_id, query_id=entry.query_id,
+                    tenant_id=entry.tenant_id, ts=entry.ts, sql_hash=entry.sql_hash,
+                    rowset_hash=entry.rowset_hash, schema_hash=entry.schema_hash,
+                    pii_redaction_applied=entry.pii_redaction_applied, prev_hash=prev,
+                )
+                sealed = AuditLedgerEntry(
+                    claim_id=entry.claim_id, plan_id=entry.plan_id, query_id=entry.query_id,
+                    tenant_id=entry.tenant_id, ts=entry.ts, sql_hash=entry.sql_hash,
+                    rowset_hash=entry.rowset_hash, schema_hash=entry.schema_hash,
+                    pii_redaction_applied=entry.pii_redaction_applied,
+                    prev_hash=prev, curr_hash=curr_hash,
+                )
+                line = json.dumps(asdict(sealed), sort_keys=True) + "\n"
+                fd = os.open(str(path), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+                try:
+                    os.write(fd, line.encode("utf-8"))
+                    os.fsync(fd)
+                finally:
+                    os.close(fd)
+                self._write_sidecar(entry.tenant_id, year_month)
         return sealed
 
     def read(self, tenant_id, year_month):
@@ -231,28 +231,26 @@ def _verify_single_entry(entry: AuditLedgerEntry) -> bool:
         rowset_hash=entry.rowset_hash, schema_hash=entry.schema_hash,
         pii_redaction_applied=entry.pii_redaction_applied, prev_hash=entry.prev_hash,
     )
-    return expected == entry.curr_hash
+    return hmac.compare_digest(expected, entry.curr_hash)
 
 
 def _verify_chain(self, tenant_id: str, year_month: str) -> ChainVerifyResult:
     entries = self.read(tenant_id, year_month)
     if not entries:
         return ChainVerifyResult(ok=True, broken_at_index=None)
-    # Seed expected prev_hash from prior month's final curr_hash if this file
-    # continues a cross-month chain; otherwise GENESIS.
     tenant_dir = self.root / tenant_id
     prior_months = sorted(
         [p.stem for p in tenant_dir.glob("*.jsonl") if p.stem < year_month],
         reverse=True,
     )
-    prev = GENESIS_HASH
+    prev = _genesis_hash(tenant_id)
     for ym in prior_months:
         prior = self.read(tenant_id, ym)
         if prior:
             prev = prior[-1].curr_hash
             break
     for i, entry in enumerate(entries):
-        if entry.prev_hash != prev:
+        if not hmac.compare_digest(entry.prev_hash, prev):
             return ChainVerifyResult(ok=False, broken_at_index=i, reason=f"prev_hash mismatch at index {i}")
         if not _verify_single_entry(entry):
             return ChainVerifyResult(ok=False, broken_at_index=i, reason=f"curr_hash mismatch at index {i}")
