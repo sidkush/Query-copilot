@@ -2575,7 +2575,14 @@ class AgentEngine:
                     if _final:
                         from claim_provenance import should_apply_provenance, extract_numeric_spans
                         _fa_source = getattr(self, "_final_answer_source", "synthesis_stream")
-                        _ABORT_SOURCES = {"gate_c_abort"}
+                        # Extend when new abort paths are wired (e.g. T8 SafeText,
+                        # budget exhaustion). Any source here skips bind() entirely.
+                        _ABORT_SOURCES = {
+                            "gate_c_abort",
+                            "hallucination_abort",   # T8 SafeText blocks synthesis
+                            "budget_abort",          # step-cap / wall-clock exhaustion
+                            "safe_abort",            # user cancel or hard budget kill
+                        }
                         _CLARIF_SOURCES = {"ask_user_dialog", "schema_mismatch_dialog"}
                         if _fa_source in _ABORT_SOURCES:
                             _resp_type = "abort"
