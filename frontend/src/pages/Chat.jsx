@@ -568,11 +568,6 @@ export default function Chat() {
             return;
           }
 
-          if (step.type === "result_preview") {
-            setCurrentPreview(step);
-            return;
-          }
-
           if (step.type === "cancel_ack") {
             setCancelled(true);
             return;
