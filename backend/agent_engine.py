@@ -2303,6 +2303,85 @@ class AgentEngine:
         except GeneratorExit:
             _logger.debug("Agent generator abandoned for session %s", self.memory.chat_id)
         finally:
+            # T3 — batched claim_provenance.bind + audit_ledger.append_chained
+            # in the cleanup path. Both run independently of each other so a
+            # provenance failure does not silence the audit, and an audit
+            # failure does not corrupt the rendered answer.
+            #
+            # IMPORTANT: this block must NOT yield (finally in a generator
+            # cannot resume), and must swallow every exception (cleanup must
+            # not mask a real failure mid-run).
+            try:
+                if settings.FEATURE_CLAIM_PROVENANCE and getattr(self, "_claim_provenance", None):
+                    _final = getattr(self._result, "final_answer", "") or ""
+                    if _final:
+                        _bound = self._claim_provenance.bind(
+                            _final,
+                            getattr(self, "_recent_rowsets", []) or [],
+                        )
+                        # ClaimProvenance.bind returns a string; coerce just in case.
+                        if isinstance(_bound, tuple):
+                            _bound = _bound[0]
+                        self._set_final_answer(_bound, source="claim_provenance_finally")
+            except Exception as _cpe:
+                _logger.exception(
+                    "claim_provenance.bind in finally failed: %s", _cpe,
+                )
+
+            if settings.FEATURE_AUDIT_LEDGER and getattr(self, "_audit_ledger", None):
+                try:
+                    from claim_provenance import extract_numeric_spans, match_claim
+                    from audit_ledger import AuditLedgerEntry
+                    from datetime import datetime, timezone
+                    import uuid as _uuid
+
+                    _final = getattr(self._result, "final_answer", "") or ""
+                    _recent = getattr(self, "_recent_rowsets", []) or []
+                    _tenant = (
+                        getattr(self, "_snapshot_tenant_id", None)
+                        or getattr(self.connection_entry, "tenant_id", None)
+                        or "unknown"
+                    )
+                    _plan = getattr(getattr(self, "_current_plan", None), "plan_id", "no-plan")
+
+                    for span in extract_numeric_spans(_final):
+                        try:
+                            qid = match_claim(span.value, _recent, suffix=getattr(span, "suffix", ""))
+                        except TypeError:
+                            # Older signature (no suffix kwarg) — fall back.
+                            qid = match_claim(span.value, _recent)
+                        if qid is None:
+                            continue
+                        matching = next(
+                            (r for r in _recent if isinstance(r, dict) and r.get("query_id") == qid),
+                            {},
+                        )
+                        entry = AuditLedgerEntry(
+                            claim_id=str(_uuid.uuid4()),
+                            plan_id=_plan,
+                            query_id=qid,
+                            tenant_id=_tenant,
+                            ts=datetime.now(timezone.utc).isoformat(),
+                            sql_hash=matching.get("sql_hash", ""),
+                            rowset_hash=matching.get("rowset_hash", ""),
+                            schema_hash=matching.get("schema_hash", ""),
+                            pii_redaction_applied=True,
+                            prev_hash="",  # auto-resolved by append_chained
+                            curr_hash="",
+                        )
+                        try:
+                            self._audit_ledger.append_chained(entry)
+                        except Exception as _ale_inner:
+                            # One-bad-claim must not abort the rest.
+                            _logger.exception(
+                                "audit_ledger.append_chained per-claim failed: %s",
+                                _ale_inner,
+                            )
+                except Exception as _ale:
+                    _logger.exception(
+                        "audit_ledger.append_chained in finally failed: %s", _ale,
+                    )
+
             # MUST be in finally — GeneratorExit bypasses except Exception
             if _deadline_cm is not None:
                 _deadline_cm.__exit__(None, None, None)
