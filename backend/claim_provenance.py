@@ -190,6 +190,25 @@ def match_claim(
     return None
 
 
+_NON_RESULT_RESPONSE_TYPES = frozenset({
+    "clarification",
+    "schema_mismatch_dialog",
+    "abort",
+})
+
+
+def should_apply_provenance(response_type: str, has_numeric_claims: bool) -> bool:
+    """Return False for response types that are not data-bearing results.
+
+    Clarification dialogs, Gate C schema-mismatch cards, and abort messages
+    contain no query-backed numbers, so running bind() on them is both
+    unnecessary and the source of false-positive [unverified] banners.
+    """
+    if response_type in _NON_RESULT_RESPONSE_TYPES:
+        return False
+    return has_numeric_claims
+
+
 class ClaimProvenance:
     def __init__(
         self,

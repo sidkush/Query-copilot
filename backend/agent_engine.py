@@ -1506,6 +1506,7 @@ class AgentEngine:
                 source, len(existing), len(text),
             )
         self._result.final_answer = text
+        self._final_answer_source = source
         _logger.debug("final_answer set source=%s len=%d", source, len(text or ""))
 
     def _apply_safe_text(self, text: str):
@@ -2572,14 +2573,26 @@ class AgentEngine:
                 if settings.FEATURE_CLAIM_PROVENANCE and getattr(self, "_claim_provenance", None):
                     _final = getattr(self._result, "final_answer", "") or ""
                     if _final:
-                        _bound = self._claim_provenance.bind(
-                            _final,
-                            getattr(self, "_recent_rowsets", []) or [],
-                        )
-                        # ClaimProvenance.bind returns a string; coerce just in case.
-                        if isinstance(_bound, tuple):
-                            _bound = _bound[0]
-                        self._set_final_answer(_bound, source="claim_provenance_finally")
+                        from claim_provenance import should_apply_provenance, extract_numeric_spans
+                        _fa_source = getattr(self, "_final_answer_source", "synthesis_stream")
+                        _ABORT_SOURCES = {"gate_c_abort"}
+                        _CLARIF_SOURCES = {"ask_user_dialog", "schema_mismatch_dialog"}
+                        if _fa_source in _ABORT_SOURCES:
+                            _resp_type = "abort"
+                        elif _fa_source in _CLARIF_SOURCES:
+                            _resp_type = "clarification"
+                        else:
+                            _resp_type = "synthesis"
+                        _has_nums = bool(extract_numeric_spans(_final))
+                        if should_apply_provenance(_resp_type, _has_nums):
+                            _bound = self._claim_provenance.bind(
+                                _final,
+                                getattr(self, "_recent_rowsets", []) or [],
+                            )
+                            # ClaimProvenance.bind returns a string; coerce just in case.
+                            if isinstance(_bound, tuple):
+                                _bound = _bound[0]
+                            self._set_final_answer(_bound, source="claim_provenance_finally")
             except Exception as _cpe:
                 _logger.exception(
                     "claim_provenance.bind in finally failed: %s", _cpe,
