@@ -846,7 +846,11 @@ class AgentEngine:
 
         # Per-run state
         self._tool_calls = 0
-        self._consecutive_tool_errors: int = 0
+        # T20-revised: separate logic + transient cascade counters.
+        # `_consecutive_tool_errors` is a backward-compat property alias
+        # mapped to `_consecutive_logic_errors`.
+        self._consecutive_logic_errors: int = 0
+        self._consecutive_transient_errors: int = 0
         self._sql_retries = 0
         # AMEND-W2-26 — cumulative extended-thinking-token budget tracker.
         # Decremented per stream turn from final-message usage; helper
@@ -1082,8 +1086,65 @@ class AgentEngine:
                     return True
         return False
 
+    # T20-revised — error classification for cascade tuning.
+    _LOGIC_ERROR_PATTERNS = frozenset({
+        "column", "syntax", "schema", "type mismatch", "table not found",
+        "does not exist", "no such table", "no such column", "ambiguous",
+        "parse error", "invalid identifier",
+    })
+    _TRANSIENT_ERROR_PATTERNS = frozenset({
+        "connection reset", "auth", "timeout", "5xx", "503", "502", "504",
+        "transpile", "dialect", "network", "refused", "unreachable",
+        "ssl", "tls",
+    })
+    _TRANSIENT_ERROR_THRESHOLD = 5
+
+    def _classify_tool_error(self, error_text: str) -> str:
+        """Return 'logic' or 'transient'. Defaults to 'logic' when ambiguous."""
+        err_lower = (error_text or "").lower()
+        if any(p in err_lower for p in self._LOGIC_ERROR_PATTERNS):
+            return "logic"
+        if any(p in err_lower for p in self._TRANSIENT_ERROR_PATTERNS):
+            return "transient"
+        return "logic"  # conservative default — surfaces to user faster
+
+    @property
+    def _consecutive_tool_errors(self) -> int:
+        """Backward-compat alias for the logic-error counter."""
+        return self._consecutive_logic_errors
+
+    @_consecutive_tool_errors.setter
+    def _consecutive_tool_errors(self, value: int) -> None:
+        self._consecutive_logic_errors = value
+
+    @staticmethod
+    def _extract_error_text(payload: object) -> str:
+        """Best-effort extraction of error text from a tool-result payload."""
+        if not isinstance(payload, dict):
+            return ""
+        for key in ("error", "error_message", "exception", "errors"):
+            v = payload.get(key)
+            if isinstance(v, str) and v:
+                return v
+            if isinstance(v, list) and v and isinstance(v[0], str):
+                return v[0]
+        # Recurse one level into nested envelopes.
+        for nested_key in ("result", "payload", "data", "response"):
+            nested = payload.get(nested_key)
+            if isinstance(nested, dict):
+                inner = AgentEngine._extract_error_text(nested)
+                if inner:
+                    return inner
+        return ""
+
     def _update_error_cascade_counter(self, tool_result_str: str) -> None:
-        """W1 Task 3 — increment on error, reset on success, leave on non-JSON."""
+        """W1 Task 3 + T20-revised — split logic/transient counters.
+
+        Increments the counter matching the error class, resets the OTHER
+        counter on every error (a different-class error breaks the streak).
+        Resets BOTH counters on a non-error result. Non-JSON payloads leave
+        state untouched.
+        """
         import json as _json
         try:
             payload = _json.loads(tool_result_str) if tool_result_str else None
@@ -1092,28 +1153,58 @@ class AgentEngine:
         if not isinstance(payload, dict):
             return
         if self._looks_like_error(payload):
-            self._consecutive_tool_errors += 1
+            error_text = self._extract_error_text(payload)
+            error_class = self._classify_tool_error(error_text)
+            if error_class == "transient":
+                self._consecutive_transient_errors += 1
+                self._consecutive_logic_errors = 0
+            else:
+                self._consecutive_logic_errors += 1
+                self._consecutive_transient_errors = 0
         else:
-            self._consecutive_tool_errors = 0
+            self._consecutive_logic_errors = 0
+            self._consecutive_transient_errors = 0
 
     def _should_fire_error_cascade_checkpoint(self) -> bool:
-        """W1 Task 3 — threshold gate (flag-on only)."""
+        """T20-revised — cascade checkpoint on consecutive logic errors only."""
         if not settings.GROUNDING_W1_HARDCAP_ENFORCE:
             return False
-        return self._consecutive_tool_errors >= settings.W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD
+        return self._consecutive_logic_errors >= settings.W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD
+
+    def _should_fire_transient_degraded_checkpoint(self) -> bool:
+        """T20-revised — network-degraded checkpoint after 5 consecutive transients."""
+        if not settings.GROUNDING_W1_HARDCAP_ENFORCE:
+            return False
+        return self._consecutive_transient_errors >= self._TRANSIENT_ERROR_THRESHOLD
 
     def _build_error_cascade_step(self) -> "AgentStep":
         """W1 Task 3 — payload for the agent_checkpoint SSE event (GAP A)."""
         return AgentStep(
             type="agent_checkpoint",
             content=(
-                f"{self._consecutive_tool_errors} consecutive tool errors. "
+                f"{self._consecutive_logic_errors} consecutive tool errors. "
                 "Choose: [ Retry ] [ Change approach ] [ Summarize with what I have ]"
             ),
             tool_input={
                 "kind": "tool_error_cascade",
-                "consecutive_errors": self._consecutive_tool_errors,
+                "consecutive_errors": self._consecutive_logic_errors,
                 "options": ["retry", "change_approach", "summarize"],
+            },
+        )
+
+    def _build_transient_degraded_step(self) -> "AgentStep":
+        """T20-revised — agent_checkpoint for sustained transient/network errors."""
+        return AgentStep(
+            type="agent_checkpoint",
+            content=(
+                f"{self._consecutive_transient_errors} consecutive transient errors "
+                "(network/auth/timeout). "
+                "Choose: [ Retry ] [ Abort ]"
+            ),
+            tool_input={
+                "kind": "transient_degraded",
+                "consecutive_transient_errors": self._consecutive_transient_errors,
+                "options": ["retry", "abort"],
             },
         )
 
@@ -2244,9 +2335,12 @@ class AgentEngine:
         self._result = AgentResult()
 
         # PRE-T0d: reset per-run counters so a new run never starts pre-tripped.
-        # _consecutive_tool_errors and _thinking_tokens_used are lazy-attached on
-        # first use; force them to 0 here so run N+1 is always clean.
-        self._consecutive_tool_errors = 0
+        # T20-revised: dual-counter reset (logic + transient cascade gates).
+        # `_consecutive_tool_errors` is a property alias to
+        # `_consecutive_logic_errors`; we reset both backing fields explicitly
+        # so a new run is always clean.
+        self._consecutive_logic_errors = 0
+        self._consecutive_transient_errors = 0
         self._thinking_tokens_used = 0
         self._empty_boundset_note_emitted = False
         # Reset lazy replan objects so budget is fresh each run.
@@ -3244,10 +3338,23 @@ class AgentEngine:
                         # PARK_SHADOW site-3: discard shadow slot (legacy resolved)
                         self.memory.parks.discard(_shadow_cascade.park_id)
                         _logger.debug("PARK_SHADOW resolved site=w1_cascade response=%r", user_choice)
-                        self._consecutive_tool_errors = 0
+                        # T20-revised — reset BOTH counters after cascade gate.
+                        self._consecutive_logic_errors = 0
+                        self._consecutive_transient_errors = 0
                         if user_choice == "summarize":
                             break  # Exit loop, synthesize with what we have
                         # retry / change_approach → continue loop
+                    elif self._should_fire_transient_degraded_checkpoint():
+                        # T20-revised — sustained transient/network failures get
+                        # their own observability checkpoint with retry|abort
+                        # options. Emit only; the existing park/wait flow is
+                        # reserved for the logic-cascade path.
+                        transient_cp = self._build_transient_degraded_step()
+                        self._steps.append(transient_cp)
+                        yield transient_cp
+                        # Clear the transient counter so we don't spam the chip
+                        # every subsequent error within the same streak.
+                        self._consecutive_transient_errors = 0
 
                     # ── Sliding context compaction (Task 13) ──────────
                     # Every 6 tool calls, summarize old tool results to prevent
