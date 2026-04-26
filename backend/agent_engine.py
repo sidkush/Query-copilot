@@ -4005,15 +4005,27 @@ class AgentEngine:
                     else:
                         safe_columns.append(col_str)
 
-                self._query_memory.store_insight(
-                    conn_id=getattr(self.connection_entry, 'conn_id', ''),
-                    question=self.memory.get_messages()[-2].get("content", "") if len(self.memory.get_messages()) >= 2 else "",
-                    sql=clean_sql,
-                    result_summary=f"{row_count} rows returned with columns: {', '.join(safe_columns[:10])}",
-                    columns=safe_columns,
-                    row_count=row_count,
-                    schema_hash=schema_hash,
-                )
+                # T18 — use snapshotted question (avoids TOCTOU + concurrent-run bleed)
+                _cache_question = getattr(self, "_run_question", "").lower()
+                _cache_summary = f"{row_count} rows returned with columns: {', '.join(safe_columns[:10])}"
+                _off_scope_terms = DOMAIN_ANALYSIS_KEYWORDS  # module-level frozenset (T19)
+                _q_has_term = any(t in _cache_question for t in _off_scope_terms)
+                _sum_has_term = any(t in _cache_summary.lower() for t in _off_scope_terms)
+                if _sum_has_term and not _q_has_term:
+                    _logger.info(
+                        "skipping cache write: result off-scope (tenant=%s)",
+                        getattr(self.connection_entry, 'tenant_id', 'unknown'),
+                    )
+                else:
+                    self._query_memory.store_insight(
+                        conn_id=getattr(self.connection_entry, 'conn_id', ''),
+                        question=_cache_question,
+                        sql=clean_sql,
+                        result_summary=_cache_summary,
+                        columns=safe_columns,
+                        row_count=row_count,
+                        schema_hash=schema_hash,
+                    )
             except Exception as e:
                 _logger.debug("Failed to store query insight (non-fatal): %s", e)
 
