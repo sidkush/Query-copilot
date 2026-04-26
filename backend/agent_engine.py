@@ -1288,6 +1288,28 @@ class AgentEngine:
             return text
         return f"{self._EMPTY_BOUNDSET_BANNER}\n\n{text}"
 
+    def _set_final_answer(self, text: str, *, source: str) -> None:
+        """T4 — single-assignment gate for self._result.final_answer.
+
+        Routes every content-bearing assignment through one method so we get a
+        single chokepoint for telemetry. Logs CRITICAL when called twice with
+        DIFFERENT non-empty values during a single run — that pattern means
+        two code paths both think they own the final answer, which is the
+        wiring bug T4 exists to surface.
+
+        Empty-string clears (`text=""`) are intentional and don't trigger the
+        warning even when previous content was set.
+        """
+        existing = self._result.final_answer
+        if existing and text and existing != text:
+            _logger.critical(
+                "_set_final_answer called twice with different content "
+                "(source=%s, existing_len=%d, new_len=%d) — wiring bug",
+                source, len(existing), len(text),
+            )
+        self._result.final_answer = text
+        _logger.debug("final_answer set source=%s len=%d", source, len(text or ""))
+
     def _apply_safe_text(self, text: str):
         """Phase K — filter agent output via SafeText. Returns None if blocked."""
         if not settings.FEATURE_AGENT_HALLUCINATION_ABORT:
@@ -2489,7 +2511,10 @@ class AgentEngine:
                                               "arrow_enabled": _cfg.ARROW_BRIDGE_ENABLED,
                                               "tiers_checked": tier_result.metadata.get("tiers_checked", []),
                                           })
-                            self._result.final_answer = tier_result.data.get("answer", "")
+                            self._set_final_answer(
+                                tier_result.data.get("answer", ""),
+                                source="waterfall_memory",
+                            )
                             return
             except Exception as exc:
                 _logger.warning("Dual-response route_dual failed: %s — standard agent loop", exc)
@@ -2530,7 +2555,7 @@ class AgentEngine:
                     except Exception:
                         pass
                     yield AgentStep(type="result", content=_dual_cached_content)
-                    self._result.final_answer = _dual_cached_content
+                    self._set_final_answer(_dual_cached_content, source="dual_response_cached")
                     return
 
                 # Memory early return — instant answer, async live verification.
@@ -2546,7 +2571,7 @@ class AgentEngine:
                     except Exception:
                         pass
                     yield AgentStep(type="result", content=_dual_cached_content)
-                    self._result.final_answer = _dual_cached_content
+                    self._set_final_answer(_dual_cached_content, source="dual_response_turbo")
                     self._result.dual_response = True
 
                     # Fire live verification in background thread — non-blocking
@@ -2666,12 +2691,15 @@ class AgentEngine:
                 # an intermediate AgentStep(type='result') here would arrive
                 # at AgentPanel.onStep first and trigger a duplicate render
                 # (intermediate step + final SSE both match the result branch).
-                self._result.final_answer = (
-                    f"Aborted: this connection's schema has no individual "
-                    f"{_gate_c_mismatch.canonical} identifier, so per-"
-                    f"{_gate_c_mismatch.canonical} analysis isn't possible. "
-                    "Reconnect a schema with the right id column or rephrase "
-                    "the question."
+                self._set_final_answer(
+                    (
+                        f"Aborted: this connection's schema has no individual "
+                        f"{_gate_c_mismatch.canonical} identifier, so per-"
+                        f"{_gate_c_mismatch.canonical} analysis isn't possible. "
+                        "Reconnect a schema with the right id column or rephrase "
+                        "the question."
+                    ),
+                    source="gate_c_abort",
                 )
                 self._result.steps = self._steps
                 return
@@ -2987,7 +3015,7 @@ class AgentEngine:
                     if block.type == "text" and block.text.strip():
                         # Final text response from Claude
                         content = block.text.strip()
-                        self._result.final_answer = content
+                        self._set_final_answer(content, source="synthesis_stream")
 
                         # AMEND-W2-15 — when streaming already shipped the
                         # text via message_delta this iteration, suppress the
@@ -3290,7 +3318,7 @@ class AgentEngine:
         final_answer = self._result.final_answer or ""
         if self._detect_empty_boundset():
             final_answer = self._apply_empty_boundset_banner(final_answer)
-            self._result.final_answer = final_answer
+            self._set_final_answer(final_answer, source="banner")
 
         # Emit final result step
         result_step = AgentStep(type="result", content=final_answer)
