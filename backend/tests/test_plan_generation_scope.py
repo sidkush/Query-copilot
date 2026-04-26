@@ -1,7 +1,7 @@
 def test_plan_generation_scope_constraint():
     """_generate_plan prompt contains scope constraint."""
     from unittest.mock import MagicMock, patch
-    import backend.agent_engine as ae
+    import agent_engine as ae
     eng = MagicMock()
     eng.provider = MagicMock()
     eng.provider.complete.return_value = MagicMock(

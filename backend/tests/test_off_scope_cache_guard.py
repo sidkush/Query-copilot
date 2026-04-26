@@ -1,7 +1,7 @@
 def test_off_scope_cache_skipped(monkeypatch):
     """Cache write skipped when summary has domain terms the question doesn't."""
     from unittest.mock import MagicMock, patch
-    import backend.agent_engine as ae
+    import agent_engine as ae
     store_calls = []
     eng = MagicMock()
     eng._run_question = "rides per station"
@@ -21,7 +21,7 @@ def test_off_scope_cache_skipped(monkeypatch):
 
 def test_on_scope_cache_stored():
     """Cache write happens when question and summary share domain terms."""
-    import backend.agent_engine as ae
+    import agent_engine as ae
     _cache_question = "rider churn last 30 days"
     _cache_summary = "5 rows returned with columns: date, churn_rate"
     _off_scope_terms = ae.DOMAIN_ANALYSIS_KEYWORDS
