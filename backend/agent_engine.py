@@ -1871,6 +1871,21 @@ class AgentEngine:
                 "</progress>\n"
             )
 
+        # T10 — scope fence: anchor agent to the literal user question on every call
+        _safe_q = getattr(self, "_run_question", None) or ""
+        _tc = getattr(self, "_tool_calls", 0)
+        _max_tc = getattr(self, "_max_tool_calls", 20)
+        system_prompt += (
+            "\n\n<scope_fence>\n"
+            f'Original user question: "{_safe_q}"\n'
+            "Answer ONLY this question. Do NOT propose adjacent analyses "
+            "(churn, retention, trends, clustering, forecasting) unless the user "
+            "explicitly used those terms. If the schema cannot answer the literal "
+            "question, call `ask_user` instead of substituting a related analysis.\n"
+            f"Tool budget: iteration {_tc}/{_max_tc}.\n"
+            "</scope_fence>\n"
+        )
+
         return system_prompt
 
     def _build_system_blocks(self, question: str, prefetch_context: str = "") -> list:
@@ -3583,6 +3598,15 @@ class AgentEngine:
                     # context overflow on long multi-tile dashboard builds.
                     if self._tool_calls > 0 and self._tool_calls % 6 == 0:
                         self._compact_tool_context(messages)
+                        # T10 — re-anchor original question after sliding-window compaction
+                        _safe_q = getattr(self, "_run_question", "")
+                        if _safe_q and messages:
+                            for _msg in messages:
+                                if _msg.get("role") == "user":
+                                    _existing = _msg.get("content", "")
+                                    if isinstance(_existing, str) and "[Re-anchor]" not in _existing:
+                                        _msg["content"] = f"[Re-anchor] Original question: {_safe_q}\n\n{_existing}"
+                                    break
                 else:
                     # No tool use — Claude is done
                     break
