@@ -31,6 +31,19 @@ try:
 except Exception:
     alert_manager = None  # type: ignore[assignment]
 
+# T11-revised — domain reframe vocabulary. When the user's question contains
+# any of these terms AND Gate C resolves with `station_proxy`, the framing
+# note appends a REFRAMING line so the model labels its output as
+# proxy-level (e.g. station-level abandonment) rather than entity-level
+# (per-rider abandonment).
+DOMAIN_REFRAME_TERMS = frozenset({
+    "churn", "retention", "cohort", "return", "returning", "returned",
+    "inactive", "dormant", "lapsed", "abandonment", "attrition",
+    "drop-off", "dropoff", "drop off", "winback", "reactivation",
+    "loyalty", "ltv", "lifetime value", "stickiness", "engagement",
+    "dau", "mau", "wau", "acquisition", "conversion",
+})
+
 # ── Tool Definitions (Anthropic format) ──────────────────────────
 
 TOOL_DEFINITIONS = [
@@ -785,6 +798,60 @@ class AgentEngine:
             "ILIKE for case-insensitive matching",
             "Use DISTINCT ON for deduplication",
         ],
+        "duckdb": [
+            "Use INTERVAL N DAY syntax (e.g. INTERVAL 30 DAY)",
+            "Use EPOCH or epoch_ms() for Unix timestamps",
+            "STRFTIME('%Y-%m-%d', col) for date formatting",
+            "QUALIFY window_func OVER (...) for window filtering",
+        ],
+        "sqlite": [
+            "Use datetime('now', '-30 days') for date arithmetic",
+            "No FULL OUTER JOIN — use UNION of LEFT JOIN and RIGHT JOIN",
+            "Use strftime('%Y-%m-%d', col) for date formatting",
+            "Weak typing: compare numbers as numbers, not strings",
+        ],
+        "clickhouse": [
+            "Use INTERVAL 30 DAY for date arithmetic",
+            "Use toDate() / toDateTime() for type conversion",
+            "Use countIf() instead of SUM(CASE WHEN ...)",
+            "Use formatDateTime for date formatting",
+            "MergeTree tables: always filter on partition key for performance",
+        ],
+        "redshift": [
+            "Use DATEADD(day, -30, CURRENT_DATE) for date arithmetic",
+            "Use DATEDIFF(day, start, end) not DATE_DIFF",
+            "Use GETDATE() not CURRENT_TIMESTAMP",
+            "LISTAGG for string aggregation (not STRING_AGG)",
+            "Use ILIKE for case-insensitive matching",
+        ],
+        "databricks": [
+            "Use INTERVAL 30 DAYS (plural) for date arithmetic",
+            "Use date_trunc() for date truncation",
+            "Use date_add() / date_sub() for date math",
+            "Delta tables: use CURRENT_TIMESTAMP() not NOW()",
+            "Use backticks for identifiers with spaces",
+        ],
+        "cockroachdb": [
+            "Syntax is mostly PostgreSQL-compatible",
+            "Use :: for type casting (e.g., column::text)",
+            "ILIKE for case-insensitive matching",
+            "Use gen_random_uuid() for UUID generation",
+            "Avoid SELECT ... FOR UPDATE on large tables (contention)",
+        ],
+        "oracle": [
+            "Use INTERVAL '30' DAY (single-quoted) for date arithmetic",
+            "Use SYSDATE / CURRENT_TIMESTAMP not NOW()",
+            "Use NVL() instead of COALESCE() for two-arg case",
+            "Identifiers are UPPERCASE unless double-quoted",
+            "Use ROWNUM or FETCH FIRST N ROWS ONLY for row limiting",
+        ],
+        "trino": [
+            "Use INTERVAL '30' DAY (single-quoted) for date arithmetic",
+            "Use date_add('day', -30, current_date) for date arithmetic",
+            "Use from_unixtime() for Unix timestamp conversion",
+            "Use format_datetime() for date formatting",
+            "Use approx_distinct() instead of COUNT(DISTINCT) for large tables",
+        ],
     }
 
     SYSTEM_PROMPT = (
@@ -846,7 +913,11 @@ class AgentEngine:
 
         # Per-run state
         self._tool_calls = 0
-        self._consecutive_tool_errors: int = 0
+        # T20-revised: separate logic + transient cascade counters.
+        # `_consecutive_tool_errors` is a backward-compat property alias
+        # mapped to `_consecutive_logic_errors`.
+        self._consecutive_logic_errors: int = 0
+        self._consecutive_transient_errors: int = 0
         self._sql_retries = 0
         # AMEND-W2-26 — cumulative extended-thinking-token budget tracker.
         # Decremented per stream turn from final-message usage; helper
@@ -1082,8 +1153,65 @@ class AgentEngine:
                     return True
         return False
 
+    # T20-revised — error classification for cascade tuning.
+    _LOGIC_ERROR_PATTERNS = frozenset({
+        "column", "syntax", "schema", "type mismatch", "table not found",
+        "does not exist", "no such table", "no such column", "ambiguous",
+        "parse error", "invalid identifier",
+    })
+    _TRANSIENT_ERROR_PATTERNS = frozenset({
+        "connection reset", "auth", "timeout", "5xx", "503", "502", "504",
+        "transpile", "dialect", "network", "refused", "unreachable",
+        "ssl", "tls",
+    })
+    _TRANSIENT_ERROR_THRESHOLD = 5
+
+    def _classify_tool_error(self, error_text: str) -> str:
+        """Return 'logic' or 'transient'. Defaults to 'logic' when ambiguous."""
+        err_lower = (error_text or "").lower()
+        if any(p in err_lower for p in self._LOGIC_ERROR_PATTERNS):
+            return "logic"
+        if any(p in err_lower for p in self._TRANSIENT_ERROR_PATTERNS):
+            return "transient"
+        return "logic"  # conservative default — surfaces to user faster
+
+    @property
+    def _consecutive_tool_errors(self) -> int:
+        """Backward-compat alias for the logic-error counter."""
+        return self._consecutive_logic_errors
+
+    @_consecutive_tool_errors.setter
+    def _consecutive_tool_errors(self, value: int) -> None:
+        self._consecutive_logic_errors = value
+
+    @staticmethod
+    def _extract_error_text(payload: object) -> str:
+        """Best-effort extraction of error text from a tool-result payload."""
+        if not isinstance(payload, dict):
+            return ""
+        for key in ("error", "error_message", "exception", "errors"):
+            v = payload.get(key)
+            if isinstance(v, str) and v:
+                return v
+            if isinstance(v, list) and v and isinstance(v[0], str):
+                return v[0]
+        # Recurse one level into nested envelopes.
+        for nested_key in ("result", "payload", "data", "response"):
+            nested = payload.get(nested_key)
+            if isinstance(nested, dict):
+                inner = AgentEngine._extract_error_text(nested)
+                if inner:
+                    return inner
+        return ""
+
     def _update_error_cascade_counter(self, tool_result_str: str) -> None:
-        """W1 Task 3 — increment on error, reset on success, leave on non-JSON."""
+        """W1 Task 3 + T20-revised — split logic/transient counters.
+
+        Increments the counter matching the error class, resets the OTHER
+        counter on every error (a different-class error breaks the streak).
+        Resets BOTH counters on a non-error result. Non-JSON payloads leave
+        state untouched.
+        """
         import json as _json
         try:
             payload = _json.loads(tool_result_str) if tool_result_str else None
@@ -1092,28 +1220,58 @@ class AgentEngine:
         if not isinstance(payload, dict):
             return
         if self._looks_like_error(payload):
-            self._consecutive_tool_errors += 1
+            error_text = self._extract_error_text(payload)
+            error_class = self._classify_tool_error(error_text)
+            if error_class == "transient":
+                self._consecutive_transient_errors += 1
+                self._consecutive_logic_errors = 0
+            else:
+                self._consecutive_logic_errors += 1
+                self._consecutive_transient_errors = 0
         else:
-            self._consecutive_tool_errors = 0
+            self._consecutive_logic_errors = 0
+            self._consecutive_transient_errors = 0
 
     def _should_fire_error_cascade_checkpoint(self) -> bool:
-        """W1 Task 3 — threshold gate (flag-on only)."""
+        """T20-revised — cascade checkpoint on consecutive logic errors only."""
         if not settings.GROUNDING_W1_HARDCAP_ENFORCE:
             return False
-        return self._consecutive_tool_errors >= settings.W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD
+        return self._consecutive_logic_errors >= settings.W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD
+
+    def _should_fire_transient_degraded_checkpoint(self) -> bool:
+        """T20-revised — network-degraded checkpoint after 5 consecutive transients."""
+        if not settings.GROUNDING_W1_HARDCAP_ENFORCE:
+            return False
+        return self._consecutive_transient_errors >= self._TRANSIENT_ERROR_THRESHOLD
 
     def _build_error_cascade_step(self) -> "AgentStep":
         """W1 Task 3 — payload for the agent_checkpoint SSE event (GAP A)."""
         return AgentStep(
             type="agent_checkpoint",
             content=(
-                f"{self._consecutive_tool_errors} consecutive tool errors. "
+                f"{self._consecutive_logic_errors} consecutive tool errors. "
                 "Choose: [ Retry ] [ Change approach ] [ Summarize with what I have ]"
             ),
             tool_input={
                 "kind": "tool_error_cascade",
-                "consecutive_errors": self._consecutive_tool_errors,
+                "consecutive_errors": self._consecutive_logic_errors,
                 "options": ["retry", "change_approach", "summarize"],
+            },
+        )
+
+    def _build_transient_degraded_step(self) -> "AgentStep":
+        """T20-revised — agent_checkpoint for sustained transient/network errors."""
+        return AgentStep(
+            type="agent_checkpoint",
+            content=(
+                f"{self._consecutive_transient_errors} consecutive transient errors "
+                "(network/auth/timeout). "
+                "Choose: [ Retry ] [ Abort ]"
+            ),
+            tool_input={
+                "kind": "transient_degraded",
+                "consecutive_transient_errors": self._consecutive_transient_errors,
+                "options": ["retry", "abort"],
             },
         )
 
@@ -1190,6 +1348,7 @@ class AgentEngine:
         canonical: str,
         proxy_suggestion: str | None,
         proxy_columns: list[str] | None = None,
+        question: str = "",
     ) -> str | None:
         """W3-P1 — framing note injected into system prompt after Gate C
         resolves with `station_proxy`. Tells the model the requested
@@ -1199,6 +1358,12 @@ class AgentEngine:
         Returns None when the choice is not `station_proxy` or the kind is
         not the Gate C schema-entity-mismatch — keeps the injection
         Gate-C-specific so generic `ask_user` flows remain untouched.
+
+        T11-revised — when `question` contains a `DOMAIN_REFRAME_TERMS`
+        token (after `safe_for_prompt` + casefold), append a REFRAMING
+        line so the model labels its output as proxy-level instead of
+        entity-level (e.g. "station-level abandonment", not "per-rider
+        abandonment").
         """
         if choice != "station_proxy":
             return None
@@ -1221,9 +1386,33 @@ class AgentEngine:
         if proxy_columns:
             cols = ", ".join(proxy_columns)
             lines.append(f"Use these proxy columns in the SQL: {cols}.")
+        # T11-revised — domain reframe: detect first matching term and
+        # tell the model how to label the output.
+        if question:
+            try:
+                normalized = safe_for_prompt(question).casefold()
+            except Exception:
+                normalized = ""
+            if normalized:
+                detected_term = None
+                for term in DOMAIN_REFRAME_TERMS:
+                    if term in normalized:
+                        detected_term = term
+                        break
+                if detected_term:
+                    lines.append(
+                        f"REFRAMING: Since {proxy_phrase} is the proxy for "
+                        f"individual {canonical} identity, "
+                        f"'{detected_term}' in this analysis means "
+                        f"'{proxy_phrase} {detected_term}' "
+                        f"(e.g. station-level abandonment, not per-rider "
+                        f"abandonment). Label all output accordingly."
+                    )
         return "\n".join(lines)
 
-    def _derive_proxy_note_from_consents(self, consents: dict) -> "str | None":
+    def _derive_proxy_note_from_consents(
+        self, consents: dict, question: str = ""
+    ) -> "str | None":
         """W3-P1 — rebuild framing note from stored gap-based consents.
 
         Called at every run() start so the note is always fresh (never stale
@@ -1233,6 +1422,9 @@ class AgentEngine:
         proxy column actually exists in the current connection's schema.
         This prevents a stale proxy from a previous connection leaking into
         a different DB's system prompt (cross-connection consent bleed).
+
+        T11-revised — `question` is forwarded to `_build_proxy_framing_note`
+        so the REFRAMING line can be appended when a domain term is detected.
         """
         if not consents:
             return None
@@ -1253,6 +1445,7 @@ class AgentEngine:
                     canonical=canonical,
                     proxy_suggestion=proxy_col,
                     proxy_columns=[proxy_col],
+                    question=question,
                 )
         return None
 
@@ -1287,6 +1480,28 @@ class AgentEngine:
         if self._EMPTY_BOUNDSET_BANNER in text:
             return text
         return f"{self._EMPTY_BOUNDSET_BANNER}\n\n{text}"
+
+    def _set_final_answer(self, text: str, *, source: str) -> None:
+        """T4 — single-assignment gate for self._result.final_answer.
+
+        Routes every content-bearing assignment through one method so we get a
+        single chokepoint for telemetry. Logs CRITICAL when called twice with
+        DIFFERENT non-empty values during a single run — that pattern means
+        two code paths both think they own the final answer, which is the
+        wiring bug T4 exists to surface.
+
+        Empty-string clears (`text=""`) are intentional and don't trigger the
+        warning even when previous content was set.
+        """
+        existing = self._result.final_answer
+        if existing and text and existing != text:
+            _logger.critical(
+                "_set_final_answer called twice with different content "
+                "(source=%s, existing_len=%d, new_len=%d) — wiring bug",
+                source, len(existing), len(text),
+            )
+        self._result.final_answer = text
+        _logger.debug("final_answer set source=%s len=%d", source, len(text or ""))
 
     def _apply_safe_text(self, text: str):
         """Phase K — filter agent output via SafeText. Returns None if blocked."""
@@ -1432,6 +1647,33 @@ class AgentEngine:
             return None
 
         had_violations = bool(result and getattr(result, "violations", None))
+
+        # T13 — oscillation guard: if violations are not REDUCING across
+        # successive replans, abort early without consuming another budget
+        # slot. Prevents a stuck loop where the model regenerates the same
+        # broken SQL repeatedly.
+        if not hasattr(self, "_replan_violation_history"):
+            self._replan_violation_history = []
+
+        current_vset = frozenset(
+            v.rule_id.value for v in (getattr(result, "violations", None) or [])
+        )
+        if self._replan_violation_history:
+            prev_vset = self._replan_violation_history[-1]
+            # Oscillation: same or more violations than before.
+            if current_vset and len(current_vset) >= len(prev_vset):
+                _logger.warning(
+                    "Replan oscillation detected: %s -> %s", prev_vset, current_vset
+                )
+                return {
+                    "budget_exhausted": True,
+                    "tier": "unverified",
+                    "reason": "replan_oscillation_detected",
+                    "context": f"Violations not reducing: {sorted(current_vset)}",
+                    "original_sql": sql,
+                }
+        self._replan_violation_history.append(current_vset)
+
         hint = self._replan_controller.on_violation(result=result, original_sql=sql)
         if hint is None:
             if had_violations:
@@ -1572,12 +1814,21 @@ class AgentEngine:
         if chart_type_context:
             system_prompt += chart_type_context
 
-        # ── Dialect-aware SQL hints (Task 8) ──────────────────────
+        # ── Dialect-aware SQL hints (Task 8 + T14: db_type allowlist) ──
         db_type = getattr(self.connection_entry, 'db_type', '') or ''
-        hints = self.DIALECT_HINTS.get(db_type.lower(), [])
+        db_type_str = (
+            db_type.lower() if isinstance(db_type, str)
+            else getattr(db_type, "value", str(db_type)).lower()
+        )
+        hints = self.DIALECT_HINTS.get(db_type_str)
+        if hints is None:
+            _logger.warning(
+                "db_type '%s' has no dialect hints; using ANSI SQL fallback", db_type_str
+            )
+            hints = ["Use ANSI SQL; avoid vendor-specific functions"]
         if hints:
             system_prompt += (
-                f"\n\nSQL DIALECT ({db_type.upper()}):\n"
+                f"\n\nSQL DIALECT ({db_type_str.upper()}):\n"
                 + "\n".join(f"- {h}" for h in hints) + "\n"
             )
 
@@ -2244,14 +2495,19 @@ class AgentEngine:
         self._result = AgentResult()
 
         # PRE-T0d: reset per-run counters so a new run never starts pre-tripped.
-        # _consecutive_tool_errors and _thinking_tokens_used are lazy-attached on
-        # first use; force them to 0 here so run N+1 is always clean.
-        self._consecutive_tool_errors = 0
+        # T20-revised: dual-counter reset (logic + transient cascade gates).
+        # `_consecutive_tool_errors` is a property alias to
+        # `_consecutive_logic_errors`; we reset both backing fields explicitly
+        # so a new run is always clean.
+        self._consecutive_logic_errors = 0
+        self._consecutive_transient_errors = 0
         self._thinking_tokens_used = 0
         self._empty_boundset_note_emitted = False
         # Reset lazy replan objects so budget is fresh each run.
         self._replan_budget = None
         self._replan_controller = None
+        # T13 — reset per-run violation history for oscillation guard.
+        self._replan_violation_history = []
         # Snapshot question and consent state so mutations during this run don't
         # leak into the next run (F15/F16 cross-run consent/question bleed).
         self._run_question = safe_for_prompt(question)
@@ -2281,6 +2537,85 @@ class AgentEngine:
         except GeneratorExit:
             _logger.debug("Agent generator abandoned for session %s", self.memory.chat_id)
         finally:
+            # T3 — batched claim_provenance.bind + audit_ledger.append_chained
+            # in the cleanup path. Both run independently of each other so a
+            # provenance failure does not silence the audit, and an audit
+            # failure does not corrupt the rendered answer.
+            #
+            # IMPORTANT: this block must NOT yield (finally in a generator
+            # cannot resume), and must swallow every exception (cleanup must
+            # not mask a real failure mid-run).
+            try:
+                if settings.FEATURE_CLAIM_PROVENANCE and getattr(self, "_claim_provenance", None):
+                    _final = getattr(self._result, "final_answer", "") or ""
+                    if _final:
+                        _bound = self._claim_provenance.bind(
+                            _final,
+                            getattr(self, "_recent_rowsets", []) or [],
+                        )
+                        # ClaimProvenance.bind returns a string; coerce just in case.
+                        if isinstance(_bound, tuple):
+                            _bound = _bound[0]
+                        self._set_final_answer(_bound, source="claim_provenance_finally")
+            except Exception as _cpe:
+                _logger.exception(
+                    "claim_provenance.bind in finally failed: %s", _cpe,
+                )
+
+            if settings.FEATURE_AUDIT_LEDGER and getattr(self, "_audit_ledger", None):
+                try:
+                    from claim_provenance import extract_numeric_spans, match_claim
+                    from audit_ledger import AuditLedgerEntry
+                    from datetime import datetime, timezone
+                    import uuid as _uuid
+
+                    _final = getattr(self._result, "final_answer", "") or ""
+                    _recent = getattr(self, "_recent_rowsets", []) or []
+                    _tenant = (
+                        getattr(self, "_snapshot_tenant_id", None)
+                        or getattr(self.connection_entry, "tenant_id", None)
+                        or "unknown"
+                    )
+                    _plan = getattr(getattr(self, "_current_plan", None), "plan_id", "no-plan")
+
+                    for span in extract_numeric_spans(_final):
+                        try:
+                            qid = match_claim(span.value, _recent, suffix=getattr(span, "suffix", ""))
+                        except TypeError:
+                            # Older signature (no suffix kwarg) — fall back.
+                            qid = match_claim(span.value, _recent)
+                        if qid is None:
+                            continue
+                        matching = next(
+                            (r for r in _recent if isinstance(r, dict) and r.get("query_id") == qid),
+                            {},
+                        )
+                        entry = AuditLedgerEntry(
+                            claim_id=str(_uuid.uuid4()),
+                            plan_id=_plan,
+                            query_id=qid,
+                            tenant_id=_tenant,
+                            ts=datetime.now(timezone.utc).isoformat(),
+                            sql_hash=matching.get("sql_hash", ""),
+                            rowset_hash=matching.get("rowset_hash", ""),
+                            schema_hash=matching.get("schema_hash", ""),
+                            pii_redaction_applied=True,
+                            prev_hash="",  # auto-resolved by append_chained
+                            curr_hash="",
+                        )
+                        try:
+                            self._audit_ledger.append_chained(entry)
+                        except Exception as _ale_inner:
+                            # One-bad-claim must not abort the rest.
+                            _logger.exception(
+                                "audit_ledger.append_chained per-claim failed: %s",
+                                _ale_inner,
+                            )
+                except Exception as _ale:
+                    _logger.exception(
+                        "audit_ledger.append_chained in finally failed: %s", _ale,
+                    )
+
             # MUST be in finally — GeneratorExit bypasses except Exception
             if _deadline_cm is not None:
                 _deadline_cm.__exit__(None, None, None)
@@ -2489,7 +2824,10 @@ class AgentEngine:
                                               "arrow_enabled": _cfg.ARROW_BRIDGE_ENABLED,
                                               "tiers_checked": tier_result.metadata.get("tiers_checked", []),
                                           })
-                            self._result.final_answer = tier_result.data.get("answer", "")
+                            self._set_final_answer(
+                                tier_result.data.get("answer", ""),
+                                source="waterfall_memory",
+                            )
                             return
             except Exception as exc:
                 _logger.warning("Dual-response route_dual failed: %s — standard agent loop", exc)
@@ -2530,7 +2868,7 @@ class AgentEngine:
                     except Exception:
                         pass
                     yield AgentStep(type="result", content=_dual_cached_content)
-                    self._result.final_answer = _dual_cached_content
+                    self._set_final_answer(_dual_cached_content, source="dual_response_cached")
                     return
 
                 # Memory early return — instant answer, async live verification.
@@ -2546,7 +2884,7 @@ class AgentEngine:
                     except Exception:
                         pass
                     yield AgentStep(type="result", content=_dual_cached_content)
-                    self._result.final_answer = _dual_cached_content
+                    self._set_final_answer(_dual_cached_content, source="dual_response_turbo")
                     self._result.dual_response = True
 
                     # Fire live verification in background thread — non-blocking
@@ -2666,12 +3004,15 @@ class AgentEngine:
                 # an intermediate AgentStep(type='result') here would arrive
                 # at AgentPanel.onStep first and trigger a duplicate render
                 # (intermediate step + final SSE both match the result branch).
-                self._result.final_answer = (
-                    f"Aborted: this connection's schema has no individual "
-                    f"{_gate_c_mismatch.canonical} identifier, so per-"
-                    f"{_gate_c_mismatch.canonical} analysis isn't possible. "
-                    "Reconnect a schema with the right id column or rephrase "
-                    "the question."
+                self._set_final_answer(
+                    (
+                        f"Aborted: this connection's schema has no individual "
+                        f"{_gate_c_mismatch.canonical} identifier, so per-"
+                        f"{_gate_c_mismatch.canonical} analysis isn't possible. "
+                        "Reconnect a schema with the right id column or rephrase "
+                        "the question."
+                    ),
+                    source="gate_c_abort",
                 )
                 self._result.steps = self._steps
                 return
@@ -2732,8 +3073,11 @@ class AgentEngine:
         system_prompt = self._build_legacy_system_prompt(question, prefetch_context)
         # W3-P1 — derive framing note fresh from gap-based consents each run()
         # so the note is never stale across sessions or schema changes (P0 fix).
+        # T11-revised — forward the per-run safe question so the REFRAMING
+        # line is added when a domain term is present.
         _gc_note = self._derive_proxy_note_from_consents(
-            getattr(self.memory, "_schema_mismatch_consents", {})
+            getattr(self.memory, "_schema_mismatch_consents", {}),
+            question=getattr(self, "_run_question", "") or "",
         )
         if _gc_note:
             system_prompt = f"{system_prompt}\n\n{_gc_note}"
@@ -2819,44 +3163,16 @@ class AgentEngine:
                     # list-of-blocks with cache_control (flag on, 4-breakpoint).
                     _sys_payload = self._build_system_payload(system_prompt, question)
                     if use_stream:
-                        # AMEND-W2-16 — banner-first: if synthesis enters with
-                        # an empty-BoundSet condition (no successful tool
-                        # results), the unverified-data banner must reach the
-                        # UI ahead of any model text. Cheap heuristic: zero
-                        # tool_result steps in the run so far → emit banner.
-                        try:
-                            had_tool_result = any(
-                                getattr(s, "type", "") == "tool_result"
-                                for s in getattr(self, "_steps", [])
-                            )
-                        except Exception as _hbe:
-                            # Default True (assume success) so the banner does
-                            # NOT fire on inspection failure — but log so the
-                            # blind-spot is visible in telemetry.
-                            _logger.warning(
-                                "had_tool_result inspection failed: %s — "
-                                "defaulting to True (suppressing unverified banner)",
-                                _hbe,
-                            )
-                            had_tool_result = True
-                        if not had_tool_result:
-                            banner = AgentStep(
-                                type="message_delta",
-                                content=(
-                                    "[Note] No verified rows were retrieved by tools "
-                                    "before this synthesis began; downstream text is "
-                                    "unverified-scope. "
-                                ),
-                            )
-                            self._steps.append(banner)
-                            yield banner
-
-                        synth_step = AgentStep(
-                            type="synthesizing",
-                            content="Synthesizing analysis…",
-                        )
-                        self._steps.append(synth_step)
-                        yield synth_step
+                        # T5 — REMOVED mid-loop banner + synthesizing yield.
+                        # Pre-T5 behaviour emitted an "[Note] No verified rows"
+                        # message_delta and a synthesizing step here. Both have
+                        # been moved to end-of-run: the empty-boundset banner
+                        # is applied via _apply_empty_boundset_banner once the
+                        # run is finished, so the UI gets a single coherent
+                        # final-answer event instead of a stream of fragments
+                        # that may misrepresent partial state.
+                        # (Tests assert the absence of these mid-loop yields:
+                        #  tests/test_t5_banner.py)
 
                         # AMEND-W2-22/26/27 — request extended thinking when
                         # capability + cumulative budget allow.
@@ -3015,7 +3331,7 @@ class AgentEngine:
                     if block.type == "text" and block.text.strip():
                         # Final text response from Claude
                         content = block.text.strip()
-                        self._result.final_answer = content
+                        self._set_final_answer(content, source="synthesis_stream")
 
                         # AMEND-W2-15 — when streaming already shipped the
                         # text via message_delta this iteration, suppress the
@@ -3244,10 +3560,23 @@ class AgentEngine:
                         # PARK_SHADOW site-3: discard shadow slot (legacy resolved)
                         self.memory.parks.discard(_shadow_cascade.park_id)
                         _logger.debug("PARK_SHADOW resolved site=w1_cascade response=%r", user_choice)
-                        self._consecutive_tool_errors = 0
+                        # T20-revised — reset BOTH counters after cascade gate.
+                        self._consecutive_logic_errors = 0
+                        self._consecutive_transient_errors = 0
                         if user_choice == "summarize":
                             break  # Exit loop, synthesize with what we have
                         # retry / change_approach → continue loop
+                    elif self._should_fire_transient_degraded_checkpoint():
+                        # T20-revised — sustained transient/network failures get
+                        # their own observability checkpoint with retry|abort
+                        # options. Emit only; the existing park/wait flow is
+                        # reserved for the logic-cascade path.
+                        transient_cp = self._build_transient_degraded_step()
+                        self._steps.append(transient_cp)
+                        yield transient_cp
+                        # Clear the transient counter so we don't spam the chip
+                        # every subsequent error within the same streak.
+                        self._consecutive_transient_errors = 0
 
                     # ── Sliding context compaction (Task 13) ──────────
                     # Every 6 tool calls, summarize old tool results to prevent
@@ -3318,7 +3647,7 @@ class AgentEngine:
         final_answer = self._result.final_answer or ""
         if self._detect_empty_boundset():
             final_answer = self._apply_empty_boundset_banner(final_answer)
-            self._result.final_answer = final_answer
+            self._set_final_answer(final_answer, source="banner")
 
         # Emit final result step
         result_step = AgentStep(type="result", content=final_answer)

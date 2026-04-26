@@ -50,7 +50,7 @@ point here instead of duplicating values. Confirm against
 |---|---|---|
 | `FEATURE_SCOPE_VALIDATOR` | `True` | Master switch for Ring 3. Off → validator silent. |
 | `SCOPE_VALIDATOR_FAIL_OPEN` | `True` | H6 — sqlglot parse exception logs warning, never blocks. |
-| `SCOPE_VALIDATOR_REPLAN_BUDGET` | `1` | H6 — maximum re-plan turns per query on violation. |
+| `SCOPE_VALIDATOR_REPLAN_BUDGET` | `2` | H6 — maximum re-plan turns per query on violation. Raised to 2 (T13). |
 | `RULE_RANGE_MISMATCH` | `True` | Rule 1 — WHERE narrows outside DataCoverageCard min/max. |
 | `RULE_FANOUT_INFLATION` | `True` | Rule 2 — JOIN + COUNT(*) without DISTINCT. |
 | `RULE_LIMIT_BEFORE_ORDER` | `True` | Rule 3 — LIMIT in subquery + ORDER BY outer. |
