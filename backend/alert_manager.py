@@ -166,6 +166,14 @@ class AlertManager:
 
 _singleton: Optional[AlertManager] = None
 
+_SEVERITY_MAP: dict[str, Severity] = {
+    "warning": "warn",
+    "warn": "warn",
+    "error": "critical",
+    "critical": "critical",
+    "info": "info",
+}
+
 
 def get_alert_manager() -> AlertManager:
     global _singleton
@@ -177,3 +185,46 @@ def get_alert_manager() -> AlertManager:
             max_retry=settings.ALERT_MAX_RETRY,
         )
     return _singleton
+
+
+def dispatch(event_type: str, payload: dict, severity: str = "warning") -> None:
+    """Module-level proxy — callers use this instead of get_alert_manager().fire().
+
+    Normalizes severity literals, truncates observed_value strings >200 chars
+    (security-core.md: alert payloads must not carry raw SQL results), and
+    converts payload dict → AlertSignal before handing off to the singleton.
+    """
+    normalized: Severity = _SEVERITY_MAP.get(severity.lower(), "warn")
+    payload = dict(payload)
+
+    if "observed_value" in payload:
+        val_str = str(payload["observed_value"])
+        if len(val_str) > 200:
+            logger.warning(
+                "dispatch: observed_value for %s truncated (%d chars)", event_type, len(val_str)
+            )
+            # Preserve truncated note in message; zero out numeric field
+            payload["message"] = (
+                str(payload.get("message", event_type))
+                + f" [observed_value truncated: {val_str[:200]}]"
+            )
+            payload["observed_value"] = 0.0
+
+    try:
+        obs = float(payload.get("observed_value", 0.0))
+    except (TypeError, ValueError):
+        obs = 0.0
+    try:
+        threshold = float(payload.get("threshold", 0.0))
+    except (TypeError, ValueError):
+        threshold = 0.0
+
+    signal = AlertSignal(
+        rule_id=event_type,
+        tenant_id=str(payload.get("tenant_id", "system")),
+        severity=normalized,
+        observed_value=obs,
+        threshold=threshold,
+        message=str(payload.get("message", event_type)),
+    )
+    get_alert_manager().fire(signal)
