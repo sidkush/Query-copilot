@@ -10,7 +10,7 @@ const TIER_COLORS = {
 };
 
 export default function PerformancePill({ queryMs, tierName, rowsScanned, arrowEnabled }) {
-  if (queryMs == null) return null;
+  if (queryMs == null || !Number.isFinite(Number(queryMs))) return null;
 
   const tier = TIER_COLORS[tierName] || TIER_COLORS.live;
   const formattedMs = queryMs < 1000
