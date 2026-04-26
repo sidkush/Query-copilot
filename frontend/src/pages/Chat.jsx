@@ -682,9 +682,12 @@ export default function Chat() {
             markStepsDone();
             resolve();
           }
-        }, { persona: agentPersona, permissionMode: agentPermissionMode });
+        }, { persona: agentPersona, permissionMode: agentPermissionMode, onEnd: () => {
+          markStepsDone();
+          resolve();
+        }});
 
-        // Timeout fallback
+        // Timeout fallback — 35s for no-event path (stream_end resolves earlier via onEnd)
         setTimeout(() => {
           if (!agentFailed) {
             markStepsDone();

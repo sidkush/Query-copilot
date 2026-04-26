@@ -66,6 +66,7 @@ KNOWN_SSE_EVENT_TYPES.update({
     "message_stop",       # W2 T2 — AMEND-W2-19 per-block stop signal
     "redacted",           # W2 T3 — AMEND-W2-25 redacted_thinking blocks
     "signature_delta",    # W2 T3 — AMEND-W2-25 thinking-block signatures
+    "stream_end",         # T16 — explicit stream termination signal
 })
 
 # ---------------------------------------------------------------------------
@@ -485,6 +486,8 @@ async def agent_run(req: AgentRunRequest, request: Request,
                     # (Chat.jsx:633 needs sql + final_answer to build the
                     # sql_preview and assistant messages).
                     yield f"data: {json.dumps(result_data, default=str)}\n\n"
+                    # T16 — explicit stream termination before connection close
+                    yield "event: stream_end\ndata: {\"reason\": \"done\"}\n\n"
                     # Persist completed session to SQLite
                     _persist_session()
                     break
@@ -865,6 +868,8 @@ async def agent_continue(req: AgentContinueRequest, request: Request,
                     # Sentinel intentionally NOT persisted — see /run handler
                     # for rationale (duplicate result card on history replay).
                     yield f"data: {json.dumps(result_data, default=str)}\n\n"
+                    # T16 — explicit stream termination before connection close
+                    yield "event: stream_end\ndata: {\"reason\": \"done\"}\n\n"
                     _persist_session()
                     break
 

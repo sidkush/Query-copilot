@@ -612,7 +612,7 @@ export const api = {
   },
 
   // ── Agent ──────────────────────────────────────────────────
-  agentRun: (question, connId, chatId, onStep, { persona, permissionMode, agentContext } = {}) => {
+  agentRun: (question, connId, chatId, onStep, { persona, permissionMode, agentContext, onEnd } = {}) => {
     const controller = new AbortController();
     const body = JSON.stringify({
       question,
@@ -658,6 +658,11 @@ export const api = {
               else if (cl.startsWith("data: ")) dataLine = cl.slice(6);
             }
             if (dataLine !== null) {
+              if (eventName === 'stream_end') {
+                // Explicit end signal — no more steps coming
+                if (typeof onEnd === 'function') onEnd();
+                continue;
+              }
               try {
                 const data = JSON.parse(dataLine);
                 if (eventName) data.__event = eventName;
