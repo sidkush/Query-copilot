@@ -495,7 +495,7 @@ export default function Chat() {
     const STEP_TYPES = new Set([
       "thinking", "tool_call", "tool_result", "tier_routing", "tier_hit",
       "plan", "progress", "cached_result", "live_correction",
-      "budget_extension", "ask_user",
+      "budget_extension", "ask_user", "agent_checkpoint",
     ]);
 
     // Push a step into the message feed. Locate by stable __id because the
@@ -624,6 +624,7 @@ export default function Chat() {
               content: step.content,
               options: Array.isArray(step.tool_input) ? step.tool_input : [],
               chatId: agentChatId,
+              parkId: step?.metadata?.park_id || null,
             };
             if (chatId) api.appendMessage(chatId, askMsg).catch(() => {});
           }
@@ -635,6 +636,8 @@ export default function Chat() {
 
             if (!resolvedViaTurbo) {
               if (step.sql) {
+                const _agentLatency =
+                  step.elapsed_ms ?? step.metadata?.query_ms ?? null;
                 const sqlMsg = {
                   type: "sql_preview",
                   question,
@@ -642,6 +645,7 @@ export default function Chat() {
                   rawSQL: step.sql,
                   model: "agent",
                   connId: resolvedConnId,
+                  ...(Number.isFinite(_agentLatency) ? { latency: _agentLatency } : {}),
                 };
                 addMessage(sqlMsg);
                 if (chatId) api.appendMessage(chatId, sqlMsg).catch(() => {});
@@ -1403,7 +1407,8 @@ export default function Chat() {
                 >
                   <div className="text-xs text-[var(--text-muted)]">
                     {msg.dbLabel && <span className="text-blue-400 font-medium">[{msg.dbLabel}] </span>}
-                    Generated with {msg.model} in {Math.round(msg.latency)}ms
+                    Generated with {msg.model}
+                    {Number.isFinite(Number(msg.latency)) && ` in ${Math.round(msg.latency)}ms`}
                   </div>
                   <SQLPreview
                     sql={msg.sql}
@@ -1719,7 +1724,7 @@ export default function Chat() {
                     <div className="flex flex-wrap gap-2">
                       {msg.options.map((opt, oi) => (
                         <button key={oi}
-                          onClick={() => api.agentRespond(msg.chatId, opt)}
+                          onClick={() => api.agentRespond(msg.chatId, opt, msg.parkId || null)}
                           className="px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all cursor-pointer"
                         >{opt}</button>
                       ))}
