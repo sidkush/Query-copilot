@@ -185,3 +185,74 @@ Mid-run EX guard threshold over-fires on small smoke samples (`run_bird_smoke10.
 2. **Smoke 10 `_docv3` suffix confirmed** — logs emitted `schema_context_<ns>_docv3` per question; no `_docv2` references.
 3. **qid 1471 PASS confirmed** — debit_card_specializing test case passed; no masking-related failures.
 4. **AttributeError guard verified** — `getattr(self, "_namespace", None)` in `_extract_sample_values_for_table` tolerates pre-existing tests that construct `QueryEngine` via `__new__()` bypassing `__init__`. All 7 such tests passed without modification.
+
+---
+
+## Phase 1 Capability 4 — SKILL_LIBRARY_ENABLED default flip + dialect-sqlite + router must-keep + smoke harness lifespan (2026-04-28)
+
+**Status:** Default flipped `False → True` in `backend/config.py`. Skill injection active on all agent turns. Two structural bugs fixed before flip.
+
+### What changes for production users
+
+1. **Skill injection into agent system prompt.**
+   - Before: `SkillRouter.resolve()` was gated behind `SKILL_LIBRARY_ENABLED=False` — no skill content ever reached the LLM.
+   - After: 3 skill blocks injected as Anthropic prompt-cache breakpoints in every agent turn: (a) P1 always-on core (security-rules, agent-identity-response-format, confirmation-thresholds, caching-breakpoint-policy, skill-library-meta — ~5K tokens), (b) deterministic dialect skill selected by `connection.db_type`, (c) deterministic domain skill selected by `behavior_engine.detect_domain()` on the live schema.
+   - Skills ARE sent to the LLM and influence output. The "shadow" in `SKILL_SHADOW_MODE_ENABLED` refers to the diff-log side-channel (`.data/audit/shadow_diff.jsonl`), not to observation-only behavior.
+
+2. **Shadow mode docstring corrected.**
+   - `backend/shadow_mode.py` module docstring previously stated skills run "without affecting user-facing answer." This was wrong. Corrected 2026-04-28.
+   - Prior benchmark runs while `SKILL_LIBRARY_ENABLED=False` (all runs before this commit) had zero skill influence on generated SQL — correct baseline.
+
+3. **ChromaDB `skills_v1` collection bootstrapped on first agent turn post-deploy.**
+   - `maybe_ingest()` stamps `.data/.skill_ingest_stamp` on first load; subsequent starts skip re-ingest unless skill files are newer than the stamp. One-time cost: sub-second for 48 skill files.
+   - No user-visible latency: ingest runs during backend lifespan startup, same as MiniLM warmup.
+
+4. **Dialect routing now covers SQLite.**
+   - `dialect-sqlite.md` created (P3, ~1800 tokens): STRFTIME patterns, YYYYMM TEXT special case, `||` concat, INTEGER-div CAST, INSTR, IFNULL, backtick quoting, RANK for ties, 6 BIRD failure patterns.
+   - Added `"sqlite": "dialect-sqlite"` to `_DIALECT_MAP`. SQLite connections now get deterministic dialect injection (Stage 2), not random RAG.
+
+### Structural bugs fixed before flip
+
+**Bug 1 — Cross-dialect RAG leak.**
+Before fix: `dialect-snowflake-postgres-duckdb` could surface via semantic similarity in Stage 3 (RAG) on SQLite questions. Cross-dialect content actively misleads SQL generation (Postgres syntax in SQLite queries = wrong answers).
+Fix: filter in Stage 3 — when a canonical dialect is known from `_DIALECT_MAP`, all other `dialect-*` skills from RAG are dropped. When `db_type` is unknown, ALL `dialect-*` from RAG are dropped (better none than wrong).
+
+**Bug 2 — `_enforce_caps` dropped deterministic dialect under bundle cap pressure.**
+Before fix: 5 P1 always-on + 4 P2 bundle-promoted hits = 9 = `max_skills` cap hit BEFORE the P3 deterministic dialect skill made it into `kept`. `dialect-sqlite` was silently dropped when `sql-calculation` bundle fired.
+Fix: must-keep semantics in `_enforce_caps` — `priority=1 OR source="deterministic"` skills are exempt from the count cap (`max_skills`). Must-keep also evicts flexible hits (P3 first, then P2) when token cap is tight. Flexible set (RAG, bundles, depends_on) fills remaining slots up to `max_skills`.
+
+**Bug 3 — Smoke harness bypassed lifespan → skills always None.**
+Before fix: `run_bird_smoke10.py` calls `AgentEngine` directly without going through FastAPI lifespan. `main.app.state.skill_library` was never set → `AgentEngine._skill_library` stayed None → `_build_system_payload` returned early → zero skill injection on all prior BIRD runs.
+Fix: `setup_skill_library_state()` added to harness — mirrors `main.py` lifespan: loads `SkillLibrary`, calls `maybe_ingest()`, sets `app.state.skill_collection`. Runs once at top of `main()`.
+
+### Rollback paths (both available)
+
+1. **Per-deployment**: set `SKILL_LIBRARY_ENABLED=false` in `.env`. `SkillRouter.resolve()` is never called; agent system prompt reverts to pre-Cap-4 format (no skill blocks). Zero data loss.
+2. **Code-level**: flip default back to `False` in `config.py`. Same effect, repo-wide.
+
+### Regression tests added (6, across 2 files)
+
+**`tests/test_skill_router.py`** (3 new, 1 updated):
+- `test_deterministic_dialect_survives_bundle_cap_pressure` — P3 deterministic dialect-sqlite survives when `sql-calculation` bundle fires and fills `max_skills` slots.
+- `test_p1_always_on_all_present_under_cap_pressure` — all 5 P1 always-on present under cap pressure (join + sum query triggers bundle promotions).
+- `test_max_skills_cap_applies_to_flexible_only` — count cap (`max_skills`) applies to flexible hits only; must-keep set (P1 + deterministic) can exceed it.
+- `test_router_enforces_token_cap` — updated assertion: `flexible_total <= max_total_tokens` (was `total <= max_total_tokens`; new contract permits must-keep to exceed token cap when no flexible hits remain to evict).
+
+**`tests/test_skill_library_phase1.py`** (3 new):
+- `test_skill_library_default_True` — `SKILL_LIBRARY_ENABLED` Pydantic field default is `True` post-flip (decoupled from `.env` state).
+- `test_skill_library_loads_from_askdb_skills` — `SkillLibrary(root=askdb-skills/)` loads non-zero skills; guards against directory deletion.
+- `test_shadow_mode_default_True` — `SKILL_SHADOW_MODE_ENABLED` Pydantic field default is `True`.
+
+### Spawned tickets (not yet started)
+
+1. **Smoke harness lifespan coverage** — `setup_skill_library_state()` fix applied to `run_bird_smoke10.py` only. `run_bird_main.py` + 3 other entry points have the same harness gap. Fix separately.
+2. **Echo cap wire** — `SkillRouter.add_memory_hits()` implements 30% weight cap per Plan 4 T7, but is never called from the active routing path. Wire it in.
+3. **Golden eval gate replacement** — `correction_reviewer` uses `golden_eval_gate` threshold check; known brittle on small sample sizes. Replace with trap-suite-backed gate.
+4. **BIRD attribution tracking** — no mechanism to attribute EX-rate changes to `SKILL_LIBRARY_ENABLED`. Add per-question skill-injection flag to smoke output for ablation.
+
+### Validation collected
+
+1. **Full test sweep green** — 2386 passed / 0 failed / 2 skipped post-Cap-4 (was 2380 pre-Cap-4; +6 new Cap-4 tests).
+2. **Smoke 10 with skills active** — 5/10 = 50% EX. Dialect-sqlite 24/24 entries in `shadow_diff.jsonl` used `dialect-sqlite`; `dialect-snowflake-postgres-duckdb` 0/24 (cross-dialect leak confirmed fixed).
+3. **must-keep regression confirmed** — router unit tests: dialect-sqlite present in all 3 new regression scenarios.
+4. **`shadow_diff.jsonl` populated** — `setup_skill_library_state()` fix confirmed by non-empty diff log during smoke (was empty on all prior BIRD runs).

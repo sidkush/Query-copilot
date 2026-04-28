@@ -1,9 +1,17 @@
-"""Plan 4 T8: shadow-mode dual-run diff logger.
+"""Plan 4 T8: skill-injection diff logger ("shadow" by name only).
 
-When SKILL_LIBRARY_ENABLED + SKILL_SHADOW_MODE_ENABLED are both on,
-the agent records the divergence between the legacy-string path and
-the block-path (content length, sha, retrieved skill names) without
-affecting the user-facing answer.
+When SKILL_LIBRARY_ENABLED + SKILL_SHADOW_MODE_ENABLED are both on, this
+logger records the divergence between the legacy prompt and the skill-
+injected prompt blocks (length, sha, retrieved skill names) for offline
+analysis — `.data/audit/shadow_diff.jsonl`.
+
+NOTE (corrected 2026-04-28, Phase 1 Cap 4 audit): the skill-injected
+prompt IS sent to the LLM. The "shadow" name refers to the diff log
+being a side-channel observation; it does NOT mean a parallel run with
+unaffected output. Skills are active in production output as soon as
+SKILL_LIBRARY_ENABLED=True. To get truly observation-only behavior,
+flip SKILL_LIBRARY_ENABLED=False (the legacy single-block path) — the
+shadow-mode flag alone does not gate the API call shape.
 """
 from __future__ import annotations
 

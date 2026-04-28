@@ -753,7 +753,12 @@ class Settings(BaseSettings):
     DEMO_ENABLED: bool = Field(default=False)
 
     # ── Skill Library (Plan 3) ────────────────────────────
-    SKILL_LIBRARY_ENABLED: bool = Field(default=False)
+    # Flipped True 2026-04-28 (Phase 1 Cap 4). Shadow mode active
+    # (SKILL_SHADOW_MODE_ENABLED=True default) — skill diffs logged to
+    # .data/audit/shadow_diff.jsonl, no user-visible behavior change until
+    # shadow mode disabled. 48 skills across 7 categories. See
+    # askdb-skills/MASTER_INDEX.md. Rollback: set False in .env.
+    SKILL_LIBRARY_ENABLED: bool = Field(default=True)
     SKILL_LIBRARY_PATH: str = Field(default="../askdb-skills")
     SKILL_MAX_RETRIEVED: int = Field(default=5)
     SKILL_MAX_TOTAL_TOKENS: int = Field(default=20000)

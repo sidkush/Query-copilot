@@ -45,6 +45,7 @@ _DIALECT_MAP = {
     "mssql": "dialect-mysql-sqlserver-redshift-databricks",
     "redshift": "dialect-mysql-sqlserver-redshift-databricks",
     "databricks": "dialect-mysql-sqlserver-redshift-databricks",
+    "sqlite": "dialect-sqlite",
 }
 
 # Maps behavior_engine.detect_domain() outputs to skill-library file stems.
@@ -145,9 +146,28 @@ class SkillRouter:
                     except Exception as exc:  # noqa: BLE001
                         logger.warning("skill_router: expansion failed, using raw question: %s", exc)
                 results = self.collection.query(query_texts=[embed_text], n_results=self.k)
+                # Cross-dialect leak guard (2026-04-28 Phase 1 Cap 4 fix).
+                # Stage-2 deterministic dialect (e.g. dialect-sqlite for db_type=sqlite)
+                # is the authoritative dialect skill. RAG can surface a different
+                # dialect-* skill via semantic similarity (e.g. dialect-snowflake-
+                # postgres-duckdb on a SQLite question because the content matched).
+                # That cross-dialect content actively misleads SQL gen.
+                # Two cases:
+                #   (a) deterministic dialect WAS resolved → drop ALL other dialect-*
+                #       from RAG (only the canonical one stays).
+                #   (b) db_type unknown to _DIALECT_MAP → no canonical dialect; drop
+                #       ALL dialect-* from RAG (better none than wrong one).
+                _db_type = (getattr(connection_entry, "db_type", "") or "").lower()
+                _has_canonical_dialect = _db_type in _DIALECT_MAP
+                _canonical_dialect_name = _DIALECT_MAP.get(_db_type)
                 for meta in (results.get("metadatas", [[]])[0] or []):
                     sk_name = meta.get("name") if isinstance(meta, dict) else None
                     if sk_name and sk_name not in seen:
+                        if sk_name.startswith("dialect-"):
+                            if not _has_canonical_dialect:
+                                continue  # case (b): drop all dialect-*
+                            if sk_name != _canonical_dialect_name:
+                                continue  # case (a): drop non-canonical dialect
                         sk = self.library.get(sk_name)
                         if sk:
                             hits.append(SkillHit(
@@ -278,24 +298,44 @@ class SkillRouter:
         return kept
 
     def _enforce_caps(self, hits: list[SkillHit]) -> list[SkillHit]:
-        hits.sort(key=lambda h: (h.priority, h.name))
+        """Enforce max_skills count cap + max_total_tokens budget cap.
+
+        "Must-keep" set (immune to count cap, evicts flexibles on token cap):
+          - P1 always-on (priority=1) — load-bearing identity/security/format.
+          - source="deterministic" — dialect/domain selected specifically for
+            this connection (Stage 2 of resolve()). Losing dialect-sqlite to
+            a generic bundle skill is incorrect priority ordering.
+
+        Flexible set (RAG, bundles, depends_on closure): fills remaining
+        slots up to max_skills, subject to the token budget; can be evicted
+        by must-keep when token cap is tight.
+        """
+        def _is_must_keep(h: SkillHit) -> bool:
+            return h.priority == 1 or h.source == "deterministic"
+
+        # Must-keep first; within each bucket, sort by (priority, name).
+        hits.sort(key=lambda h: (0 if _is_must_keep(h) else 1, h.priority, h.name))
+
         kept: list[SkillHit] = []
         total = 0
         for h in hits:
-            if len(kept) >= self.max_skills:
+            is_protected = _is_must_keep(h)
+            # Count cap: must-keep is exempt; flexible stops at max_skills.
+            if not is_protected and len(kept) >= self.max_skills:
                 break
             if total + h.tokens > self.max_total_tokens:
-                if h.priority == 1:
-                    # Never drop P1; make room by popping lowest-priority already-kept.
+                if is_protected:
+                    # Must-keep evicts kept flexibles to make room (P3 first,
+                    # then P2). Never evicts another must-keep.
                     while kept and total + h.tokens > self.max_total_tokens:
                         victim = None
                         for idx in range(len(kept) - 1, -1, -1):
-                            if kept[idx].priority >= 3:
+                            if not _is_must_keep(kept[idx]) and kept[idx].priority >= 3:
                                 victim = idx
                                 break
                         if victim is None:
                             for idx in range(len(kept) - 1, -1, -1):
-                                if kept[idx].priority == 2:
+                                if not _is_must_keep(kept[idx]) and kept[idx].priority == 2:
                                     victim = idx
                                     break
                         if victim is None:

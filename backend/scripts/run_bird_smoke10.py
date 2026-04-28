@@ -262,6 +262,55 @@ def install_spend_tracker(provider, on_call):
     client.messages.stream = tracked_stream
 
 
+def setup_skill_library_state() -> None:
+    """Phase 1 Cap 4 (2026-04-28): replicate main.py lifespan skill bootstrap.
+
+    The BIRD harness instantiates AgentEngine directly without going through
+    FastAPI's lifespan, so app.state.skill_library is never set. AgentEngine's
+    constructor reads from main.app.state, so we set values there before any
+    AgentEngine is built.
+
+    Called once at the top of main() — NOT per question (avoid re-ingest cost).
+
+    Path resolution mirrors main.py:109 — Path(__file__).resolve().parent.parent
+    / "askdb-skills" anchored at backend/main.py, here equivalent at backend/
+    via _BACKEND_DIR. State stays None on failure (graceful degradation,
+    same as production lifespan).
+    """
+    import importlib
+    from config import settings
+
+    main_module = importlib.import_module("main")
+    skills_root = _BACKEND_DIR.parent / "askdb-skills"
+
+    try:
+        from skill_library import SkillLibrary
+        main_module.app.state.skill_library = SkillLibrary(root=skills_root)
+        n_skills = len(main_module.app.state.skill_library.all_names())
+        print(f"[skills] library loaded: {n_skills} skills from {skills_root.name}/")
+    except Exception as exc:
+        print(f"[skills] library failed to load: {type(exc).__name__}: {exc}")
+        main_module.app.state.skill_library = None
+
+    main_module.app.state.skill_collection = None
+    if main_module.app.state.skill_library is not None and settings.SKILL_LIBRARY_ENABLED:
+        try:
+            import chromadb
+            from skill_ingest import maybe_ingest
+            chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
+            stamp_dir = _BACKEND_DIR / ".data"
+            maybe_ingest(main_module.app.state.skill_library, chroma_client, stamp_dir)
+            main_module.app.state.skill_collection = chroma_client.get_or_create_collection(
+                name="skills_v1"
+            )
+            print(f"[skills] skills_v1 chroma collection ready")
+        except Exception as exc:
+            print(f"[skills] ingest failed: {type(exc).__name__}: {exc}")
+            main_module.app.state.skill_collection = None
+    elif not settings.SKILL_LIBRARY_ENABLED:
+        print(f"[skills] SKILL_LIBRARY_ENABLED=False — skills disabled for this run")
+
+
 def build_engine_for_question(db_id: str):
     """Construct AgentEngine + dependencies pointing at the BIRD SQLite for db_id."""
     from config import settings, DBType
@@ -643,6 +692,11 @@ def main(question_filter: Optional[set] = None) -> int:
     print(f"  trace_dir: {TRACE_DIR.relative_to(_REPO_ROOT)}")
     print(f"  caps: total=${TOTAL_SPEND_CAP_USD:.2f} per_q=${PER_QUESTION_SPEND_CAP_USD:.2f} wall={PER_QUESTION_WALL_CLOCK_S:.0f}s")
     print(f"  mid-run guard: halt if EX < {MID_RUN_EX_FLOOR_PCT:.0f}% after >= {MID_RUN_GUARD_AFTER_N_QUESTIONS} questions")
+
+    # Phase 1 Cap 4 (2026-04-28) — replicate main.py lifespan skill bootstrap.
+    # Without this, AgentEngine reads None from app.state.skill_library and
+    # the SKILL_LIBRARY_ENABLED flag is effectively dead in benchmark mode.
+    setup_skill_library_state()
 
     cumulative_spend = [0.0]
     results: list[QuestionResult] = []

@@ -60,7 +60,8 @@ askdb-skills/
 ├── dialects/                          # One retrieved per connected DB engine
 │   ├── dialect-bigquery.md           QUALIFY, APPROX functions, partition cost
 │   ├── dialect-snowflake-postgres-duckdb.md  VARIANT, JSONB, ASOF, PIVOT
-│   └── dialect-mysql-sqlserver-redshift-databricks.md  DATE_FORMAT, T-SQL, Delta
+│   ├── dialect-mysql-sqlserver-redshift-databricks.md  DATE_FORMAT, T-SQL, Delta
+│   └── dialect-sqlite.md             STRFTIME, || concat, INTEGER-div CAST, RANK ties
 │
 ├── domain/                            # One retrieved per detected data domain
 │   ├── domain-sales.md               CRM schema, funnel, pipeline, win rate SQL
