@@ -104,3 +104,23 @@ class SemanticRegistry:
             if d.valid_from <= at and (d.valid_until is None or at <= d.valid_until):
                 return d
         raise NotFound(f"No definition for {name!r} at {at.isoformat()}")
+
+    def list_for_conn(self, conn_id: str, at: Optional[datetime] = None) -> list:
+        """Return definitions for conn_id, optionally filtered to those valid at `at`.
+
+        Wave 2 spike-fix (2026-04-26): added so AnalyticalPlanner.plan() can
+        actually retrieve registry candidates instead of AttributeError-ing
+        into the bare-except fallback path. Pre-fix, this method did not
+        exist — planner always returned fallback=True without firing Sonnet.
+
+        When `at` is None, returns every definition stored for conn_id.
+        When `at` is a datetime, returns only definitions whose
+        valid_from <= at and (valid_until is None or valid_until >= at).
+        """
+        entries = self._load(conn_id)
+        if at is None:
+            return entries
+        return [
+            d for d in entries
+            if d.valid_from <= at and (d.valid_until is None or d.valid_until >= at)
+        ]

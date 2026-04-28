@@ -1,0 +1,144 @@
+{
+  "seed": 42,
+  "n": 10,
+  "skipped_db": "california_schools",
+  "difficulty_mix": {
+    "simple": 4,
+    "moderate": 4,
+    "challenging": 2
+  },
+  "stratification": [
+    {
+      "db_id": "superhero",
+      "difficulty": "simple",
+      "question_id": 781
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "simple",
+      "question_id": 1092
+    },
+    {
+      "db_id": "debit_card_specializing",
+      "difficulty": "simple",
+      "question_id": 1471
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "simple",
+      "question_id": 1153
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "moderate",
+      "question_id": 866
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "moderate",
+      "question_id": 1352
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "moderate",
+      "question_id": 234
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 152
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "challenging",
+      "question_id": 487
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "challenging",
+      "question_id": 586
+    }
+  ],
+  "questions": [
+    {
+      "question_id": 781,
+      "db_id": "superhero",
+      "question": "Provide the heights of the heroes whose eye colours are amber.",
+      "evidence": "heights of the heroes refers to height_cm; eye colours are amber refers to colour.colour = 'Amber' WHERE eye_colour_id = colour.id;",
+      "SQL": "SELECT T1.height_cm FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id WHERE T2.colour = 'Amber'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1092,
+      "db_id": "european_football_2",
+      "question": "Give the name of the league had the most matches in the 2008/2009 season?",
+      "evidence": "league that had the most matches in the 2008/2009 season refers to MAX(league_name WHERE season = '2008/2009');",
+      "SQL": "SELECT t1.name FROM League AS t1 JOIN Match AS t2 ON t1.id = t2.league_id WHERE t2.season = '2008/2009' GROUP BY t1.name HAVING COUNT(t2.id) = (SELECT MAX(match_count) FROM (SELECT COUNT(t2.id) AS match_count FROM Match AS t2 WHERE t2.season = '2008/2009' GROUP BY t2.league_id))",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1471,
+      "db_id": "debit_card_specializing",
+      "question": "What is the ratio of customers who pay in EUR against customers who pay in CZK?",
+      "evidence": "ratio of customers who pay in EUR against customers who pay in CZK = count(Currency = 'EUR') / count(Currency = 'CZK').",
+      "SQL": "SELECT CAST(SUM(IIF(Currency = 'EUR', 1, 0)) AS FLOAT) / SUM(IIF(Currency = 'CZK', 1, 0)) AS ratio FROM customers",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1153,
+      "db_id": "thrombosis_prediction",
+      "question": "What is the disease patient '30609' diagnosed with. List all the date of laboratory tests done for this patient.",
+      "evidence": "'30609' is the Patient ID; disease means Diagnosis",
+      "SQL": "SELECT T1.Diagnosis, T2.Date FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.ID = 30609",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 866,
+      "db_id": "formula_1",
+      "question": "Who was the player that got the lap time of 0:01:27 in the race No. 161? Show his introduction website.",
+      "evidence": "player and driver are synonyms; the lap time of 0:0M:SS refers to lapTime.time LIKE 'M:SS%';race number refers to raceId; introduction website of the drivers refers to url;",
+      "SQL": "SELECT DISTINCT T2.forename, T2.surname, T2.url FROM lapTimes AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 161 AND T1.time LIKE '1:27%'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1352,
+      "db_id": "student_club",
+      "question": "For all the club members from \"Business\" major, how many of them wear medium size t-shirt?",
+      "evidence": "'Business' is a major name; wear medium size t-shirt refers to t_shirt_size = 'Medium'",
+      "SQL": "SELECT COUNT(T1.member_id) FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T2.major_name = 'Business' AND T1.t_shirt_size = 'Medium'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 234,
+      "db_id": "toxicology",
+      "question": "How many bonds which involved atom 12 does molecule TR009 have?",
+      "evidence": "TR009 is the molecule id;  involved atom 12 refers to atom_id = 'TR009_12' or atom_id2 = 'TR009_12'",
+      "SQL": "SELECT COUNT(T2.bond_id) FROM bond AS T1 INNER JOIN connected AS T2 ON T1.bond_id = T2.bond_id WHERE T1.molecule_id = 'TR009' AND T2.atom_id = T1.molecule_id || '_1' OR T2.atom_id2 = T1.molecule_id || '_2'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 152,
+      "db_id": "financial",
+      "question": "What is the average number of crimes committed in 1995 in regions where the number exceeds 4000 and the region has accounts that are opened starting from the year 1997?",
+      "evidence": "A3 refers to region names; A15 stands for the average number of crimes commited in 1995.",
+      "SQL": "SELECT AVG(T1.A15) FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id WHERE STRFTIME('%Y', T2.date) >= '1997' AND T1.A15 > 4000",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 487,
+      "db_id": "card_games",
+      "question": "What is the percentage of incredibly powerful cards in the set Coldsnap?",
+      "evidence": "card set Coldsnap refers to name = 'Coldsnap'; foil is incredibly powerful refers to cardKingdomFoilId is not null AND cardKingdomId is not null; the percentage of incredibly powerful cards in the set refers to DIVIDE(SUM(incredibly powerful), SUM(name = 'Coldsnap'))*100",
+      "SQL": "SELECT CAST(SUM(CASE WHEN T1.cardKingdomFoilId IS NOT NULL AND T1.cardKingdomId IS NOT NULL THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T2.name = 'Coldsnap'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 586,
+      "db_id": "codebase_community",
+      "question": "Which user added a bounty amount of 50 to the post title mentioning variance?",
+      "evidence": "bounty amount of 50 refers to BountyAmount = 50; user refers to DisplayName; title mentioning variance refers to Title include 'variance'",
+      "SQL": "SELECT T3.DisplayName, T1.Title FROM posts AS T1 INNER JOIN votes AS T2 ON T1.Id = T2.PostId INNER JOIN users AS T3 ON T3.Id = T2.UserId WHERE T2.BountyAmount = 50 AND T1.Title LIKE '%variance%'",
+      "difficulty": "challenging"
+    }
+  ]
+}

@@ -16,6 +16,7 @@ from chromadb import EmbeddingFunction, Documents, Embeddings
 import hashlib
 import json
 import math
+import re
 import time
 import logging
 from datetime import datetime
@@ -177,14 +178,93 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
         self.chroma_client = chromadb.PersistentClient(
             path=settings.CHROMA_PERSIST_DIR,
         )
-        _ef = _HashEmbeddingFunction()
+        # Phase C (Wave 3, 2026-04-27): cascading flag check.
+        # Hierarchy: hybrid (BM25+MiniLM+RRF) → minilm-only → hash-v1.
+        # BENCHMARK_MODE coerces hybrid + minilm. Each tier has its own
+        # collection name suffix to prevent vector-space mixing.
+        # Cascading fallback: hybrid init failure → minilm; minilm failure → hash.
+        _bm = getattr(settings, "BENCHMARK_MODE", False)
+        _use_hybrid = getattr(settings, "FEATURE_HYBRID_RETRIEVAL", False) or _bm
+        _use_minilm = getattr(settings, "FEATURE_MINILM_SCHEMA_COLLECTION", False) or _bm
+
+        _ef = None
+        _suffix = ""
+        self._hybrid_enabled = False
+        self._bm25_index = None
+        self._bm25_corpus: list = []
+
+        if _use_hybrid:
+            try:
+                # Verify rank_bm25 import succeeds before committing to hybrid
+                from rank_bm25 import BM25Okapi  # noqa: F401
+                from query_memory import _MiniLMEmbeddingFunction
+                _ef = _MiniLMEmbeddingFunction()
+                _suffix = f"_{_MiniLMEmbeddingFunction.VERSION}_hybrid-v1"
+                self._hybrid_enabled = True
+                logger.info(
+                    "QueryEngine: hybrid retrieval active (BM25+MiniLM+RRF, "
+                    "suffix=%s)", _suffix,
+                )
+            except Exception as _emb_exc:
+                # Hybrid failed — cascade to MiniLM-only as the explicit fallback.
+                # User who requested hybrid implicitly accepted MiniLM as the dense
+                # side; failing all the way to hash would discard that intent and
+                # regress to pre-Wave-3 retrieval. Per Phase C spec: hybrid init
+                # failure → MiniLM-only (NOT all the way to hash).
+                logger.warning(
+                    "QueryEngine: hybrid init FAILED (%s: %s); cascading "
+                    "to MiniLM-only", type(_emb_exc).__name__, _emb_exc,
+                )
+                try:
+                    from query_memory import _MiniLMEmbeddingFunction
+                    _ef = _MiniLMEmbeddingFunction()
+                    _suffix = f"_{_MiniLMEmbeddingFunction.VERSION}"
+                except Exception as _emb_exc_2:
+                    logger.warning(
+                        "QueryEngine: MiniLM cascade also FAILED (%s: %s); "
+                        "cascading to hash-v1", type(_emb_exc_2).__name__, _emb_exc_2,
+                    )
+                    _ef = None
+
+        if _ef is None and _use_minilm:
+            try:
+                from query_memory import _MiniLMEmbeddingFunction
+                _ef = _MiniLMEmbeddingFunction()
+                _suffix = f"_{_MiniLMEmbeddingFunction.VERSION}"
+                logger.info("QueryEngine: MiniLM-only retrieval (suffix=%s)", _suffix)
+            except Exception as _emb_exc:
+                logger.warning(
+                    "QueryEngine: MiniLM init FAILED (%s: %s); cascading to hash-v1",
+                    type(_emb_exc).__name__, _emb_exc,
+                )
+                _ef = None
+
+        if _ef is None:
+            _ef = _HashEmbeddingFunction()
+            _suffix = ""
+
+        # Phase C bundle (Theme 2 from 2026-04-27 council): doc-enrichment gate.
+        # Adds sample values + FK hints to schema docs so BM25 can match question
+        # tokens against actual data values (closes color↔colour vocab gap).
+        # Production-gated to prevent PII leakage from sample-value extraction.
+        # Suffix change forces Chroma rebuild — existing unenriched collections orphan.
+        self._doc_enriched = bool(
+            getattr(settings, "FEATURE_RETRIEVAL_DOC_ENRICHMENT", False) or _bm
+        )
+        if self._doc_enriched:
+            _suffix = f"{_suffix}_docv2"
+            logger.info(
+                "QueryEngine: doc-enrichment active (sample values + FK hints, "
+                "suffix=%s)", _suffix,
+            )
+
         self.schema_collection = self.chroma_client.get_or_create_collection(
-            name=f"schema_context_{namespace}",
+            name=f"schema_context_{namespace}{_suffix}",
             metadata={"description": "Table and column descriptions"},
             embedding_function=_ef,
         )
         self.examples_collection = self.chroma_client.get_or_create_collection(
-            name=f"query_examples_{namespace}",
+            name=f"query_examples_{namespace}{_suffix}",
             metadata={"description": "Question-SQL training pairs"},
             embedding_function=_ef,
         )
@@ -307,6 +387,21 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
                 f"Description: {table_desc}\n"
                 f"Columns:\n" + "\n".join(col_descriptions)
             )
+            # Theme 2 (2026-04-27 council): inject sample values + FK hints when
+            # doc-enrichment active. These additions give BM25 actual data tokens
+            # (e.g. 'Amber' from colour.colour) so question tokens like 'amber'
+            # have something to match against — not just column-name tokens.
+            if self._doc_enriched:
+                samples = self._extract_sample_values_for_table(table_name, info["columns"])
+                if samples:
+                    sample_lines = [
+                        f"  - {col}=[{', '.join(repr(v) for v in vals)}]"
+                        for col, vals in samples.items()
+                    ]
+                    doc += "\n\nSample values:\n" + "\n".join(sample_lines)
+                fk_hints = self._extract_fk_hints(info)
+                if fk_hints:
+                    doc += "\n\nForeign keys:\n" + "\n".join(f"  - {h}" for h in fk_hints)
             if i < len(ddl_statements):
                 doc += f"\n\nDDL:\n{ddl_statements[i]}"
 
@@ -314,11 +409,304 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
             ids.append(f"schema_{table_name}")
             metadatas.append({"type": "schema", "table": table_name, "column_count": len(info["columns"])})
 
+        # Lever 5 (2026-04-27 council): per-column docs for fine-grained
+        # retrieval. Question mentions like "preferred foot" or "attacking
+        # work rate" should match the specific column doc directly even when
+        # the parent table doc loses the signal in noise. CHESS / R3+SQL
+        # standard practice. Gated on _doc_enriched (BENCHMARK_MODE-coerced).
+        if self._doc_enriched:
+            col_docs, col_ids, col_metadatas = self._build_column_level_docs(
+                schema_info, descriptions,
+            )
+            if col_docs:
+                documents.extend(col_docs)
+                ids.extend(col_ids)
+                metadatas.extend(col_metadatas)
+
         if documents:
             self.schema_collection.upsert(documents=documents, ids=ids, metadatas=metadatas)
+            # Phase C: rebuild BM25 index alongside Chroma upsert when hybrid active
+            if self._hybrid_enabled:
+                self._rebuild_bm25_index()
 
-        logger.info(f"Trained schema: {len(documents)} tables indexed")
-        return len(documents)
+        n_tables = len([m for m in metadatas if m.get("type") == "schema"])
+        n_cols = len([m for m in metadatas if m.get("type") == "column"])
+        if n_cols:
+            logger.info(
+                "Trained schema: %d tables + %d column-level docs indexed",
+                n_tables, n_cols,
+            )
+        else:
+            logger.info(f"Trained schema: {n_tables} tables indexed")
+        return n_tables  # Preserve pre-lever-5 return shape (callers count tables)
+
+    _COL_DOC_MAX_COLS_PER_TABLE = 30  # cap to prevent doc explosion on wide tables
+
+    def _build_column_level_docs(
+        self,
+        schema_info: dict,
+        descriptions: dict,
+    ) -> Tuple[List[str], List[str], List[dict]]:
+        """Construct per-column docs for fine-grained Chroma retrieval.
+        Each doc body: 'Column: <col> in table <table> (<type>). [Sample values: ...]
+        [Description: ...]'. Reuses Theme 2 sample-value extraction to keep
+        BM25 token surface aligned across table-level and column-level docs."""
+        docs, ids, metas = [], [], []
+        for table_name, info in schema_info.items():
+            cols = info.get("columns") or []
+            cat_samples = self._extract_sample_values_for_table(table_name, cols)
+            for col in cols[: self._COL_DOC_MAX_COLS_PER_TABLE]:
+                col_name = col.get("name")
+                col_type = col.get("type", "")
+                if not col_name:
+                    continue
+                col_key = f"{table_name}.{col_name}"
+                desc = descriptions.get(col_key, "")
+                doc = f"Column: {col_name} in table {table_name} ({col_type})"
+                vals = cat_samples.get(col_name)
+                if vals:
+                    doc += f". Sample values: {vals}"
+                if desc:
+                    doc += f". Description: {desc}"
+                docs.append(doc)
+                ids.append(f"col_{table_name}_{col_name}")
+                metas.append({
+                    "type": "column",
+                    "table": table_name,
+                    "column": col_name,
+                })
+        return docs, ids, metas
+
+    # ── Theme 2 doc-enrichment helpers (2026-04-27 council) ──────────
+
+    _CATEGORICAL_DTYPE_MARKERS = ("VARCHAR", "TEXT", "CHAR", "STRING", "ENUM", "NVARCHAR")
+    _ENRICH_MAX_COLS_PER_TABLE = 5
+    _ENRICH_MAX_VALUES_PER_COL = 5
+    _ENRICH_MAX_VALUE_LEN = 50
+    _ENRICH_PER_COL_TIMEOUT_S = 2
+
+    def _is_categorical_dtype(self, type_str: str) -> bool:
+        t = (type_str or "").upper()
+        return any(marker in t for marker in self._CATEGORICAL_DTYPE_MARKERS)
+
+    def _extract_sample_values_for_table(
+        self, table_name: str, columns: List[dict],
+    ) -> Dict[str, List[str]]:
+        """Return {col_name: [top-N distinct sample values]} for categorical columns.
+
+        Best-effort: timeouts and exceptions per column drop just that column,
+        never the whole table. Output values are str-coerced + length-capped so
+        BM25 tokenization stays bounded and Chroma docs don't balloon.
+        """
+        samples: Dict[str, List[str]] = {}
+        cat_cols = [
+            c for c in columns
+            if self._is_categorical_dtype(c.get("type", ""))
+        ][: self._ENRICH_MAX_COLS_PER_TABLE]
+        if not cat_cols:
+            return samples
+
+        quote = self._quote_identifier
+        for col in cat_cols:
+            col_name = col.get("name")
+            if not col_name:
+                continue
+            try:
+                sql = (
+                    f"SELECT DISTINCT {quote(col_name)} "
+                    f"FROM {quote(table_name)} "
+                    f"WHERE {quote(col_name)} IS NOT NULL "
+                    f"LIMIT {self._ENRICH_MAX_VALUES_PER_COL}"
+                )
+                df = self.db.execute_query(sql, timeout=self._ENRICH_PER_COL_TIMEOUT_S)
+                vals = [
+                    str(v)[: self._ENRICH_MAX_VALUE_LEN]
+                    for v in df.iloc[:, 0].tolist()
+                    if v is not None
+                ]
+                if vals:
+                    samples[col_name] = vals
+            except Exception as exc:
+                logger.debug(
+                    "_extract_sample_values_for_table: skip %s.%s (%s: %s)",
+                    table_name, col_name, type(exc).__name__, exc,
+                )
+                continue
+        return samples
+
+    @staticmethod
+    def _extract_fk_hints(info: dict, table_name: str = "?") -> List[str]:
+        """Return human-readable FK hints from schema_info entry. Defensive:
+        any malformed FK metadata is silently skipped (mirrors inspect_schema
+        FK NoneType handling in agent_engine._tool_inspect_schema).
+
+        Tier 3 Fix #4 REVERTED (2026-04-27, post main_150_tier3 -10pts).
+        Adding source table prefix `table(col) -> ref_table(col)` correlated
+        with column_linking regressions in student_club (qid 1351, 1356) —
+        format change confused the agent on patterns it had right before.
+        Original `(col) -> ref_table(col)` format restored. The 4
+        schema_linking failures Fix #4 targeted (qid 906, 1387, 896) are
+        accepted as noise cost; Tier 4 ticket spawned for comment-style
+        source addition that doesn't change the canonical format.
+
+        `table_name` parameter retained as no-op default for forward-compat
+        with future comment-style addition (Tier 4 mechanism).
+        """
+        hints: List[str] = []
+        for fk in info.get("foreign_keys") or []:
+            try:
+                cols = fk.get("constrained_columns") or []
+                ref_table = fk.get("referred_table") or "?"
+                ref_cols = fk.get("referred_columns") or []
+                cols_str = ", ".join(c for c in cols if c)
+                ref_cols_str = ", ".join(c if c else "?" for c in ref_cols)
+                if cols_str and ref_table != "?":
+                    hints.append(f"({cols_str}) -> {ref_table}({ref_cols_str})")
+            except Exception:
+                continue
+        return hints
+
+    def _quote_identifier(self, ident: str) -> str:
+        """Dialect-aware identifier quote with embedded-quote escape.
+        Defaults to double-quote (ANSI/SQLite/Postgres); MySQL/MariaDB
+        backtick; MSSQL square bracket. Escapes the closing quote char by
+        doubling per SQL standard (defense-in-depth — read-only is enforced
+        at db_connector + SQLValidator layers, but Theme 2 enrichment SELECTs
+        bypass SQLValidator since the SQL shape is fixed)."""
+        try:
+            db_type = self.db.db_type
+            if db_type in (DBType.MYSQL, DBType.MARIADB):
+                return "`" + ident.replace("`", "``") + "`"
+            if db_type == DBType.MSSQL:
+                return "[" + ident.replace("]", "]]") + "]"
+        except Exception:
+            pass
+        # ANSI default — covers SQLite/Postgres/Redshift/Snowflake/DuckDB
+        return '"' + ident.replace('"', '""') + '"'
+
+    # ── Phase C hybrid retrieval (BM25 + MiniLM + RRF) ────────────────
+
+    _RRF_K = 60  # standard RRF constant; hardcoded per Phase C spec
+    # Theme 1A (2026-04-27 council): split snake_case identifiers on underscores.
+    # Pre-bundle regex r"\w+" kept eye_colour_id as ONE token; question token
+    # 'eye'/'colour' had no overlap → BM25 score 0.0 → RRF degenerated to chroma
+    # rank + insertion-order noise. New regex matches alphanumeric runs only,
+    # so eye_colour_id → ['eye', 'colour', 'id']. Pre-flight evidence in
+    # scripts/preflight_hybrid_dry_run.py.
+    _BM25_TOKEN_RE = re.compile(r"[a-z0-9]+")
+    # Theme 1B (2026-04-27 council): zero-score guard threshold. When all BM25
+    # scores fall below this, the channel contributes only insertion-order noise
+    # to RRF; safer to drop it and trust MiniLM alone for that query.
+    _BM25_MIN_USEFUL_SCORE = 0.1
+
+    def _tokenize_for_bm25(self, text: str) -> List[str]:
+        """Lowercase + alphanumeric tokenization. Splits snake_case on underscores
+        so question tokens align with schema column tokens (e.g. 'eye_colour_id'
+        → ['eye', 'colour', 'id']) for BM25 lexical match."""
+        return self._BM25_TOKEN_RE.findall(text.lower())
+
+    def _rebuild_bm25_index(self) -> None:
+        """(Re)build BM25 index from current schema_collection contents.
+
+        Called after train_schema upserts when hybrid retrieval is active.
+        Mirrors the documents indexed in Chroma so RRF fusion has aligned
+        candidate sets across both rankers.
+        """
+        try:
+            from rank_bm25 import BM25Okapi
+            data = self.schema_collection.get(include=["documents", "metadatas"])
+        except Exception as exc:
+            logger.warning(
+                "BM25 index rebuild failed: %s; hybrid will degrade to chroma-only", exc,
+            )
+            self._bm25_index = None
+            self._bm25_corpus = []
+            return
+        ids = data.get("ids", []) or []
+        docs = data.get("documents", []) or []
+        metas = data.get("metadatas", []) or []
+        if not docs:
+            self._bm25_index = None
+            self._bm25_corpus = []
+            return
+        tokenized = [self._tokenize_for_bm25(d) for d in docs]
+        self._bm25_index = BM25Okapi(tokenized)
+        meta_iter = metas if metas else [{}] * len(docs)
+        self._bm25_corpus = [
+            {"id": i, "doc": d, "metadata": m}
+            for i, d, m in zip(ids, docs, meta_iter)
+        ]
+
+    def find_relevant_tables(self, question: str, top_k: int = 10) -> dict:
+        """Hybrid (BM25+MiniLM RRF) when self._hybrid_enabled, else chroma-only.
+
+        Return shape matches ChromaDB's collection.query() output so callers
+        in agent_engine.py don't need to branch on retrieval mode.
+        """
+        if not self._hybrid_enabled:
+            n = min(top_k, self.schema_collection.count() or 1)
+            return self.schema_collection.query(query_texts=[question], n_results=n)
+
+        # Lazy build BM25 index on first hybrid query
+        if self._bm25_index is None:
+            self._rebuild_bm25_index()
+        if self._bm25_index is None:
+            # Empty schema collection or BM25 unavailable — fall back to chroma
+            n = min(top_k, self.schema_collection.count() or 1)
+            return self.schema_collection.query(query_texts=[question], n_results=n)
+
+        # BM25 top-K
+        q_tokens = self._tokenize_for_bm25(question)
+        bm25_scores = self._bm25_index.get_scores(q_tokens)
+        bm25_ranked = sorted(range(len(bm25_scores)), key=lambda i: -bm25_scores[i])[:top_k]
+
+        # Theme 1B zero-score guard: if BM25 has no useful signal (all tokens
+        # too rare in corpus, or question vocabulary fully disjoint from schema),
+        # excluding it from RRF prevents insertion-order noise from drowning
+        # MiniLM's actual semantic ranking. Compared post-tokenizer-fix because
+        # before Theme 1A the regex bug guaranteed all-zero on snake_case.
+        bm25_max = max(bm25_scores) if len(bm25_scores) else 0.0
+        bm25_useful = bm25_max >= self._BM25_MIN_USEFUL_SCORE
+        if not bm25_useful:
+            logger.debug(
+                "find_relevant_tables: BM25 max_score=%.4f below threshold %.2f; "
+                "excluding from RRF for q=%r",
+                bm25_max, self._BM25_MIN_USEFUL_SCORE, question[:80],
+            )
+
+        # MiniLM (Chroma) top-K
+        n = min(top_k, self.schema_collection.count() or 1)
+        chroma = self.schema_collection.query(query_texts=[question], n_results=n)
+        chroma_ids = (chroma.get("ids") or [[]])[0]
+        chroma_docs = (chroma.get("documents") or [[]])[0]
+        chroma_metas = (chroma.get("metadatas") or [[]])[0]
+
+        # RRF fusion: score(d) = Σ 1/(K + rank_in_ranker)
+        rrf: dict = {}
+        if bm25_useful:
+            for rank, idx in enumerate(bm25_ranked):
+                doc_id = self._bm25_corpus[idx]["id"]
+                rrf[doc_id] = rrf.get(doc_id, 0.0) + 1.0 / (self._RRF_K + rank + 1)
+        for rank, doc_id in enumerate(chroma_ids):
+            rrf[doc_id] = rrf.get(doc_id, 0.0) + 1.0 / (self._RRF_K + rank + 1)
+
+        # Build id→(doc, meta) lookup from both sources
+        id_to_doc: dict = {}
+        id_to_meta: dict = {}
+        for i, doc_id in enumerate(chroma_ids):
+            id_to_doc[doc_id] = chroma_docs[i] if i < len(chroma_docs) else ""
+            id_to_meta[doc_id] = chroma_metas[i] if i < len(chroma_metas) else {}
+        for entry in self._bm25_corpus:
+            id_to_doc.setdefault(entry["id"], entry.get("doc", ""))
+            id_to_meta.setdefault(entry["id"], entry.get("metadata") or {})
+
+        sorted_ids = sorted(rrf.keys(), key=lambda i: -rrf[i])[:top_k]
+        return {
+            "ids": [sorted_ids],
+            "documents": [[id_to_doc.get(i, "") for i in sorted_ids]],
+            "metadatas": [[id_to_meta.get(i, {}) for i in sorted_ids]],
+            "distances": [[1.0 - rrf[i] for i in sorted_ids]],  # mock distance for compat
+        }
 
     def add_example(self, question: str, sql: str, description: str = "") -> None:
         doc_id = f"example_{hashlib.md5(question.encode()).hexdigest()[:12]}"

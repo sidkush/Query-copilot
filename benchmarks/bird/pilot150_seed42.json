@@ -1,0 +1,1964 @@
+{
+  "seed": 42,
+  "n": 150,
+  "skipped_db": "(none \u2014 all 11 dbs included)",
+  "difficulty_mix": {
+    "simple": 44,
+    "moderate": 75,
+    "challenging": 31
+  },
+  "stratification": [
+    {
+      "db_id": "card_games",
+      "difficulty": "moderate",
+      "question_id": 468
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "challenging",
+      "question_id": 1189
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "simple",
+      "question_id": 1331
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "challenging",
+      "question_id": 253
+    },
+    {
+      "db_id": "debit_card_specializing",
+      "difficulty": "simple",
+      "question_id": 1500
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "challenging",
+      "question_id": 598
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "challenging",
+      "question_id": 730
+    },
+    {
+      "db_id": "california_schools",
+      "difficulty": "moderate",
+      "question_id": 77
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "challenging",
+      "question_id": 115
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1105
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "challenging",
+      "question_id": 954
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "simple",
+      "question_id": 1044
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "simple",
+      "question_id": 854
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "simple",
+      "question_id": 1356
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "simple",
+      "question_id": 576
+    },
+    {
+      "db_id": "debit_card_specializing",
+      "difficulty": "simple",
+      "question_id": 1505
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "simple",
+      "question_id": 1357
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "simple",
+      "question_id": 1368
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "simple",
+      "question_id": 1220
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "simple",
+      "question_id": 440
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "simple",
+      "question_id": 967
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "simple",
+      "question_id": 112
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "simple",
+      "question_id": 792
+    },
+    {
+      "db_id": "debit_card_specializing",
+      "difficulty": "simple",
+      "question_id": 1484
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "simple",
+      "question_id": 555
+    },
+    {
+      "db_id": "california_schools",
+      "difficulty": "simple",
+      "question_id": 17
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "simple",
+      "question_id": 898
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "simple",
+      "question_id": 806
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "simple",
+      "question_id": 356
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "simple",
+      "question_id": 1078
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "simple",
+      "question_id": 1312
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "simple",
+      "question_id": 959
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "simple",
+      "question_id": 678
+    },
+    {
+      "db_id": "california_schools",
+      "difficulty": "simple",
+      "question_id": 41
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "simple",
+      "question_id": 227
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "simple",
+      "question_id": 847
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "simple",
+      "question_id": 857
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "simple",
+      "question_id": 1351
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "simple",
+      "question_id": 1410
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "simple",
+      "question_id": 1048
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "simple",
+      "question_id": 1133
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "simple",
+      "question_id": 791
+    },
+    {
+      "db_id": "debit_card_specializing",
+      "difficulty": "simple",
+      "question_id": 1471
+    },
+    {
+      "db_id": "california_schools",
+      "difficulty": "simple",
+      "question_id": 39
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "simple",
+      "question_id": 1153
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "simple",
+      "question_id": 950
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "simple",
+      "question_id": 1166
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "simple",
+      "question_id": 424
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "simple",
+      "question_id": 704
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "simple",
+      "question_id": 1145
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "simple",
+      "question_id": 568
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "simple",
+      "question_id": 195
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "simple",
+      "question_id": 872
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "moderate",
+      "question_id": 255
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 89
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1201
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1107
+    },
+    {
+      "db_id": "debit_card_specializing",
+      "difficulty": "moderate",
+      "question_id": 1533
+    },
+    {
+      "db_id": "debit_card_specializing",
+      "difficulty": "moderate",
+      "question_id": 1479
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "moderate",
+      "question_id": 866
+    },
+    {
+      "db_id": "california_schools",
+      "difficulty": "moderate",
+      "question_id": 32
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 138
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "moderate",
+      "question_id": 242
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "moderate",
+      "question_id": 758
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 100
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "moderate",
+      "question_id": 665
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 136
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "moderate",
+      "question_id": 797
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "moderate",
+      "question_id": 972
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "moderate",
+      "question_id": 572
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1080
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "moderate",
+      "question_id": 796
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1113
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1209
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "moderate",
+      "question_id": 581
+    },
+    {
+      "db_id": "debit_card_specializing",
+      "difficulty": "moderate",
+      "question_id": 1529
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "moderate",
+      "question_id": 1002
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1195
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "moderate",
+      "question_id": 483
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "moderate",
+      "question_id": 981
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "moderate",
+      "question_id": 405
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1162
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "moderate",
+      "question_id": 822
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1141
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1205
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 138
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1238
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1255
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "moderate",
+      "question_id": 640
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "moderate",
+      "question_id": 236
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "moderate",
+      "question_id": 685
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 189
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1102
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "moderate",
+      "question_id": 466
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "moderate",
+      "question_id": 578
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 137
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "moderate",
+      "question_id": 716
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "moderate",
+      "question_id": 1387
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1136
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "moderate",
+      "question_id": 563
+    },
+    {
+      "db_id": "california_schools",
+      "difficulty": "moderate",
+      "question_id": 72
+    },
+    {
+      "db_id": "california_schools",
+      "difficulty": "moderate",
+      "question_id": 31
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1149
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "moderate",
+      "question_id": 518
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "moderate",
+      "question_id": 719
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 128
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1164
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1275
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "moderate",
+      "question_id": 751
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "moderate",
+      "question_id": 192
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "moderate",
+      "question_id": 352
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "moderate",
+      "question_id": 869
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "moderate",
+      "question_id": 1405
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "moderate",
+      "question_id": 694
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1179
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "moderate",
+      "question_id": 465
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "moderate",
+      "question_id": 213
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "moderate",
+      "question_id": 1229
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "moderate",
+      "question_id": 906
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1135
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1091
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "moderate",
+      "question_id": 1401
+    },
+    {
+      "db_id": "california_schools",
+      "difficulty": "moderate",
+      "question_id": 45
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "moderate",
+      "question_id": 897
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "moderate",
+      "question_id": 1057
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "challenging",
+      "question_id": 149
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "challenging",
+      "question_id": 416
+    },
+    {
+      "db_id": "thrombosis_prediction",
+      "difficulty": "challenging",
+      "question_id": 1302
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "challenging",
+      "question_id": 230
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "challenging",
+      "question_id": 1460
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "challenging",
+      "question_id": 1094
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "challenging",
+      "question_id": 1042
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "challenging",
+      "question_id": 1139
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "challenging",
+      "question_id": 962
+    },
+    {
+      "db_id": "california_schools",
+      "difficulty": "challenging",
+      "question_id": 87
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "challenging",
+      "question_id": 743
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "challenging",
+      "question_id": 944
+    },
+    {
+      "db_id": "european_football_2",
+      "difficulty": "challenging",
+      "question_id": 1037
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "challenging",
+      "question_id": 268
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "challenging",
+      "question_id": 249
+    },
+    {
+      "db_id": "financial",
+      "difficulty": "challenging",
+      "question_id": 125
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "challenging",
+      "question_id": 988
+    },
+    {
+      "db_id": "formula_1",
+      "difficulty": "challenging",
+      "question_id": 896
+    },
+    {
+      "db_id": "superhero",
+      "difficulty": "challenging",
+      "question_id": 829
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "challenging",
+      "question_id": 263
+    },
+    {
+      "db_id": "toxicology",
+      "difficulty": "challenging",
+      "question_id": 220
+    },
+    {
+      "db_id": "student_club",
+      "difficulty": "challenging",
+      "question_id": 1464
+    },
+    {
+      "db_id": "card_games",
+      "difficulty": "challenging",
+      "question_id": 415
+    },
+    {
+      "db_id": "debit_card_specializing",
+      "difficulty": "challenging",
+      "question_id": 1476
+    },
+    {
+      "db_id": "codebase_community",
+      "difficulty": "challenging",
+      "question_id": 586
+    }
+  ],
+  "questions": [
+    {
+      "question_id": 468,
+      "db_id": "card_games",
+      "question": "What is the Simplified Chinese translation of the name of the set \"Eighth Edition\"?",
+      "evidence": "Eighth Edition is the name of card set which refers to name = 'Eighth Edition'; Simplified Chinese refers to language = 'Chinese Simplified'; translation of the name refers to translation",
+      "SQL": "SELECT T2.translation FROM sets AS T1 INNER JOIN set_translations AS T2 ON T2.setCode = T1.code WHERE T1.name = 'Eighth Edition' AND T2.language = 'Chinese Simplified'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1189,
+      "db_id": "thrombosis_prediction",
+      "question": "What number of patients with a degree of thrombosis level 2 and ANA pattern of only S, have a level of anti-Cardiolip in antibody (IgM) 20% higher than average?",
+      "evidence": "thrombosis level 2 refers to Thrombosis = 2; ANA pattern of only S refers to ANA = 'S'; average anti-Cardiolip in antibody (IgM) refers to AVG(`aCL IgM`); calculation = MULTIPLY(AVG + AVG, 0.2)",
+      "SQL": "SELECT COUNT(*) FROM Examination WHERE Thrombosis = 2 AND `ANA Pattern` = 'S' AND `aCL IgM` > (SELECT AVG(`aCL IgM`) * 1.2 FROM Examination WHERE Thrombosis = 2 AND `ANA Pattern` = 'S')",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1331,
+      "db_id": "student_club",
+      "question": "What is the amount of the funds that the Vice President received?",
+      "evidence": "'Vice President' is a position of Student Club; funds received refers to amount.",
+      "SQL": "SELECT T2.amount FROM member AS T1 INNER JOIN income AS T2 ON T1.member_id = T2.link_to_member WHERE T1.position = 'Vice President'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 253,
+      "db_id": "toxicology",
+      "question": "List the elements of all the triple bonds.",
+      "evidence": "triple bond refers to bond_type = '#';",
+      "SQL": "SELECT DISTINCT T3.element FROM bond AS T1 INNER JOIN connected AS T2 ON T1.bond_id = T2.bond_id INNER JOIN atom AS T3 ON T2.atom_id = T3.atom_id WHERE T1.bond_type = '#'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1500,
+      "db_id": "debit_card_specializing",
+      "question": "Please list the product description of the products consumed in September, 2013.",
+      "evidence": "September 2013 refers to 201309; The first 4 strings of the Date values in the yearmonth table can represent year; The 5th and 6th string of the date can refer to month.",
+      "SQL": "SELECT T3.Description FROM transactions_1k AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID INNER JOIN products AS T3 ON T1.ProductID = T3.ProductID WHERE T2.Date = '201309'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 598,
+      "db_id": "codebase_community",
+      "question": "What is the percentage difference of student badges given during 2010 and 2011?",
+      "evidence": "student badges refers to badge's name = 'Student'; during 2010 refers to Year(Date) = 2010; during 2011 refers to Year(Date) = 2011; percentage difference = Subtract (Divide(Count(Name where Year(Date) = 2010), Count (Name)) *100, Divide(Count(Name where Year(Date) = 2011), Count(Name)) * 100)",
+      "SQL": "SELECT CAST(SUM(IIF(STRFTIME('%Y', Date) = '2010', 1, 0)) AS REAL) * 100 / COUNT(Id) - CAST(SUM(IIF(STRFTIME('%Y', Date) = '2011', 1, 0)) AS REAL) * 100 / COUNT(Id) FROM badges WHERE Name = 'Student'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 730,
+      "db_id": "superhero",
+      "question": "List the superheroes from Marvel Comics who have the super power of 'Super Strength'.",
+      "evidence": "the superheroes from Marvel Comics refers to publisher_name = 'Marvel Comics'; super power of \"Super Strength\" refers to power_name = 'Super Strength';",
+      "SQL": "SELECT superhero_name FROM superhero AS T1 WHERE EXISTS (SELECT 1 FROM hero_power AS T2 INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T3.power_name = 'Super Strength' AND T1.id = T2.hero_id)AND EXISTS (SELECT 1 FROM publisher AS T4 WHERE T4.publisher_name = 'Marvel Comics' AND T1.publisher_id = T4.id)",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 77,
+      "db_id": "california_schools",
+      "question": "Which schools served a grade span of Kindergarten to 9th grade in the county of Los Angeles and what is its Percent (%) Eligible FRPM (Ages 5-17)?",
+      "evidence": "Percent (%) Eligible FRPM (Ages 5-17) can be acquired by `FRPM Count (Ages 5-17)` / `Enrollment (Ages 5-17)` * 100",
+      "SQL": "SELECT T2.School, T1.`FRPM Count (Ages 5-17)` * 100 / T1.`Enrollment (Ages 5-17)` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.County = 'Los Angeles' AND T2.GSserved = 'K-9'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 115,
+      "db_id": "financial",
+      "question": "For the branch which located in the south Bohemia with biggest number of inhabitants, what is the percentage of the male clients?",
+      "evidence": "Percentage of the male clients = DIVIDE(COUNT(male clients), COUNT(clients)) * 100; Male refers to gender = 'M', A3 is the region name. A4 contains the information about inhabitants.",
+      "SQL": "SELECT CAST(SUM(T1.gender = 'M') AS REAL) * 100 / COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T2.A3 = 'south Bohemia' GROUP BY T2.A4 ORDER BY T2.A4 DESC LIMIT 1",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1105,
+      "db_id": "european_football_2",
+      "question": "How was Francesco Migliore's attacking work rate on 2015/5/1?",
+      "evidence": "Francesco Migliore refers to player_name = 'Francesco Migliore'; on 2015/5/1 refers to date LIKE '2015-05-01%';",
+      "SQL": "SELECT t2.attacking_work_rate FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t2.`date` LIKE '2015-05-01%' AND t1.player_name = 'Francesco Migliore'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 954,
+      "db_id": "formula_1",
+      "question": "Please calculate the race completion percentage of Japanese drivers from 2007 to 2009.",
+      "evidence": "from 2007 to 2009 refers to year between 2007 and 2009; race completion refers to time is not null; percentage = Divide(COUNT(DriverID where time is not null and year between 2007 and 2009),Count (DriverID where year between 2007 and 2009))*100; ",
+      "SQL": "SELECT CAST(SUM(IIF(T1.time IS NOT NULL, 1, 0)) AS REAL) * 100 / COUNT(T1.raceId) FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId INNER JOIN drivers AS T3 on T1.driverId = T3.driverId WHERE T3.nationality = 'Japanese' AND T2.year BETWEEN 2007 AND 2009",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1044,
+      "db_id": "european_football_2",
+      "question": "List the football players with a birthyear of 1970 and a birthmonth of October.",
+      "evidence": "players with a birthyear of 1970 and a birthmonth of October refers to substr(birthday,1,7) AS 'year-month',WHERE year = '1970' AND month = '10';",
+      "SQL": "SELECT player_name FROM Player WHERE SUBSTR(birthday, 1, 7) = '1970-10'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 854,
+      "db_id": "formula_1",
+      "question": "What is the coordinates location of the circuits for Australian grand prix?",
+      "evidence": "coordinate position/location refers to lat, lng; circuits for Australian grand prix refers to races.name = 'Australian Grand Prix'",
+      "SQL": "SELECT DISTINCT T1.lat, T1.lng FROM circuits AS T1 INNER JOIN races AS T2 ON T2.circuitID = T1.circuitId WHERE T2.name = 'Australian Grand Prix'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1356,
+      "db_id": "student_club",
+      "question": "Which department was the President of the club in?",
+      "evidence": "'President' is a position of Student Club",
+      "SQL": "SELECT T2.department FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T1.position = 'President'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 576,
+      "db_id": "codebase_community",
+      "question": "Name the user that commented 'thank you user93!'",
+      "evidence": "\"thank you user93\" is the Text of comment; user refers to DisplayName",
+      "SQL": "SELECT T1.DisplayName FROM users AS T1 INNER JOIN comments AS T2 ON T1.Id = T2.UserId WHERE T2.Text = 'thank you user93!'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1505,
+      "db_id": "debit_card_specializing",
+      "question": "Among the customers who paid in euro, how many of them have a monthly consumption of over 1000?",
+      "evidence": "Pays in euro = Currency = 'EUR'.",
+      "SQL": "SELECT COUNT(*) FROM yearmonth AS T1 INNER JOIN customers AS T2 ON T1.CustomerID = T2.CustomerID WHERE T2.Currency = 'EUR' AND T1.Consumption > 1000.00",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1357,
+      "db_id": "student_club",
+      "question": "State the date Connor Hilton paid his/her dues.",
+      "evidence": "Connor Hilton is the full name; full name refers to first_name, last_name; date the dues was paid refers to date_received where source = 'Dues';",
+      "SQL": "SELECT T2.date_received FROM member AS T1 INNER JOIN income AS T2 ON T1.member_id = T2.link_to_member WHERE T1.first_name = 'Connor' AND T1.last_name = 'Hilton' AND T2.source = 'Dues'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1368,
+      "db_id": "student_club",
+      "question": "What does the person with the phone number \"809-555-3360\" major in?",
+      "evidence": "major in refers to major_name",
+      "SQL": "SELECT T2.major_name FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T1.phone = '809-555-3360'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1220,
+      "db_id": "thrombosis_prediction",
+      "question": "Provide all ID, sex and birthday of patients whose urea nitrogen (UN) just within the borderline of passing?",
+      "evidence": "urea nitrogen (UN) just within the borderline of passing refers to UN = 29; ",
+      "SQL": "SELECT DISTINCT T1.ID, T1.SEX, T1.Birthday FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.UN = 29",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 440,
+      "db_id": "card_games",
+      "question": "Which foreign language used by \"A Pedra Fellwar\"?",
+      "evidence": "\"A Pedra Fellwar\" refers to name = 'A Pedra Fellwar'",
+      "SQL": "SELECT DISTINCT language FROM foreign_data WHERE name = 'A Pedra Fellwar'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 967,
+      "db_id": "formula_1",
+      "question": "State code numbers of top 3 yougest drivers. How many Netherlandic drivers among them?",
+      "evidence": "youngest driver refers to Max (year(dob)); Netherlandic and Dutch refer to the same country",
+      "SQL": "SELECT COUNT(*) FROM ( SELECT T1.nationality FROM drivers AS T1 ORDER BY JULIANDAY(T1.dob) DESC LIMIT 3) AS T3 WHERE T3.nationality = 'Dutch'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 112,
+      "db_id": "financial",
+      "question": "For the female client who was born in 1976/1/29, which district did she opened her account?",
+      "evidence": "Female refers to gender = 'F'; A2 refers to district names",
+      "SQL": "SELECT T1.A2 FROM district AS T1 INNER JOIN client AS T2 ON T1.district_id = T2.district_id WHERE T2.birth_date = '1976-01-29' AND T2.gender = 'F'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 792,
+      "db_id": "superhero",
+      "question": "What is Abomination's superpower?",
+      "evidence": "Abomination refers to superhero_name = 'Abomination'; superpower refers to power_name;",
+      "SQL": "SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T1.superhero_name = 'Abomination'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1484,
+      "db_id": "debit_card_specializing",
+      "question": "How many more \"discount\" gas stations does the Czech Republic have compared to Slovakia?",
+      "evidence": "Czech Republic can be represented as the Country value in gasstations table is 'CZE'; Slovakia can be represented as the Country value in the gasstations table is 'SVK';  Computation of more \"discount\" gas stations= Total no. of discount gas stations in Czech Republic - Total no. of discount gas stations in Slovakia",
+      "SQL": "SELECT SUM(IIF(Country = 'CZE', 1, 0)) - SUM(IIF(Country = 'SVK', 1, 0)) FROM gasstations WHERE Segment = 'Discount'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 555,
+      "db_id": "codebase_community",
+      "question": "What is the average score of the posts owned by the user csgillespie?",
+      "evidence": "\"csgillespie\" is the DisplayName of user; average score refers to AVG(Score)",
+      "SQL": "SELECT AVG(T1.Score) FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id WHERE T2.DisplayName = 'csgillespie'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 17,
+      "db_id": "california_schools",
+      "question": "Rank schools by their average score in Writing where the score is greater than 499, showing their charter numbers.",
+      "evidence": "Valid charter number means the number is not null",
+      "SQL": "SELECT CharterNum, AvgScrWrite, RANK() OVER (ORDER BY AvgScrWrite DESC) AS WritingScoreRank FROM schools AS T1  INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE T2.AvgScrWrite > 499 AND CharterNum is not null",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 898,
+      "db_id": "formula_1",
+      "question": "How old is the youngest Japanese driver? What is his name?",
+      "evidence": "date of birth refers to drivers.dob; The larger the birthday value, the younger the person is, and vice versa; Japanese refers to nationality = 'Japanese'; age = YEAR(CURRENT_TIMESTAMP) - YEAR(dob);",
+      "SQL": "SELECT STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', dob), forename , surname FROM drivers WHERE nationality = 'Japanese' ORDER BY dob DESC LIMIT 1",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 806,
+      "db_id": "superhero",
+      "question": "Provide the eye colour of the superhero who has Karen Beecher-Duncan as their full name.",
+      "evidence": "eye colour refers to colour.colour where eye_colour_id = colour.id; Karen Beecher-Duncan is the full name of superhero;",
+      "SQL": "SELECT T2.colour FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id WHERE T1.full_name = 'Karen Beecher-Duncan'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 356,
+      "db_id": "card_games",
+      "question": "How many cards have infinite power?",
+      "evidence": "infinite power refers to power = '*';",
+      "SQL": "SELECT COUNT(*) FROM cards WHERE power = '*'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1078,
+      "db_id": "european_football_2",
+      "question": "Which player is older, Aaron Lennon or Abdelaziz Barrada?",
+      "evidence": "The larger the birthday value, the younger the person is, and vice versa;",
+      "SQL": "SELECT player_name FROM Player WHERE player_name IN ('Aaron Lennon', 'Abdelaziz Barrada') ORDER BY birthday ASC LIMIT 1",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1312,
+      "db_id": "student_club",
+      "question": "What's Angela Sanders's major?",
+      "evidence": "Angela Sanders is the full name; full name refers to first_name, last_name; major refers to major_name.",
+      "SQL": "SELECT T2.major_name FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T1.first_name = 'Angela' AND T1.last_name = 'Sanders'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 959,
+      "db_id": "formula_1",
+      "question": "What is the fastest lap number of the champion in 2009?",
+      "evidence": "in 2009 refers to year = 2009; Only the time of the champion shows in the format of \"hour: minutes: seconds.millionsecond\"",
+      "SQL": "SELECT T1.fastestLap FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId WHERE T2.year = 2009 AND T1.time LIKE '_:%:__.___'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 678,
+      "db_id": "codebase_community",
+      "question": "Which post by Harvey Motulsky has the most views? Please give the id and title of this post.",
+      "evidence": "DisplayName = 'Harvey Motulsky'; the most views refer to MAX(ViewCount);",
+      "SQL": "SELECT T2.Id, T2.Title FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId WHERE T1.DisplayName = 'Harvey Motulsky' ORDER BY T2.ViewCount DESC LIMIT 1",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 41,
+      "db_id": "california_schools",
+      "question": "List the names of virtual schools that are among the top 5 in their respective counties based on average reading scores.",
+      "evidence": "Exclusively virtual refers to Virtual = 'F'; respective counties means PARTITION BY County",
+      "SQL": "SELECT School FROM (SELECT T2.School,T1.AvgScrRead, RANK() OVER (PARTITION BY T2.County ORDER BY T1.AvgScrRead DESC) AS rnk FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.Virtual = 'F' ) ranked_schools WHERE rnk <= 5",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 227,
+      "db_id": "toxicology",
+      "question": "What is the percentage of molecules that are carcinogenic? Please provide your answer as a percentage with three decimal places.",
+      "evidence": "label = '+' mean molecules are carcinogenic; percentage = DIVIDE(SUM(label = '+'), COUNT(molecule_id)) as percent",
+      "SQL": "SELECT ROUND(CAST(COUNT(CASE WHEN T.label = '+' THEN T.molecule_id ELSE NULL END) AS REAL) * 100 / COUNT(T.molecule_id),3) FROM molecule t",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 847,
+      "db_id": "formula_1",
+      "question": "What is the surname of the driver with the best lap time in race number 19 in the second qualifying period?",
+      "evidence": "race number refers to raceId; second qualifying period refers to q2; best lap time refers to MIN(q2);",
+      "SQL": "SELECT T2.surname FROM qualifying AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 19 ORDER BY T1.q2 ASC LIMIT 1",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 857,
+      "db_id": "formula_1",
+      "question": "Give the coordinate position for Abu Dhabi Grand Prix.",
+      "evidence": "coordinate position/location refers to lat, lng; Abu Dhabi Grand Prix refers to races.name = 'Abu Dhabi Grand Prix'",
+      "SQL": "SELECT DISTINCT T1.lat, T1.lng FROM circuits AS T1 INNER JOIN races AS T2 ON T2.circuitID = T1.circuitId WHERE T2.name = 'Abu Dhabi Grand Prix'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1351,
+      "db_id": "student_club",
+      "question": "What was Brent Thomason's major?",
+      "evidence": "Brent Thomason is the full name; full name refers to first_name, last_name; major refers to major_name",
+      "SQL": "SELECT T2.major_name FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T1.first_name = 'Brent' AND T1.last_name = 'Thomason'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1410,
+      "db_id": "student_club",
+      "question": "List out the full name and total cost that member id \"rec4BLdZHS2Blfp4v\" incurred?",
+      "evidence": "full name refers to first_name, last name",
+      "SQL": "SELECT T1.first_name, T1.last_name, SUM(T2.cost) FROM member AS T1 INNER JOIN expense AS T2 ON T1.member_id = T2.link_to_member WHERE T1.member_id = 'rec4BLdZHS2Blfp4v'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1048,
+      "db_id": "european_football_2",
+      "question": "What is the overall rating of the football player Gabriel Tamas in year 2011?",
+      "evidence": "in year 2011 refers to strftime('%Y', date) = '2011';",
+      "SQL": "SELECT t2.overall_rating FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t1.player_name = 'Gabriel Tamas' AND strftime('%Y', t2.date) = '2011'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1133,
+      "db_id": "european_football_2",
+      "question": "How many football players born after the 1990s have the first name \"Aaron\"?",
+      "evidence": "first name \"Aaron\" refers to player_name LIKE 'Aaron%'; born after the 1990s refers to birthday > '1990'",
+      "SQL": "SELECT COUNT(id) FROM Player WHERE birthday > '1990' AND player_name LIKE 'Aaron%'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 791,
+      "db_id": "superhero",
+      "question": "Calculate the average height for all superhero.",
+      "evidence": "average = DIVIDE(SUM(height_cm), COUNT(all heros));",
+      "SQL": "SELECT CAST(SUM(height_cm) AS REAL) / COUNT(id) FROM superhero",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1471,
+      "db_id": "debit_card_specializing",
+      "question": "What is the ratio of customers who pay in EUR against customers who pay in CZK?",
+      "evidence": "ratio of customers who pay in EUR against customers who pay in CZK = count(Currency = 'EUR') / count(Currency = 'CZK').",
+      "SQL": "SELECT CAST(SUM(IIF(Currency = 'EUR', 1, 0)) AS FLOAT) / SUM(IIF(Currency = 'CZK', 1, 0)) AS ratio FROM customers",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 39,
+      "db_id": "california_schools",
+      "question": "What is the average number of test takers from Fresno schools that opened between 1/1/1980 and 12/31/1980?",
+      "evidence": "between 1/1/1980 and 12/31/1980 means the year = 1980",
+      "SQL": "SELECT AVG(T1.NumTstTakr) FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE strftime('%Y', T2.OpenDate) = '1980' AND T2.County = 'Fresno'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1153,
+      "db_id": "thrombosis_prediction",
+      "question": "What is the disease patient '30609' diagnosed with. List all the date of laboratory tests done for this patient.",
+      "evidence": "'30609' is the Patient ID; disease means Diagnosis",
+      "SQL": "SELECT T1.Diagnosis, T2.Date FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.ID = 30609",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 950,
+      "db_id": "formula_1",
+      "question": "Please list the constructor names with 0 points at race 291.",
+      "evidence": "race at 291 refers to raceID = 291;",
+      "SQL": "SELECT T2.name FROM constructorStandings AS T1 INNER JOIN constructors AS T2 on T1.constructorId = T2.constructorId WHERE T1.points = 0 AND T1.raceId = 291",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1166,
+      "db_id": "thrombosis_prediction",
+      "question": "What are the symptoms observed by the youngest patient to ever did a medical examination? Identify their diagnosis.",
+      "evidence": "The larger the birthday value, the younger the person is, and vice versa; symptoms observed refers to the symptoms is not NULL",
+      "SQL": "SELECT T2.Symptoms, T1.Diagnosis FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T2.Symptoms IS NOT NULL ORDER BY T1.Birthday DESC LIMIT 1",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 424,
+      "db_id": "card_games",
+      "question": "What proportion of cards do not have a text box with a normal layout?",
+      "evidence": "do not have a text box refers to isTextless = 1; proportion refers to DIVIDE(COUNT(Textless = 1 and layout = 'normal'),COUNT(Textless))*100",
+      "SQL": "SELECT CAST(SUM(CASE WHEN isTextless = 1 AND layout = 'normal' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(*) FROM cards",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 704,
+      "db_id": "codebase_community",
+      "question": "What is the excerpt post ID and wiki post ID of the tag named sample?",
+      "evidence": "tag named sample refers to TagName = 'sample';",
+      "SQL": "SELECT ExcerptPostId, WikiPostId FROM tags WHERE TagName = 'sample'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 1145,
+      "db_id": "european_football_2",
+      "question": "Which top 4 leagues had the most games in the 2015-2016 season?",
+      "evidence": "in the 2015-2016 season refers to season = '2015/2016'; league with most games refers to League.name where MAX(COUNT(id))",
+      "SQL": "SELECT t1.name FROM League AS t1 INNER JOIN Match AS t2 ON t1.id = t2.league_id WHERE t2.season = '2015/2016' GROUP BY t1.name ORDER BY COUNT(t2.id) DESC LIMIT 4",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 568,
+      "db_id": "codebase_community",
+      "question": "Provide the display name of the user who made the vote No.6347.",
+      "evidence": "vote no. 6347 refers to Id = '6347'",
+      "SQL": "SELECT T1.DisplayName FROM users AS T1 INNER JOIN votes AS T2 ON T1.Id = T2.UserId WHERE T2.Id = 6347",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 195,
+      "db_id": "toxicology",
+      "question": "What is the most common bond type?",
+      "evidence": "most common bond type refers MAX(COUNT(bond_type))",
+      "SQL": "SELECT T.bond_type FROM ( SELECT bond_type, COUNT(bond_id) FROM bond GROUP BY bond_type ORDER BY COUNT(bond_id) DESC LIMIT 1 ) AS T",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 872,
+      "db_id": "formula_1",
+      "question": "In the race No. 45, for the driver who had the Q3 time as 0:01:33, what is his abbreviated code?",
+      "evidence": "race number refers to raceId; had the Q3 time as 0:0M:SS refers to q3 LIKE 'M:SS%'",
+      "SQL": "SELECT T2.code FROM qualifying AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 45 AND T1.q3 LIKE '1:33%'",
+      "difficulty": "simple"
+    },
+    {
+      "question_id": 255,
+      "db_id": "toxicology",
+      "question": "What proportion of single bonds are carcinogenic? Please provide your answer as a percentage with five decimal places.",
+      "evidence": "single bond refers to bond_type = '-'; label = '+' mean molecules are carcinogenic; proportion = DIVIDE(SUM(label = '+') * 100, COUNT(bond_id)) where bond_type = '-'",
+      "SQL": "SELECT ROUND(CAST(COUNT(CASE WHEN T2.label = '+' THEN T1.bond_id ELSE NULL END) AS REAL) * 100 / COUNT(T1.bond_id),5) FROM bond AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.bond_type = '-'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 89,
+      "db_id": "financial",
+      "question": "How many accounts who choose issuance after transaction are staying in East Bohemia region?",
+      "evidence": "A3 contains the data of region; 'POPLATEK PO OBRATU' represents for 'issuance after transaction'.",
+      "SQL": "SELECT COUNT(T2.account_id) FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id WHERE T1.A3 = 'east Bohemia' AND T2.frequency = 'POPLATEK PO OBRATU'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1201,
+      "db_id": "thrombosis_prediction",
+      "question": "What percentage of patients who were born in 1980 and were diagnosed with RA are women?",
+      "evidence": "born in 1980 refers to YEAR(BIRTHDAY) = '1980'; 'RA' refers to Diagnosis='RA' ; women refers to SEX = 'F'; calculation = DIVIDE(SUM(SEX = 'F'), COUNT(SEX)) * 100",
+      "SQL": "SELECT CAST(SUM(CASE WHEN SEX = 'F' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(ID) FROM Patient WHERE Diagnosis = 'RA' AND STRFTIME('%Y', Birthday) = '1980'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1107,
+      "db_id": "european_football_2",
+      "question": "When was the first time did Kevin Constant have his highest crossing score? Give the date.",
+      "evidence": "Kevin Constant refers to player_name = 'Kevin Constant'; highest crossing score refers to MAX(crossing)",
+      "SQL": "SELECT `date` FROM ( SELECT t2.crossing, t2.`date` FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_fifa_api_id = t2.player_fifa_api_id WHERE t1.player_name = 'Kevin Constant' ORDER BY t2.crossing DESC) ORDER BY date DESC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1533,
+      "db_id": "debit_card_specializing",
+      "question": "For all the people who paid more than 29.00 per unit of product id No.5. Give their consumption status in the August of 2012.",
+      "evidence": "August of 2012 refers to the Date value = '201208' ; Price per unit of product = Price / Amount;",
+      "SQL": "SELECT T2.Consumption FROM transactions_1k AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Price / T1.Amount > 29.00 AND T1.ProductID = 5 AND T2.Date = '201208'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1479,
+      "db_id": "debit_card_specializing",
+      "question": "Which year recorded the most consumption of gas paid in CZK?",
+      "evidence": "The first 4 strings of the Date values in the yearmonth table can represent year.",
+      "SQL": "SELECT SUBSTR(T2.Date, 1, 4) FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Currency = 'CZK' GROUP BY SUBSTR(T2.Date, 1, 4) ORDER BY SUM(T2.Consumption) DESC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 866,
+      "db_id": "formula_1",
+      "question": "Who was the player that got the lap time of 0:01:27 in the race No. 161? Show his introduction website.",
+      "evidence": "player and driver are synonyms; the lap time of 0:0M:SS refers to lapTime.time LIKE 'M:SS%';race number refers to raceId; introduction website of the drivers refers to url;",
+      "SQL": "SELECT DISTINCT T2.forename, T2.surname, T2.url FROM lapTimes AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 161 AND T1.time LIKE '1:27%'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 32,
+      "db_id": "california_schools",
+      "question": "What is the eligible free or reduced price meal rate for the top 5 schools in grades 1-12 with the highest free or reduced price meal count of the schools with the ownership code 66?",
+      "evidence": "grades 1-12 means K-12; Eligible free or reduced price meal rate for K-12 = `FRPM Count (K-12)` / `Enrollment (K-12)`",
+      "SQL": "SELECT CAST(T1.`FRPM Count (K-12)` AS REAL) / T1.`Enrollment (K-12)` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.SOC = 66 ORDER BY T1.`FRPM Count (K-12)` DESC LIMIT 5",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 138,
+      "db_id": "financial",
+      "question": "In the branch where the second-highest number of crimes were committed in 1995 occurred, how many male clients are there?",
+      "evidence": "Male refers to gender = 'M'; A15 stands for no. of commited crimes 1995",
+      "SQL": "SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A15 = (SELECT T3.A15 FROM district AS T3 ORDER BY T3.A15 DESC LIMIT 1, 1)",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 242,
+      "db_id": "toxicology",
+      "question": "Among all the atoms from 21 to 25, list all the molecules that are carcinogenic.",
+      "evidence": "atoms from 21 to 25 refers to SUBSTR(atom_id, 7, 2) between '21' and '25'; label = '+' mean molecules are carcinogenic",
+      "SQL": "SELECT DISTINCT T2.molecule_id FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE SUBSTR(T1.atom_id, -2) BETWEEN '21' AND '25' AND T2.label = '+'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 758,
+      "db_id": "superhero",
+      "question": "Provide the hair colour of the human superhero who is 185 cm tall.",
+      "evidence": "185 cm tall refers to height_cm = 185; human superhero refers to race = 'human'; hair colour refers to colour where hair_colour_id = colour.id;",
+      "SQL": "SELECT DISTINCT T3.colour FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id INNER JOIN colour AS T3 ON T1.hair_colour_id = T3.id WHERE T1.height_cm = 185 AND T2.race = 'Human'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 100,
+      "db_id": "financial",
+      "question": "Among the account opened, how many female customers who were born before 1950 and stayed in Sokolov?",
+      "evidence": "Customers refer to clients; Female refers to gender = 'F'; Names of districts appear in column A2",
+      "SQL": "SELECT COUNT(T2.client_id) FROM district AS T1 INNER JOIN client AS T2 ON T1.district_id = T2.district_id WHERE T2.gender = 'F' AND STRFTIME('%Y', T2.birth_date) < '1950' AND T1.A2 = 'Sokolov'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 665,
+      "db_id": "codebase_community",
+      "question": "What is the average monthly number of links created in 2010 for posts that have no more than 2 answers?",
+      "evidence": "calculation = DIVIDE(COUNT(Id where YEAR(CreationDate) = 2010 and AnswerCount < = 2), 12)",
+      "SQL": "SELECT CAST(COUNT(T1.Id) AS REAL) / 12 FROM postLinks AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id WHERE T2.AnswerCount <= 2 AND STRFTIME('%Y', T1.CreationDate) = '2010'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 136,
+      "db_id": "financial",
+      "question": "Between 1/1/1995 and 12/31/1997, how many loans in the amount of at least 250,000 per account that chose monthly statement issuance were approved?",
+      "evidence": "Frequency = 'POPLATEK MESICNE' stands for monthly issurance",
+      "SQL": "SELECT COUNT(T1.account_id) FROM account AS T1 INNER JOIN loan AS T2 ON T1.account_id = T2.account_id WHERE T2.date BETWEEN '1995-01-01' AND '1997-12-31' AND T1.frequency = 'POPLATEK MESICNE' AND T2.amount >= 250000",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 797,
+      "db_id": "superhero",
+      "question": "Which superheroes have blue eyes with brown hair?",
+      "evidence": "which superheroes refers to superhero_name; blue eyes refers to color = 'Blue' and color.id = eye_colour_id; brown hair refers to color = 'Brown' and color.id = hair_colour_id;",
+      "SQL": "SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id INNER JOIN colour AS T3 ON T1.hair_colour_id = T3.id WHERE T2.colour = 'Blue' AND T3.colour = 'Brown'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 972,
+      "db_id": "formula_1",
+      "question": "Which drivers who were born in 1971 and has the fastest lap time on the race? Give id and code of these drivers.",
+      "evidence": "born in 1971 refers to year(dob) = 1971; has the fastest lap time refers to fastestLapTime has values",
+      "SQL": "SELECT T2.driverId, T2.code FROM results AS T1 INNER JOIN drivers AS T2 on T1.driverId = T2.driverId WHERE STRFTIME('%Y', T2.dob) = '1971' AND T1.fastestLapTime IS NOT NULL",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 572,
+      "db_id": "codebase_community",
+      "question": "How many views did the post titled 'Integration of Weka and/or RapidMiner into Informatica PowerCenter/Developer' get?",
+      "evidence": "\"Integration of Weka and/or RapidMiner into Informatica PowerCenter/Developer\" is the Title of post; views refers to ViewCount",
+      "SQL": "SELECT ViewCount FROM posts WHERE Title = 'Integration of Weka and/or RapidMiner into Informatica PowerCenter/Developer'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1080,
+      "db_id": "european_football_2",
+      "question": "Among the players whose preferred foot was the left foot when attacking, how many of them would remain in his position when the team attacked?",
+      "evidence": "preferred foot when attacking was the left refers to preferred_foot = 'left'; players who would remain in his position when the team attacked refers to attacking_work_rate = 'low';",
+      "SQL": "SELECT COUNT(player_api_id) FROM Player_Attributes WHERE preferred_foot = 'left' AND attacking_work_rate = 'low'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 796,
+      "db_id": "superhero",
+      "question": "State all of 3-D Man's attributes along with their values.",
+      "evidence": "3-D Man is the superhero_name. attributes refers to attribute_name; values refers to attribute_value;",
+      "SQL": "SELECT T3.attribute_name, T2.attribute_value FROM superhero AS T1 INNER JOIN hero_attribute AS T2 ON T1.id = T2.hero_id INNER JOIN attribute AS T3 ON T2.attribute_id = T3.id WHERE T1.superhero_name = '3-D Man'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1113,
+      "db_id": "european_football_2",
+      "question": "For the team \"Hannover 96\", what was its defence aggression class on 2015/9/10?",
+      "evidence": "\"Hannover 96\" refers to team_long_name = 'Hannover 96'; on 2015/9/10 refers to date LIKE '2015-09-10%';",
+      "SQL": "SELECT t2.defenceAggressionClass FROM Team AS t1 INNER JOIN Team_Attributes AS t2 ON t1.team_api_id = t2.team_api_id WHERE t1.team_long_name = 'Hannover 96' AND t2.`date` LIKE '2015-09-10%'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1209,
+      "db_id": "thrombosis_prediction",
+      "question": "Please provide the diagnosis of patients with ALT glutamic pylvic transaminase beyond the normal range by ascending order of their date of birth.",
+      "evidence": "ALT glutamic pylvic transaminase beyond the normal range refers to GPT > 60; The larger the birthday value, the younger the person is, and vice versa; ",
+      "SQL": "SELECT DISTINCT T1.Diagnosis FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.GPT > 60 ORDER BY T1.Birthday ASC",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 581,
+      "db_id": "codebase_community",
+      "question": "Who is the owner of the post titled 'Open source tools for visualizing multi-dimensional data?'",
+      "evidence": "'Open source tools for visualizing multi-dimensional data' is the Title of Post; owner refers to DisplayName;",
+      "SQL": "SELECT T2.DisplayName FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id WHERE T1.Title = 'Open source tools for visualizing multi-dimensional data?'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1529,
+      "db_id": "debit_card_specializing",
+      "question": "What is the amount spent by customer \"38508\" at the gas stations? How much had the customer spent in January 2012?",
+      "evidence": "January 2012 refers to the Date value = '201201'",
+      "SQL": "SELECT SUM(T1.Price ) , SUM(IIF(T3.Date = '201201', T1.Price, 0)) FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID INNER JOIN yearmonth AS T3 ON T1.CustomerID = T3.CustomerID WHERE T1.CustomerID = '38508'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1002,
+      "db_id": "formula_1",
+      "question": "As of the present, what is the full name of the youngest racer? Indicate her nationality and the name of the race to which he/she first joined.",
+      "evidence": "full name refers to forename+surname; Youngest racer = MAX(dob)",
+      "SQL": "SELECT T1.forename, T1.surname, T1.nationality, T3.name FROM drivers AS T1 INNER JOIN driverStandings AS T2 on T1.driverId = T2.driverId INNER JOIN races AS T3 on T2.raceId = T3.raceId ORDER BY JULIANDAY(T1.dob) DESC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1195,
+      "db_id": "thrombosis_prediction",
+      "question": "What is the average blood albumin level for female patients with a PLT greater than 400 who have been diagnosed with SLE?",
+      "evidence": "average blood albumin level refers to AVG(ALB); female refers to SEX = 'F'; PLT greater than 400 refers to PLT > 400; diagnosed with SLE refers to Diagnosis= 'SLE'",
+      "SQL": "SELECT AVG(T2.ALB) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.PLT > 400 AND T1.Diagnosis = 'SLE' AND T1.SEX = 'F'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 483,
+      "db_id": "card_games",
+      "question": "Please list the Italian text ruling of all the cards in the set Coldsnap.",
+      "evidence": "card set Coldsnap refers to name = 'Coldsnap'; Italian refers to language = 'Italian'",
+      "SQL": "SELECT DISTINCT T1.text FROM foreign_data AS T1 INNER JOIN cards AS T2 ON T2.uuid = T1.uuid INNER JOIN sets AS T3 ON T3.code = T2.setCode WHERE T3.name = 'Coldsnap' AND T1.language = 'Italian'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 981,
+      "db_id": "formula_1",
+      "question": "On what year did the youngest driver had his first qualifying race? Also state the name, date and time of the race.",
+      "evidence": "date of birth refers to drivers.dob; The larger the birthday value, the younger the person is, and vice versa; first qualifying race refers to MIN(races.date);",
+      "SQL": "SELECT T3.year, T3.name, T3.date, T3.time FROM qualifying AS T1 INNER JOIN drivers AS T2 on T1.driverId = T2.driverId INNER JOIN races AS T3 on T1.raceId = T3.raceId WHERE T1.driverId = ( SELECT driverId FROM drivers ORDER BY dob DESC LIMIT 1 ) ORDER BY T3.date ASC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 405,
+      "db_id": "card_games",
+      "question": "How many Brazilian Portuguese translated sets are inside the Commander block?",
+      "evidence": "Commander block refer to block = 'Commander'; sets refer to code = setCode; Portuguese refer to language = 'Portuguese (Brasil)'",
+      "SQL": "SELECT COUNT(T1.id) FROM sets AS T1 INNER JOIN set_translations AS T2 ON T1.code = T2.setCode WHERE T2.language = 'Portuguese (Brazil)' AND T1.block = 'Commander'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1162,
+      "db_id": "thrombosis_prediction",
+      "question": "How many female patients who came at the hospital in 1997 was immediately followed at the outpatient clinic?",
+      "evidence": "female refers to sex = 'F'; came at the hospital in 1997 refers to year(Description) = '1997'; immediately followed at the outpatient clinic refers to Admission = '-'",
+      "SQL": "SELECT COUNT(*) FROM Patient WHERE STRFTIME('%Y', Description) = '1997' AND SEX = 'F' AND Admission = '-'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 822,
+      "db_id": "superhero",
+      "question": "How many green-skinned villains are there in the superhero universe?",
+      "evidence": "green-skinned refers to colour.colour = 'Green' WHERE skin_colour_id = colour.id; villains refers to alignment = 'Bad';",
+      "SQL": "SELECT COUNT(T1.id) FROM superhero AS T1 INNER JOIN alignment AS T2 ON T1.alignment_id = T2.id INNER JOIN colour AS T3 ON T1.skin_colour_id = T3.id WHERE T2.alignment = 'Bad' AND T3.colour = 'Green'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1141,
+      "db_id": "european_football_2",
+      "question": "Does the KSV Cercle Brugge team have a slow, balanced or fast speed class?",
+      "evidence": "KSV Cercle Brugge refers to team_long_name = 'KSV Cercle Brugge'; speed class refers to buildUpPlaySpeedClass",
+      "SQL": "SELECT DISTINCT t1.buildUpPlaySpeedClass FROM Team_Attributes AS t1 INNER JOIN Team AS t2 ON t1.team_api_id = t2.team_api_id WHERE t2.team_long_name = 'KSV Cercle Brugge'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1205,
+      "db_id": "thrombosis_prediction",
+      "question": "Was the patient with the number 57266's uric acid within a normal range?",
+      "evidence": "uric acid within a normal range refers to UA > 8.0 and SEX = 'M'OR UA > 6.5 and SEX = 'F'",
+      "SQL": "SELECT CASE WHEN (T1.SEX = 'F' AND T2.UA > 6.5) OR (T1.SEX = 'M' AND T2.UA > 8.0) THEN true ELSE false END FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.ID = 57266",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 138,
+      "db_id": "financial",
+      "question": "In the branch where the second-highest number of crimes were committed in 1995 occurred, how many male clients are there?",
+      "evidence": "Male refers to gender = 'M'; A15 stands for no. of commited crimes 1995",
+      "SQL": "SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A15 = (SELECT T3.A15 FROM district AS T3 ORDER BY T3.A15 DESC LIMIT 1, 1)",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1238,
+      "db_id": "thrombosis_prediction",
+      "question": "Among the patients who were diagnosed with SLE, who is the oldest with normal hemoglobin level. Provide the ID and sex.",
+      "evidence": "diagnosed with SLE refers to Diagnosis = 'SLE'; The larger the birthday value, the younger the person is, and vice versa; normal hemoglobin level refers to 10 < HGB < 17;",
+      "SQL": "SELECT T1.ID, T1.SEX FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Diagnosis = 'SLE' AND T2.HGB > 10 AND T2.HGB < 17 ORDER BY T1.Birthday ASC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1255,
+      "db_id": "thrombosis_prediction",
+      "question": "For the patients with an abnormal Ig M level, what is the most common disease they are diagnosed with?",
+      "evidence": "abnormal Ig M level refers to IGM <=40 OR IGM >= 400; most common disease refers to MAX(COUNT(Diagnosis));",
+      "SQL": "SELECT T1.Diagnosis FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.IGM NOT BETWEEN 40 AND 400 GROUP BY T1.Diagnosis ORDER BY COUNT(T1.Diagnosis) DESC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 640,
+      "db_id": "codebase_community",
+      "question": "Calculate the difference in view count from post posted by Mornington and view count from posts posted by Amos.",
+      "evidence": "calculation = SUBTRACT(SUM(ViewCount where DisplayName = 'Mornington'), SUM(ViewCount where DisplayName = 'Amos'));",
+      "SQL": "SELECT SUM(IIF(T1.DisplayName = 'Mornington', T3.ViewCount, 0)) - SUM(IIF(T1.DisplayName = 'Amos', T3.ViewCount, 0)) AS diff FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId INNER JOIN posts AS T3 ON T3.Id = T2.PostId",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 236,
+      "db_id": "toxicology",
+      "question": "What are the bond type and the atoms of the bond ID of TR001_6_9?",
+      "evidence": "atoms refer to atom_id or atom_id2",
+      "SQL": "SELECT T1.bond_type, T2.atom_id, T2.atom_id2 FROM bond AS T1 INNER JOIN connected AS T2 ON T1.bond_id = T2.bond_id WHERE T2.bond_id = 'TR001_6_9'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 685,
+      "db_id": "codebase_community",
+      "question": "Identify the total views on the post 'Computer Game Datasets'. Name the user who posted it last time.",
+      "evidence": "total views refer to ViewCount; Name the user refers to DisplayName; post 'Computer Game Datasets' refers to Text = 'Computer Game Datasets';",
+      "SQL": "SELECT T2.ViewCount, T3.DisplayName FROM postHistory AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id INNER JOIN users AS T3 ON T2.LastEditorUserId = T3.Id WHERE T1.Text = 'Computer Game Datasets'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 189,
+      "db_id": "financial",
+      "question": "Name the account numbers of female clients who are oldest and have lowest average salary?",
+      "evidence": "Female refers to 'F' in the gender; A11 contains information about average salary",
+      "SQL": "SELECT T3.account_id FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id INNER JOIN account AS T3 ON T2.district_id = T3.district_id INNER JOIN disp AS T4 ON T1.client_id = T4.client_id AND T4.account_id = T3.account_id  WHERE T1.gender = 'F' ORDER BY T1.birth_date ASC, T2.A11 ASC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1102,
+      "db_id": "european_football_2",
+      "question": "For the players who had a 77 points overall rating on 2016/6/23, who was the oldest? Give the name of the player.",
+      "evidence": "77 points overall rating refers to overall_rating = 77; on 2016/6/23 refers to date LIKE '2016-06-23%'; The larger the birthday value, the younger the person is, and vice versa;",
+      "SQL": "SELECT t1.player_name FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE SUBSTR(t2.`date`, 1, 10) = '2016-06-23' AND t2.overall_rating = 77 ORDER BY t1.birthday ASC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 466,
+      "db_id": "card_games",
+      "question": "Among the cards in the set \"Hauptset Zehnte Edition\", how many of them are designed by Adam Rex?",
+      "evidence": "card set \"Hauptset Zehnte Edition\" refers to translation = 'Hauptset Zehnte Edition'; designed by Adam refers to artist = 'Adam Rex'",
+      "SQL": "SELECT COUNT(T1.id) FROM cards AS T1 INNER JOIN set_translations AS T2 ON T2.setCode = T1.setCode WHERE T2.translation = 'Hauptset Zehnte Edition' AND T1.artist = 'Adam Rex'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 578,
+      "db_id": "codebase_community",
+      "question": "Which user made a post titled 'Understanding what Dassault iSight is doing?' and how much is the reputation of the user?",
+      "evidence": "\"Understanding what Dassault iSight is doing?\" is the Title of post; user refers to DisplayName;",
+      "SQL": "SELECT T1.DisplayName, T1.Reputation FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId WHERE T2.Title = 'Understanding what Dassault iSight is doing?'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 137,
+      "db_id": "financial",
+      "question": "How many accounts have running contracts in Branch location 1?",
+      "evidence": "Status = 'C' stands for running contract, OK so far; Status = 'D' stands for running contract, client in debt",
+      "SQL": "SELECT COUNT(T1.account_id) FROM account AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id INNER JOIN loan AS T3 ON T1.account_id = T3.account_id WHERE T1.district_id = 1 AND (T3.status = 'C' OR T3.status = 'D')",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 716,
+      "db_id": "codebase_community",
+      "question": "Among the comments with scores between 5 to 10, what is the percentage of the users with 0 up votes?",
+      "evidence": "percentage = DIVIDE(COUNT(UserId where UpVotes = 0 and Score BETWEEN 5 and 10))*100, (COUNT(UserId where Score BETWEEN 5 and 10));",
+      "SQL": "SELECT CAST(SUM(IIF(T1.UpVotes = 0, 1, 0)) AS REAL) * 100/ COUNT(T1.Id) AS per FROM users AS T1 INNER JOIN comments AS T2 ON T1.Id = T2.UserId WHERE T2.Score BETWEEN 5 AND 10",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1387,
+      "db_id": "student_club",
+      "question": "Which student has been entrusted to manage the budget for the Yearly Kickoff?",
+      "evidence": "name of students means the full name; full name refers to first_name, last_name;'Yearly Kickoff' is an event name;",
+      "SQL": "SELECT T4.first_name, T4.last_name FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget INNER JOIN member AS T4 ON T3.link_to_member = T4.member_id WHERE T1.event_name = 'Yearly Kickoff'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1136,
+      "db_id": "european_football_2",
+      "question": "How many players had the highest potential score for crossing that preferred to use their left foots while attacking?",
+      "evidence": "highest potential score for crossing refers to MAX(crossing); preferred to use their left foots while attacking refers to preferred_foot = 'left'",
+      "SQL": "SELECT COUNT(t1.id) FROM Player_Attributes AS t1 WHERE t1.preferred_foot = 'left' AND t1.crossing = ( SELECT MAX(crossing) FROM Player_Attributes)",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 563,
+      "db_id": "codebase_community",
+      "question": "User No.3025 gave a comment at 20:29:39 on 2014/4/23 to a post, how many favorite counts did that post get?",
+      "evidence": "user no. 3025 refers to UserId = '3025'; comment at 20:29:39 on 2014/4/23 refers to CreationDate = '2014/4/23 20:29:39.0'",
+      "SQL": "SELECT T1.FavoriteCount FROM posts AS T1 INNER JOIN comments AS T2 ON T1.Id = T2.PostId WHERE T2.CreationDate = '2014-04-23 20:29:39.0' AND T2.UserId = 3025",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 72,
+      "db_id": "california_schools",
+      "question": "How many students from the ages of 5 to 17 are enrolled at the State Special School school in Fremont for the 2014-2015 academic year?",
+      "evidence": "State Special School means EdOpsCode = 'SSS'",
+      "SQL": "SELECT T1.`Enrollment (Ages 5-17)` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.EdOpsCode = 'SSS' AND T2.City = 'Fremont' AND T1.`Academic Year` BETWEEN 2014 AND 2015",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 31,
+      "db_id": "california_schools",
+      "question": "What is the eligible free rate of the 10th and 11th schools with the highest enrolment for students in grades 1 through 12?",
+      "evidence": "K-12 refers to students in grades 1 through 12; Eligible free rate for K-12 = `Free Meal Count (K-12)` / `Enrollment (K-12)`",
+      "SQL": "SELECT CAST(`Free Meal Count (K-12)` AS REAL) / `Enrollment (K-12)` FROM frpm ORDER BY `Enrollment (K-12)` DESC LIMIT 9, 2",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1149,
+      "db_id": "thrombosis_prediction",
+      "question": "Are there more in-patient or outpatient who were male? What is the deviation in percentage?",
+      "evidence": "male refers to SEX = 'M'; in-patient refers to Admission = '+'; outpatient refers to Admission = '-'; percentage = DIVIDE(COUNT(ID) where SEX = 'M' and Admission = '+', COUNT(ID) where SEX\u00c2\u00a0 = 'M' and Admission = '-')",
+      "SQL": "SELECT CAST(SUM(CASE WHEN Admission = '+' THEN 1 ELSE 0 END) AS REAL) * 100 / SUM(CASE WHEN Admission = '-' THEN 1 ELSE 0 END) FROM Patient WHERE SEX = 'M'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 518,
+      "db_id": "card_games",
+      "question": "Which of the play format has the highest number of banned status? Indicate the play format and the names of all the card meet the condition.",
+      "evidence": "play format refers to format; banned status refers to status = 'Banned'; the highest number of banned status refers to MAX(COUNT(status = 'Banned'))",
+      "SQL": "WITH MaxBanned AS (SELECT format, COUNT(*) AS count_banned FROM legalities WHERE status = 'Banned' GROUP BY format ORDER BY COUNT(*) DESC LIMIT 1) SELECT T2.format, T1.name FROM cards AS T1 INNER JOIN legalities AS T2 ON T2.uuid = T1.uuid INNER JOIN MaxBanned MB ON MB.format = T2.format WHERE T2.status = 'Banned'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 719,
+      "db_id": "superhero",
+      "question": "Among the superheroes with the super power of \"Super Strength\", how many of them have a height of over 200cm?",
+      "evidence": "super power of \"Super Strength\" refers to power_name = 'Super Strength'; a height of over 200cm refers to height_cm > 200",
+      "SQL": "SELECT COUNT(T1.id) FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T3.power_name = 'Super Strength' AND T1.height_cm > 200",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 128,
+      "db_id": "financial",
+      "question": "List the top nine districts, by descending order, from the highest to the lowest, the number of female account holders.",
+      "evidence": "A2 refers to districts; Female refers to gender = 'F'",
+      "SQL": "SELECT T2.A2, COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'F' GROUP BY T2.district_id, T2.A2 ORDER BY COUNT(T1.client_id) DESC LIMIT 9",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1164,
+      "db_id": "thrombosis_prediction",
+      "question": "How many of the patients with the most serious thrombosis cases examined in 1997 are women?",
+      "evidence": "the most serious thrombosis refers to Thrombosis = '1' (the most severe one); women refers to sex = 'F'",
+      "SQL": "SELECT  COUNT(*) FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T1.SEX = 'F' AND STRFTIME('%Y', T2.`Examination Date`) = '1997' AND T2.Thrombosis = 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1275,
+      "db_id": "thrombosis_prediction",
+      "question": "Among the patients who has a normal level of anti-centromere and a normal level of anti-SSB, how many of them are male?",
+      "evidence": "normal level of anti-centromere refers to CENTROMEA IN('-', '+-'); normal level of anti-SSB refers to SSB IN('-', '+-'); male refers to Sex = 'M'; Should consider DISTINCT in the final result;",
+      "SQL": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.CENTROMEA IN ('negative', '0') AND T2.SSB IN ('negative', '0') AND T1.SEX = 'M'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 751,
+      "db_id": "superhero",
+      "question": "List down at least five superpowers of male superheroes.",
+      "evidence": "male refers to gender = 'Male'; superpowers refers to power_name;",
+      "SQL": "SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T3.id = T2.power_id INNER JOIN gender AS T4 ON T4.id = T1.gender_id WHERE T4.gender = 'Male' LIMIT 5",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 192,
+      "db_id": "financial",
+      "question": "What is the average amount of loan which are still on running contract with statement issuance after each transaction?",
+      "evidence": "status = 'C' stands for running contract, OK so far; status = 'D' stands for running contract, client in debt. 'POPLATEK PO OBRATU' stands for issuance after transaction",
+      "SQL": "SELECT AVG(T2.amount) FROM account AS T1 INNER JOIN loan AS T2 ON T1.account_id = T2.account_id WHERE T2.status IN ('C', 'D') AND T1.frequency = 'POPLATEK PO OBRATU'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 352,
+      "db_id": "card_games",
+      "question": "Calculate the percentage of the cards availabe in Chinese Simplified.",
+      "evidence": "Chinese Simplified' is the language; percentage = Divide(Sum(id where language = 'Chinese Simplified'), Count(id)) *100",
+      "SQL": "SELECT CAST(SUM(CASE WHEN T2.language = 'Chinese Simplified' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 869,
+      "db_id": "formula_1",
+      "question": "For the constructor which got the highest point in the race No. 9 , what is its introduction website?",
+      "evidence": "race number refers to raceId; constructor which got the highest point refers to MAX(constructorResults.points); introduction website of the constructor refers to url;",
+      "SQL": "SELECT T2.url FROM constructorResults AS T1 INNER JOIN constructors AS T2 ON T2.constructorId = T1.constructorId WHERE T1.raceId = 9 ORDER BY T1.points DESC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1405,
+      "db_id": "student_club",
+      "question": "Calculate the amount budgeted for 'April Speaker' event. List all the budgeted categories for said event in an ascending order based on their amount budgeted.",
+      "evidence": "'April Speaker' is an event name; amount budgeted refers to SUM(amount); budget categories refers to category",
+      "SQL": "SELECT T2.category, SUM(T2.amount) FROM event AS T1 JOIN budget AS T2 ON T1.event_id = T2.link_to_event WHERE T1.event_name = 'April Speaker' GROUP BY T2.category ORDER BY SUM(T2.amount) ASC",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 694,
+      "db_id": "codebase_community",
+      "question": "Provide the text of the latest 10 comments to the post with the title 'Analysing wind data with R' and the display name of the user who left it.",
+      "evidence": "the latest comment refers to MAX(CreationDate);",
+      "SQL": "SELECT T3.Text, T1.DisplayName FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId INNER JOIN comments AS T3 ON T2.Id = T3.PostId WHERE T2.Title = 'Analysing wind data with R' ORDER BY T1.CreationDate DESC LIMIT 10",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1179,
+      "db_id": "thrombosis_prediction",
+      "question": "For the patient who was diagnosed with SLE on 1994/2/19, what was his/her anti-Cardiolipin antibody concentration status on 1993/11/12?",
+      "evidence": "diagnosed with SLE refers to Diagnosis = 'SLE'; 1994/2/19 refers to Description = '1994-02-19'; anti-Cardiolipin refers to aCL IgM; 1993/11/12 refers to Examination Date = '1993/11/12'",
+      "SQL": "SELECT `aCL IgA`, `aCL IgG`, `aCL IgM` FROM Examination WHERE ID IN ( SELECT ID FROM Patient WHERE Diagnosis = 'SLE' AND Description = '1994-02-19' ) AND `Examination Date` = '1993-11-12'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 465,
+      "db_id": "card_games",
+      "question": "For the set of cards with \"Ancestor's Chosen\" in it, is there a Korean version of it?",
+      "evidence": "set of cards with \"Ancestor''s Chosen\" in it refers to name = 'Ancestor''s Chosen'; Korean version refers to language = 'Korean'",
+      "SQL": "SELECT IIF(SUM(CASE WHEN T2.language = 'Korean' AND T2.translation IS NOT NULL THEN 1 ELSE 0 END) > 0, 'YES', 'NO') FROM cards AS T1 INNER JOIN set_translations AS T2 ON T2.setCode = T1.setCode WHERE T1.name = 'Ancestor''s Chosen'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 213,
+      "db_id": "toxicology",
+      "question": "What type of bond is there between the atoms TR004_8 and TR004_20?",
+      "evidence": "type of bond refers to bond_type; between the atoms TR004_8 and TR004_20 refers to atom_id = 'TR004_8' AND atom_id2 = 'TR004_20' OR another way around",
+      "SQL": "SELECT T1.bond_type FROM bond AS T1 INNER JOIN connected AS T2 ON T1.bond_id = T2.bond_id WHERE T2.atom_id = 'TR004_8' AND T2.atom_id2 = 'TR004_20' OR T2.atom_id2 = 'TR004_8' AND T2.atom_id = 'TR004_20'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1229,
+      "db_id": "thrombosis_prediction",
+      "question": "For all patients with triglyceride (TG) level beyond the normal range, how many are age more than 50 years?",
+      "evidence": "triglyceride (TG) level beyond the normal range refers to TG > = 200; more than 50 years of age = SUBTRACT(year(current_timestamp), year(Birthday)) > 50; Should consider DISTINCT in the final result;",
+      "SQL": "SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.TG >= 200 AND STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.Birthday) > 50",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 906,
+      "db_id": "formula_1",
+      "question": "Which was Lewis Hamilton first race? What was his points recorded for his first race event?",
+      "evidence": "first race refers to min(Year); Lewis Hamiltonrefers to the full name of the driver; Full name of the driver refers to drivers.forename and drivers.surname;",
+      "SQL": "SELECT T1.name, T2.points FROM races AS T1 INNER JOIN driverStandings AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.forename = 'Lewis' AND T3.surname = 'Hamilton' ORDER BY T1.year ASC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1135,
+      "db_id": "european_football_2",
+      "question": "Please provide top four football players' IDs who are among the lowest potential players and prefer to use the right foot when attacking.",
+      "evidence": "lowest potential players refers to MIN(potential); prefer to use the right foot when attacking refers to preferred_foot = 'right'",
+      "SQL": "SELECT id FROM Player_Attributes WHERE preferred_foot = 'right' ORDER BY potential ASC LIMIT 4",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1091,
+      "db_id": "european_football_2",
+      "question": "How many matches were held in the Belgium Jupiler League in April, 2009?",
+      "evidence": "Belgium Jupiler League refers to League.name = 'Belgium Jupiler League'; in April, 2009 refers to SUBSTR(`date`, 1, 7);",
+      "SQL": "SELECT COUNT(t2.id) FROM League AS t1 INNER JOIN Match AS t2 ON t1.id = t2.league_id WHERE t1.name = 'Belgium Jupiler League' AND SUBSTR(t2.`date`, 1, 7) = '2009-04'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1401,
+      "db_id": "student_club",
+      "question": "Indicate the cost of posters for 'September Speaker' event.",
+      "evidence": "'Posters' is the expense description; 'September Speaker' is an event name",
+      "SQL": "SELECT T3.cost FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget WHERE T1.event_name = 'September Speaker' AND T3.expense_description = 'Posters'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 45,
+      "db_id": "california_schools",
+      "question": "What is the average writing score of each of the schools managed by Ricci Ulrich? List the schools and the corresponding average writing scores.",
+      "evidence": "Usually, administrators manage the school stuff.",
+      "SQL": "SELECT T2.School, T1.AvgScrWrite FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.AdmFName1 = 'Ricci' AND T2.AdmLName1 = 'Ulrich'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 897,
+      "db_id": "formula_1",
+      "question": "Name the driver with the most winning. Mention his nationality and what is his maximum point scores.",
+      "evidence": "Full name of the driver refers to drivers.forename and drivers.surname; the most winning refers to MAX(COUNT(wins)); average point scores refers to MAX(points);",
+      "SQL": "SELECT T1.forename, T1.surname, T1.nationality, MAX(T2.points) FROM drivers AS T1 INNER JOIN driverStandings AS T2 ON T2.driverId = T1.driverId WHERE T2.wins >= 1 GROUP BY T1.forename, T1.surname, T1.nationality ORDER BY COUNT(T2.wins) DESC LIMIT 1",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 1057,
+      "db_id": "european_football_2",
+      "question": "Calculate the average home team goal in the 2010/2011 season in the country of Poland.",
+      "evidence": "average home team goal = AVG(home_team_goal)= SUM(home_team_goal) / COUNT(DISTINCT Match.id) WHERE name = 'Poland' and season = '2010/2011';",
+      "SQL": "SELECT CAST(SUM(t2.home_team_goal) AS REAL) / COUNT(t2.id) FROM Country AS t1 INNER JOIN Match AS t2 ON t1.id = t2.country_id WHERE t1.name = 'Poland' AND t2.season = '2010/2011'",
+      "difficulty": "moderate"
+    },
+    {
+      "question_id": 149,
+      "db_id": "financial",
+      "question": "Please list the account types that are not eligible for loans, and the average income of residents in the district where the account is located exceeds $8000 but is no more than $9000.",
+      "evidence": "A11 represents the average salary; Salary and income share the similar meanings; when the account type = 'OWNER', it's eligible for loans",
+      "SQL": "SELECT T3.type FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id INNER JOIN disp AS T3 ON T2.account_id = T3.account_id WHERE T3.type != 'OWNER' AND T1.A11 BETWEEN 8000 AND 9000",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 416,
+      "db_id": "card_games",
+      "question": "What percentage of cards without power are in French?",
+      "evidence": "in French refers to language = 'French'; cards without power refers to power IS NULL OR power = '*'; percentage = DIVIDE(COUNT(language = 'French' and power is NULL or power = '*'), COUNT( power is NULL or power = '*'))*100",
+      "SQL": "SELECT CAST(SUM(CASE WHEN T2.language = 'French' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid WHERE T1.power IS NULL OR T1.power = '*'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1302,
+      "db_id": "thrombosis_prediction",
+      "question": "For the patients with a normal range of creatinine phosphokinase, how many of them have a positive measure of degree of coagulation?",
+      "evidence": "normal range of creatinine phosphokinase refers to CPK < 250; positive measure of degree of coagulation refers to KCT = '+' or RVVT = '+' or LAC = '+' ;",
+      "SQL": "SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID INNER JOIN Examination AS T3 ON T1.ID = T3.ID WHERE T2.CPK < 250 AND (T3.KCT = '+' OR T3.RVVT = '+' OR T3.LAC = '+')",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 230,
+      "db_id": "toxicology",
+      "question": "What are the elements of the toxicology and label of molecule TR060?",
+      "evidence": "TR060 is the molecule id; ",
+      "SQL": "SELECT DISTINCT T1.element, T2.label FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T2.molecule_id = 'TR060'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1460,
+      "db_id": "student_club",
+      "question": "Write the full name of the member who spent money for water, veggie tray and supplies and include the cost of it.",
+      "evidence": "full name refers to first_name, last name; spent money for refers expense description; expense_description = 'Water, Veggie tray, supplies'",
+      "SQL": "SELECT T2.first_name, T2.last_name, T1.cost FROM expense AS T1 INNER JOIN member AS T2 ON T1.link_to_member = T2.member_id WHERE T1.expense_description = 'Water, Veggie tray, supplies'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1094,
+      "db_id": "european_football_2",
+      "question": "How much higher in percentage is Ariel Borysiuk's overall rating than that of Paulin Puel?",
+      "evidence": "how much higher in percentage = MULTIPLY(DIVIDE(SUBTRACT(overall_rating WHERE player_name = 'Ariel Borysiuk', overall_rating WHERE player_name = 'Paulin Puel'), overall_rating WHERE player_name = 'Paulin Puel'), 100);",
+      "SQL": "SELECT (SUM(CASE WHEN t1.player_name = 'Ariel Borysiuk' THEN t2.overall_rating ELSE 0 END) * 1.0 - SUM(CASE WHEN t1.player_name = 'Paulin Puel' THEN t2.overall_rating ELSE 0 END)) * 100 / SUM(CASE WHEN t1.player_name = 'Paulin Puel' THEN t2.overall_rating ELSE 0 END) FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1042,
+      "db_id": "european_football_2",
+      "question": "List the name of leagues in which the average goals by the home team is higher than the away team in the 2009/2010 season.",
+      "evidence": "name of league refers to League.name; average goals by the home team is higher than the away team = AVG(home_team_goal) > AVG(away_team_goal); AVG(xx_goal) = SUM(xx_goal) / COUNT(DISTINCT Match.id); 2009/2010 season refers to season = '2009/2010'",
+      "SQL": "SELECT t1.name FROM League AS t1 INNER JOIN Match AS t2 ON t1.id = t2.league_id WHERE t2.season = '2009/2010' GROUP BY t1.name HAVING (CAST(SUM(t2.home_team_goal) AS REAL) / COUNT(DISTINCT t2.id)) - (CAST(SUM(t2.away_team_goal) AS REAL) / COUNT(DISTINCT t2.id)) > 0",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1139,
+      "db_id": "european_football_2",
+      "question": "What was the final score for the match on September 24, 2008, in the Belgian Jupiler League between the home team and the away team?",
+      "evidence": "September 24, 2008 refers to date like '2008-09-24%'; in the Belgian Jupiler League refers to League.name = 'Belgium Jupiler League'; final score for home team refers to home_team_goal; final score for away team refers to away_team_goal",
+      "SQL": "SELECT t2.home_team_goal, t2.away_team_goal FROM League AS t1 INNER JOIN Match AS t2 ON t1.id = t2.league_id WHERE t1.name = 'Belgium Jupiler League' AND t2.`date` LIKE '2008-09-24%'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 962,
+      "db_id": "formula_1",
+      "question": "From 2000 to 2005, what percentage of drivers who were born before 1985 and the lap numbers were over 50?",
+      "evidence": "born before 1985 refers to year(dob)<1985; in 2000 to 2005 refers to year between 2000 and 2005; percentage = Divide(COUNT(driverId where year (dob) <1985 and laps >50),COUNT(DriverID where year between 2000 and 2005) *100;",
+      "SQL": "SELECT CAST(SUM(IIF(STRFTIME('%Y', T3.dob) < '1985' AND T1.laps > 50, 1, 0)) AS REAL) * 100 / COUNT(*) FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId INNER JOIN drivers AS T3 on T1.driverId = T3.driverId WHERE T2.year BETWEEN 2000 AND 2005",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 87,
+      "db_id": "california_schools",
+      "question": "What are the valid e-mail addresses of the administrator of the school located in the San Bernardino county, City of San Bernardino City Unified that opened between 1/1/2009 to 12/31/2010 whose school types are public Intermediate/Middle Schools and Unified Schools?",
+      "evidence": "Intermediate/Middle Schools refers to SOC = 62; Unified School refers to DOC = 54; years between 2009 and 2010 can refer to 'between 1/1/2009 to 12/31/2010'",
+      "SQL": "SELECT T2.AdmEmail1, T2.AdmEmail2 FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.County = 'San Bernardino' AND T2.City = 'San Bernardino' AND T2.DOC = 54 AND strftime('%Y', T2.OpenDate) BETWEEN '2009' AND '2010' AND T2.SOC = 62",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 743,
+      "db_id": "superhero",
+      "question": "What is the percentage of superheroes who act in their own self-interest or make decisions based on their own moral code? Indicate how many of the said superheroes were published by Marvel Comics.",
+      "evidence": "published by Marvel Comics refers to publisher_name = 'Marvel Comics'; superheroes who act in their own self-interest or make decisions based on their own moral code refers to alignment = 'Bad'; calculation = MULTIPLY(DIVIDE(SUM(alignment = 'Bad); count(id)), 100)",
+      "SQL": "SELECT (CAST(COUNT(*) AS REAL) * 100 / (SELECT COUNT(*) FROM superhero)), CAST(SUM(CASE WHEN T2.publisher_name = 'Marvel Comics' THEN 1 ELSE 0 END) AS REAL) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id INNER JOIN alignment AS T3 ON T3.id = T1.alignment_id WHERE T3.alignment = 'Bad'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 944,
+      "db_id": "formula_1",
+      "question": "How much faster in percentage is the champion than the driver who finished the race last in the 2008 Australian Grand Prix?",
+      "evidence": "how much faster in percentage = divide(subtract(incremental time, champion time), last_driver time) * 100; last driver finished time = incremental time + champion time; only champion's finished time is represented by 'HH:MM:SS.mmm'; finished the game refers to time is not null",
+      "SQL": "WITH time_in_seconds AS ( SELECT T1.positionOrder, CASE WHEN T1.positionOrder = 1 THEN (CAST(SUBSTR(T1.time, 1, 1) AS REAL) * 3600) + (CAST(SUBSTR(T1.time, 3, 2) AS REAL) * 60) + CAST(SUBSTR(T1.time, 6) AS REAL) ELSE CAST(SUBSTR(T1.time, 2) AS REAL) END AS time_seconds FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.name = 'Australian Grand Prix' AND T1.time IS NOT NULL AND T2.year = 2008 ), champion_time AS ( SELECT time_seconds FROM time_in_seconds WHERE positionOrder = 1), last_driver_incremental AS ( SELECT time_seconds FROM time_in_seconds WHERE positionOrder = (SELECT MAX(positionOrder) FROM time_in_seconds) ) SELECT (CAST((SELECT time_seconds FROM last_driver_incremental) AS REAL) * 100) / (SELECT time_seconds + (SELECT time_seconds FROM last_driver_incremental) FROM champion_time)",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1037,
+      "db_id": "european_football_2",
+      "question": "Calculate the percentage of players who prefer left foot, who were born between 1987 and 1992.",
+      "evidence": "players who prefer left foot refers to preferred_foot = 'left'; percentage of players who prefer left foot = DIVIDE(MULTIPLY((SUM(preferred_foot = 'left'), 100)), COUNT(player_fifa_api_id)); born between 1987 and 1992 refers to YEAR(birthday) BETWEEN '1987' AND '1992';",
+      "SQL": "SELECT CAST(COUNT(CASE WHEN t2.preferred_foot = 'left' THEN t1.id ELSE NULL END) AS REAL) * 100 / COUNT(t1.id) percent FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE SUBSTR(t1.birthday, 1, 4) BETWEEN '1987' AND '1992'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 268,
+      "db_id": "toxicology",
+      "question": "What are the elements for bond id TR001_10_11?",
+      "evidence": "TR001_10_11 is the bond id;",
+      "SQL": "SELECT T2.element FROM connected AS T1 INNER JOIN atom AS T2 ON T1.atom_id = T2.atom_id WHERE T1.bond_id = 'TR001_10_11'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 249,
+      "db_id": "toxicology",
+      "question": "What are the elements of the atoms of TR144_8_19?",
+      "evidence": "TR144_8_19 is the bond id; ",
+      "SQL": "SELECT T2.element FROM connected AS T1 INNER JOIN atom AS T2 ON T1.atom_id = T2.atom_id WHERE T1.bond_id = 'TR144_8_19'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 125,
+      "db_id": "financial",
+      "question": "For loans contracts which are still running where client are in debt, list the district of the and the state the percentage unemployment rate increment from year 1995 to 1996.",
+      "evidence": "Unemployment increment rate in percentage = [(unemployment rate 2016 - unemployment rate 2015) / unemployment rate 2015] * 100; unemployment rate 2015 appears in the A12; unemployment rate 2016 appears in the A13; Loan contracts which are still running where client are in debt can be presented as status = 'D'",
+      "SQL": "SELECT CAST((T3.A13 - T3.A12) AS REAL) * 100 / T3.A12 FROM loan AS T1 INNER JOIN account AS T2 ON T1.account_id = T2.account_id INNER JOIN district AS T3 ON T2.district_id = T3.district_id WHERE T1.status = 'D'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 988,
+      "db_id": "formula_1",
+      "question": "List down top 3 German drivers who has the shortest average pit stop duration and were born between 1980-1985.",
+      "evidence": "Full name of the driver refers to drivers.forename and drivers.surname; born between 1980-1985 refers to 1980<= year(dob) <=1985; Average pitstop duration refers to Divide(SUM(duration),COUNT(duration)); shortest average refers to Min(avg(duration));",
+      "SQL": "SELECT T2.forename, T2.surname FROM pitStops AS T1 INNER JOIN drivers AS T2 on T1.driverId = T2.driverId WHERE T2.nationality = 'German' AND STRFTIME('%Y', T2.dob) BETWEEN '1980' AND '1985' GROUP BY T2.forename, T2.surname ORDER BY AVG(T1.duration) LIMIT 3",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 896,
+      "db_id": "formula_1",
+      "question": "Calculate the percentage whereby Hamilton was not at the 1st track of the the f1 circuit since 2010.",
+      "evidence": "percentage = DIVIDE(COUNT(raceId) where surname = 'Hamilton' and position>1), (COUNT(raceId) where surname = 'Hamilton'); since 2010 refers to year >= 2010",
+      "SQL": "SELECT CAST(COUNT(CASE WHEN T2.position <> 1 THEN T2.position END) AS REAL) * 100 / COUNT(T2.driverStandingsId) FROM races AS T1 INNER JOIN driverStandings AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.surname = 'Hamilton' AND T1.year >= 2010",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 829,
+      "db_id": "superhero",
+      "question": "Which publisher created more superheroes: DC or Marvel Comics? Find the difference in the number of superheroes.",
+      "evidence": "DC refers to publisher_name = 'DC Comics'; Marvel Comics refers to publisher_name = 'Marvel Comics'; difference = SUBTRACT(SUM(publisher_name = 'DC Comics'), SUM(publisher_name = 'Marvel Comics'));",
+      "SQL": "SELECT SUM(CASE WHEN T2.publisher_name = 'DC Comics' THEN 1 ELSE 0 END) - SUM(CASE WHEN T2.publisher_name = 'Marvel Comics' THEN 1 ELSE 0 END) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 263,
+      "db_id": "toxicology",
+      "question": "What is the composition of element chlorine in percentage among the single bond molecules?",
+      "evidence": "element chlorine refers to element = 'cl'; single bond refers to bond_type = '-'; percentage = DIVIDE(SUM(element = 'cl'), COUNT(atom_id)) as percent where bond_type = '-'",
+      "SQL": "SELECT CAST(COUNT(CASE WHEN T.element = 'cl' THEN T.atom_id ELSE NULL END) AS REAL) * 100 / COUNT(T.atom_id) FROM ( SELECT T1.atom_id, T1.element FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id INNER JOIN bond AS T3 ON T2.molecule_id = T3.molecule_id WHERE T3.bond_type = '-' ) AS T",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 220,
+      "db_id": "toxicology",
+      "question": "Please list top three elements of the toxicology of the molecule TR000 in alphabetical order.",
+      "evidence": "TR000 is the molecule id;",
+      "SQL": "SELECT DISTINCT T.element FROM atom AS T WHERE T.molecule_id = 'TR000' ORDER BY T.element LIMIT 3",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1464,
+      "db_id": "student_club",
+      "question": "Write the full names of students who received funds on the date of 9/9/2019 and include the amount received.",
+      "evidence": "full name refers to first_name, last_name, amount of funds received refers to amount, received funds on date refers to date_received",
+      "SQL": "SELECT DISTINCT T3.first_name, T3.last_name, T4.amount FROM event AS T1 INNER JOIN attendance AS T2 ON T1.event_id = T2.link_to_event INNER JOIN member AS T3 ON T3.member_id = T2.link_to_member INNER JOIN income AS T4 ON T4.link_to_member = T3.member_id WHERE T4.date_received = '2019-09-09'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 415,
+      "db_id": "card_games",
+      "question": "What percentage of cards with format commander and legal status do not have a content warning?",
+      "evidence": "do not have a content warning refers to hasContentWarning = 0; percentage refers to DIVIDE(COUNT(hasContentWarning = 0),COUNT(ID))*100 where format = 'commander' AND Status = 'legal';",
+      "SQL": "SELECT CAST(SUM(CASE WHEN T1.hasContentWarning = 0 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T2.format = 'commander' AND T2.status = 'Legal'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 1476,
+      "db_id": "debit_card_specializing",
+      "question": "What was the difference in gas consumption between CZK-paying customers and EUR-paying customers in 2012?",
+      "evidence": "Year 2012 can be presented as Between 201201 And 201212; The first 4 strings of the Date values in the yearmonth table can represent year; Difference in Consumption = CZK customers consumption in 2012 - EUR customers consumption in 2012",
+      "SQL": "SELECT SUM(IIF(T1.Currency = 'CZK', T2.Consumption, 0)) - SUM(IIF(T1.Currency = 'EUR', T2.Consumption, 0)) FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE SUBSTR(T2.Date, 1, 4) = '2012'",
+      "difficulty": "challenging"
+    },
+    {
+      "question_id": 586,
+      "db_id": "codebase_community",
+      "question": "Which user added a bounty amount of 50 to the post title mentioning variance?",
+      "evidence": "bounty amount of 50 refers to BountyAmount = 50; user refers to DisplayName; title mentioning variance refers to Title include 'variance'",
+      "SQL": "SELECT T3.DisplayName, T1.Title FROM posts AS T1 INNER JOIN votes AS T2 ON T1.Id = T2.PostId INNER JOIN users AS T3 ON T3.Id = T2.UserId WHERE T2.BountyAmount = 50 AND T1.Title LIKE '%variance%'",
+      "difficulty": "challenging"
+    }
+  ]
+}

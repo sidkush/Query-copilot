@@ -32,6 +32,19 @@ def test_plan_cte_count_capped_at_three():
         )
 
 
+# Wave 2 spike-fix (2026-04-26): tests below updated to match the real
+# provider.complete() contract (was provider.invoke() before fix). The new
+# regression test in tests/test_planner_real_integration.py uses no MagicMock
+# at all to catch dead-method bugs going forward.
+TEST_TENANT = "test-tenant-uuid"
+
+
+def _mock_provider_response(text: str):
+    """Build a ProviderResponse mock with the .text attribute the planner reads."""
+    from model_provider import ProviderResponse
+    return ProviderResponse(text=text, usage={"input_tokens": 100, "output_tokens": 50}, stop_reason="end_turn")
+
+
 def test_planner_plan_method_returns_fallback_when_registry_empty():
     """Empty registry → plan marked fallback=True and caller uses free-form path."""
     provider = MagicMock()
@@ -43,6 +56,7 @@ def test_planner_plan_method_returns_fallback_when_registry_empty():
         conn_id="c1",
         nl="how many orders?",
         coverage_cards=[],
+        tenant_id=TEST_TENANT,
     )
     assert plan.fallback is True
     assert plan.ctes == []
@@ -51,40 +65,36 @@ def test_planner_plan_method_returns_fallback_when_registry_empty():
 def test_planner_emits_plan_from_mock_sonnet_response():
     """Planner calls provider with plan-emission system prompt, parses JSON response."""
     provider = MagicMock()
-    provider.invoke = MagicMock(return_value={
-        "content": json.dumps({
-            "ctes": [
-                {"name": "recent_trips", "description": "last 90 days", "sql": "SELECT * FROM trips WHERE started_at >= DATE_SUB(CURRENT_DATE, INTERVAL 90 DAY)"},
-                {"name": "by_station", "description": "agg per station", "sql": "SELECT station_id, COUNT(*) FROM recent_trips GROUP BY station_id"},
-            ],
-            "registry_hits": ["trips_row_count", "trips_by_station"],
-        }),
-    })
+    provider.complete = MagicMock(return_value=_mock_provider_response(json.dumps({
+        "ctes": [
+            {"name": "recent_trips", "description": "last 90 days", "sql": "SELECT * FROM trips WHERE started_at >= DATE_SUB(CURRENT_DATE, INTERVAL 90 DAY)"},
+            {"name": "by_station", "description": "agg per station", "sql": "SELECT station_id, COUNT(*) FROM recent_trips GROUP BY station_id"},
+        ],
+        "registry_hits": ["trips_row_count", "trips_by_station"],
+    })))
     registry = MagicMock()
     registry.list_for_conn = MagicMock(return_value=[
         MagicMock(name="trips_row_count"),
         MagicMock(name="trips_by_station"),
     ])
     planner = AnalyticalPlanner(provider=provider, registry=registry)
-    plan = planner.plan(conn_id="c1", nl="trips by station", coverage_cards=[])
+    plan = planner.plan(conn_id="c1", nl="trips by station", coverage_cards=[], tenant_id=TEST_TENANT)
     assert plan.fallback is False
     assert len(plan.ctes) == 2
     assert plan.ctes[0].name == "recent_trips"
-    provider.invoke.assert_called_once()
+    provider.complete.assert_called_once()
 
 
 def test_planner_rejects_emission_over_3_ctes():
     """Sonnet returns 4 CTEs → planner falls back."""
     provider = MagicMock()
-    provider.invoke = MagicMock(return_value={
-        "content": json.dumps({
-            "ctes": [{"name": f"c{i}", "description": "x", "sql": "SELECT 1"} for i in range(4)],
-            "registry_hits": [],
-        }),
-    })
+    provider.complete = MagicMock(return_value=_mock_provider_response(json.dumps({
+        "ctes": [{"name": f"c{i}", "description": "x", "sql": "SELECT 1"} for i in range(4)],
+        "registry_hits": [],
+    })))
     registry = MagicMock(list_for_conn=MagicMock(return_value=["some_hit"]))
     planner = AnalyticalPlanner(provider=provider, registry=registry)
-    plan = planner.plan(conn_id="c1", nl="too complex", coverage_cards=[])
+    plan = planner.plan(conn_id="c1", nl="too complex", coverage_cards=[], tenant_id=TEST_TENANT)
     assert plan.fallback is True
 
 
@@ -103,9 +113,9 @@ def test_planner_uses_cache_hit_and_skips_provider():
     cache.lookup = MagicMock(return_value=CachedPlan(plan=cached_plan_obj, similarity=0.95, cached_id="cid"))
     planner = AnalyticalPlanner(provider=provider, registry=registry)
     planner._cache = cache
-    plan = planner.plan(conn_id="c1", nl="churn analysis", coverage_cards=[])
+    plan = planner.plan(conn_id="c1", nl="churn analysis", coverage_cards=[], tenant_id=TEST_TENANT)
     assert plan.plan_id == "p-cached"
-    provider.invoke.assert_not_called()
+    provider.complete.assert_not_called()
 
 
 def test_planner_calls_provider_on_cache_miss():
@@ -113,9 +123,10 @@ def test_planner_calls_provider_on_cache_miss():
     from unittest.mock import MagicMock
     import json as _j
     provider = MagicMock()
-    provider.invoke = MagicMock(return_value={
-        "content": _j.dumps({"ctes": [{"name": "c1", "description": "x", "sql": "SELECT 1"}], "registry_hits": []}),
-    })
+    provider.complete = MagicMock(return_value=_mock_provider_response(_j.dumps({
+        "ctes": [{"name": "c1", "description": "x", "sql": "SELECT 1"}],
+        "registry_hits": [],
+    })))
     registry = MagicMock()
     registry.list_for_conn = MagicMock(return_value=["some_hit"])
     cache = MagicMock()
@@ -123,7 +134,17 @@ def test_planner_calls_provider_on_cache_miss():
     cache.store = MagicMock()
     planner = AnalyticalPlanner(provider=provider, registry=registry)
     planner._cache = cache
-    plan = planner.plan(conn_id="c1", nl="novel question", coverage_cards=[])
-    provider.invoke.assert_called_once()
+    plan = planner.plan(conn_id="c1", nl="novel question", coverage_cards=[], tenant_id=TEST_TENANT)
+    provider.complete.assert_called_once()
     cache.store.assert_called_once()
     assert plan.fallback is False
+
+
+def test_planner_rejects_empty_tenant_id():
+    """Wave 2 contract: tenant_id must be non-empty (parity with PlanCache hardening)."""
+    import pytest
+    provider = MagicMock()
+    registry = MagicMock(list_for_conn=MagicMock(return_value=[]))
+    planner = AnalyticalPlanner(provider=provider, registry=registry)
+    with pytest.raises(ValueError, match="tenant_id"):
+        planner.plan(conn_id="c1", nl="x", coverage_cards=[], tenant_id="")

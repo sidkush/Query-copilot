@@ -26,6 +26,7 @@ import chromadb
 
 from config import settings
 from chroma_write_guard import guarded_add, guarded_upsert
+from embeddings.embedder_registry import get_embedder
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,29 @@ class _HashEmbeddingFunction(chromadb.EmbeddingFunction):
             norm = math.sqrt(sum(x * x for x in vec)) or 1.0
             result.append([x / norm for x in vec])
         return result
+
+
+class _MiniLMEmbeddingFunction(chromadb.EmbeddingFunction):
+    """sentence-transformers/all-MiniLM-L6-v2 wrapped in Chroma's EmbeddingFunction protocol.
+
+    D1 (Wave 2, 2026-04-26): semantic alternative to _HashEmbeddingFunction.
+    Same dim (384) but DIFFERENT VECTOR SPACE — collections MUST be versioned
+    (_minilm-v1 suffix at QueryMemory._get_collection) to prevent silent
+    mixing with hash-v1 vectors. Activation gated by FEATURE_MINILM_EMBEDDER
+    or BENCHMARK_MODE in QueryMemory.__init__.
+    """
+
+    DIM = 384
+    VERSION = "minilm-v1"
+
+    def __init__(self):
+        # Uses singleton from embedder_registry — preload in main.py lifespan
+        # ensures this returns the warmed instance with hot encode path.
+        self._embedder = get_embedder("minilm-l6-v2")
+
+    def __call__(self, input):  # noqa: A002  (chromadb API name)
+        # MiniLM .encode() returns numpy ndarray; Chroma wants list[float].
+        return [self._embedder.encode(text).tolist() for text in input]
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +224,11 @@ def record_query_pattern(conn_id: str, table_names: list, question_hash: str) ->
         entry["last_seen"] = now_iso
         data[table] = entry
 
-    # Atomic write: temp file → os.rename (Invariant-6)
+    # Atomic write: temp file → os.replace (Invariant-6).
+    # os.replace is atomic on POSIX AND Windows; os.rename raises on Windows
+    # if the destination exists, so concurrent agents can corrupt the file.
+    # security-core.md: "File state writes must be atomic — write to {path}.tmp,
+    # flush, then os.replace(tmp, path)."
     try:
         tmp_fd, tmp_path = tempfile.mkstemp(
             dir=str(patterns_dir), prefix=f"{conn_id}_", suffix=".json.tmp"
@@ -208,10 +236,12 @@ def record_query_pattern(conn_id: str, table_names: list, question_hash: str) ->
         try:
             with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
                 json.dump(data, fh, indent=2)
+                fh.flush()
+                os.fsync(fh.fileno())
         except Exception:
             os.unlink(tmp_path)
             raise
-        os.rename(tmp_path, str(target_path))
+        os.replace(tmp_path, str(target_path))
         logger.debug(
             "record_query_pattern: updated patterns for conn=%s (%d tables tracked)",
             conn_id, len(data),
@@ -266,12 +296,45 @@ class QueryMemory:
             self._chroma = chromadb.PersistentClient(
                 path=settings.CHROMA_PERSIST_DIR,
             )
-            self._ef = _HashEmbeddingFunction()
+            # D1 (Wave 2): gate MiniLM activation behind FEATURE_MINILM_EMBEDDER
+            # (default False). BENCHMARK_MODE coerces ON for eval runs (mirrors
+            # the planner+ladder+plan_cache coercion pattern).
+            #
+            # Production-safe coexistence: hash and MiniLM use DIFFERENT collection
+            # names (legacy "query_memory_<conn_id>" vs versioned
+            # "query_memory_<conn_id>_minilm-v1") so flipping the flag does not
+            # corrupt either vector space. Old hash collections preserved on disk
+            # as orphans on the MiniLM path; reused on the hash path. No migration.
+            _use_minilm = (
+                getattr(settings, "FEATURE_MINILM_EMBEDDER", False)
+                or getattr(settings, "BENCHMARK_MODE", False)
+            )
+            if _use_minilm:
+                try:
+                    self._ef = _MiniLMEmbeddingFunction()
+                    self._embedder_version = _MiniLMEmbeddingFunction.VERSION
+                    logger.info(
+                        "QueryMemory: MiniLM embedder active (semantic vectors, "
+                        "collection suffix=_%s)", self._embedder_version,
+                    )
+                except Exception as _emb_exc:
+                    logger.warning(
+                        "QueryMemory: MiniLM init FAILED (%s: %s); falling back "
+                        "to hash-v1 with LEGACY collection name (preserves "
+                        "existing user data in degraded retrieval mode)",
+                        type(_emb_exc).__name__, _emb_exc,
+                    )
+                    self._ef = _HashEmbeddingFunction()
+                    self._embedder_version = None
+            else:
+                self._ef = _HashEmbeddingFunction()
+                self._embedder_version = None
             logger.info("QueryMemory: ChromaDB client initialised at %s", settings.CHROMA_PERSIST_DIR)
         except Exception:
             logger.exception("QueryMemory: failed to initialise ChromaDB client")
             self._chroma = None
             self._ef = None
+            self._embedder_version = None
         from collections import defaultdict
         self._counter: dict = defaultdict(lambda: {"hits": 0, "total": 0})
 
@@ -292,10 +355,18 @@ class QueryMemory:
         """Return (or create) the ChromaDB collection for *conn_id*."""
         if self._chroma is None:
             raise RuntimeError("ChromaDB client not available")
-        name = f"{settings.QUERY_MEMORY_COLLECTION_PREFIX}{conn_id}"
+        # D1: version collection name with embedder suffix when MiniLM active.
+        # Hash path uses LEGACY name (no suffix) to preserve existing user data.
+        # CRITICAL: do NOT fall back to legacy name on cache miss in MiniLM mode
+        # — would mix vector spaces (semantic queries against lexical vectors).
+        base = f"{settings.QUERY_MEMORY_COLLECTION_PREFIX}{conn_id}"
+        name = f"{base}_{self._embedder_version}" if self._embedder_version else base
         return self._chroma.get_or_create_collection(
             name=name,
-            metadata={"description": f"Query memory for connection {conn_id}"},
+            metadata={
+                "description": f"Query memory for connection {conn_id}",
+                "embedder_version": self._embedder_version or "hash-v1",
+            },
             embedding_function=self._ef,
         )
 

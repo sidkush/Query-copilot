@@ -104,3 +104,9 @@ yarn-debug.log*
 !.data/capability_routing_baseline.json
 backend/.data/backups/
 backend/.data/agent_sessions.db
+
+# BIRD benchmark runtime artifacts (per-qid traces + resolved-model marker)
+benchmarks/bird/traces/
+backend/.opus_resolved_model
+# BIRD upstream raw dataset (clone separately; do not vendor)
+benchmarks/bird/mini_dev/

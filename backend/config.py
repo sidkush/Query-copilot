@@ -284,6 +284,9 @@ class Settings(BaseSettings):
     FEATURE_ALERT_MANAGER: bool = Field(default=True, description="Master gate. Off -> detectors silent, alert_manager.fire() no-ops with log.")
 
     # ── Ring 8 Agent Orchestration (Phase K) ──
+    # Note: planner + ladder defaults stay False to preserve interactive-prod
+    # behavior (no quiet latency/cost regression). BENCHMARK_MODE coerces them
+    # ON in eval-only mode via OR check at consumer site (_attach_ring8_components).
     FEATURE_AGENT_PLANNER: bool = Field(default=False)
     FEATURE_AGENT_FEEDBACK_LOOP: bool = Field(default=True)
     FEATURE_AGENT_HALLUCINATION_ABORT: bool = Field(default=True)
@@ -294,7 +297,162 @@ class Settings(BaseSettings):
     AGENT_COST_CAP_USD: float = Field(default=0.10)
     MODEL_LADDER_STEP_EXEC: str = Field(default="claude-haiku-4-5-20251001")
     MODEL_LADDER_PLAN_EMIT: str = Field(default="claude-sonnet-4-6")
-    MODEL_LADDER_RECOVERY: str = Field(default="claude-opus-4-7-1m-20260115")
+    MODEL_LADDER_RECOVERY: str = Field(
+        default="claude-opus-4-7",
+        description=(
+            "Phase K Ring 8 model ladder recovery tier. CORRECTED 2026-04-27: "
+            "was `claude-opus-4-7-1m-20260115` (1M context variant) which "
+            "returned HTTP 404 on every call during main_150_routing_v2 (122 "
+            "escalation attempts → 57 no_sql cascade). 1M context is over-spec'd "
+            "for this workload. Now uses standard Opus 4.7 ID. "
+            "SDK 0.86.0 literal types do NOT include 4.7 (latest is 4.6); the "
+            "literal accepts `str` as fallback so arbitrary strings pass type "
+            "check but may 404 at API call time. Validity of `claude-opus-4-7` "
+            "on Anthropic's live API requires smoke test to confirm — Opus 4.7 "
+            "404 investigation ticket spawned. If smoke fails, update to "
+            "`claude-opus-4-6` (SDK-literal-validated)."
+        ),
+    )
+    MODEL_LADDER_RECOVERY_BENCHMARK: str = Field(
+        default="claude-sonnet-4-6",
+        description=(
+            "BIRD/eval-only override for recovery tier. Used when BENCHMARK_MODE=True "
+            "to swap Opus 4.7 1M (interactive quality) for Sonnet 4.6 (cost-bounded "
+            "automated runs). Production interactive path keeps Opus."
+        ),
+    )
+    BENCHMARK_MODE: bool = Field(
+        default=False,
+        description=(
+            "Eval/benchmark gate. When True: ModelLadder recovery uses "
+            "MODEL_LADDER_RECOVERY_BENCHMARK (Sonnet 4.6) instead of Opus 4.7 1M. "
+            "MUST be False in any user-facing deploy. Set via .env for benchmark runs only."
+        ),
+    )
+    FEATURE_MINILM_EMBEDDER: bool = Field(
+        default=False,
+        description=(
+            "D1 (Wave 2, 2026-04-26): when True, QueryMemory uses "
+            "sentence-transformers all-MiniLM-L6-v2 (semantic vectors, "
+            "_minilm-v1 collection suffix). When False (production default): "
+            "legacy hash-v1 n-gram embedder, no collection suffix — "
+            "byte-identical to pre-D1 behavior, existing user data preserved. "
+            "BENCHMARK_MODE=True coerces this ON via OR check at consumer site "
+            "(query_memory.QueryMemory.__init__). Production flip happens AFTER "
+            "BIRD validates MiniLM quality on real data, in a deliberate config "
+            "change with documented data loss expectation (existing hash collections "
+            "become orphaned, queries lose history until new MiniLM cache rebuilds)."
+        ),
+    )
+    FEATURE_MINILM_SCHEMA_COLLECTION: bool = Field(
+        default=False,
+        description=(
+            "Wave 3 (2026-04-27): when True, QueryEngine.schema_collection uses "
+            "sentence-transformers all-MiniLM-L6-v2 (semantic vectors, "
+            "schema_context_<namespace>_minilm-v1 collection). When False "
+            "(production default): legacy hash-v1 n-gram embedder, no suffix — "
+            "byte-identical to pre-Wave-3, existing user schema cache preserved. "
+            "BENCHMARK_MODE=True coerces this ON via OR check at consumer site "
+            "(query_engine.QueryEngine.__init__). Mirrors D1 FEATURE_MINILM_EMBEDDER "
+            "pattern but for the schema retrieval path that "
+            "agent_engine._tool_find_relevant_tables queries against, not query "
+            "memory. Production flip happens AFTER Phase A pilot 50 validates the "
+            "audit's +5-8pt estimate, in a deliberate config change."
+        ),
+    )
+    FEATURE_HYBRID_RETRIEVAL: bool = Field(
+        default=False,
+        description=(
+            "Phase C (Wave 3, 2026-04-27): when True, QueryEngine.find_relevant_tables "
+            "uses BM25+dense (MiniLM) hybrid retrieval with Reciprocal Rank Fusion "
+            "instead of pure dense retrieval. Addresses the qid 1471 regression class "
+            "from Phase A — MiniLM's broader semantic recall surfaces too many "
+            "candidates on questions where lexical match was already optimal; BM25 "
+            "anchors on exact-token match. RRF (K=60) fuses top-K from both. When "
+            "False (production default): pre-Phase-C behavior. BENCHMARK_MODE=True "
+            "coerces this ON via OR check at QueryEngine.__init__. Cascading fallback: "
+            "BM25 init failure → MiniLM-only (not all the way to hash). Collection "
+            "naming: schema_context_<conn>_minilm-v1_hybrid-v1."
+        ),
+    )
+    FEATURE_RETRIEVAL_DOC_ENRICHMENT: bool = Field(
+        default=False,
+        description=(
+            "Phase C bundle (Theme 2, 2026-04-27 council): when True, "
+            "QueryEngine.train_schema enriches Chroma docs with per-table sample "
+            "values (top-5 distinct values per categorical column, e.g. "
+            "'Sample values: colour=[\\'Amber\\',\\'Blue\\',\\'Green\\']'). Closes "
+            "the color↔colour vocabulary gap that BM25 tokenizer fix alone "
+            "(Theme 1) cannot bridge — without injected sample values, the question "
+            "token 'amber' has no doc to match against. When False (production "
+            "default): bare schema docs only — same content as pre-bundle. "
+            "BENCHMARK_MODE=True coerces this ON. Production gating prevents PII "
+            "leakage from sample-value extraction; flipping ON in prod requires "
+            "explicit PII review since values bypass mask_dataframe path. "
+            "Collection naming gains '_docv2' suffix when enabled "
+            "(schema_context_<conn>_minilm-v1_hybrid-v1_docv2) so existing "
+            "unenriched collections become orphans rather than mixing doc formats."
+        ),
+    )
+    FEATURE_MODEL_ROUTING_V2: bool = Field(
+        default=False,
+        description=(
+            "Tier 4 (2026-04-27, post model-distribution audit): Sid's routing "
+            "proposal. Pre-fix audit on main_150_v3 showed Haiku wrote SQL on "
+            "100% of 149 questions (passes + failures); Sonnet was configured "
+            "for plan_emit only and never wrote run_sql tool_input. "
+            "V2 routing has 3 layers: "
+            "(1) STATIC: Sonnet (MODEL_ROUTING_V2_PRIMARY) replaces Haiku as "
+            "the loop primary for all iterations — every run_sql is Sonnet-written. "
+            "(2) HARD-QUESTION ESCALATION: when NL signals complexity (≥3 table "
+            "names mentioned, multi-step aggregation language, ≥80 char question), "
+            "primary escalates to Opus (MODEL_ROUTING_V2_HARD). "
+            "(3) ADAPTIVE STRUGGLE ESCALATION: mid-question escalation to Opus "
+            "when struggle signals fire (2+ run_sql errors, Gate-C, bypass). "
+            "Default False (production keeps Haiku primary, ~3-5x cheaper). "
+            "BENCHMARK_MODE=True coerces this ON. Cost: ~3-5x current main 150 "
+            "spend ($4 → $12-18). BYOK production users pay per their own keys."
+        ),
+    )
+    MODEL_ROUTING_V2_PRIMARY: str = Field(
+        default="claude-sonnet-4-6",
+        description="Tier 4 routing v2: primary loop model when FEATURE_MODEL_ROUTING_V2=True. Was Haiku in v1.",
+    )
+    MODEL_ROUTING_V2_HARD: str = Field(
+        default="claude-opus-4-7",
+        description=(
+            "Tier 4 routing v2: model used for hard questions + adaptive struggle "
+            "escalation. CORRECTED 2026-04-27 (Sid): use standard Opus 4.7, NOT "
+            "the 1M variant (claude-opus-4-7-1m-20260115). The 1M context is "
+            "over-spec'd for BIRD workload (~10-20k tokens, nowhere near 1M) "
+            "and adds cost without benefit. Standard Opus 4.7 has ample context. "
+            "Pre-correction the 1M variant returned HTTP 404 on every escalation "
+            "attempt during main_150_routing_v2 run, cascading 57 questions to "
+            "no_sql failures. Architecture validated; deployment string was wrong."
+        ),
+    )
+    MODEL_ROUTING_V2_OPUS_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Tier 4 routing v2: gate for Layer 2 (hard-question initial Opus "
+            "escalation) AND Layer 3 (mid-question adaptive struggle Opus "
+            "escalation). When False (current default post Apr-27 measurement): "
+            "Routing V2 stays Sonnet-primary only — no Opus calls. When True: "
+            "L2/L3 escalations fire to MODEL_ROUTING_V2_HARD. Default False until "
+            "Opus 4.7 model ID is verified valid against Anthropic SDK + BYOK "
+            "config (404 investigation ticket spawned). BENCHMARK_MODE does NOT "
+            "auto-enable this flag — explicit opt-in required given the 404 "
+            "cascade risk seen in main_150_routing_v2 (57 no_sql failures)."
+        ),
+    )
+    MODEL_ROUTING_V2_HARD_QUESTION_LEN: int = Field(
+        default=200,
+        description="Tier 4 routing v2 layer 2: NL char length above which question is treated as hard (escalate to MODEL_ROUTING_V2_HARD on first iteration). Only effective when MODEL_ROUTING_V2_OPUS_ENABLED=True.",
+    )
+    MODEL_ROUTING_V2_STRUGGLE_ERROR_THRESHOLD: int = Field(
+        default=2,
+        description="Tier 4 routing v2 layer 3: consecutive run_sql errors that trigger mid-question escalation to MODEL_ROUTING_V2_HARD. Only effective when MODEL_ROUTING_V2_OPUS_ENABLED=True.",
+    )
     SEMANTIC_REGISTRY_BOOTSTRAP_ON_CONNECT: bool = Field(default=True)
     PLANNER_MAX_CTE_COUNT: int = Field(default=3)
     PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL: bool = Field(default=True)
@@ -307,7 +465,7 @@ class Settings(BaseSettings):
             "red fallback banner. Off → pre-W1 heuristic + auto-extend to 100."
         ),
     )
-    W1_ANALYTICAL_CAP: int = Field(default=20, description="Hard tool-call cap for analytical workloads when W1 flag on. No auto-extend.")
+    W1_ANALYTICAL_CAP: int = Field(default=22, description="Hard tool-call cap for analytical workloads when W1 flag on. Raised 20→22 for BIRD planner+ladder headroom; stays under W2_GATE_C_PARK_TIMEOUT cascade. No auto-extend.")
     W1_DASHBOARD_CAP: int = Field(default=40, description="Hard tool-call cap for dashboard workloads when W1 flag on. No auto-extend.")
     W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD: int = Field(default=3, description="N consecutive run_sql errors → fire agent_checkpoint consent card (GAP A).")
     # ── Phase K Week-2 Day 3 Task 1 — Ring 4 Gate C schema-entity-mismatch ──
@@ -595,7 +753,7 @@ class Settings(BaseSettings):
     # ── Skill Library (Plan 3) ────────────────────────────
     SKILL_LIBRARY_ENABLED: bool = Field(default=False)
     SKILL_LIBRARY_PATH: str = Field(default="../askdb-skills")
-    SKILL_MAX_RETRIEVED: int = Field(default=3)
+    SKILL_MAX_RETRIEVED: int = Field(default=5)
     SKILL_MAX_TOTAL_TOKENS: int = Field(default=20000)
     SKILL_ALWAYS_ON_TOKENS_CAP: int = Field(default=7000)
     CORRECTION_QUEUE_ENABLED: bool = Field(default=True)

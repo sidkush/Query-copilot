@@ -132,6 +132,11 @@ point here instead of duplicating values. Confirm against
 | `SKILL_ARCHIVAL_DORMANCY_DAYS` | `30` | Skill unused this long is archival candidate. |
 | `SKILL_ARCHIVAL_MIN_RETRIEVALS` | `1` | < N retrievals in window → archive. |
 | `SKILL_ARCHIVAL_ROOT` | `askdb-skills/archive` | Destination. Preserves original subdir. Never deletes. |
+| `SKILL_LIBRARY_ENABLED` | `False` | Master gate for `SkillRouter`. Off → no skill bundles attached. |
+| `SKILL_LIBRARY_PATH` | `../askdb-skills` | Filesystem root for skill content. |
+| `SKILL_MAX_RETRIEVED` | `5` | **Raised 3→5 on 2026-04-26 (Wave 1, BIRD lift)**. Top-K skill bundles attached per query. |
+| `SKILL_MAX_TOTAL_TOKENS` | `20000` | Token cap on bundled skill content per query. |
+| `SKILL_ALWAYS_ON_TOKENS_CAP` | `7000` | Per-query cap on always-on skills (security/style/etc.). |
 
 ### Calc parser (Plan 8a)
 
@@ -244,22 +249,34 @@ point here instead of duplicating values. Confirm against
 
 | Constant | Value | Notes |
 |---|---|---|
-| `FEATURE_AGENT_PLANNER` | `False` | Master gate for `analytical_planner.py`. Off → `_tool_run_sql` is pre-K behavior. Demo tenant overrides to True. |
+| `FEATURE_AGENT_PLANNER` | `False` | Master gate for `analytical_planner.py`. Off → `_tool_run_sql` is pre-K behavior. Demo tenant overrides to True. **Coerced ON when `BENCHMARK_MODE=True`** (eval-only) via OR check at `_attach_ring8_components` — preserves prod default while enabling planner for benchmark runs. Default kept False to avoid +3-8s latency / 5× cost on interactive prod path. |
 | `FEATURE_AGENT_FEEDBACK_LOOP` | `True` | Wires `_handle_scope_violations_with_replan` into tool loop. Off → Phase C/D dead-code state preserved. |
 | `FEATURE_AGENT_HALLUCINATION_ABORT` | `True` | `SafeText` guard active. Off → agent output unfiltered. |
-| `FEATURE_AGENT_MODEL_LADDER` | `False` | `ModelLadder.select()` routes by role. Off → single-model path. |
+| `FEATURE_AGENT_MODEL_LADDER` | `False` | `ModelLadder.select()` routes by role. Off → single-model path. **Coerced ON when `BENCHMARK_MODE=True`** at `_attach_ring8_components`. Pairs with `FEATURE_AGENT_PLANNER`. |
 | `AGENT_STEP_CAP` | `20` | Max tool calls per user query. 21st call → safe_abort. |
 | `AGENT_WALL_CLOCK_TYPICAL_S` | `60.0` | Budget exhaustion → safe_abort with partial-plan banner. |
 | `AGENT_WALL_CLOCK_HARD_S` | `120.0` | Absolute ceiling; agent process killed. |
 | `AGENT_COST_CAP_USD` | `0.10` | Per-query Anthropic spend. Trips `chaos_isolation.CostBreaker`. |
 | `MODEL_LADDER_STEP_EXEC` | `claude-haiku-4-5-20251001` | Step execution tier. |
 | `MODEL_LADDER_PLAN_EMIT` | `claude-sonnet-4-6` | Plan emission tier. No extended-thinking. |
-| `MODEL_LADDER_RECOVERY` | `claude-opus-4-7-1m-20260115` | Recovery tier. Verify availability at deploy; update via model-version-sweep. |
+| `MODEL_LADDER_RECOVERY` | `claude-opus-4-7-1m-20260115` | Recovery tier (interactive default). Verify availability at deploy; update via model-version-sweep. |
+| `MODEL_LADDER_RECOVERY_BENCHMARK` | `claude-sonnet-4-6` | **Added 2026-04-26 (Wave 1, BIRD lift).** Eval-only override for recovery tier. Used when `BENCHMARK_MODE=True` to swap Opus 4.7 1M (interactive quality) → Sonnet 4.6 (cost-bounded). Production interactive path keeps Opus. Gated in `model_ladder.py::ModelLadder.from_settings`. |
+| `BENCHMARK_MODE` | `False` | **Added 2026-04-26 (Wave 1, BIRD lift).** Eval/benchmark gate. When True: `ModelLadder` recovery uses `MODEL_LADDER_RECOVERY_BENCHMARK`. MUST be False in any user-facing deploy. Set via `.env` for benchmark runs only. |
+| `FEATURE_MINILM_EMBEDDER` | `False` | **Added 2026-04-26 (Wave 2 D1).** When True, `QueryMemory` uses sentence-transformers `all-MiniLM-L6-v2` (semantic vectors, `_minilm-v1` collection suffix). When False (production default): legacy hash-v1 n-gram embedder, no collection suffix — byte-identical to pre-D1, existing user data preserved. `BENCHMARK_MODE=True` coerces this ON via OR check at `query_memory.QueryMemory.__init__`. Production flip happens AFTER BIRD validates MiniLM quality, in a deliberate config change with documented data loss expectation (existing hash collections orphan, queries rebuild MiniLM cache from scratch). |
+| `FEATURE_MINILM_SCHEMA_COLLECTION` | `False` | **Added 2026-04-27 (Wave 3, Phase A).** When True, `QueryEngine.schema_collection` uses sentence-transformers `all-MiniLM-L6-v2` (semantic vectors, `schema_context_<namespace>_minilm-v1` collection). When False (production default): legacy hash-v1 n-gram embedder, no suffix — byte-identical to pre-Wave-3, existing user schema cache preserved. `BENCHMARK_MODE=True` coerces this ON via OR check at `query_engine.QueryEngine.__init__`. Mirrors D1 `FEATURE_MINILM_EMBEDDER` pattern but for the schema retrieval path that `agent_engine._tool_find_relevant_tables` queries against, not query memory. Production flip happens AFTER Phase A pilot 50 validates the audit's +5-8pt estimate. |
+| `FEATURE_HYBRID_RETRIEVAL` | `False` | **Added 2026-04-27 (Phase C, Wave 3).** When True, `QueryEngine.find_relevant_tables` uses BM25+dense (MiniLM) hybrid retrieval with Reciprocal Rank Fusion (K=60, hardcoded) instead of pure dense retrieval. Addresses the qid 1471 regression class from Phase A — MiniLM's broader semantic recall surfaces too many candidates on questions where lexical match was already optimal; BM25 anchors on exact-token match. RRF fuses top-K from both. When False (production default): pre-Phase-C behavior. `BENCHMARK_MODE=True` coerces this ON. Cascading fallback: BM25 init failure → MiniLM-only (not all the way to hash). Collection naming: `schema_context_<conn>_minilm-v1_hybrid-v1`. **Phase C bundle (2026-04-27):** BM25 tokenizer regex changed from `r"\w+"` (kept `eye_colour_id` as one token → zero-score) to `r"[a-z0-9]+"` (splits snake_case → ['eye','colour','id']). Zero-score guard: when `max(bm25_scores) < _BM25_MIN_USEFUL_SCORE (0.1)`, BM25 channel is excluded from RRF fusion to prevent noise-only contribution. |
+| `FEATURE_RETRIEVAL_DOC_ENRICHMENT` | `False` | **Added 2026-04-27 (Phase C bundle, Theme 2 from 40-persona council).** When True, `QueryEngine.train_schema` enriches Chroma docs with per-table sample values (top-5 distinct values per categorical column, e.g. `Sample values: colour=['Amber','Blue','Green']`) and FK target hints. Closes the color↔colour vocabulary gap that BM25 tokenizer fix alone (Theme 1) cannot bridge. When False (production default): bare schema docs only — same content as pre-bundle. `BENCHMARK_MODE=True` coerces this ON. Production gating prevents PII leakage from sample-value extraction; flipping ON in prod requires explicit PII review. Collection naming gains `_docv2` suffix when enabled (`schema_context_<conn>_minilm-v1_hybrid-v1_docv2`) so existing unenriched collections orphan rather than mix doc formats. |
+| `FEATURE_MODEL_ROUTING_V2` | `False` | **Added 2026-04-27 (Tier 4, post model-distribution audit).** Sid's 3-layer routing proposal. Audit on main_150_v3 found Haiku wrote SQL on 100% of 149 questions; Sonnet only fired for plan_emit, never for run_sql. V2 routing: (1) STATIC — Sonnet replaces Haiku as the loop primary; every run_sql is Sonnet-written. (2) HARD-QUESTION ESCALATION — questions with NL ≥200 chars OR ≥3 table-name mentions escalate to Opus on first iteration. (3) ADAPTIVE STRUGGLE — mid-question escalation to Opus on 2+ run_sql errors / Gate-C / bypass. Default False keeps production on Haiku primary (~3-5x cheaper). `BENCHMARK_MODE=True` coerces ON. Cost impact: ~3-5x current main 150 spend ($4 → $12-18). BYOK production users pay per their own keys. |
+| `MODEL_ROUTING_V2_PRIMARY` | `claude-sonnet-4-6` | Tier 4 routing v2 layer 1: primary loop model. Was Haiku-only pre-V2. |
+| `MODEL_ROUTING_V2_HARD` | `claude-opus-4-7` | Tier 4 routing v2 layers 2+3: model used for hard-question initial escalation + adaptive struggle escalation. **Corrected 2026-04-27 (Sid)**: standard Opus 4.7 — NOT the 1M context variant (`claude-opus-4-7-1m-20260115`). 1M is over-spec'd for BIRD workload (~10-20k tokens) and returned HTTP 404 on every escalation during main_150_routing_v2 run. |
+| `MODEL_ROUTING_V2_OPUS_ENABLED` | `False` | **Added 2026-04-27 (post main_150_routing_v2)**. Gate for Layer 2 + Layer 3 Opus escalation. Default False — Routing V2 stays Sonnet-primary only. `BENCHMARK_MODE` does NOT auto-enable; explicit opt-in required. Reason: main_150_routing_v2 hit Opus 1M-variant 404 on every L2/L3 fire, cascading 57 questions to no_sql failures. Disabled until Opus 4.7 model ID is verified valid against Anthropic SDK + BYOK config. |
+| `MODEL_ROUTING_V2_HARD_QUESTION_LEN` | `200` | Tier 4 routing v2 layer 2: NL char-length threshold above which a question is treated as hard. Only effective when `MODEL_ROUTING_V2_OPUS_ENABLED=True`. |
+| `MODEL_ROUTING_V2_STRUGGLE_ERROR_THRESHOLD` | `2` | Tier 4 routing v2 layer 3: consecutive run_sql errors that trigger mid-question escalation. Only effective when `MODEL_ROUTING_V2_OPUS_ENABLED=True`. |
 | `SEMANTIC_REGISTRY_BOOTSTRAP_ON_CONNECT` | `True` | Auto-seed registry on new connection. |
 | `PLANNER_MAX_CTE_COUNT` | `3` | Planner refuses plans with >3 CTEs; splits into follow-up. |
 | `PLAN_ARTIFACT_EMIT_BEFORE_FIRST_SQL` | `True` | SSE emits `plan_artifact` event before any `run_sql` tool call. |
 | `GROUNDING_W1_HARDCAP_ENFORCE` | `True` | Master gate for Week-1 grounding (hard cap + consent card + banner). Flip to False to restore pre-W1 heuristic. |
-| `W1_ANALYTICAL_CAP` | `20` | Hard tool-call cap for analytical workload; no auto-extend when flag on. |
+| `W1_ANALYTICAL_CAP` | `22` | **Raised 20→22 on 2026-04-26 (Wave 1, BIRD lift)**. Hard tool-call cap for analytical workload; no auto-extend when flag on. Stays under `W2_GATE_C_PARK_TIMEOUT` cascade. |
 | `W1_DASHBOARD_CAP` | `40` | Hard tool-call cap for dashboard workload; no auto-extend when flag on. |
 | `W1_CONSECUTIVE_TOOL_ERROR_THRESHOLD` | `3` | N consecutive `run_sql` errors → fire `agent_checkpoint` consent card (GAP A). |
 | `W2_SCHEMA_MISMATCH_GATE_ENFORCE` | `True` | W2 T1 — Ring 4 Gate C schema-entity-mismatch consent card; off → pre-W2 behaviour. |
@@ -278,7 +295,7 @@ point here instead of duplicating values. Confirm against
 | `FEATURE_AUDIT_LEDGER` | `True` | Master gate for hash-chained per-claim ledger. Off → no audit writes. Requires `AUDIT_HMAC_KEY` env var. |
 | `FEATURE_CLAIM_PROVENANCE` | `True` | Scans agent synthesis for numeric spans + binds to tool-results. Off → synthesis unfiltered. |
 | `FEATURE_PROGRESSIVE_UX_FULL` | `False` | Frontend slot streaming + cancel + revise + ResultPreview + ClaimChip. |
-| `FEATURE_PLAN_CACHE` | `False` | Plan reuse via ChromaDB. Off → every Q calls Sonnet. |
+| `FEATURE_PLAN_CACHE` | `False` | Plan reuse via ChromaDB. Off → every Q calls Sonnet. **Wave 2 (2026-04-26):** collection name format hardened to `plan_cache_<16-hex tenant>_<32-hex conn>` (60 chars) for defense-in-depth — composite tenant+conn isolation already enforced at doc_id + where-filter level, this adds the same at the Chroma collection layer. Pre-Wave-2 collections (`plan_cache_<32-hex conn>`, 43 chars) become orphans on first agent attach with new code; cleanup is opt-in via `backend/scripts/purge_legacy_plan_cache.py` (dry-run by default, `--apply` to delete). |
 | `FEATURE_DEADLINE_PROPAGATION` | `False` | asyncio contextvar DEADLINE threaded through tool methods. |
 | `AUDIT_LEDGER_DIR` | `.data/audit_ledger` | Per-tenant `<tenant_id>/<YYYY-MM>.jsonl` files. Gitignored. |
 | `AUDIT_LEDGER_FLUSH_EVERY_N` | `1` | Fsync every N entries. Set >1 for higher throughput (weaker durability). |

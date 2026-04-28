@@ -41,6 +41,26 @@ def _compose_doc_id(tenant_id: str, conn_id: str, nl: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
+def compose_plan_cache_collection_name(tenant_id, conn_id) -> str:
+    """ChromaDB collection name for the plan cache.
+
+    Composite tenant+conn key for defense-in-depth. PlanCache already enforces
+    tenant isolation at doc_id (sha256(tenant|conn|nl)) + where-filter
+    (where={"tenant_id": ...}); this adds the same isolation at the Chroma
+    collection layer so a conn_id collision cannot mix tenants.
+
+    Format: plan_cache_<16-hex tenant>_<32-hex conn> (60 chars total).
+    Pre-Wave-2 collections (43 chars: plan_cache_<32-hex conn>) become orphans
+    — never queried by new code. See scripts/purge_legacy_plan_cache.py for
+    opt-in cleanup.
+    """
+    tenant_id_str = str(tenant_id) if tenant_id else "default"
+    conn_id_str = str(conn_id) if conn_id else "default"
+    tenant_safe = hashlib.sha256(tenant_id_str.encode("utf-8")).hexdigest()[:16]
+    conn_id_safe = hashlib.sha256(conn_id_str.encode("utf-8")).hexdigest()[:32]
+    return f"plan_cache_{tenant_safe}_{conn_id_safe}"
+
+
 def _ttl_hours() -> int:
     try:
         from config import settings

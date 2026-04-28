@@ -20,6 +20,8 @@ def test_plan_cache_attached_when_flag_on():
         engine.connection_entry = MagicMock()
         engine.engine = MagicMock()
         engine.email = "u@t"
+        # Wave 2 spike-fix: planner attach skips when api_key empty (A1).
+        engine.provider = MagicMock(api_key="test-api-key")
         engine._attach_ring8_components()
         assert engine._planner is not None
         assert engine._planner._cache is not None

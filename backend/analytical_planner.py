@@ -7,12 +7,15 @@ At most 3 CTEs per plan (PLANNER_MAX_CTE_COUNT). Registry miss → fallback=True
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
 
+_logger = logging.getLogger(__name__)
 _MAX_CTES = 3
+_PLAN_MAX_TOKENS = 2048
 
 
 class PlannerFallback(RuntimeError):
@@ -62,19 +65,42 @@ class AnalyticalPlanner:
         self._registry = registry
         self._cache = None
 
-    def plan(self, conn_id: str, nl: str, coverage_cards: list) -> AnalyticalPlan:
-        """Emit an AnalyticalPlan. Returns fallback=True on registry miss."""
+    def plan(
+        self,
+        conn_id: str,
+        nl: str,
+        coverage_cards: list,
+        *,
+        tenant_id: str,
+    ) -> AnalyticalPlan:
+        """Emit an AnalyticalPlan. Returns fallback=True on registry miss.
+
+        Wave 2 spike-fix (2026-04-26): tenant_id is now a required keyword arg.
+        Previously the planner passed tenant_id="" to the cache, which Wave 2's
+        cache hardening (plan_cache.py:65) rejects with ValueError — making
+        cache effectively dead. Now the agent threads real tenant_id through
+        and cache lookups can hit.
+        """
+        if not tenant_id:
+            raise ValueError("tenant_id must be non-empty (Wave 2 contract)")
         # Phase L — plan cache first (short-circuits Sonnet call on hit).
         if self._cache is not None:
             try:
-                hit = self._cache.lookup(conn_id=conn_id, tenant_id="", nl=nl)
+                hit = self._cache.lookup(conn_id=conn_id, tenant_id=tenant_id, nl=nl)
                 if hit is not None:
                     return hit.plan
-            except Exception:
-                pass
+            except (ValueError, KeyError, json.JSONDecodeError) as exc:
+                _logger.warning(
+                    "plan_cache.lookup failed (%s): %s; proceeding without cache",
+                    type(exc).__name__, exc,
+                )
         try:
             candidates = self._registry.list_for_conn(conn_id)
-        except Exception:
+        except (FileNotFoundError, json.JSONDecodeError, KeyError) as exc:
+            _logger.warning(
+                "registry.list_for_conn(%s) failed (%s): %s; planning without registry",
+                conn_id, type(exc).__name__, exc,
+            )
             candidates = []
         if not candidates:
             return AnalyticalPlan(
@@ -103,10 +129,28 @@ class AnalyticalPlanner:
             ],
         })
         try:
-            resp = self._provider.invoke(system=system, user=user_msg)
-            content = resp.get("content", "")
+            # Wave 2 spike-fix: provider exposes complete(), not invoke().
+            # Pre-fix planner called .invoke() (which doesn't exist on
+            # ModelProvider/AnthropicProvider) → AttributeError → bare except
+            # → fallback. Now uses the real provider API (Session 2 Option A).
+            resp = self._provider.complete(
+                model=self._provider.default_model,
+                system=system,
+                messages=[{"role": "user", "content": user_msg}],
+                max_tokens=_PLAN_MAX_TOKENS,
+            )
+            content = resp.text
             parsed = json.loads(content)
-        except Exception:
+        except (json.JSONDecodeError, KeyError, ValueError, AttributeError) as exc:
+            # JSON parse / shape errors are recoverable (LLM returned bad output).
+            # AttributeError caught explicitly so this surface (not the registry
+            # one above) doesn't silently re-die if provider contract drifts —
+            # the warning log will name the type so the dead-method bug
+            # surfaces rather than vanishing into a generic Exception swallow.
+            _logger.warning(
+                "planner provider response unparseable (%s): %s; falling back",
+                type(exc).__name__, exc,
+            )
             return AnalyticalPlan(
                 plan_id=str(uuid.uuid4()),
                 ctes=[],
@@ -138,7 +182,12 @@ class AnalyticalPlanner:
         # Phase L — write successful plan to cache.
         if self._cache is not None:
             try:
-                self._cache.store(conn_id=conn_id, tenant_id="", nl=nl, plan=final_plan)
-            except Exception:
-                pass
+                self._cache.store(
+                    conn_id=conn_id, tenant_id=tenant_id, nl=nl, plan=final_plan,
+                )
+            except (ValueError, KeyError, json.JSONDecodeError) as exc:
+                _logger.warning(
+                    "plan_cache.store failed (%s): %s",
+                    type(exc).__name__, exc,
+                )
         return final_plan

@@ -39,8 +39,13 @@ class ModelLadder:
     @classmethod
     def from_settings(cls) -> "ModelLadder":
         from config import settings
+        recovery = (
+            settings.MODEL_LADDER_RECOVERY_BENCHMARK
+            if settings.BENCHMARK_MODE
+            else settings.MODEL_LADDER_RECOVERY
+        )
         return cls(
             step_exec=settings.MODEL_LADDER_STEP_EXEC,
             plan_emit=settings.MODEL_LADDER_PLAN_EMIT,
-            recovery=settings.MODEL_LADDER_RECOVERY,
+            recovery=recovery,
         )

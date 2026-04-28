@@ -291,8 +291,18 @@ class DatabaseConnector:
                             # Use default credentials
                             import google.auth
                             creds, _ = google.auth.default()
-                        except Exception:
-                            pass
+                        except Exception as _gauth_exc:
+                            # Tier 1 fix #1 (2026-04-27 council R5): pre-fix this was silent.
+                            # google.auth.default() failure means client falls through with
+                            # creds=None, which BigQuery may accept (workload identity) or
+                            # error out at query time. Surface so the auth-bypass risk is
+                            # observable rather than swallowed.
+                            logger.warning(
+                                "google.auth.default() failed (%s: %s); BigQuery client "
+                                "will be constructed with creds=None — auth resolves at "
+                                "query time, may fail there",
+                                type(_gauth_exc).__name__, _gauth_exc,
+                            )
 
                     client = bigquery.Client(project=project, credentials=creds)
                     job = client.query(qualified_sql)
@@ -310,8 +320,17 @@ class DatabaseConnector:
                 if 'postgresql' in db_type_str or 'redshift' in db_type_str or 'cockroach' in db_type_str:
                     try:
                         conn.execute(text("SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY"))
-                    except Exception:
-                        pass
+                    except Exception as _ro_exc:
+                        # Tier 1 fix #1 — pre-fix this was silent. If the read-only
+                        # SET fails, the connection MAY still be read-only via driver
+                        # defaults / role permissions, but defense-in-depth fails.
+                        # Surface so DBA can investigate before a write slips through.
+                        logger.warning(
+                            "READ ONLY transaction SET failed (%s: %s) on %s; "
+                            "relying on driver/role-level read-only enforcement "
+                            "alone — investigate connection role config",
+                            type(_ro_exc).__name__, _ro_exc, db_type_str,
+                        )
 
                 result = conn.execute(text(sql))
                 columns = list(result.keys())
@@ -501,10 +520,21 @@ class DatabaseConnector:
                 cols.append(f"  PRIMARY KEY ({', '.join(info['primary_key'])})")
 
             for fk in info["foreign_keys"]:
+                # SQLAlchemy returns None entries for FK columns when the
+                # underlying SQLite metadata is incomplete (BIRD's
+                # european_football_2, debit_card_specializing surface this).
+                # Mirror the defensive pattern from agent_engine._tool_inspect_schema:
+                # substitute '?' for missing names so DDL stays valid + parseable
+                # and skip the FK clause entirely if every constrained column is None.
+                src_cols = [c if c else "?" for c in (fk.get("columns") or fk.get("constrained_columns") or [])]
+                ref_cols = [c if c else "?" for c in (fk.get("referred_columns") or [])]
+                ref_table = fk.get("referred_table") or "?"
+                if not src_cols or not ref_cols:
+                    continue  # malformed FK — skip rather than emit broken DDL
                 cols.append(
-                    f"  FOREIGN KEY ({', '.join(fk['columns'])}) "
-                    f"REFERENCES {fk['referred_table']}"
-                    f"({', '.join(fk['referred_columns'])})"
+                    f"  FOREIGN KEY ({', '.join(src_cols)}) "
+                    f"REFERENCES {ref_table}"
+                    f"({', '.join(ref_cols)})"
                 )
 
             ddl = f"CREATE TABLE {table_name} (\n" + ",\n".join(cols) + "\n);"
