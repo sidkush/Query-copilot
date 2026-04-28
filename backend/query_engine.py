@@ -180,12 +180,18 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
         )
         # Phase C (Wave 3, 2026-04-27): cascading flag check.
         # Hierarchy: hybrid (BM25+MiniLM+RRF) → minilm-only → hash-v1.
-        # BENCHMARK_MODE coerces hybrid + minilm. Each tier has its own
-        # collection name suffix to prevent vector-space mixing.
-        # Cascading fallback: hybrid init failure → minilm; minilm failure → hash.
+        # Each tier has its own collection name suffix to prevent vector-space
+        # mixing. Cascading runtime fallback: hybrid init failure → minilm;
+        # minilm failure → hash.
+        # 2026-04-27 (Phase 1 flag-flip prep): BENCHMARK_MODE no longer auto-
+        # coerces these flags. BIRD harness scripts must set both env vars
+        # explicitly alongside BENCHMARK_MODE. Removes measurement-hygiene
+        # ambiguity where BM=True silently swapped retrieval path.
+        # Doc-enrichment OR-coerce (line below) intentionally retained until
+        # Capability 3 audit (PII review required before that flip).
         _bm = getattr(settings, "BENCHMARK_MODE", False)
-        _use_hybrid = getattr(settings, "FEATURE_HYBRID_RETRIEVAL", False) or _bm
-        _use_minilm = getattr(settings, "FEATURE_MINILM_SCHEMA_COLLECTION", False) or _bm
+        _use_hybrid = getattr(settings, "FEATURE_HYBRID_RETRIEVAL", False)
+        _use_minilm = getattr(settings, "FEATURE_MINILM_SCHEMA_COLLECTION", False)
 
         _ef = None
         _suffix = ""

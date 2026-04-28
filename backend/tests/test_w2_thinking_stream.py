@@ -252,11 +252,18 @@ def test_agent_engine_carries_cumulative_thinking_budget_attr():
 
 # ── 8. AMEND-W2-26 — per-call budget computed from W2_THINKING_TOTAL_BUDGET
 
-def test_compute_thinking_kwarg_decrements_with_used():
+def test_compute_thinking_kwarg_decrements_with_used(monkeypatch):
     """Helper `_compute_thinking_kwarg(used)` returns kwarg with decremented
-    budget; returns None when remaining < 1024."""
+    budget; returns None when remaining < 1024.
+
+    AMEND-W2-17 short-circuits to None when FEATURE_CLAIM_PROVENANCE=True
+    (default). Toggle off here so the budget-decrement contract is what's
+    under test, not the provenance gate.
+    """
     from agent_engine import _compute_thinking_kwarg
     from config import settings
+
+    monkeypatch.setattr(settings, "FEATURE_CLAIM_PROVENANCE", False)
 
     # fresh: full budget available
     kw = _compute_thinking_kwarg(used=0, model="claude-sonnet-4-6", max_tokens=8192)

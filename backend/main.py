@@ -3,6 +3,7 @@ AskDB — FastAPI Backend
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -113,6 +114,36 @@ async def lifespan(app: FastAPI):
         app.state.skill_library = None
     app.state.skill_collection = None
     app.state.skill_scheduler = None
+    # ── D1 (Wave 2, 2026-04-26): preload + warmup MiniLM-L6-v2 embedder ──
+    # Without this, the FIRST agent query using the embedder pays a ~40s
+    # JIT/model-graph warmup cost (sentence-transformers first-encode latency
+    # on torch 2.11 / Python 3.14). Sync preload amortizes that to backend
+    # startup instead of per-user request. Singleton in embedder_registry
+    # ensures the warmup is shared across all subsequent callers.
+    # Set EMBEDDER_PRELOAD_DISABLE=true in .env to skip (dev iteration).
+    if os.environ.get("EMBEDDER_PRELOAD_DISABLE", "").lower() not in ("1", "true", "yes"):
+        try:
+            import time as _emb_time
+            from embeddings.embedder_registry import get_embedder
+            _emb_t0 = _emb_time.time()
+            _emb = get_embedder("minilm-l6-v2")
+            _ = _emb.encode("warmup")  # forces JIT/model-graph build
+            _emb_dt_ms = (_emb_time.time() - _emb_t0) * 1000.0
+            logger.info(
+                "Embedder preloaded: minilm-l6-v2 (cold-load + warmup encode = "
+                f"{_emb_dt_ms:.0f}ms; subsequent get_embedder calls will be hot)"
+            )
+            app.state.embedder = _emb
+        except Exception as _emb_exc:
+            logger.warning(
+                f"Embedder preload FAILED ({type(_emb_exc).__name__}): {_emb_exc}. "
+                "Plan cache + query memory may be degraded until cause investigated. "
+                "Set EMBEDDER_PRELOAD_DISABLE=true if this is intentional."
+            )
+            app.state.embedder = None
+    else:
+        logger.info("Embedder preload skipped (EMBEDDER_PRELOAD_DISABLE set)")
+        app.state.embedder = None
     # ── Skill scheduler: correction reviewer + drift monitor (Plan 3 P4T12, P6T15) ──
     if settings.CORRECTION_QUEUE_ENABLED or settings.SKILL_LIBRARY_ENABLED:
         try:

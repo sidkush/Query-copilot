@@ -345,34 +345,34 @@ class Settings(BaseSettings):
         ),
     )
     FEATURE_MINILM_SCHEMA_COLLECTION: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Wave 3 (2026-04-27): when True, QueryEngine.schema_collection uses "
             "sentence-transformers all-MiniLM-L6-v2 (semantic vectors, "
-            "schema_context_<namespace>_minilm-v1 collection). When False "
-            "(production default): legacy hash-v1 n-gram embedder, no suffix — "
-            "byte-identical to pre-Wave-3, existing user schema cache preserved. "
-            "BENCHMARK_MODE=True coerces this ON via OR check at consumer site "
-            "(query_engine.QueryEngine.__init__). Mirrors D1 FEATURE_MINILM_EMBEDDER "
-            "pattern but for the schema retrieval path that "
-            "agent_engine._tool_find_relevant_tables queries against, not query "
-            "memory. Production flip happens AFTER Phase A pilot 50 validates the "
-            "audit's +5-8pt estimate, in a deliberate config change."
+            "schema_context_<namespace>_minilm-v1 collection). When False: "
+            "legacy hash-v1 n-gram embedder, no suffix — byte-identical to "
+            "pre-Wave-3, existing user schema cache preserved. Bundled with "
+            "FEATURE_HYBRID_RETRIEVAL — hybrid path forces MiniLM internally. "
+            "Flipped to True 2026-04-28 in Phase 1. Production rebuilds schema "
+            "collection on first query per connection (~13s MiniLM warmup; "
+            "amortized by main.py lifespan preload). See "
+            "benchmarks/MIGRATION-NOTES.md."
         ),
     )
     FEATURE_HYBRID_RETRIEVAL: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Phase C (Wave 3, 2026-04-27): when True, QueryEngine.find_relevant_tables "
             "uses BM25+dense (MiniLM) hybrid retrieval with Reciprocal Rank Fusion "
             "instead of pure dense retrieval. Addresses the qid 1471 regression class "
             "from Phase A — MiniLM's broader semantic recall surfaces too many "
             "candidates on questions where lexical match was already optimal; BM25 "
-            "anchors on exact-token match. RRF (K=60) fuses top-K from both. When "
-            "False (production default): pre-Phase-C behavior. BENCHMARK_MODE=True "
-            "coerces this ON via OR check at QueryEngine.__init__. Cascading fallback: "
-            "BM25 init failure → MiniLM-only (not all the way to hash). Collection "
-            "naming: schema_context_<conn>_minilm-v1_hybrid-v1."
+            "anchors on exact-token match. RRF (K=60) fuses top-K from both. "
+            "Cascading fallback: BM25 init failure → MiniLM-only (not all the way "
+            "to hash). Collection naming: schema_context_<conn>_minilm-v1_hybrid-v1. "
+            "Flipped to True 2026-04-28 in Phase 1. Production rebuilds schema "
+            "collection on first query per connection. See "
+            "benchmarks/MIGRATION-NOTES.md."
         ),
     )
     FEATURE_RETRIEVAL_DOC_ENRICHMENT: bool = Field(

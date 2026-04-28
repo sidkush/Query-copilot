@@ -27,6 +27,10 @@ from __future__ import annotations
 # CRITICAL: set BENCHMARK_MODE env BEFORE any backend imports so config loads correctly.
 import os
 os.environ["BENCHMARK_MODE"] = "true"
+# 2026-04-27 (Phase 1 OR-coerce removal): retrieval flags must be set
+# explicitly. BENCHMARK_MODE no longer auto-coerces hybrid/minilm.
+os.environ["FEATURE_HYBRID_RETRIEVAL"] = "true"
+os.environ["FEATURE_MINILM_SCHEMA_COLLECTION"] = "true"
 
 # Force stdout to utf-8 with replacement so any unicode chars from agent output
 # (e.g. warning sign emoji in result banners) don't crash the harness on Windows.

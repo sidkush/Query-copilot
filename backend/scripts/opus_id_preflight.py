@@ -13,6 +13,12 @@ from __future__ import annotations
 
 import os
 os.environ.setdefault("BENCHMARK_MODE", "true")
+# 2026-04-27 (Phase 1 OR-coerce removal): retrieval flags must be set
+# explicitly. BENCHMARK_MODE no longer auto-coerces hybrid/minilm. This
+# script doesn't exercise QueryEngine but sets flags for consistency
+# across the BIRD harness suite.
+os.environ.setdefault("FEATURE_HYBRID_RETRIEVAL", "true")
+os.environ.setdefault("FEATURE_MINILM_SCHEMA_COLLECTION", "true")
 
 import sys
 from pathlib import Path

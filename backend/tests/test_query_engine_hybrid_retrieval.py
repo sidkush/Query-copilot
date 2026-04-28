@@ -75,15 +75,50 @@ def test_hybrid_on_uses_hybrid_v1_collection_name():
     assert qe._hybrid_enabled is True
 
 
-def test_benchmark_mode_coerces_hybrid_on():
-    """BENCHMARK_MODE=True activates hybrid + doc-enrichment even when
-    explicit feature flags are False. Suffix gains '_docv2' from Theme 2
-    coercion (Phase C bundle 2026-04-27)."""
+def test_benchmark_mode_no_longer_coerces_hybrid():
+    """Phase 1 OR-coerce removal (2026-04-27): BENCHMARK_MODE=True alone
+    does NOT activate hybrid retrieval. Both flags must be set explicitly
+    by the BIRD harness. Doc-enrichment OR-coerce intentionally retained
+    pending Capability 3 audit, so suffix gains '_docv2' from BM=True
+    alone but NOT '_minilm-v1_hybrid-v1'.
+    """
+    from query_engine import _HashEmbeddingFunction
     qe, mock_client = _fresh_qe(use_hybrid=False, use_minilm=False, benchmark=True)
+    schema_call = _find_collection(mock_client, "schema_context_")
+    assert schema_call.kwargs["name"] == "schema_context_t1_docv2", (
+        "BM=True without explicit flags must NOT activate hybrid path"
+    )
+    assert isinstance(schema_call.kwargs["embedding_function"], _HashEmbeddingFunction)
+    assert qe._hybrid_enabled is False
+    assert qe._doc_enriched is True
+
+
+def test_benchmark_mode_with_explicit_flags_activates_hybrid():
+    """Phase 1 BIRD harness contract: when both retrieval flags are set
+    alongside BENCHMARK_MODE, hybrid path activates as the harness expects.
+    This is the eval path the BIRD smoke + main scripts run under post
+    OR-removal.
+    """
+    qe, mock_client = _fresh_qe(use_hybrid=True, use_minilm=True, benchmark=True)
     schema_call = _find_collection(mock_client, "schema_context_")
     assert schema_call.kwargs["name"] == "schema_context_t1_minilm-v1_hybrid-v1_docv2"
     assert qe._hybrid_enabled is True
     assert qe._doc_enriched is True
+
+
+def test_bundled_flags_no_benchmark_activates_hybrid_clean():
+    """Phase 1 production-flip target: BM=False + both flags True
+    activates hybrid path WITHOUT benchmark bypasses (no docv2 suffix
+    because doc-enrichment is gated on its own flag, not BM). This is
+    the post-flip default behavior for users."""
+    qe, mock_client = _fresh_qe(use_hybrid=True, use_minilm=True, benchmark=False)
+    schema_call = _find_collection(mock_client, "schema_context_")
+    assert schema_call.kwargs["name"] == "schema_context_t1_minilm-v1_hybrid-v1", (
+        "production hybrid path must NOT carry docv2 suffix without explicit "
+        "FEATURE_RETRIEVAL_DOC_ENRICHMENT (Capability 3 not yet audited)"
+    )
+    assert qe._hybrid_enabled is True
+    assert qe._doc_enriched is False
 
 
 def test_doc_enrichment_flag_alone_appends_docv2():
@@ -117,3 +152,59 @@ def test_bm25_init_failure_falls_back_to_minilm_only_not_hash():
         f"got {schema_call.kwargs['name']!r}"
     )
     assert qe._hybrid_enabled is False
+
+
+# ── Phase 1 default-flip regression tests (2026-04-28) ─────────────────────
+
+
+def test_phase1_default_flip_both_flags_True():
+    """Phase 1 (2026-04-28) flip: production config has both retrieval flags
+    True by default. Asserts the post-flip contract on the Pydantic field
+    metadata, decoupled from .env state so the test is stable across
+    operator-supplied env files."""
+    from config import Settings
+    fields = Settings.model_fields
+    assert fields["FEATURE_HYBRID_RETRIEVAL"].default is True, (
+        "FEATURE_HYBRID_RETRIEVAL must default True post Phase 1 flip"
+    )
+    assert fields["FEATURE_MINILM_SCHEMA_COLLECTION"].default is True, (
+        "FEATURE_MINILM_SCHEMA_COLLECTION must default True post Phase 1 flip"
+    )
+
+
+def test_phase1_explicit_False_override_falls_back_to_hash_v1():
+    """Phase 1 rollback contract: setting both flags False explicitly (e.g.
+    via .env override or operator opt-out) reverts to hash-v1 + legacy
+    collection name. Same byte-for-byte path as pre-flip default. This is
+    the rollback channel — flipping defaults back to False is not the only
+    way out; per-deployment .env override also works."""
+    from query_engine import _HashEmbeddingFunction
+    qe, mock_client = _fresh_qe(use_hybrid=False, use_minilm=False, benchmark=False)
+    schema_call = _find_collection(mock_client, "schema_context_")
+    assert schema_call.kwargs["name"] == "schema_context_t1", (
+        "explicit False override must produce legacy collection name"
+    )
+    assert isinstance(schema_call.kwargs["embedding_function"], _HashEmbeddingFunction)
+    assert qe._hybrid_enabled is False
+
+
+def test_phase1_orphan_legacy_collection_no_crash():
+    """Phase 1 backward-compat: existing legacy schema_context_<ns> hash-v1
+    collections persist on disk after default flip. The new hybrid
+    collection (schema_context_<ns>_minilm-v1_hybrid-v1) builds alongside;
+    QueryEngine.__init__ does NOT read, write, or delete the orphan. Legacy
+    collection orphans cleanly until manual cleanup."""
+    qe, mock_client = _fresh_qe(use_hybrid=True, use_minilm=True, benchmark=False)
+    schema_calls = [
+        call.kwargs.get("name", "")
+        for call in mock_client.return_value.get_or_create_collection.call_args_list
+        if call.kwargs.get("name", "").startswith("schema_context_")
+    ]
+    # New hybrid collection requested
+    assert "schema_context_t1_minilm-v1_hybrid-v1" in schema_calls
+    # Legacy name NEVER requested — no read/write to orphan, no crash
+    assert "schema_context_t1" not in schema_calls, (
+        f"legacy schema_context_t1 must not be touched post-flip; "
+        f"got collection requests {schema_calls!r}"
+    )
+    assert qe._hybrid_enabled is True

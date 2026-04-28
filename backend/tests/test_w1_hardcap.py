@@ -21,12 +21,14 @@ def _make_agent():
     )
 
 
-def test_analytical_cap_is_20_when_flag_on(monkeypatch):
+def test_analytical_cap_is_22_when_flag_on(monkeypatch):
+    """W1_ANALYTICAL_CAP raised 20→22 on 2026-04-26 (Wave 1, BIRD lift) for
+    planner+ladder headroom under BIRD. Test value updated to match."""
     from config import settings
     monkeypatch.setattr(settings, "GROUNDING_W1_HARDCAP_ENFORCE", True)
     agent = _make_agent()
     cap = agent._classify_workload_cap("why did orders drop last quarter")
-    assert cap == 20
+    assert cap == 22
 
 
 def test_dashboard_cap_is_40_when_flag_on(monkeypatch):

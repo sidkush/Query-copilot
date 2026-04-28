@@ -72,25 +72,26 @@ def test_schema_collection_uses_minilm_when_flag_on():
     )
 
 
-def test_benchmark_mode_coerces_upgraded_path():
-    """BENCHMARK_MODE=True activates the upgraded retrieval path even when
-    FEATURE_MINILM_SCHEMA_COLLECTION=False.
+def test_benchmark_mode_alone_no_longer_coerces_minilm():
+    """Phase 1 OR-coerce removal (2026-04-27): BENCHMARK_MODE=True alone
+    does NOT activate MiniLM. Flag must be set explicitly. Doc-enrichment
+    OR-coerce intentionally retained pending Capability 3 audit, so suffix
+    gains '_docv2' from BM=True alone but stays on hash-v1 embedder.
 
-    Suffix evolution:
-      Pre-Phase-C : _minilm-v1                      (MiniLM-only)
-      Post-Phase-C: _minilm-v1_hybrid-v1            (hybrid added)
-      Phase C bundle (2026-04-27 council, Theme 2):
-                    _minilm-v1_hybrid-v1_docv2      (doc-enrichment forces rebuild)
+    Pre-removal contract: BM=True alone → _minilm-v1_hybrid-v1_docv2
+    Post-removal contract: BM=True alone → _docv2 (hash-v1 retained)
 
-    The test's intent — 'BENCHMARK_MODE coerces eval-quality retrieval
-    without touching prod defaults' — is preserved; the specific suffix
-    updated each time the cascade evolves so the assertion catches
-    accidental prod-path drift.
+    BIRD harness scripts now set FEATURE_HYBRID_RETRIEVAL +
+    FEATURE_MINILM_SCHEMA_COLLECTION explicitly via os.environ.
     """
+    from query_engine import _HashEmbeddingFunction
     qe, mock_client = _fresh_qe(use_minilm=False, benchmark=True)
     schema_call = _find_collection_call(mock_client, "schema_context_")
-    # Phase C bundle: hybrid + doc-enrichment both coerced ON by BENCHMARK_MODE
-    assert schema_call.kwargs["name"] == "schema_context_t1_minilm-v1_hybrid-v1_docv2"
+    assert schema_call.kwargs["name"] == "schema_context_t1_docv2", (
+        f"BM=True without explicit FEATURE_MINILM_SCHEMA_COLLECTION must "
+        f"NOT activate MiniLM; got {schema_call.kwargs['name']!r}"
+    )
+    assert isinstance(schema_call.kwargs["embedding_function"], _HashEmbeddingFunction)
 
 
 def test_minilm_init_failure_falls_back_to_hash_with_legacy_name():
