@@ -76,34 +76,36 @@ def test_hybrid_on_uses_hybrid_v1_collection_name():
 
 
 def test_benchmark_mode_no_longer_coerces_hybrid():
-    """Phase 1 OR-coerce removal (2026-04-27): BENCHMARK_MODE=True alone
-    does NOT activate hybrid retrieval. Both flags must be set explicitly
-    by the BIRD harness. Doc-enrichment OR-coerce intentionally retained
-    pending Capability 3 audit, so suffix gains '_docv2' from BM=True
-    alone but NOT '_minilm-v1_hybrid-v1'.
+    """Phase 1 OR-coerce removal (2026-04-27 → 2026-04-28): BENCHMARK_MODE=True
+    alone does NOT activate hybrid retrieval (Cap 1+2) NOR doc-enrichment
+    (Cap 3). All three flags must be set explicitly by the BIRD harness.
+
+    Pre-removal contract:        BM=True alone → '_docv2' (OR-coerce active).
+    Post-Capability-3 contract:  BM=True alone → legacy 'schema_context_t1'.
     """
     from query_engine import _HashEmbeddingFunction
     qe, mock_client = _fresh_qe(use_hybrid=False, use_minilm=False, benchmark=True)
     schema_call = _find_collection(mock_client, "schema_context_")
-    assert schema_call.kwargs["name"] == "schema_context_t1_docv2", (
-        "BM=True without explicit flags must NOT activate hybrid path"
+    assert schema_call.kwargs["name"] == "schema_context_t1", (
+        "BM=True without explicit flags must NOT activate hybrid OR enrichment"
     )
     assert isinstance(schema_call.kwargs["embedding_function"], _HashEmbeddingFunction)
     assert qe._hybrid_enabled is False
-    assert qe._doc_enriched is True
+    assert qe._doc_enriched is False
 
 
 def test_benchmark_mode_with_explicit_flags_activates_hybrid():
     """Phase 1 BIRD harness contract: when both retrieval flags are set
     alongside BENCHMARK_MODE, hybrid path activates as the harness expects.
-    This is the eval path the BIRD smoke + main scripts run under post
-    OR-removal.
+    Post Capability 3 (2026-04-28): doc-enrichment also requires its own
+    explicit flag — BM no longer coerces it on. With enrich_docs default
+    False, suffix has no '_docv3' tail.
     """
     qe, mock_client = _fresh_qe(use_hybrid=True, use_minilm=True, benchmark=True)
     schema_call = _find_collection(mock_client, "schema_context_")
-    assert schema_call.kwargs["name"] == "schema_context_t1_minilm-v1_hybrid-v1_docv2"
+    assert schema_call.kwargs["name"] == "schema_context_t1_minilm-v1_hybrid-v1"
     assert qe._hybrid_enabled is True
-    assert qe._doc_enriched is True
+    assert qe._doc_enriched is False
 
 
 def test_bundled_flags_no_benchmark_activates_hybrid_clean():
@@ -121,16 +123,17 @@ def test_bundled_flags_no_benchmark_activates_hybrid_clean():
     assert qe._doc_enriched is False
 
 
-def test_doc_enrichment_flag_alone_appends_docv2():
-    """FEATURE_RETRIEVAL_DOC_ENRICHMENT=True without hybrid still appends
-    _docv2 suffix to legacy hash-v1 collection. Confirms enrichment gating
-    is independent of hybrid (so a future prod-only flip stays clean)."""
+def test_doc_enrichment_flag_alone_appends_docv3():
+    """FEATURE_RETRIEVAL_DOC_ENRICHMENT=True without hybrid appends _docv3
+    suffix to legacy hash-v1 collection. Suffix bumped from _docv2 → _docv3
+    in Capability 3 (2026-04-28) so pre-PII-hardening unmasked collections
+    orphan rather than mix doc formats."""
     from query_engine import _HashEmbeddingFunction
     qe, mock_client = _fresh_qe(use_hybrid=False, use_minilm=False, benchmark=False,
                                  enrich_docs=True)
     schema_call = _find_collection(mock_client, "schema_context_")
-    assert schema_call.kwargs["name"] == "schema_context_t1_docv2", (
-        f"enrichment-only must append _docv2 to legacy name; got "
+    assert schema_call.kwargs["name"] == "schema_context_t1_docv3", (
+        f"enrichment-only must append _docv3 to legacy name; got "
         f"{schema_call.kwargs['name']!r}"
     )
     assert isinstance(schema_call.kwargs["embedding_function"], _HashEmbeddingFunction)

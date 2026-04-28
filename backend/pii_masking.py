@@ -145,6 +145,33 @@ def _is_sensitive_column_name(col_name_lower: str) -> bool:
     return any(p in col_name_lower for p in SENSITIVE_COLUMN_PATTERNS)
 
 
+def is_sensitive_column_name(col_name: str) -> bool:
+    """Public wrapper: NFKC-normalize + lowercase + space-to-underscore +
+    substring match against SENSITIVE_COLUMN_PATTERNS. Used by enrichment
+    paths (query_engine.py) to drop sensitive columns from long-lived
+    storage (ChromaDB schema docs) before SELECT runs.
+    """
+    if not col_name:
+        return False
+    col_lower = unicodedata.normalize("NFKC", col_name).lower().replace(" ", "_")
+    return _is_sensitive_column_name(col_lower)
+
+
+def redact_pii_value(value: str) -> str:
+    """If value matches any PII regex (email/phone/ssn/cc/ip), replace the
+    entire value with '[REDACTED]'; else return unchanged. Differs from
+    _scan_and_mask: full-value replacement, not partial mask. Used by
+    enrichment paths storing values into ChromaDB schema docs — full
+    replacement avoids partial-info leak (e.g. domain in s***k@gmail.com).
+    """
+    if not isinstance(value, str) or not value:
+        return value
+    for pattern in PII_PATTERNS.values():
+        if pattern.search(value):
+            return "[REDACTED]"
+    return value
+
+
 def mask_record_batch(batch, mask_char: str = "*", conn_id: str = None):
     """Mask PII in an Arrow RecordBatch. Same logic as mask_dataframe but Arrow-native.
 

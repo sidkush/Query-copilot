@@ -26,7 +26,12 @@ from dataclasses import dataclass
 from config import settings, DBType
 from sql_validator import SQLValidator
 from db_connector import DatabaseConnector
-from pii_masking import mask_dataframe
+from pii_masking import (
+    mask_dataframe,
+    is_sensitive_column_name,
+    get_suppressed_set,
+    redact_pii_value,
+)
 from model_provider import ModelProvider
 from schema_intelligence import profile_columns
 
@@ -249,16 +254,14 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
             _ef = _HashEmbeddingFunction()
             _suffix = ""
 
-        # Phase C bundle (Theme 2 from 2026-04-27 council): doc-enrichment gate.
-        # Adds sample values + FK hints to schema docs so BM25 can match question
-        # tokens against actual data values (closes color↔colour vocab gap).
-        # Production-gated to prevent PII leakage from sample-value extraction.
-        # Suffix change forces Chroma rebuild — existing unenriched collections orphan.
-        self._doc_enriched = bool(
-            getattr(settings, "FEATURE_RETRIEVAL_DOC_ENRICHMENT", False) or _bm
-        )
+        # Phase 1 Capability 3 (2026-04-28): doc-enrichment gate hardened.
+        # OR-coerce removed — BENCHMARK_MODE no longer auto-enables enrichment;
+        # BIRD harness scripts must set FEATURE_RETRIEVAL_DOC_ENRICHMENT explicitly.
+        # Suffix bump _docv2 → _docv3 forces Chroma rebuild on deploy so
+        # pre-hardening unmasked collections never get read again.
+        self._doc_enriched = bool(getattr(settings, "FEATURE_RETRIEVAL_DOC_ENRICHMENT", False))
         if self._doc_enriched:
-            _suffix = f"{_suffix}_docv2"
+            _suffix = f"{_suffix}_docv3"
             logger.info(
                 "QueryEngine: doc-enrichment active (sample values + FK hints, "
                 "suffix=%s)", _suffix,
@@ -503,12 +506,44 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
         Best-effort: timeouts and exceptions per column drop just that column,
         never the whole table. Output values are str-coerced + length-capped so
         BM25 tokenization stays bounded and Chroma docs don't balloon.
+
+        PII hardening (Phase 1 Capability 3, 2026-04-28):
+          Layer 1 — column-name filter: sensitive columns (email/ssn/phone/etc.
+            per pii_masking.SENSITIVE_COLUMN_PATTERNS, plus admin-suppressed
+            columns from get_suppressed_set) dropped BEFORE SELECT runs. No
+            extraction, no storage, no DB query against PII columns.
+          Layer 2 — value-level redact: each extracted value passes through
+            redact_pii_value() — full-value '[REDACTED]' replacement on PII
+            pattern match. Catches PII in mis-named columns.
         """
         samples: Dict[str, List[str]] = {}
-        cat_cols = [
-            c for c in columns
-            if self._is_categorical_dtype(c.get("type", ""))
-        ][: self._ENRICH_MAX_COLS_PER_TABLE]
+        # Tolerant lookup: tests construct QueryEngine via __new__ bypassing
+        # __init__ to exercise the helper in isolation; get_suppressed_set
+        # accepts None and returns only the global suppression set.
+        suppressed = get_suppressed_set(getattr(self, "_namespace", None))
+
+        cat_cols: List[dict] = []
+        for c in columns:
+            col_name = c.get("name", "") or ""
+            if not self._is_categorical_dtype(c.get("type", "")):
+                continue
+            if is_sensitive_column_name(col_name):
+                logger.debug(
+                    "_extract_sample_values_for_table: drop sensitive column %s.%s",
+                    table_name, col_name,
+                )
+                continue
+            # Parity with add_suppressed_column write-side: .lower().strip()
+            if col_name.lower().strip() in suppressed:
+                logger.debug(
+                    "_extract_sample_values_for_table: drop admin-suppressed %s.%s",
+                    table_name, col_name,
+                )
+                continue
+            cat_cols.append(c)
+            if len(cat_cols) >= self._ENRICH_MAX_COLS_PER_TABLE:
+                break
+
         if not cat_cols:
             return samples
 
@@ -526,7 +561,7 @@ Return ONLY the SQL query. No explanations, no markdown, no code fences.
                 )
                 df = self.db.execute_query(sql, timeout=self._ENRICH_PER_COL_TIMEOUT_S)
                 vals = [
-                    str(v)[: self._ENRICH_MAX_VALUE_LEN]
+                    redact_pii_value(str(v)[: self._ENRICH_MAX_VALUE_LEN])
                     for v in df.iloc[:, 0].tolist()
                     if v is not None
                 ]

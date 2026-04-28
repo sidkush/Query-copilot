@@ -376,7 +376,7 @@ class Settings(BaseSettings):
         ),
     )
     FEATURE_RETRIEVAL_DOC_ENRICHMENT: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Phase C bundle (Theme 2, 2026-04-27 council): when True, "
             "QueryEngine.train_schema enriches Chroma docs with per-table sample "
@@ -384,14 +384,16 @@ class Settings(BaseSettings):
             "'Sample values: colour=[\\'Amber\\',\\'Blue\\',\\'Green\\']'). Closes "
             "the color↔colour vocabulary gap that BM25 tokenizer fix alone "
             "(Theme 1) cannot bridge — without injected sample values, the question "
-            "token 'amber' has no doc to match against. When False (production "
-            "default): bare schema docs only — same content as pre-bundle. "
-            "BENCHMARK_MODE=True coerces this ON. Production gating prevents PII "
-            "leakage from sample-value extraction; flipping ON in prod requires "
-            "explicit PII review since values bypass mask_dataframe path. "
-            "Collection naming gains '_docv2' suffix when enabled "
-            "(schema_context_<conn>_minilm-v1_hybrid-v1_docv2) so existing "
-            "unenriched collections become orphans rather than mixing doc formats."
+            "token 'amber' has no doc to match against. "
+            "Flipped True 2026-04-28 Phase 1. PII-hardened: 2-layer defense "
+            "(column-name filter + value-level [REDACTED] replacement) applied "
+            "before ChromaDB storage. Suffix _docv3 forces rebuild on deploy. "
+            "BENCHMARK_MODE OR-coerce REMOVED in same commit — BIRD harness "
+            "scripts must set this flag explicitly via os.environ. Layer 1 "
+            "(pii_masking.is_sensitive_column_name + admin-suppressed set) drops "
+            "sensitive columns BEFORE SELECT runs; Layer 2 (pii_masking."
+            "redact_pii_value) replaces email/phone/ssn/cc/ip values with "
+            "'[REDACTED]'. See benchmarks/MIGRATION-NOTES.md."
         ),
     )
     FEATURE_MODEL_ROUTING_V2: bool = Field(

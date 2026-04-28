@@ -29,8 +29,10 @@ import os
 os.environ["BENCHMARK_MODE"] = "true"
 # 2026-04-27 (Phase 1 OR-coerce removal): retrieval flags must be set
 # explicitly. BENCHMARK_MODE no longer auto-coerces hybrid/minilm.
+# 2026-04-28 (Phase 1 Capability 3): doc-enrichment OR-coerce also removed.
 os.environ["FEATURE_HYBRID_RETRIEVAL"] = "true"
 os.environ["FEATURE_MINILM_SCHEMA_COLLECTION"] = "true"
+os.environ["FEATURE_RETRIEVAL_DOC_ENRICHMENT"] = "true"
 
 # Force stdout to utf-8 with replacement so any unicode chars from agent output
 # (e.g. warning sign emoji in result banners) don't crash the harness on Windows.

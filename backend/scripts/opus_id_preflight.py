@@ -17,8 +17,10 @@ os.environ.setdefault("BENCHMARK_MODE", "true")
 # explicitly. BENCHMARK_MODE no longer auto-coerces hybrid/minilm. This
 # script doesn't exercise QueryEngine but sets flags for consistency
 # across the BIRD harness suite.
+# 2026-04-28 (Phase 1 Capability 3): doc-enrichment OR-coerce also removed.
 os.environ.setdefault("FEATURE_HYBRID_RETRIEVAL", "true")
 os.environ.setdefault("FEATURE_MINILM_SCHEMA_COLLECTION", "true")
+os.environ.setdefault("FEATURE_RETRIEVAL_DOC_ENRICHMENT", "true")
 
 import sys
 from pathlib import Path
